@@ -1,0 +1,50 @@
+# Архитектура решения
+
+## Текущее состояние
+
+Решение состоит из пяти SDK-style проектов под `net10.0`:
+
+- `UptimeHarbor.Domain` — доменные сущности и локальные инварианты;
+- `UptimeHarbor.Application` — независимые контракты репозиториев и сценарных Unit of Work;
+- `UptimeHarbor.Infrastructure` — EF Core, Identity, persistence и интеграционные библиотеки;
+- `UptimeHarbor.Web` — исполняемый ASP.NET Core-проект и composition root;
+- `UptimeHarbor.Tests` — общий изолированный test-проект.
+
+## Направление зависимостей
+
+Допустимые project references:
+
+```text
+UptimeHarbor.Web ───────→ UptimeHarbor.Infrastructure
+        │                            │
+        └──────────────→ UptimeHarbor.Application ─────→ UptimeHarbor.Domain
+                                     ↑
+UptimeHarbor.Infrastructure ─────────┘
+        │
+        └──────────────────────────────────────────────→ UptimeHarbor.Domain
+```
+
+`Domain` не имеет project references. `Application` ссылается только на `Domain`. `Infrastructure` ссылается на `Application` и `Domain`. `Web` ссылается на `Application` и `Infrastructure`.
+
+Эти ссылки являются компиляционной защитой границ. Domain и Application не должны получать EF Core, ASP.NET Core, Web или integration-типы даже ради удобства реализации.
+
+## Composition root
+
+`UptimeHarbor.Web/Program.cs` создаёт builder, включает DI validation в Development, вызывает модульные extension-методы, настраивает middleware и сопоставляет endpoints.
+
+Регистрации распределены по модулям:
+
+- `AddApplication` — прикладные зависимости, сейчас `TimeProvider.System`;
+- `AddApplicationConfiguration` — options и их fail-fast валидация;
+- `AddInfrastructure` — база данных, репозитории, Unit of Work, Data Protection и HTTP-клиент;
+- `AddWebPresentation` — контроллеры, Razor Pages, SignalR и health checks.
+
+## Границы моделей
+
+Доменные сущности не являются Web-моделями или DTO. Application-контракты оперируют доменными типами внутри серверной части, но будущие use case должны возвращать отдельные DTO на границах UI и интеграций.
+
+Identity-типы находятся в Infrastructure, потому что наследование от ASP.NET Core Identity является технической деталью хранения и аутентификации.
+
+## Правила сопровождения
+
+Архитектурное изменение должно одновременно обновлять project references, ближайшие `AGENTS.md`, этот документ и статус соответствующего плана.

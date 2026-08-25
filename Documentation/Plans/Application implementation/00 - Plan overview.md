@@ -1,5 +1,9 @@
 # План реализации UptimeHarbor
 
+## Статус
+
+**В работе.** Завершён этап 1, выполняется этап 2.
+
 ## Цель
 
 Реализовать первую односерверную версию UptimeHarbor в решении ASP.NET Core 10 с отдельными проектами Domain, Application, Infrastructure и Web в соответствии с [техническим заданием](../../Technical%20requirements.md).
