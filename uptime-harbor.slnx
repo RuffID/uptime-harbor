@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/Documents/">
+    <File Path="Documents/Database migrations.md" />
     <File Path="Documents/Technical requirements.md" />
   </Folder>
   <Folder Name="/Documents/Plans/Application implementation/">

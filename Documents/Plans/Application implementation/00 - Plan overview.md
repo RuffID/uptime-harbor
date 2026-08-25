@@ -2,7 +2,22 @@
 
 ## Цель
 
-Реализовать первую односерверную версию UptimeHarbor в существующем ASP.NET Core 10 Razor Pages-проекте в соответствии с [техническим заданием](../../Technical%20requirements.md).
+Реализовать первую односерверную версию UptimeHarbor в решении ASP.NET Core 10 с отдельными проектами Domain, Application, Infrastructure и Web в соответствии с [техническим заданием](../../Technical%20requirements.md).
+
+## Структура решения
+
+- `UptimeHarbor.Domain` — доменные сущности, статусы, value object и инварианты; не зависит от других проектов решения;
+- `UptimeHarbor.Application` — use case, прикладные сервисы, DTO, контракты репозиториев и сценарные Unit of Work; зависит только от Domain;
+- `UptimeHarbor.Infrastructure` — EF Core, PostgreSQL, Identity, Data Protection, HTTP и Telegram; зависит от Application и Domain;
+- `UptimeHarbor.Web` — Razor Pages, SignalR hubs, Web-конфигурация и composition root; зависит от Application и Infrastructure;
+- тестовые проекты ссылаются только на проверяемые слои и необходимые им зависимости.
+
+Допустимое направление ссылок:
+
+```text
+UptimeHarbor.Web → UptimeHarbor.Infrastructure → UptimeHarbor.Application → UptimeHarbor.Domain
+                        └───────────────────────────────────────────────→ UptimeHarbor.Domain
+```
 
 ## Общие принципы
 
@@ -10,6 +25,7 @@
 - разрабатывать функциональность небольшими завершёнными этапами;
 - на каждом этапе добавлять проверки критичной логики;
 - хранить все даты и время в UTC;
+- контролировать архитектурные границы ссылками между проектами, а не только структурой каталогов;
 - не связывать Web-интерфейс напрямую с EF Core или Telegram API;
 - не размещать прикладную логику и прямые регистрации зависимостей в `Program.cs`;
 - не приступать к следующему этапу, пока текущий не собирается и не проходит относящиеся к нему тесты.

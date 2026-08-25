@@ -2,28 +2,32 @@
 
 ## Цель
 
-Подготовить существующий ASP.NET Core 10 проект к дальнейшей разработке без реализации бизнес-функций.
+Подготовить решение ASP.NET Core 10 из отдельных проектов Domain, Application, Infrastructure и Web к дальнейшей разработке без реализации бизнес-функций.
 
 ## Работы
 
-1. Зафиксировать однопроектную модульную структуру каталогов, например:
+1. Создать четыре основных проекта:
 
-   - `Application` — use case и прикладные сервисы;
-   - `Domain` — сущности, статусы и правила переходов;
-   - `Infrastructure` — EF Core, HTTP и Telegram;
-   - `Configuration` — options-типы и их регистрация;
-   - `Hubs` — SignalR;
-   - `Pages` — Razor Pages;
-   - `Contracts` — внешние DTO endpoint.
+   - `UptimeHarbor.Domain` — class library с сущностями, статусами и правилами переходов;
+   - `UptimeHarbor.Application` — class library с use case, прикладными сервисами, DTO, контрактами репозиториев и сценарными Unit of Work;
+   - `UptimeHarbor.Infrastructure` — class library с EF Core, Identity, PostgreSQL, Data Protection, HTTP и Telegram;
+   - `UptimeHarbor.Web` — исполняемый ASP.NET Core Razor Pages-проект с `Program.cs`, `Pages`, `Hubs` и Web-конфигурацией.
 
-2. Подключить необходимые пакеты:
+2. Настроить ссылки между проектами:
 
-   - Entity Framework Core для PostgreSQL;
-   - ASP.NET Core Identity с EF Core;
-   - SignalR, если он не предоставляется shared framework;
-   - Telegram-клиент либо небольшой адаптер над официальным Bot API.
+   - Application ссылается только на Domain;
+   - Infrastructure ссылается на Application и Domain;
+   - Web ссылается на Application и Infrastructure;
+   - Domain не содержит ссылок на остальные проекты решения, EF Core и ASP.NET Core;
+   - циклические и обратные ссылки отсутствуют.
 
-3. Оставить в `Program.cs` только:
+3. Подключить пакеты и локальные библиотеки только в использующие их проекты:
+
+   - Entity Framework Core для PostgreSQL, ASP.NET Core Identity с EF Core, `EFCoreLibrary.dll` и `HttpClientLibrary.dll` — в Infrastructure;
+   - SignalR — в Web, если он не предоставляется shared framework;
+   - Telegram-клиент либо небольшой адаптер над официальным Bot API — в Infrastructure.
+
+4. Оставить в `UptimeHarbor.Web/Program.cs` только:
 
    - создание builder;
    - включение DI validation в development;
@@ -32,20 +36,22 @@
    - mapping Razor Pages, SignalR и health endpoint;
    - запуск приложения.
 
-4. Создать типизированные настройки:
+5. Создать типизированные настройки в слое, который владеет соответствующей интеграцией, и регистрировать их из Web composition root:
 
    - `BootstrapAdminOptions`;
    - `MonitoringOptions`;
    - `TelegramOptions`.
 
-5. Добавить fail-fast валидацию обязательных настроек.
-6. Определить единый способ получения времени через `TimeProvider` для тестируемости логики UTC.
-7. Подготовить стандарт структурированного логирования без вывода секретов.
-8. Создать отдельный тестовый проект и базовые соглашения именования тестов.
+6. Добавить fail-fast валидацию обязательных настроек.
+7. Определить единый способ получения времени через `TimeProvider` для тестируемости логики UTC.
+8. Подготовить стандарт структурированного логирования без вывода секретов.
+9. Создать тестовые проекты либо временный общий тестовый проект с явными ссылками на проверяемые слои и базовыми соглашениями именования тестов.
 
 ## Проверки
 
-- проект собирается под `net10.0`;
+- все четыре основных проекта собираются под `net10.0`;
+- ссылки между проектами соответствуют разрешённому направлению зависимостей;
+- Domain не имеет ссылок на EF Core, ASP.NET Core и Infrastructure;
 - DI-контейнер валидируется в development;
 - некорректные обязательные options препятствуют запуску с понятным сообщением;
 - `Program.cs` не содержит прикладной логики;
@@ -53,4 +59,4 @@
 
 ## Результат этапа
 
-Получен компилируемый каркас приложения с определёнными архитектурными границами, конфигурацией и тестовой инфраструктурой.
+Получен компилируемый каркас решения из Domain, Application, Infrastructure и Web с компиляционно закреплёнными архитектурными границами, конфигурацией и тестовой инфраструктурой.

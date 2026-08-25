@@ -6,7 +6,7 @@
 
 ## Работы
 
-1. Подготовить production Dockerfile для ASP.NET Core 10:
+1. Подготовить production Dockerfile для исполняемого проекта `UptimeHarbor.Web`, собирающий также его зависимости Domain, Application и Infrastructure:
 
    - multi-stage build;
    - запуск не от root, если это не мешает целевому окружению;

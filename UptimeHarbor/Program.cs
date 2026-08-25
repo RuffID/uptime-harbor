@@ -20,7 +20,7 @@ builder.Logging.AddUptimeHarborLogging();
 builder.Services
     .AddApplication()
     .AddApplicationConfiguration(builder.Configuration)
-    .AddInfrastructure()
+    .AddInfrastructure(builder.Configuration)
     .AddWebPresentation();
 
 var app = builder.Build();

@@ -360,7 +360,13 @@ JSON-конфигурация должна предусматривать как
 
 ## 7. Архитектурные требования
 
-- первая версия реализуется в существующем Web-проекте без необоснованного разделения на множество проектов;
+- решение разделяется на четыре основных проекта: `UptimeHarbor.Domain`, `UptimeHarbor.Application`, `UptimeHarbor.Infrastructure` и `UptimeHarbor.Web`;
+- `UptimeHarbor.Domain` содержит доменные сущности, value object, статусы и инварианты и не зависит от остальных проектов решения, ASP.NET Core и EF Core;
+- `UptimeHarbor.Application` содержит use case, прикладные сервисы, DTO и абстракции репозиториев/Unit of Work и зависит только от `UptimeHarbor.Domain`;
+- `UptimeHarbor.Infrastructure` содержит EF Core, ASP.NET Core Identity, PostgreSQL, HTTP- и Telegram-адаптеры и зависит от `UptimeHarbor.Application` и `UptimeHarbor.Domain`;
+- `UptimeHarbor.Web` является исполняемым ASP.NET Core Razor Pages-проектом, содержит composition root, Pages и SignalR hubs и зависит от `UptimeHarbor.Application` и `UptimeHarbor.Infrastructure`;
+- зависимости между проектами направлены внутрь: `Web → Infrastructure → Application → Domain`; обратные ссылки запрещены;
+- разделение на проекты используется для компиляционного контроля архитектурных границ, а не для выделения распределённых сервисов;
 - `Program.cs` используется как composition root и не содержит прикладной логики;
 - регистрации сервисов группируются в extension-методах `IServiceCollection` по ответственности;
 - прикладные сервисы зависят от типизированных options, а не от `IConfiguration`;
