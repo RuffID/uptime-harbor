@@ -195,7 +195,8 @@ public abstract class MonitoredObject
         }
 
         if (!Uri.TryCreate(value, UriKind.Absolute, out Uri? uri)
-            || uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)
+            || uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps
+            || string.IsNullOrWhiteSpace(uri.Host))
         {
             throw new ArgumentException("URL endpoint должен использовать HTTP или HTTPS.", nameof(endpointUrl));
         }

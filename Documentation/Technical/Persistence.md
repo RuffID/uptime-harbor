@@ -38,10 +38,13 @@ Application определяет общий `IUnitOfWorkScope` только с `
 Сценарные интерфейсы:
 
 - `IMonitoringUnitOfWork`;
+- `IObjectAdministrationUnitOfWork`;
 - `IVisibilitySettingsUnitOfWork`;
 - `INotificationSettingsUnitOfWork`.
 
 Infrastructure использует одну scoped-сессию `IUptimeHarborDbContextSession`. `UptimeHarborDbUnitOfWork` реализует сохранение и транзакцию, а сценарные классы добавляют только нужные репозитории.
+
+`IObjectAdministrationUnitOfWork` раскрывает только серверы и контейнеры. Обычное сохранение атомарно фиксирует изменение настроек, включая сброс состояния при выключении мониторинга. Удаление сервера выполняется транзакционно после повторной проверки подтверждённого количества контейнеров; контейнеры, permissions и notification bindings удаляются существующими каскадными внешними ключами.
 
 Транзакционный вызов открывает транзакцию, выполняет действие, один раз сохраняет изменения и делает commit. При исключении выполняется rollback, после чего исходное исключение передаётся вызывающему коду; отдельная ошибка rollback сохраняется в `Exception.Data` и не заменяет первопричину.
 

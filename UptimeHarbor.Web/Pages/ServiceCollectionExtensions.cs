@@ -1,6 +1,8 @@
 namespace UptimeHarbor.Web.Pages;
 
 using UptimeHarbor.Application.Security;
+using UptimeHarbor.Application.ObjectAdministration;
+using UptimeHarbor.Web.Hubs;
 using UptimeHarbor.Web.Security;
 
 public static class ServiceCollectionExtensions
@@ -20,6 +22,7 @@ public static class ServiceCollectionExtensions
         services.AddHealthChecks();
         services.AddHttpContextAccessor();
         services.AddScoped<IUserAccessContext, CurrentUserAccessContext>();
+        services.AddScoped<IObjectAdministrationChangePublisher, SignalRObjectAdministrationChangePublisher>();
 
         return services;
     }

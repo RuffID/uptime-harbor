@@ -26,6 +26,12 @@
                         <li class="nav-item">
                             <a class="nav-link text-dark" asp-area="" asp-page="/Privacy">Privacy</a>
                         </li>
+                        @if (User.IsInRole(UptimeHarbor.Application.Security.ApplicationRoles.ADMINISTRATOR))
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-page="/Admin/Objects">Объекты</a>
+                            </li>
+                        }
                     </ul>
                 </div>
             </div>

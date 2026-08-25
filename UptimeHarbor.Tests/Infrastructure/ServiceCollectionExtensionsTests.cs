@@ -53,6 +53,8 @@ public class ServiceCollectionExtensionsTests
 
         IMonitoringUnitOfWork monitoring =
             scope.ServiceProvider.GetRequiredService<IMonitoringUnitOfWork>();
+        IObjectAdministrationUnitOfWork objectAdministration =
+            scope.ServiceProvider.GetRequiredService<IObjectAdministrationUnitOfWork>();
         IVisibilitySettingsUnitOfWork visibility =
             scope.ServiceProvider.GetRequiredService<IVisibilitySettingsUnitOfWork>();
         INotificationSettingsUnitOfWork notifications =
@@ -60,6 +62,8 @@ public class ServiceCollectionExtensionsTests
 
         Assert.NotNull(monitoring.MonitoredServers);
         Assert.NotNull(monitoring.MonitoredContainers);
+        Assert.NotNull(objectAdministration.MonitoredServers);
+        Assert.NotNull(objectAdministration.MonitoredContainers);
         Assert.NotNull(visibility.VisibilityPermissions);
         Assert.NotNull(notifications.TelegramChats);
         Assert.NotNull(notifications.NotificationBindings);

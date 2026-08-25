@@ -82,6 +82,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IVisibilityPermissionRepository, VisibilityPermissionRepository>();
         services.AddScoped<IUptimeHarborDbContextSession, UptimeHarborDbContextSession>();
         services.AddScoped<IMonitoringUnitOfWork, MonitoringUnitOfWork>();
+        services.AddScoped<IObjectAdministrationUnitOfWork, ObjectAdministrationUnitOfWork>();
         services.AddScoped<IVisibilitySettingsUnitOfWork, VisibilitySettingsUnitOfWork>();
         services.AddScoped<INotificationSettingsUnitOfWork, NotificationSettingsUnitOfWork>();
         services.AddScoped<IdentityUserAccountStore>();

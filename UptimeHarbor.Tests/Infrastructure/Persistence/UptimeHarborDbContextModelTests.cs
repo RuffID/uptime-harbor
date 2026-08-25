@@ -19,6 +19,7 @@ public class UptimeHarborDbContextModelTests
         IEntityType containerType = context.Model.FindEntityType(typeof(MonitoredContainer))!;
         IEntityType serverPermissionType = context.Model.FindEntityType(typeof(ServerVisibilityPermission))!;
         IEntityType containerPermissionType = context.Model.FindEntityType(typeof(ContainerVisibilityPermission))!;
+        IEntityType notificationBindingType = context.Model.FindEntityType(typeof(NotificationBinding))!;
 
         IForeignKey containerServerForeignKey = Assert.Single(
             containerType.GetForeignKeys(),
@@ -32,11 +33,19 @@ public class UptimeHarborDbContextModelTests
         IForeignKey containerPermissionContainerForeignKey = Assert.Single(
             containerPermissionType.GetForeignKeys(),
             foreignKey => foreignKey.PrincipalEntityType.ClrType == typeof(MonitoredContainer));
+        IForeignKey bindingServerForeignKey = Assert.Single(
+            notificationBindingType.GetForeignKeys(),
+            foreignKey => foreignKey.PrincipalEntityType.ClrType == typeof(MonitoredServer));
+        IForeignKey bindingContainerForeignKey = Assert.Single(
+            notificationBindingType.GetForeignKeys(),
+            foreignKey => foreignKey.PrincipalEntityType.ClrType == typeof(MonitoredContainer));
 
         Assert.Equal(DeleteBehavior.Cascade, containerServerForeignKey.DeleteBehavior);
         Assert.Equal(DeleteBehavior.Cascade, containerPermissionServerPermissionForeignKey.DeleteBehavior);
         Assert.Equal(DeleteBehavior.Cascade, serverPermissionServerForeignKey.DeleteBehavior);
         Assert.Equal(DeleteBehavior.Cascade, containerPermissionContainerForeignKey.DeleteBehavior);
+        Assert.Equal(DeleteBehavior.Cascade, bindingServerForeignKey.DeleteBehavior);
+        Assert.Equal(DeleteBehavior.Cascade, bindingContainerForeignKey.DeleteBehavior);
     }
 
     [Fact]

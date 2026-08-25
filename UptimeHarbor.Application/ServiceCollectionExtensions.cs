@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using UptimeHarbor.Application.ObjectAdministration;
 using UptimeHarbor.Application.Users;
 using UptimeHarbor.Application.Visibility;
 
@@ -13,6 +14,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<IUserManagementService, UserManagementService>();
         services.AddScoped<IAccessibleObjectsService, AccessibleObjectsService>();
+        services.AddScoped<IObjectAdministrationService, ObjectAdministrationService>();
 
         return services;
     }

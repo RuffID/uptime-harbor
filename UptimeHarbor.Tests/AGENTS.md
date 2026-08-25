@@ -2,7 +2,7 @@
 
 ## Ответственность
 
-Проект содержит изолированные тесты домена, Application use case, Identity bootstrap, DI, Web authorization metadata и EF model metadata.
+Проект содержит изолированные тесты домена, Application use case, Identity bootstrap, DI, Web authorization/antiforgery metadata, JSON mapping и EF model metadata.
 
 ## Правила
 

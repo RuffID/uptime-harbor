@@ -39,7 +39,11 @@ public static class JsonResultMapper
                 "Неизвестный тип ошибки.")
         };
 
-        return new JsonResult(new { success = false, message = requiredError.Message })
+        object value = requiredError.Field is null
+            ? new { success = false, message = requiredError.Message }
+            : new { success = false, message = requiredError.Message, field = requiredError.Field };
+
+        return new JsonResult(value)
         {
             StatusCode = statusCode
         };

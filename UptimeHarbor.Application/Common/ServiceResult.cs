@@ -22,4 +22,7 @@ public class ServiceResult
 
     public static ServiceResult Fail(ServiceErrorType type, string message) =>
         Fail(new ServiceError(type, message));
+
+    public static ServiceResult Fail(ServiceErrorType type, string message, string field) =>
+        Fail(new ServiceError(type, message, field));
 }

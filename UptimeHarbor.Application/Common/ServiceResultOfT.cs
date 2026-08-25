@@ -29,4 +29,7 @@ public class ServiceResult<T>
 
     public static ServiceResult<T> Fail(ServiceErrorType type, string message) =>
         Fail(new ServiceError(type, message));
+
+    public static ServiceResult<T> Fail(ServiceErrorType type, string message, string field) =>
+        Fail(new ServiceError(type, message, field));
 }

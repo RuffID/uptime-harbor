@@ -5,7 +5,7 @@
 Решение состоит из пяти SDK-style проектов под `net10.0`:
 
 - `UptimeHarbor.Domain` — доменные сущности и локальные инварианты;
-- `UptimeHarbor.Application` — use case управления пользователями и видимостью, DTO, result-контракты, независимые репозитории и сценарные Unit of Work;
+- `UptimeHarbor.Application` — use case управления пользователями, видимостью и объектами мониторинга, DTO, result-контракты, независимые репозитории и сценарные Unit of Work;
 - `UptimeHarbor.Infrastructure` — EF Core, Identity, persistence и интеграционные библиотеки;
 - `UptimeHarbor.Web` — исполняемый ASP.NET Core-проект и composition root;
 - `UptimeHarbor.Tests` — общий изолированный test-проект.
@@ -34,10 +34,10 @@ UptimeHarbor.Infrastructure ─────────┘
 
 Регистрации распределены по модулям:
 
-- `AddApplication` — `TimeProvider.System`, управление пользователями и единый сервис видимости;
+- `AddApplication` — `TimeProvider.System`, управление пользователями и объектами, единый сервис видимости;
 - `AddApplicationConfiguration` — options и их fail-fast валидация;
 - `AddInfrastructure` — база данных, Identity/cookies, bootstrap администратора, репозитории, Unit of Work, Data Protection и HTTP-клиент;
-- `AddWebPresentation` — контроллеры, Razor Pages, SignalR и health checks.
+- `AddWebPresentation` — контроллеры, Razor Pages, SignalR, publisher административных изменений и health checks.
 
 ## Границы моделей
 
@@ -46,6 +46,8 @@ UptimeHarbor.Infrastructure ─────────┘
 Identity-типы находятся в Infrastructure, потому что наследование от ASP.NET Core Identity является технической деталью хранения и аутентификации.
 
 Application получает сведения о текущем пользователе через независимый `IUserAccessContext`, а операции Identity — через `IUserAccountStore`. Ожидаемые ошибки сценариев описываются `ServiceResult` и переводятся в HTTP-статусы только в Web.
+
+`ObjectAdministrationService` повторно проверяет административную роль внутри каждого сценария и использует отдельный `IObjectAdministrationUnitOfWork`. После успешного сохранения он вызывает независимый `IObjectAdministrationChangePublisher`; Web-реализация отправляет обезличенный SignalR-сигнал о необходимости перечитать доступные данные.
 
 ## Правила сопровождения
 

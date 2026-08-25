@@ -1,0 +1,99 @@
+@page
+@model UptimeHarbor.Web.Pages.Admin.ObjectsModel
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@{
+    ViewData["Title"] = "Администрирование объектов";
+    string requestVerificationToken = Antiforgery.GetAndStoreTokens(ViewContext.HttpContext).RequestToken
+        ?? throw new InvalidOperationException("Не удалось создать antiforgery token.");
+}
+
+<meta name="request-verification-token" content="@requestVerificationToken" />
+
+<div class="d-flex flex-column gap-4" data-objects-page>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+        <div>
+            <h1 class="mb-1">Администрирование объектов</h1>
+            <p class="text-body-secondary mb-0">Серверы и независимо проверяемые контейнеры.</p>
+        </div>
+        <button type="button" class="btn btn-primary" data-action="create-server">Добавить сервер</button>
+    </div>
+
+    <div class="alert alert-danger d-none" role="alert" data-page-error></div>
+
+    <div class="row g-4">
+        <section class="col-12 col-lg-5" aria-labelledby="servers-heading">
+            <h2 id="servers-heading" class="h4">Серверы</h2>
+            <div class="list-group" data-server-list></div>
+            <p class="text-body-secondary d-none" data-server-empty>Серверы ещё не добавлены.</p>
+        </section>
+
+        <section class="col-12 col-lg-7" aria-labelledby="details-heading">
+            <h2 id="details-heading" class="h4">Настройки</h2>
+            <p class="text-body-secondary" data-selection-placeholder>Выберите сервер или добавьте новый.</p>
+
+            <form class="card d-none" data-server-form novalidate>
+                <div class="card-body">
+                    <h3 class="h5" data-server-form-title>Сервер</h3>
+                    <div class="mb-3">
+                        <label class="form-label" for="serverEndpointUrl">HTTP/HTTPS endpoint</label>
+                        <input class="form-control" id="serverEndpointUrl" name="endpointUrl" type="url" maxlength="2048" required data-server-endpoint />
+                        <div class="invalid-feedback" data-server-error="endpointUrl"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="serverDescription">Описание</label>
+                        <textarea class="form-control" id="serverDescription" name="description" maxlength="500" rows="3" data-server-description></textarea>
+                        <div class="invalid-feedback" data-server-error="description"></div>
+                    </div>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" id="serverMonitoringEnabled" name="isMonitoringEnabled" type="checkbox" data-server-enabled />
+                        <label class="form-check-label" for="serverMonitoringEnabled">Мониторинг включён</label>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Сохранить сервер</button>
+                </div>
+                <div class="card-footer border-danger d-none" data-server-danger>
+                    <h4 class="h6 text-danger">Опасная зона</h4>
+                    <p class="small mb-2">Будут удалены сервер, его контейнеры, права и привязки уведомлений.</p>
+                    <button type="button" class="btn btn-outline-danger" data-action="delete-server">Удалить сервер</button>
+                </div>
+            </form>
+
+            <div class="mt-4 d-none" data-containers-section>
+                <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                    <h3 class="h5 mb-0">Контейнеры сервера</h3>
+                    <button type="button" class="btn btn-sm btn-outline-primary" data-action="create-container">Добавить контейнер</button>
+                </div>
+                <div class="list-group mb-3" data-container-list></div>
+                <p class="text-body-secondary d-none" data-container-empty>У сервера нет контейнеров.</p>
+
+                <form class="card d-none" data-container-form novalidate>
+                    <div class="card-body">
+                        <h4 class="h6" data-container-form-title>Контейнер</h4>
+                        <div class="mb-3">
+                            <label class="form-label" for="containerEndpointUrl">HTTP/HTTPS endpoint</label>
+                            <input class="form-control" id="containerEndpointUrl" name="endpointUrl" type="url" maxlength="2048" required data-container-endpoint />
+                            <div class="invalid-feedback" data-container-error="endpointUrl"></div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label" for="containerDescription">Описание</label>
+                            <textarea class="form-control" id="containerDescription" name="description" maxlength="500" rows="3" data-container-description></textarea>
+                            <div class="invalid-feedback" data-container-error="description"></div>
+                        </div>
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" id="containerMonitoringEnabled" name="isMonitoringEnabled" type="checkbox" data-container-enabled />
+                            <label class="form-check-label" for="containerMonitoringEnabled">Мониторинг включён</label>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Сохранить контейнер</button>
+                    </div>
+                    <div class="card-footer border-danger d-none" data-container-danger>
+                        <h5 class="h6 text-danger">Опасная зона</h5>
+                        <button type="button" class="btn btn-outline-danger" data-action="delete-container">Удалить контейнер</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+    </div>
+</div>
+
+@section Scripts {
+    <script type="module" src="~/dist/pages/admin/objects.js" asp-append-version="true"></script>
+}

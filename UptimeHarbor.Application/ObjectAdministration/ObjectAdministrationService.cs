@@ -1,0 +1,348 @@
+using UptimeHarbor.Application.Abstractions.UnitOfWork;
+using UptimeHarbor.Application.Common;
+using UptimeHarbor.Application.ObjectAdministration.Models;
+using UptimeHarbor.Application.Security;
+using UptimeHarbor.Domain;
+using UptimeHarbor.Domain.Monitoring;
+
+namespace UptimeHarbor.Application.ObjectAdministration;
+
+public class ObjectAdministrationService(
+    IUserAccessContext accessContext,
+    IObjectAdministrationUnitOfWork unitOfWork,
+    IObjectAdministrationChangePublisher changePublisher)
+    : IObjectAdministrationService
+{
+    public async Task<ServiceResult<IReadOnlyList<AdminServerDto>>> GetServersAsync(
+        CancellationToken cancellationToken = default)
+    {
+        ServiceError? accessError = GetAdministratorAccessError();
+        if (accessError is not null)
+        {
+            return ServiceResult<IReadOnlyList<AdminServerDto>>.Fail(accessError);
+        }
+
+        List<MonitoredServer> servers = await unitOfWork.MonitoredServers.GetAllAsync(cancellationToken);
+        return ServiceResult<IReadOnlyList<AdminServerDto>>.Ok(servers.Select(MapServer).ToList());
+    }
+
+    public async Task<ServiceResult<IReadOnlyList<AdminContainerDto>>> GetContainersAsync(
+        Guid serverId,
+        CancellationToken cancellationToken = default)
+    {
+        ServiceError? accessError = GetAdministratorAccessError();
+        if (accessError is not null)
+        {
+            return ServiceResult<IReadOnlyList<AdminContainerDto>>.Fail(accessError);
+        }
+
+        MonitoredServer? server = await unitOfWork.MonitoredServers.GetItemByIdAsync(serverId, cancellationToken);
+        if (server is null)
+        {
+            return ServiceResult<IReadOnlyList<AdminContainerDto>>.Fail(
+                ServiceErrorType.NotFound,
+                "Сервер не найден.");
+        }
+
+        List<MonitoredContainer> containers =
+            await unitOfWork.MonitoredContainers.GetByServerIdAsync(serverId, cancellationToken);
+        return ServiceResult<IReadOnlyList<AdminContainerDto>>.Ok(
+            containers.Select(MapContainer).ToList());
+    }
+
+    public async Task<ServiceResult<AdminServerDto>> CreateServerAsync(
+        string endpointUrl,
+        string? description,
+        bool isMonitoringEnabled,
+        CancellationToken cancellationToken = default)
+    {
+        ServiceError? error = GetAdministratorAccessError() ?? ValidateSettings(endpointUrl, description);
+        if (error is not null)
+        {
+            return ServiceResult<AdminServerDto>.Fail(error);
+        }
+
+        MonitoredServer server = new(Guid.NewGuid(), endpointUrl, description, isMonitoringEnabled);
+        unitOfWork.MonitoredServers.Create(server);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+        await changePublisher.PublishObjectsChangedAsync(cancellationToken);
+        return ServiceResult<AdminServerDto>.Ok(MapServer(server));
+    }
+
+    public async Task<ServiceResult<AdminServerDto>> UpdateServerAsync(
+        Guid serverId,
+        string endpointUrl,
+        string? description,
+        bool isMonitoringEnabled,
+        CancellationToken cancellationToken = default)
+    {
+        ServiceError? error = GetAdministratorAccessError() ?? ValidateSettings(endpointUrl, description);
+        if (error is not null)
+        {
+            return ServiceResult<AdminServerDto>.Fail(error);
+        }
+
+        MonitoredServer? server = await unitOfWork.MonitoredServers.GetItemByIdAsync(serverId, cancellationToken);
+        if (server is null)
+        {
+            return ServiceResult<AdminServerDto>.Fail(ServiceErrorType.NotFound, "Сервер не найден.");
+        }
+
+        server.UpdateSettings(endpointUrl, description, isMonitoringEnabled);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+        await changePublisher.PublishObjectsChangedAsync(cancellationToken);
+        return ServiceResult<AdminServerDto>.Ok(MapServer(server));
+    }
+
+    public async Task<ServiceResult<AdminContainerDto>> CreateContainerAsync(
+        Guid serverId,
+        string endpointUrl,
+        string? description,
+        bool isMonitoringEnabled,
+        CancellationToken cancellationToken = default)
+    {
+        ServiceError? error = GetAdministratorAccessError() ?? ValidateSettings(endpointUrl, description);
+        if (error is not null)
+        {
+            return ServiceResult<AdminContainerDto>.Fail(error);
+        }
+
+        MonitoredServer? server = await unitOfWork.MonitoredServers.GetItemByIdAsync(serverId, cancellationToken);
+        if (server is null)
+        {
+            return ServiceResult<AdminContainerDto>.Fail(
+                ServiceErrorType.Validation,
+                "Родительский сервер не существует.",
+                "serverId");
+        }
+
+        MonitoredContainer container = new(
+            Guid.NewGuid(),
+            server.Id,
+            endpointUrl,
+            description,
+            isMonitoringEnabled);
+        unitOfWork.MonitoredContainers.Create(container);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+        await changePublisher.PublishObjectsChangedAsync(cancellationToken);
+        return ServiceResult<AdminContainerDto>.Ok(MapContainer(container));
+    }
+
+    public async Task<ServiceResult<AdminContainerDto>> UpdateContainerAsync(
+        Guid containerId,
+        string endpointUrl,
+        string? description,
+        bool isMonitoringEnabled,
+        CancellationToken cancellationToken = default)
+    {
+        ServiceError? error = GetAdministratorAccessError() ?? ValidateSettings(endpointUrl, description);
+        if (error is not null)
+        {
+            return ServiceResult<AdminContainerDto>.Fail(error);
+        }
+
+        MonitoredContainer? container =
+            await unitOfWork.MonitoredContainers.GetItemByIdAsync(containerId, cancellationToken);
+        if (container is null)
+        {
+            return ServiceResult<AdminContainerDto>.Fail(ServiceErrorType.NotFound, "Контейнер не найден.");
+        }
+
+        MonitoredServer? server =
+            await unitOfWork.MonitoredServers.GetItemByIdAsync(container.ServerId, cancellationToken);
+        if (server is null)
+        {
+            return ServiceResult<AdminContainerDto>.Fail(
+                ServiceErrorType.Validation,
+                "Родительский сервер не существует.",
+                "serverId");
+        }
+
+        container.UpdateSettings(endpointUrl, description, isMonitoringEnabled);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+        await changePublisher.PublishObjectsChangedAsync(cancellationToken);
+        return ServiceResult<AdminContainerDto>.Ok(MapContainer(container));
+    }
+
+    public async Task<ServiceResult<ServerDeletionImpactDto>> GetServerDeletionImpactAsync(
+        Guid serverId,
+        CancellationToken cancellationToken = default)
+    {
+        ServiceError? accessError = GetAdministratorAccessError();
+        if (accessError is not null)
+        {
+            return ServiceResult<ServerDeletionImpactDto>.Fail(accessError);
+        }
+
+        MonitoredServer? server = await unitOfWork.MonitoredServers.GetItemByIdAsync(serverId, cancellationToken);
+        if (server is null)
+        {
+            return ServiceResult<ServerDeletionImpactDto>.Fail(ServiceErrorType.NotFound, "Сервер не найден.");
+        }
+
+        List<MonitoredContainer> containers =
+            await unitOfWork.MonitoredContainers.GetByServerIdAsync(serverId, cancellationToken);
+        return ServiceResult<ServerDeletionImpactDto>.Ok(new(server.Id, containers.Count));
+    }
+
+    public async Task<ServiceResult> DeleteServerAsync(
+        Guid serverId,
+        int expectedContainerCount,
+        CancellationToken cancellationToken = default)
+    {
+        ServiceError? accessError = GetAdministratorAccessError();
+        if (accessError is not null)
+        {
+            return ServiceResult.Fail(accessError);
+        }
+
+        if (expectedContainerCount < 0)
+        {
+            return ServiceResult.Fail(
+                ServiceErrorType.Validation,
+                "Количество контейнеров не может быть отрицательным.",
+                "expectedContainerCount");
+        }
+
+        ServiceResult? operationResult = null;
+        await unitOfWork.ExecuteInTransactionAsync(
+            async transactionCancellationToken =>
+            {
+                MonitoredServer? server = await unitOfWork.MonitoredServers.GetItemByIdAsync(
+                    serverId,
+                    transactionCancellationToken);
+                if (server is null)
+                {
+                    operationResult = ServiceResult.Fail(ServiceErrorType.NotFound, "Сервер не найден.");
+                    return;
+                }
+
+                List<MonitoredContainer> containers =
+                    await unitOfWork.MonitoredContainers.GetByServerIdAsync(
+                        serverId,
+                        transactionCancellationToken);
+                if (containers.Count != expectedContainerCount)
+                {
+                    operationResult = ServiceResult.Fail(
+                        ServiceErrorType.Conflict,
+                        "Количество контейнеров изменилось. Повторите подтверждение удаления.");
+                    return;
+                }
+
+                unitOfWork.MonitoredServers.Delete(server);
+                operationResult = ServiceResult.Ok();
+            },
+            cancellationToken);
+
+        ServiceResult result = operationResult
+            ?? throw new InvalidOperationException("Удаление сервера не было выполнено.");
+        if (result.Success)
+        {
+            await changePublisher.PublishObjectsChangedAsync(cancellationToken);
+        }
+
+        return result;
+    }
+
+    public async Task<ServiceResult> DeleteContainerAsync(
+        Guid containerId,
+        CancellationToken cancellationToken = default)
+    {
+        ServiceError? accessError = GetAdministratorAccessError();
+        if (accessError is not null)
+        {
+            return ServiceResult.Fail(accessError);
+        }
+
+        MonitoredContainer? container =
+            await unitOfWork.MonitoredContainers.GetItemByIdAsync(containerId, cancellationToken);
+        if (container is null)
+        {
+            return ServiceResult.Fail(ServiceErrorType.NotFound, "Контейнер не найден.");
+        }
+
+        unitOfWork.MonitoredContainers.Delete(container);
+        await unitOfWork.SaveChangesAsync(cancellationToken);
+        await changePublisher.PublishObjectsChangedAsync(cancellationToken);
+        return ServiceResult.Ok();
+    }
+
+    private ServiceError? GetAdministratorAccessError()
+    {
+        if (!accessContext.IsAuthenticated)
+        {
+            return new ServiceError(ServiceErrorType.Unauthorized, "Требуется аутентификация.");
+        }
+
+        if (!accessContext.IsEnabled || !accessContext.IsAdministrator)
+        {
+            return new ServiceError(
+                ServiceErrorType.Forbidden,
+                "Операция доступна только администратору.");
+        }
+
+        return null;
+    }
+
+    private static ServiceError? ValidateSettings(string endpointUrl, string? description)
+    {
+        if (string.IsNullOrWhiteSpace(endpointUrl))
+        {
+            return new ServiceError(ServiceErrorType.Validation, "Endpoint обязателен.", "endpointUrl");
+        }
+
+        string normalizedEndpoint = endpointUrl.Trim();
+        if (normalizedEndpoint.Length > ModelConstraints.ENDPOINT_URL_MAX_LENGTH)
+        {
+            return new ServiceError(
+                ServiceErrorType.Validation,
+                $"Endpoint не должен превышать {ModelConstraints.ENDPOINT_URL_MAX_LENGTH} символов.",
+                "endpointUrl");
+        }
+
+        if (!Uri.TryCreate(normalizedEndpoint, UriKind.Absolute, out Uri? uri)
+            || uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps
+            || string.IsNullOrWhiteSpace(uri.Host))
+        {
+            return new ServiceError(
+                ServiceErrorType.Validation,
+                "Endpoint должен быть абсолютным HTTP/HTTPS URL.",
+                "endpointUrl");
+        }
+
+        if (description?.Trim().Length > ModelConstraints.DESCRIPTION_MAX_LENGTH)
+        {
+            return new ServiceError(
+                ServiceErrorType.Validation,
+                $"Описание не должно превышать {ModelConstraints.DESCRIPTION_MAX_LENGTH} символов.",
+                "description");
+        }
+
+        return null;
+    }
+
+    private static AdminServerDto MapServer(MonitoredServer server)
+    {
+        return new AdminServerDto(
+            server.Id,
+            server.EndpointUrl,
+            server.Description,
+            server.IsMonitoringEnabled,
+            server.LastKnownName,
+            server.Status,
+            server.ConsecutiveFailures);
+    }
+
+    private static AdminContainerDto MapContainer(MonitoredContainer container)
+    {
+        return new AdminContainerDto(
+            container.Id,
+            container.ServerId,
+            container.EndpointUrl,
+            container.Description,
+            container.IsMonitoringEnabled,
+            container.LastKnownName,
+            container.Status,
+            container.ConsecutiveFailures);
+    }
+}
