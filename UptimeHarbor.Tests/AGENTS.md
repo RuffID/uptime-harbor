@@ -12,3 +12,5 @@
 - Persistence model проверять через metadata без открытия соединения.
 - Запускать через `dotnet test --project .\UptimeHarbor.Tests\UptimeHarbor.Tests.csproj`.
 - При изменении структуры или типа тестов обновлять этот файл и `Documentation/Technical/Testing.md`.
+- HTTP-проверки тестировать через управляемый fake `HttpMessageHandler`; timeout и текущее время контролировать через options и `TimeProvider` без внешних endpoint.
+- Параллельность worker проверять через управляемые `TaskCompletionSource`, не используя реальные задержки, кроме изолированной проверки timeout.

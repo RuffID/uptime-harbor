@@ -18,6 +18,8 @@ using UptimeHarbor.Infrastructure.Persistence.Repositories;
 using UptimeHarbor.Infrastructure.Persistence.UnitOfWork;
 using UptimeHarbor.Infrastructure.Identity;
 using UptimeHarbor.Application.Users;
+using UptimeHarbor.Application.Monitoring;
+using UptimeHarbor.Infrastructure.Monitoring;
 
 namespace UptimeHarbor.Infrastructure;
 
@@ -98,6 +100,15 @@ public static class ServiceCollectionExtensions
             .PersistKeysToDbContext<UptimeHarborDbContext>();
 
         services.AddHttpClient<IHttpApiClient, HttpApiClient>();
+        services.AddHttpClient(HttpMonitoringEndpointChecker.HTTP_CLIENT_NAME, client =>
+            client.Timeout = Timeout.InfiniteTimeSpan);
+        services.AddSingleton<HttpMonitoringEndpointChecker>();
+        services.AddSingleton<IServerEndpointChecker>(provider =>
+            provider.GetRequiredService<HttpMonitoringEndpointChecker>());
+        services.AddSingleton<IContainerEndpointChecker>(provider =>
+            provider.GetRequiredService<HttpMonitoringEndpointChecker>());
+        services.AddSingleton<IMonitoringCycleRunner, MonitoringCycleRunner>();
+        services.AddHostedService<MonitoringWorker>();
 
         return services;
     }

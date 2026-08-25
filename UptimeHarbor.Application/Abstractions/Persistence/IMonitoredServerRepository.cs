@@ -10,4 +10,7 @@ public interface IMonitoredServerRepository :
 {
     Task<List<MonitoredServer>> GetAllAsync(
         CancellationToken cancellationToken = default);
+
+    Task<List<MonitoredServer>> GetEnabledAsync(
+        CancellationToken cancellationToken = default);
 }

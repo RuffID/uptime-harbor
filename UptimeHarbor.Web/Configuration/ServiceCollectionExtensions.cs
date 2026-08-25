@@ -1,3 +1,5 @@
+using UptimeHarbor.Application.Monitoring;
+
 namespace UptimeHarbor.Web.Configuration;
 
 public static class ServiceCollectionExtensions

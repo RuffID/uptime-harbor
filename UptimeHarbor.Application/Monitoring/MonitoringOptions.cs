@@ -1,4 +1,4 @@
-namespace UptimeHarbor.Web.Configuration;
+namespace UptimeHarbor.Application.Monitoring;
 
 public class MonitoringOptions
 {

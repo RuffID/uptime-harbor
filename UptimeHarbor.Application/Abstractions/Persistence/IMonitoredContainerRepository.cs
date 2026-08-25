@@ -11,6 +11,9 @@ public interface IMonitoredContainerRepository :
     Task<List<MonitoredContainer>> GetAllAsync(
         CancellationToken cancellationToken = default);
 
+    Task<List<MonitoredContainer>> GetEnabledAsync(
+        CancellationToken cancellationToken = default);
+
     Task<List<MonitoredContainer>> GetByServerIdAsync(
         Guid serverId,
         CancellationToken cancellationToken = default);

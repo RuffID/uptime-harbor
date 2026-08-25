@@ -15,3 +15,5 @@
 - Для ошибок конкретного поля использовать необязательный `ServiceError.Field`; формат HTTP-ответа по-прежнему определяет Web.
 - Проверки текущего пользователя получать через `IUserAccessContext`, не добавляя ASP.NET Core dependency.
 - Администрирование объектов выполнять через `IObjectAdministrationUnitOfWork`, а уведомление после сохранения — через `IObjectAdministrationChangePublisher`.
+- Мониторинг координировать через `MonitoringService`: endpoint проверяет независимый контракт, состояние изменяется доменными переходами, событие публикуется только после сохранения.
+- `MonitoringOptions` принадлежит Application как общий типизированный контракт цикла и HTTP-адаптера; привязка конфигурации остаётся в Web composition root.

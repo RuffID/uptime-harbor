@@ -2,7 +2,7 @@
 
 ## Ответственность
 
-Каталог содержит Web-owned типизированные options, их fail-fast валидацию и настройку структурированного логирования. Identity options принадлежат Infrastructure.
+Каталог содержит привязку типизированных options, их fail-fast валидацию и настройку структурированного логирования. `TelegramOptions` принадлежит Web, `MonitoringOptions` — Application, Identity options — Infrastructure.
 
 ## Правила
 
@@ -11,3 +11,4 @@
 - Не передавать `IConfiguration` прикладным сервисам и контроллерам.
 - Не логировать пароли, токены и строку подключения.
 - При изменении настроек обновлять appsettings, тесты, этот файл и `Documentation/Technical/Configuration.md`.
+- Общий для worker и HTTP-адаптера тип `MonitoringOptions` размещать в Application, но привязывать и валидировать только здесь.

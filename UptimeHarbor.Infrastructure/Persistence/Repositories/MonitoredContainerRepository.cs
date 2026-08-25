@@ -18,6 +18,15 @@ public class MonitoredContainerRepository(
             ct: cancellationToken);
     }
 
+    public Task<List<MonitoredContainer>> GetEnabledAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return getRepository.GetItemsByPredicateAsync(
+            container => container.IsMonitoringEnabled,
+            asNoTracking: true,
+            ct: cancellationToken);
+    }
+
     public Task<MonitoredContainer?> GetItemByIdAsync(
         Guid id,
         CancellationToken cancellationToken = default)

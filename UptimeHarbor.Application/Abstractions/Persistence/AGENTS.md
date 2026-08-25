@@ -12,3 +12,4 @@
 - Решения о tracking и форме EF-запроса оставлять Infrastructure.
 - При изменении контрактов синхронизировать реализации, DI, тесты, этот файл и `Documentation/Technical/Persistence.md`.
 - Списковые чтения для Application materialize-ить в Infrastructure; фильтрацию доступа и формирование DTO выполнять в use case.
+- Для цикла мониторинга репозитории возвращают materialized no-tracking списки только включённых объектов через `GetEnabledAsync`.

@@ -418,6 +418,9 @@ public class ObjectAdministrationServiceTests
         public Task<List<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(Items.ToList());
 
+        public Task<List<MonitoredServer>> GetEnabledAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(Items.Where(item => item.IsMonitoringEnabled).ToList());
+
         public Task<MonitoredServer?> GetItemByIdAsync(
             Guid id,
             CancellationToken cancellationToken = default) =>
@@ -444,6 +447,9 @@ public class ObjectAdministrationServiceTests
 
         public Task<List<MonitoredContainer>> GetAllAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult(Items.ToList());
+
+        public Task<List<MonitoredContainer>> GetEnabledAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult(Items.Where(item => item.IsMonitoringEnabled).ToList());
 
         public Task<List<MonitoredContainer>> GetByServerIdAsync(
             Guid serverId,

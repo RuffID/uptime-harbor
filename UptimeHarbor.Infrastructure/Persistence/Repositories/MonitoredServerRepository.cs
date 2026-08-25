@@ -27,6 +27,15 @@ public class MonitoredServerRepository(
             ct: cancellationToken);
     }
 
+    public Task<List<MonitoredServer>> GetEnabledAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return getRepository.GetItemsByPredicateAsync(
+            server => server.IsMonitoringEnabled,
+            asNoTracking: true,
+            ct: cancellationToken);
+    }
+
     public void Create(MonitoredServer item)
     {
         createRepository.Create(item);

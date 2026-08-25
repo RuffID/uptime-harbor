@@ -5,8 +5,8 @@
 Решение состоит из пяти SDK-style проектов под `net10.0`:
 
 - `UptimeHarbor.Domain` — доменные сущности и локальные инварианты;
-- `UptimeHarbor.Application` — use case управления пользователями, видимостью и объектами мониторинга, DTO, result-контракты, независимые репозитории и сценарные Unit of Work;
-- `UptimeHarbor.Infrastructure` — EF Core, Identity, persistence и интеграционные библиотеки;
+- `UptimeHarbor.Application` — use case управления пользователями, видимостью, объектами и результатами мониторинга, DTO, endpoint/event-контракты, независимые репозитории и сценарные Unit of Work;
+- `UptimeHarbor.Infrastructure` — EF Core, Identity, persistence, HTTP/JSON-адаптер и фоновый worker;
 - `UptimeHarbor.Web` — исполняемый ASP.NET Core-проект и composition root;
 - `UptimeHarbor.Tests` — общий изолированный test-проект.
 
@@ -34,9 +34,9 @@ UptimeHarbor.Infrastructure ─────────┘
 
 Регистрации распределены по модулям:
 
-- `AddApplication` — `TimeProvider.System`, управление пользователями и объектами, единый сервис видимости;
+- `AddApplication` — `TimeProvider.System`, управление пользователями и объектами, единый сервис видимости, use case и publisher мониторинга;
 - `AddApplicationConfiguration` — options и их fail-fast валидация;
-- `AddInfrastructure` — база данных, Identity/cookies, bootstrap администратора, репозитории, Unit of Work, Data Protection и HTTP-клиент;
+- `AddInfrastructure` — база данных, Identity/cookies, bootstrap администратора, репозитории, Unit of Work, Data Protection, HTTP-клиенты и monitoring worker;
 - `AddWebPresentation` — контроллеры, Razor Pages, SignalR, publisher административных изменений и health checks.
 
 ## Границы моделей
@@ -48,6 +48,8 @@ Identity-типы находятся в Infrastructure, потому что на
 Application получает сведения о текущем пользователе через независимый `IUserAccessContext`, а операции Identity — через `IUserAccountStore`. Ожидаемые ошибки сценариев описываются `ServiceResult` и переводятся в HTTP-статусы только в Web.
 
 `ObjectAdministrationService` повторно проверяет административную роль внутри каждого сценария и использует отдельный `IObjectAdministrationUnitOfWork`. После успешного сохранения он вызывает независимый `IObjectAdministrationChangePublisher`; Web-реализация отправляет обезличенный SignalR-сигнал о необходимости перечитать доступные данные.
+
+`MonitoringService` получает независимые результаты server/container endpoint, повторно проверяет актуальность включённого объекта и endpoint, вызывает доменные переходы и сохраняет через `IMonitoringUnitOfWork`. `MonitoringStateChangedEvent` публикуется только после успешного сохранения; HTTP, JSON, hosted worker и keyed-координация остаются в Infrastructure.
 
 ## Правила сопровождения
 

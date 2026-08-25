@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using UptimeHarbor.Application.Monitoring;
 using UptimeHarbor.Web.Configuration;
 using Xunit;
 

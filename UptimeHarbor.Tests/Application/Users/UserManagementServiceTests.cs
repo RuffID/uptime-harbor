@@ -152,6 +152,7 @@ public class UserManagementServiceTests
     private class FakeServerRepository(List<MonitoredServer> items) : IMonitoredServerRepository
     {
         public Task<List<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult(items.ToList());
+        public Task<List<MonitoredServer>> GetEnabledAsync(CancellationToken cancellationToken = default) => Task.FromResult(items.Where(item => item.IsMonitoringEnabled).ToList());
         public Task<MonitoredServer?> GetItemByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(items.SingleOrDefault(item => item.Id == id));
         public void Create(MonitoredServer item) => items.Add(item);
         public void CreateRange(IEnumerable<MonitoredServer> entities) => items.AddRange(entities);
@@ -165,6 +166,7 @@ public class UserManagementServiceTests
     private class FakeContainerRepository(List<MonitoredContainer> items) : IMonitoredContainerRepository
     {
         public Task<List<MonitoredContainer>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult(items.ToList());
+        public Task<List<MonitoredContainer>> GetEnabledAsync(CancellationToken cancellationToken = default) => Task.FromResult(items.Where(item => item.IsMonitoringEnabled).ToList());
         public Task<List<MonitoredContainer>> GetByServerIdAsync(Guid serverId, CancellationToken cancellationToken = default) => Task.FromResult(items.Where(item => item.ServerId == serverId).ToList());
         public Task<MonitoredContainer?> GetItemByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(items.SingleOrDefault(item => item.Id == id));
         public void Create(MonitoredContainer item) => items.Add(item);
