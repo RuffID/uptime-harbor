@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+    <DefaultItemExcludes>$(DefaultItemExcludes);bin\**;obj\**;artifacts\**</DefaultItemExcludes>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.VisualStudio.Azure.Containers.Tools.Targets" Version="1.23.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\UptimeHarbor.Application\UptimeHarbor.Application.csproj" />
+    <ProjectReference Include="..\UptimeHarbor.Infrastructure\UptimeHarbor.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

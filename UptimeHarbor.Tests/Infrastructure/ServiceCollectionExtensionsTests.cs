@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using UptimeHarbor.Application.Abstractions.UnitOfWork;
 using UptimeHarbor.Infrastructure;
 using UptimeHarbor.Infrastructure.Persistence;
+using Xunit;
 
 namespace UptimeHarbor.Tests.Infrastructure;
 

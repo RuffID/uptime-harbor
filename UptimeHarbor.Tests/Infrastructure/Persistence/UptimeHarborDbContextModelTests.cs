@@ -4,6 +4,7 @@ using UptimeHarbor.Domain.Access;
 using UptimeHarbor.Domain.Monitoring;
 using UptimeHarbor.Domain.Notifications;
 using UptimeHarbor.Infrastructure.Persistence;
+using Xunit;
 
 namespace UptimeHarbor.Tests.Infrastructure.Persistence;
 

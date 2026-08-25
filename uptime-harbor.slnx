@@ -1,19 +1,22 @@
 <Solution>
-  <Folder Name="/Documents/">
-    <File Path="Documents/Database migrations.md" />
-    <File Path="Documents/Technical requirements.md" />
+  <Folder Name="/Documentation/">
+    <File Path="Documentation/Database migrations.md" />
+    <File Path="Documentation/Technical requirements.md" />
   </Folder>
-  <Folder Name="/Documents/Plans/Application implementation/">
-    <File Path="Documents/Plans/Application implementation/00 - Plan overview.md" />
-    <File Path="Documents/Plans/Application implementation/01 - Project foundation.md" />
-    <File Path="Documents/Plans/Application implementation/02 - Data and persistence.md" />
-    <File Path="Documents/Plans/Application implementation/03 - Authentication and visibility.md" />
-    <File Path="Documents/Plans/Application implementation/04 - Object administration.md" />
-    <File Path="Documents/Plans/Application implementation/05 - Monitoring engine.md" />
-    <File Path="Documents/Plans/Application implementation/06 - Dashboard and SignalR.md" />
-    <File Path="Documents/Plans/Application implementation/07 - Telegram notifications.md" />
-    <File Path="Documents/Plans/Application implementation/08 - Deployment and release.md" />
+  <Folder Name="/Documentation/Plans/Application implementation/">
+    <File Path="Documentation/Plans/Application implementation/00 - Plan overview.md" />
+    <File Path="Documentation/Plans/Application implementation/01 - Project foundation.md" />
+    <File Path="Documentation/Plans/Application implementation/02 - Data and persistence.md" />
+    <File Path="Documentation/Plans/Application implementation/03 - Authentication and visibility.md" />
+    <File Path="Documentation/Plans/Application implementation/04 - Object administration.md" />
+    <File Path="Documentation/Plans/Application implementation/05 - Monitoring engine.md" />
+    <File Path="Documentation/Plans/Application implementation/06 - Dashboard and SignalR.md" />
+    <File Path="Documentation/Plans/Application implementation/07 - Telegram notifications.md" />
+    <File Path="Documentation/Plans/Application implementation/08 - Deployment and release.md" />
   </Folder>
-  <Project Path="UptimeHarbor/UptimeHarbor.csproj" />
+  <Project Path="UptimeHarbor.Domain/UptimeHarbor.Domain.csproj" />
+  <Project Path="UptimeHarbor.Application/UptimeHarbor.Application.csproj" />
+  <Project Path="UptimeHarbor.Infrastructure/UptimeHarbor.Infrastructure.csproj" />
+  <Project Path="UptimeHarbor.Web/UptimeHarbor.Web.csproj" />
   <Project Path="UptimeHarbor.Tests/UptimeHarbor.Tests.csproj" />
 </Solution>

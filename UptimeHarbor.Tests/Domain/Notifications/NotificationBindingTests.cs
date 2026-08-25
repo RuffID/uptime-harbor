@@ -1,4 +1,5 @@
 using UptimeHarbor.Domain.Notifications;
+using Xunit;
 
 namespace UptimeHarbor.Tests.Domain.Notifications;
 

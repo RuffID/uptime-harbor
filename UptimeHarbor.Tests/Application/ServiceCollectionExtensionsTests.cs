@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using UptimeHarbor.Application;
+using Xunit;
 
 namespace UptimeHarbor.Tests.Application;
 

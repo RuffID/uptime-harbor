@@ -1,4 +1,5 @@
 using UptimeHarbor.Domain.Monitoring;
+using Xunit;
 
 namespace UptimeHarbor.Tests.Domain.Monitoring;
 
