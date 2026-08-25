@@ -14,3 +14,4 @@
 - Identity bootstrap и user store остаются в `Identity`; начальный пароль используется только при создании отсутствующего администратора.
 - Блокировка пользователя обязана обновлять security stamp, а cookie validator — проверять `IsEnabled` на каждом запросе.
 - HTTP-проверки мониторинга и hosted worker находятся в `Monitoring`; adapter использует `IHttpClientFactory`, а параллельные объекты обрабатываются в отдельных scopes.
+- Telegram transport и handler находятся в `Telegram`; token получается только через `TelegramOptions`, стандартное HTTP-логирование клиента отключено, а ошибки чатов изолируются.

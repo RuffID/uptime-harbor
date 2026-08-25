@@ -13,6 +13,19 @@ namespace UptimeHarbor.Tests.Infrastructure.Persistence;
 public class UptimeHarborDbContextModelTests
 {
     [Fact]
+    public void NotificationDeliveryState_IsPersistedPerBindingAndCurrentIncident()
+    {
+        using UptimeHarborDbContext context = CreateContext();
+        Microsoft.EntityFrameworkCore.Metadata.IEntityType server = context.Model.FindEntityType(typeof(MonitoredServer))!;
+        Microsoft.EntityFrameworkCore.Metadata.IEntityType binding = context.Model.FindEntityType(typeof(NotificationBinding))!;
+
+        Assert.NotNull(server.FindProperty(nameof(MonitoredServer.CurrentIncidentId)));
+        Assert.NotNull(binding.FindProperty(nameof(NotificationBinding.OutageDeliveredIncidentId)));
+        Assert.NotNull(binding.FindProperty(nameof(NotificationBinding.RecoveryDeliveredIncidentId)));
+        Assert.Null(server.FindProperty("OutageNotificationSent"));
+    }
+
+    [Fact]
     public void Model_ConfiguresRequiredCascadeRelationships()
     {
         using UptimeHarborDbContext context = CreateContext();

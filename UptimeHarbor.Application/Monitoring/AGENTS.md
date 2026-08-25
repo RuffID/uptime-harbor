@@ -11,4 +11,5 @@
 - Перед сохранением повторно проверять, что объект включён и его endpoint не изменился с начала проверки.
 - Изменять состояние только доменными методами и сохранять через `IMonitoringUnitOfWork`.
 - Публиковать `MonitoringStateChangedEvent` только после успешного `SaveChangesAsync`.
+- Передавать в событии `CurrentIncidentId`, чтобы downstream handlers могли идемпотентно обработать частичную доставку.
 - При изменении контракта обновлять тесты и `Documentation/Technical/Monitoring.md`.

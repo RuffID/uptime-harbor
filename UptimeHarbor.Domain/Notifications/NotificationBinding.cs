@@ -44,6 +44,10 @@ public class NotificationBinding
 
     public Guid? ContainerId { get; private set; }
 
+    public Guid? OutageDeliveredIncidentId { get; private set; }
+
+    public Guid? RecoveryDeliveredIncidentId { get; private set; }
+
     public static NotificationBinding ForServer(Guid id, Guid telegramChatId, Guid serverId)
     {
         return new NotificationBinding(id, telegramChatId, serverId, null);
@@ -52,6 +56,38 @@ public class NotificationBinding
     public static NotificationBinding ForContainer(Guid id, Guid telegramChatId, Guid containerId)
     {
         return new NotificationBinding(id, telegramChatId, null, containerId);
+    }
+
+    public bool RequiresOutageDelivery(Guid incidentId)
+    {
+        EnsureValidId(incidentId, nameof(incidentId));
+        return OutageDeliveredIncidentId != incidentId;
+    }
+
+    public bool RequiresRecoveryDelivery(Guid incidentId)
+    {
+        EnsureValidId(incidentId, nameof(incidentId));
+        return OutageDeliveredIncidentId == incidentId
+            && RecoveryDeliveredIncidentId != incidentId;
+    }
+
+    public void MarkOutageDelivered(Guid incidentId)
+    {
+        EnsureValidId(incidentId, nameof(incidentId));
+        OutageDeliveredIncidentId = incidentId;
+        RecoveryDeliveredIncidentId = null;
+    }
+
+    public void MarkRecoveryDelivered(Guid incidentId)
+    {
+        EnsureValidId(incidentId, nameof(incidentId));
+        if (OutageDeliveredIncidentId != incidentId)
+        {
+            throw new InvalidOperationException(
+                "Нельзя отметить recovery без успешной outage-доставки текущего инцидента.");
+        }
+
+        RecoveryDeliveredIncidentId = incidentId;
     }
 
     private static void EnsureValidId(Guid id, string parameterName)

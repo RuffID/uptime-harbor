@@ -27,6 +27,16 @@ public class TelegramChatRepository(
             ct: cancellationToken);
     }
 
+    public Task<TelegramChat?> GetByTelegramChatIdAsync(
+        long telegramChatId,
+        CancellationToken cancellationToken = default)
+    {
+        return getRepository.GetItemByPredicateAsync(
+            chat => chat.TelegramChatId == telegramChatId,
+            asNoTracking: true,
+            ct: cancellationToken);
+    }
+
     public void Create(TelegramChat item)
     {
         createRepository.Create(item);

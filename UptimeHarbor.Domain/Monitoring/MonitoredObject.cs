@@ -41,7 +41,7 @@ public abstract class MonitoredObject
 
     public DateTimeOffset? LastSuccessfulCheckAtUtc { get; private set; }
 
-    public bool OutageNotificationSent { get; private set; }
+    public Guid? CurrentIncidentId { get; private set; }
 
     public MonitoringTransition UpdateSettings(
         string endpointUrl,
@@ -115,30 +115,8 @@ public abstract class MonitoredObject
         }
 
         Status = MonitoringStatus.Unavailable;
-        OutageNotificationSent = false;
+        CurrentIncidentId = Guid.NewGuid();
         return MonitoringTransition.BecameUnavailable;
-    }
-
-    public void MarkOutageNotificationSent()
-    {
-        if (Status != MonitoringStatus.Unavailable)
-        {
-            throw new InvalidOperationException(
-                "Уведомление о недоступности можно отметить только для недоступного объекта.");
-        }
-
-        OutageNotificationSent = true;
-    }
-
-    public void CompleteIncidentNotification()
-    {
-        if (Status == MonitoringStatus.Unavailable)
-        {
-            throw new InvalidOperationException(
-                "Текущий инцидент нельзя завершить, пока объект недоступен.");
-        }
-
-        OutageNotificationSent = false;
     }
 
     protected MonitoringTransition ApplySuccessfulCheck(
@@ -246,6 +224,6 @@ public abstract class MonitoredObject
     {
         Status = MonitoringStatus.Unknown;
         ConsecutiveFailures = 0;
-        OutageNotificationSent = false;
+        CurrentIncidentId = null;
     }
 }

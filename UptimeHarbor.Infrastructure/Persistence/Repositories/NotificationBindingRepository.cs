@@ -10,12 +10,49 @@ public class NotificationBindingRepository(
     IDeleteItemRepository<NotificationBinding, UptimeHarborDbContext> deleteRepository)
     : INotificationBindingRepository
 {
+    public Task<NotificationBinding?> GetItemByIdAsync(
+        Guid id,
+        CancellationToken cancellationToken = default)
+    {
+        return getRepository.GetItemByPredicateAsync(
+            binding => binding.Id == id,
+            ct: cancellationToken);
+    }
+
+    public Task<List<NotificationBinding>> GetAllAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return getRepository.GetItemsByPredicateAsync(
+            asNoTracking: true,
+            ct: cancellationToken);
+    }
+
     public Task<List<NotificationBinding>> GetByChatIdAsync(
         Guid telegramChatId,
         CancellationToken cancellationToken = default)
     {
         return getRepository.GetItemsByPredicateAsync(
             binding => binding.TelegramChatId == telegramChatId,
+            asNoTracking: true,
+            ct: cancellationToken);
+    }
+
+    public Task<List<NotificationBinding>> GetByServerIdAsync(
+        Guid serverId,
+        CancellationToken cancellationToken = default)
+    {
+        return getRepository.GetItemsByPredicateAsync(
+            binding => binding.ServerId == serverId,
+            asNoTracking: true,
+            ct: cancellationToken);
+    }
+
+    public Task<List<NotificationBinding>> GetByContainerIdAsync(
+        Guid containerId,
+        CancellationToken cancellationToken = default)
+    {
+        return getRepository.GetItemsByPredicateAsync(
+            binding => binding.ContainerId == containerId,
             asNoTracking: true,
             ct: cancellationToken);
     }

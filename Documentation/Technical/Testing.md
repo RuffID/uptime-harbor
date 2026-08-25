@@ -45,8 +45,11 @@ dotnet test --project .\UptimeHarbor.Tests\UptimeHarbor.Tests.csproj
 - параллельность разных объектов, keyed-защита одной цели, изоляция ошибки и cancellation hosted worker.
 - dashboard query для администратора и пользователя, независимые container permissions, поиск, fallback имени, UTC и uptime через фиксированный `TimeProvider`;
 - серверное определение SignalR-получателей, минимальный payload, изоляция push-ошибки, auth metadata и reconnect/snapshot lifecycle клиента.
+- per-binding состояние outage/recovery, частичный успех, повторная обработка только неуспешных получателей, независимые server/container bindings, fallback имени, parent server, UTC и uptime через fake `TimeProvider`;
+- административные Telegram use case, роль и antiforgery metadata MVC API, AJAX/DOM-инварианты frontend;
+- Telegram HTTP adapter через fake `HttpMessageHandler`, безопасные исключения и изоляция ошибки одного чата.
 
-После завершения этапа главной панели и SignalR набор содержит 129 изолированных тестов.
+После завершения этапа Telegram-уведомлений набор содержит 155 изолированных тестов.
 
 ## Изоляция
 

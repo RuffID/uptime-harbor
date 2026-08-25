@@ -49,7 +49,7 @@ Application получает сведения о текущем пользова
 
 `ObjectAdministrationService` повторно проверяет административную роль внутри каждого сценария и использует отдельный `IObjectAdministrationUnitOfWork`. После успешного сохранения он вызывает независимый `IObjectAdministrationChangePublisher`; Web-реализация отправляет обезличенный SignalR-сигнал о необходимости перечитать доступные данные.
 
-`MonitoringService` получает независимые результаты server/container endpoint, повторно проверяет актуальность включённого объекта и endpoint, вызывает доменные переходы и сохраняет через `IMonitoringUnitOfWork`. `MonitoringStateChangedEvent` публикуется только после успешного сохранения; HTTP, JSON, hosted worker и keyed-координация остаются в Infrastructure.
+`MonitoringService` получает независимые результаты server/container endpoint, повторно проверяет актуальность включённого объекта и endpoint, вызывает доменные переходы и сохраняет через `IMonitoringUnitOfWork`. `MonitoringStateChangedEvent` публикуется только после успешного сохранения; HTTP, JSON, hosted worker и keyed-координация остаются в Infrastructure. Telegram handler использует независимые Application-контракты доставки и отдельный `INotificationSettingsUnitOfWork`, а HTTP Bot API остаётся в Infrastructure.
 
 `DashboardQuery` зависит только от независимого `IVisibilitySettingsUnitOfWork`, `IUserAccessContext` и `TimeProvider`. Он фильтрует доменные объекты до формирования dashboard DTO, выполняет поиск только по доступному набору и рассчитывает uptime относительно UTC-времени snapshot. HTTP-чтение и `MonitoringEventRecipientResolver` используют общую `ObjectVisibilityPolicy`, поэтому SignalR не вводит отдельную модель доступа.
 

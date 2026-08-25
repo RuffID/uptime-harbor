@@ -16,6 +16,10 @@ Design-time factory настраивает Npgsql без строки подкл
 
 Первая миграция создана: `Persistence/Migrations/20260825121410_InitialPostgreSqlSchema.cs`. Проверка сгенерированной модели подтвердила наличие Identity, доменных таблиц, каскадов, составных внешних ключей permissions и `data_protection_keys`.
 
+## Миграция состояния доставки уведомлений
+
+Миграция `20260825154441_AddNotificationDeliveryState` заменяет глобальный `OutageNotificationSent` на `CurrentIncidentId` объекта и per-binding поля `OutageDeliveredIncidentId`/`RecoveryDeliveredIncidentId`. Сгенерированные migration и snapshot проверены без ручного редактирования.
+
 ## Обновление production
 
 1. Создать резервную копию PostgreSQL.

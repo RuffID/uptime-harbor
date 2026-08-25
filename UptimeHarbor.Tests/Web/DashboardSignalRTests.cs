@@ -110,6 +110,7 @@ public class DashboardSignalRTests
             "container",
             "secret description not sent",
             MonitoringStatus.Available,
+            null,
             0,
             new DateTimeOffset(2026, 8, 25, 12, 0, 0, TimeSpan.Zero),
             new DateTimeOffset(2026, 8, 25, 10, 0, 0, TimeSpan.Zero),

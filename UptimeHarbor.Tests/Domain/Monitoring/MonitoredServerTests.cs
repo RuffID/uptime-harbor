@@ -46,14 +46,14 @@ public class MonitoredServerTests
         MonitoredServer server = CreateServer();
         DateTimeOffset checkedAtUtc = new(2026, 8, 25, 10, 0, 0, TimeSpan.Zero);
         server.RecordFailedCheck(checkedAtUtc, 1);
-        server.MarkOutageNotificationSent();
+        Assert.NotNull(server.CurrentIncidentId);
 
         MonitoringTransition transition = server.SetMonitoringEnabled(false);
 
         Assert.Equal(MonitoringTransition.MonitoringDisabled, transition);
         Assert.Equal(MonitoringStatus.Unknown, server.Status);
         Assert.Equal(0, server.ConsecutiveFailures);
-        Assert.False(server.OutageNotificationSent);
+        Assert.Null(server.CurrentIncidentId);
     }
 
     [Fact]

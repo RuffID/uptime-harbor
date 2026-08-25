@@ -9,6 +9,7 @@ public record MonitoringStateChangedEvent(
     string? Name,
     string? Description,
     MonitoringStatus Status,
+    Guid? CurrentIncidentId,
     int ConsecutiveFailures,
     DateTimeOffset CheckedAtUtc,
     DateTimeOffset? StartedAtUtc,

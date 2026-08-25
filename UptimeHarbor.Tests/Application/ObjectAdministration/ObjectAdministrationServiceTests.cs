@@ -225,7 +225,7 @@ public class ObjectAdministrationServiceTests
         server.RecordFailedCheck(
             new DateTimeOffset(2026, 8, 25, 10, 0, 0, TimeSpan.Zero),
             failuresBeforeUnavailable: 1);
-        server.MarkOutageNotificationSent();
+        Assert.NotNull(server.CurrentIncidentId);
 
         ServiceResult<AdminServerDto> result = await data.Service.UpdateServerAsync(
             server.Id,
@@ -237,7 +237,7 @@ public class ObjectAdministrationServiceTests
         Assert.True(result.Success);
         Assert.Equal(MonitoringStatus.Unknown, server.Status);
         Assert.Equal(0, server.ConsecutiveFailures);
-        Assert.False(server.OutageNotificationSent);
+        Assert.Null(server.CurrentIncidentId);
     }
 
     [Fact]

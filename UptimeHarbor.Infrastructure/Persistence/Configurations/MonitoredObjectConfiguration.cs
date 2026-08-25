@@ -27,5 +27,6 @@ public abstract class MonitoredObjectConfiguration<TEntity> : IEntityTypeConfigu
             .HasColumnType("timestamp with time zone");
         builder.Property(entity => entity.LastSuccessfulCheckAtUtc)
             .HasColumnType("timestamp with time zone");
+        builder.Property(entity => entity.CurrentIncidentId);
     }
 }

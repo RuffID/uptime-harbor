@@ -34,5 +34,7 @@ public class NotificationBindingConfiguration : IEntityTypeConfiguration<Notific
         builder.HasIndex(binding => new { binding.TelegramChatId, binding.ContainerId })
             .IsUnique()
             .HasFilter("\"ContainerId\" IS NOT NULL");
+        builder.Property(binding => binding.OutageDeliveredIncidentId);
+        builder.Property(binding => binding.RecoveryDeliveredIncidentId);
     }
 }

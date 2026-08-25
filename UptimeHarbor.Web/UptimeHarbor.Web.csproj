@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
     <DefaultItemExcludes>$(DefaultItemExcludes);bin\**;obj\**;artifacts\**</DefaultItemExcludes>
+    <CompileTypeScriptBeforeTargets>$(CompileTypeScriptBeforeTargets);ResolveCoreStaticWebAssets</CompileTypeScriptBeforeTargets>
   </PropertyGroup>
 
   <ItemGroup>

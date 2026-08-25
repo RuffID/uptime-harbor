@@ -4,7 +4,7 @@
 
 Persistence реализован в `UptimeHarbor.Infrastructure`. `UptimeHarbor.Application` содержит только контекстно-независимые интерфейсы.
 
-`UptimeHarborDbContext` наследует Identity DbContext с ключом `Guid` и одновременно реализует контекст хранения ключей Data Protection. В модель входят объекты мониторинга, permissions, Telegram-чаты и notification bindings.
+`UptimeHarborDbContext` наследует Identity DbContext с ключом `Guid` и одновременно реализует контекст хранения ключей Data Protection. В модель входят объекты мониторинга, permissions, Telegram-чаты и notification bindings с per-binding состоянием доставки текущего инцидента.
 
 ## EF-конфигурации
 
@@ -20,6 +20,8 @@ Persistence реализован в `UptimeHarbor.Infrastructure`. `UptimeHarbor
 - составные ключи, запрещающие доступ к контейнеру вне назначенного сервера;
 - правило notification binding «ровно один target»;
 - хранение времён как UTC.
+
+Для идемпотентности уведомлений объект хранит nullable `CurrentIncidentId`, а каждая привязка — nullable идентификаторы инцидента успешной outage- и recovery-доставки. Глобальный `OutageNotificationSent` удалён из кодовой модели, потому что не описывает частичный успех нескольких чатов.
 
 `UtcDateTimeOffsetConverter` преобразует `DateTimeOffset` в UTC `DateTime` провайдера и восстанавливает нулевое смещение при чтении.
 
@@ -52,6 +54,8 @@ Infrastructure использует одну scoped-сессию `IUptimeHarborD
 
 Identity store использует тот же scoped `UptimeHarborDbContext`, что позволяет удалению пользователя и его permissions выполняться внутри сценарной транзакции видимости без глобального Unit of Work.
 
+Подготовка списка Telegram-доставок выполняет no-tracking чтение привязок. После успешного transport-вызова конкретная привязка повторно загружается tracked и сохраняется через отдельный scope `INotificationSettingsUnitOfWork`, поэтому состояние одного получателя не объединяется с результатом другого.
+
 ## Миграции
 
 Миграции не применяются автоматически при старте. Порядок создания и применения описан в [Database migrations.md](Database%20migrations.md).
@@ -59,3 +63,5 @@ Identity store использует тот же scoped `UptimeHarborDbContext`, 
 Для design-time scaffolding используется `UptimeHarborDesignTimeDbContextFactory`. Она настраивает провайдер Npgsql без строки подключения: построение модели и генерация миграции не требуют секрета и не открывают соединение с PostgreSQL.
 
 Первая миграция `20260825121410_InitialPostgreSqlSchema` создана в `Persistence/Migrations`. Она включает доменные таблицы, ASP.NET Core Identity, составные ограничения видимости и таблицу ключей Data Protection.
+
+Миграция `20260825154441_AddNotificationDeliveryState` удаляет глобальный `OutageNotificationSent` и добавляет nullable incident-ID поля объектам и привязкам. Она создана штатным EF tooling и проверена сборкой и model metadata tests.

@@ -20,6 +20,8 @@ using UptimeHarbor.Infrastructure.Identity;
 using UptimeHarbor.Application.Users;
 using UptimeHarbor.Application.Monitoring;
 using UptimeHarbor.Infrastructure.Monitoring;
+using UptimeHarbor.Application.Notifications;
+using UptimeHarbor.Infrastructure.Telegram;
 
 namespace UptimeHarbor.Infrastructure;
 
@@ -109,6 +111,15 @@ public static class ServiceCollectionExtensions
             provider.GetRequiredService<HttpMonitoringEndpointChecker>());
         services.AddSingleton<IMonitoringCycleRunner, MonitoringCycleRunner>();
         services.AddHostedService<MonitoringWorker>();
+
+        services.AddHttpClient<TelegramHttpNotificationSender>(client =>
+        {
+            client.BaseAddress = new Uri("https://api.telegram.org/");
+            client.Timeout = TimeSpan.FromSeconds(30);
+        }).RemoveAllLoggers();
+        services.AddScoped<INotificationSender>(provider =>
+            provider.GetRequiredService<TelegramHttpNotificationSender>());
+        services.AddScoped<IMonitoringEventHandler, TelegramMonitoringEventHandler>();
 
         return services;
     }

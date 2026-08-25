@@ -1,4 +1,5 @@
 using UptimeHarbor.Application.Monitoring;
+using UptimeHarbor.Infrastructure.Telegram;
 
 namespace UptimeHarbor.Web.Configuration;
 

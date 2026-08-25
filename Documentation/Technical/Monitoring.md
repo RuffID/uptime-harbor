@@ -35,7 +35,7 @@
 
 `MonitoringStateChangedEvent` содержит тип и ID объекта, parent server ID контейнера, описание, имя, status, transition, failure counter, времена, успешность и семантическую endpoint-ошибку. `MonitoringEventPublisher` передаёт его внутренним handlers только после успешного сохранения.
 
-SignalR handler реализован в Web. Он получает из Application список разрешённых включённых пользователей и отправляет им только `objectId` и `objectKind`; скрытые имя, описание, состояние и времена в push payload не попадают. Ошибка отправки изолируется на границе handler и не отменяет уже сохранённый результат мониторинга. Telegram handler остаётся задачей этапа 7. PostgreSQL остаётся источником истины.
+SignalR handler реализован в Web. Он получает из Application список разрешённых включённых пользователей и отправляет им только `objectId` и `objectKind`; скрытые имя, описание, состояние и времена в push payload не попадают. Telegram handler реализован в Infrastructure и получает независимый Application use case доставки. Оба handler вызываются только после успешного сохранения; их ошибки изолированы и не отменяют сохранённый результат мониторинга. PostgreSQL остаётся источником истины.
 
 ## Конкурентность
 

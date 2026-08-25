@@ -6,6 +6,10 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Builder;
 using UptimeHarbor.Application;
 using UptimeHarbor.Application.Abstractions.UnitOfWork;
+using UptimeHarbor.Application.Common;
+using UptimeHarbor.Application.Monitoring.Models;
+using UptimeHarbor.Application.Notifications;
+using UptimeHarbor.Application.Notifications.Models;
 using UptimeHarbor.Infrastructure;
 using UptimeHarbor.Infrastructure.Identity;
 using UptimeHarbor.Infrastructure.Persistence;
@@ -34,6 +38,7 @@ public class ServiceCollectionExtensionsTests
     {
         ServiceCollection services = new();
         services.AddLogging();
+        services.AddScoped<INotificationDeliveryService, StubNotificationDeliveryService>();
         IConfiguration configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
@@ -144,5 +149,20 @@ public class ServiceCollectionExtensionsTests
                 ["Telegram:BotToken"] = "test-token"
             })
             .Build();
+    }
+
+    private class StubNotificationDeliveryService : INotificationDeliveryService
+    {
+        public Task<IReadOnlyList<PendingNotificationDeliveryDto>> GetPendingDeliveriesAsync(
+            MonitoringStateChangedEvent monitoringEvent,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<PendingNotificationDeliveryDto>>([]);
+
+        public Task<ServiceResult> MarkDeliverySuccessfulAsync(
+            Guid bindingId,
+            Guid incidentId,
+            NotificationDeliveryKind kind,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(ServiceResult.Ok());
     }
 }

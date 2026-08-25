@@ -13,3 +13,4 @@
 - Design-time scaffolding использует `UptimeHarborDesignTimeDbContextFactory` без строки подключения и не открывает соединение с БД.
 - При изменении схемы или транзакционных границ обновлять этот файл, `Documentation/Technical/Persistence.md` и документ миграций.
 - Цикл загружает включённые цели no-tracking, а результат каждого объекта повторно загружается tracked и сохраняется через отдельный scoped `IMonitoringUnitOfWork`.
+- Per-binding outage/recovery marker сохраняется отдельным scoped `INotificationSettingsUnitOfWork` после успешной transport-доставки; схема закреплена миграцией `AddNotificationDeliveryState`.

@@ -10,4 +10,8 @@ public interface ITelegramChatRepository :
 {
     Task<List<TelegramChat>> GetAllAsync(
         CancellationToken cancellationToken = default);
+
+    Task<TelegramChat?> GetByTelegramChatIdAsync(
+        long telegramChatId,
+        CancellationToken cancellationToken = default);
 }

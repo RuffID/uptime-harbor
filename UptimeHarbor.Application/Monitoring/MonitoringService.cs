@@ -111,6 +111,7 @@ public class MonitoringService(
             server.LastKnownName,
             server.Description,
             server.Status,
+            server.CurrentIncidentId,
             server.ConsecutiveFailures,
             server.LastCheckedAtUtc
                 ?? throw new InvalidOperationException("Сохранённый результат должен содержать время проверки."),
@@ -133,6 +134,7 @@ public class MonitoringService(
             container.LastKnownName,
             container.Description,
             container.Status,
+            container.CurrentIncidentId,
             container.ConsecutiveFailures,
             container.LastCheckedAtUtc
                 ?? throw new InvalidOperationException("Сохранённый результат должен содержать время проверки."),

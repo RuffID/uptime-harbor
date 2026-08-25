@@ -19,3 +19,4 @@
 - `MonitoringOptions` принадлежит Application как общий типизированный контракт цикла и HTTP-адаптера; привязка конфигурации остаётся в Web composition root.
 - Главная панель загружается через независимый `DashboardQuery`, который фильтрует сущности до формирования отдельных dashboard DTO и рассчитывает uptime через `TimeProvider`.
 - HTTP-чтение и SignalR-получатели используют общую `ObjectVisibilityPolicy`; доступ к серверу не заменяет отдельное разрешение контейнера.
+- Уведомления используют независимый `INotificationSender`, административный use case и per-binding фиксацию outage/recovery через `INotificationSettingsUnitOfWork`; transport и логирование остаются в Infrastructure.

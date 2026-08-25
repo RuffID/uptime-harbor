@@ -32,4 +32,37 @@ public class NotificationBindingTests
         Assert.Null(binding.ServerId);
         Assert.Equal(containerId, binding.ContainerId);
     }
+
+    [Fact]
+    public void DeliveryState_IsStoredSeparatelyForEachBindingAndIncident()
+    {
+        Guid incidentId = Guid.NewGuid();
+        NotificationBinding successful = NotificationBinding.ForServer(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid());
+        NotificationBinding unsuccessful = NotificationBinding.ForServer(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid());
+
+        successful.MarkOutageDelivered(incidentId);
+
+        Assert.False(successful.RequiresOutageDelivery(incidentId));
+        Assert.True(successful.RequiresRecoveryDelivery(incidentId));
+        Assert.True(unsuccessful.RequiresOutageDelivery(incidentId));
+        Assert.False(unsuccessful.RequiresRecoveryDelivery(incidentId));
+    }
+
+    [Fact]
+    public void RecoveryCannotBeMarkedWithoutSuccessfulOutage()
+    {
+        NotificationBinding binding = NotificationBinding.ForContainer(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid());
+
+        Assert.Throws<InvalidOperationException>(() =>
+            binding.MarkRecoveryDelivered(Guid.NewGuid()));
+    }
 }

@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using UptimeHarbor.Application.Dashboard;
 using UptimeHarbor.Application.Monitoring;
+using UptimeHarbor.Application.Notifications;
 using UptimeHarbor.Application.ObjectAdministration;
 using UptimeHarbor.Application.Users;
 using UptimeHarbor.Application.Visibility;
@@ -21,6 +22,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IObjectAdministrationService, ObjectAdministrationService>();
         services.AddScoped<IMonitoringService, MonitoringService>();
         services.AddScoped<IMonitoringEventPublisher, MonitoringEventPublisher>();
+        services.AddScoped<INotificationAdministrationService, NotificationAdministrationService>();
+        services.AddScoped<INotificationDeliveryService, NotificationDeliveryService>();
 
         return services;
     }
