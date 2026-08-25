@@ -43,8 +43,10 @@ dotnet test --project .\UptimeHarbor.Tests\UptimeHarbor.Tests.csproj
 - HTTP/JSON-контракт server/container через fake `HttpMessageHandler`, включая status, timeout, network и все обязательные поля;
 - application-переходы monitoring engine, независимость server/container и порядок save→publish;
 - параллельность разных объектов, keyed-защита одной цели, изоляция ошибки и cancellation hosted worker.
+- dashboard query для администратора и пользователя, независимые container permissions, поиск, fallback имени, UTC и uptime через фиксированный `TimeProvider`;
+- серверное определение SignalR-получателей, минимальный payload, изоляция push-ошибки, auth metadata и reconnect/snapshot lifecycle клиента.
 
-После завершения этапа движка мониторинга набор содержит 107 изолированных тестов.
+После завершения этапа главной панели и SignalR набор содержит 129 изолированных тестов.
 
 ## Изоляция
 
@@ -53,3 +55,5 @@ dotnet test --project .\UptimeHarbor.Tests\UptimeHarbor.Tests.csproj
 EF model tests создают DbContext с provider options, но не открывают соединение. HTTP-тесты monitoring adapter используют управляемый fake handler и не создают сетевых соединений. Worker-тесты используют in-memory services и управляемые `TaskCompletionSource`.
 
 Каждый test-файл явно импортирует `Xunit`; `GlobalUsings.cs` в проекте не используется.
+
+SignalR-тесты используют fake `IHubContext` и не открывают WebSocket. Frontend lifecycle проверяется статически по TypeScript-источнику; реальный Web-хост и браузер в изолированном наборе не запускаются.

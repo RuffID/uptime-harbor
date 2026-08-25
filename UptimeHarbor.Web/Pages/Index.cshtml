@@ -1,10 +1,50 @@
 ﻿@page
 @model IndexModel
 @{
-    ViewData["Title"] = "Home page";
+    ViewData["Title"] = "Панель мониторинга";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
-</div>
+<section class="dashboard-shell" data-dashboard-root>
+    <header class="d-flex flex-column flex-lg-row align-items-lg-end justify-content-between gap-3 mb-4">
+        <div>
+            <p class="dashboard-eyebrow mb-2">UPTIME HARBOR</p>
+            <h1 class="display-6 fw-semibold mb-2">Панель мониторинга</h1>
+            <p class="text-secondary mb-0">Текущее состояние доступных серверов и приложений.</p>
+        </div>
+        <div class="signal-state" data-signal-state role="status" aria-live="polite">
+            <span class="signal-state__dot" aria-hidden="true"></span>
+            <span data-signal-state-text>Подключение обновлений…</span>
+        </div>
+    </header>
+
+    <div class="dashboard-toolbar card border-secondary-subtle mb-4">
+        <div class="card-body">
+            <label class="form-label" for="dashboardSearch">Поиск</label>
+            <div class="input-group">
+                <span class="input-group-text" aria-hidden="true">⌕</span>
+                <input class="form-control"
+                       id="dashboardSearch"
+                       name="dashboardSearch"
+                       type="search"
+                       autocomplete="off"
+                       placeholder="Имя или описание"
+                       data-dashboard-search />
+            </div>
+        </div>
+    </div>
+
+    <div class="dashboard-state card border-secondary-subtle" data-dashboard-state role="status" aria-live="polite">
+        <div class="card-body py-5 text-center">
+            <div class="spinner-border text-info mb-3" aria-hidden="true"></div>
+            <p class="mb-0">Загружаем актуальное состояние…</p>
+        </div>
+    </div>
+
+    <div class="dashboard-grid" data-dashboard-content hidden></div>
+</section>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@10.0.0/dist/browser/signalr.min.js"
+            crossorigin="anonymous"></script>
+    <script type="module" src="~/dist/pages/dashboard.js" asp-append-version="true"></script>
+}

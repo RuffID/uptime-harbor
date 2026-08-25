@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using UptimeHarbor.Application.Dashboard;
 using UptimeHarbor.Application.Monitoring;
 using UptimeHarbor.Application.ObjectAdministration;
 using UptimeHarbor.Application.Users;
@@ -15,6 +16,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<IUserManagementService, UserManagementService>();
         services.AddScoped<IAccessibleObjectsService, AccessibleObjectsService>();
+        services.AddScoped<IDashboardQuery, DashboardQuery>();
+        services.AddScoped<IMonitoringEventRecipientResolver, MonitoringEventRecipientResolver>();
         services.AddScoped<IObjectAdministrationService, ObjectAdministrationService>();
         services.AddScoped<IMonitoringService, MonitoringService>();
         services.AddScoped<IMonitoringEventPublisher, MonitoringEventPublisher>();

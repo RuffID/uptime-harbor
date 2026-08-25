@@ -51,6 +51,10 @@ Application получает сведения о текущем пользова
 
 `MonitoringService` получает независимые результаты server/container endpoint, повторно проверяет актуальность включённого объекта и endpoint, вызывает доменные переходы и сохраняет через `IMonitoringUnitOfWork`. `MonitoringStateChangedEvent` публикуется только после успешного сохранения; HTTP, JSON, hosted worker и keyed-координация остаются в Infrastructure.
 
+`DashboardQuery` зависит только от независимого `IVisibilitySettingsUnitOfWork`, `IUserAccessContext` и `TimeProvider`. Он фильтрует доменные объекты до формирования dashboard DTO, выполняет поиск только по доступному набору и рассчитывает uptime относительно UTC-времени snapshot. HTTP-чтение и `MonitoringEventRecipientResolver` используют общую `ObjectVisibilityPolicy`, поэтому SignalR не вводит отдельную модель доступа.
+
+Web-обработчик внутреннего monitoring event определяет разрешённые Identity user-id в Application, а через SignalR отправляет только тип и GUID изменившегося объекта. Клиент использует событие как сигнал перечитать защищённый snapshot; PostgreSQL остаётся источником истины.
+
 ## Правила сопровождения
 
 Архитектурное изменение должно одновременно обновлять project references, ближайшие `AGENTS.md`, этот документ и статус соответствующего плана.

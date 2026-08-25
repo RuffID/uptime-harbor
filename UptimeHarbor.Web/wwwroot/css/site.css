@@ -19,6 +19,9 @@ html {
 
 body {
   margin-bottom: 60px;
+  background:
+    radial-gradient(circle at 10% 0%, rgba(13, 202, 240, 0.08), transparent 32rem),
+    #090d13;
 }
 
 .form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
@@ -28,4 +31,121 @@ body {
 
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
   text-align: start;
+}
+
+.dashboard-shell {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.dashboard-eyebrow {
+  color: #6edff6;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+}
+
+.dashboard-toolbar,
+.dashboard-state,
+.server-card {
+  background-color: rgba(20, 27, 38, 0.92);
+  box-shadow: 0 1rem 2.5rem rgba(0, 0, 0, 0.18);
+}
+
+.dashboard-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.signal-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--bs-secondary-color);
+  font-size: 0.875rem;
+}
+
+.signal-state__dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--bs-secondary-color);
+}
+
+.signal-state[data-state="connected"] .signal-state__dot {
+  background: var(--bs-success);
+  box-shadow: 0 0 0.75rem rgba(25, 135, 84, 0.8);
+}
+
+.signal-state[data-state="reconnecting"] .signal-state__dot {
+  background: var(--bs-warning);
+}
+
+.signal-state[data-state="disconnected"] .signal-state__dot {
+  background: var(--bs-danger);
+}
+
+.server-card__header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 1rem;
+  align-items: start;
+}
+
+.object-name {
+  overflow-wrap: anywhere;
+}
+
+.object-description {
+  white-space: pre-wrap;
+}
+
+.object-metadata {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.metadata-item {
+  min-width: 0;
+  padding: 0.75rem;
+  border: 1px solid var(--bs-border-color-translucent);
+  border-radius: var(--bs-border-radius);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.metadata-label {
+  display: block;
+  margin-bottom: 0.2rem;
+  color: var(--bs-secondary-color);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.container-list {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.container-card {
+  padding: 1rem;
+  border: 1px solid var(--bs-border-color-translucent);
+  border-radius: var(--bs-border-radius-lg);
+  background: rgba(255, 255, 255, 0.025);
+}
+
+@media (max-width: 575.98px) {
+  .dashboard-shell {
+    margin-inline: -0.25rem;
+  }
+
+  .server-card__header,
+  .object-metadata {
+    grid-template-columns: 1fr;
+  }
+
+  .server-card__header .badge {
+    justify-self: start;
+  }
 }

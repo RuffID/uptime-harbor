@@ -27,6 +27,7 @@
 - SignalR hub сопоставлен по пути `/hubs/monitoring`.
 - Стандартный health-check endpoint сопоставлен по пути `/health`.
 - API чтения доступных объектов сопоставлено под `/api/objects`.
+- API snapshot главной панели сопоставлено под `/api/dashboard` и требует аутентификацию.
 - API управления пользователями сопоставлено под `/api/admin/users` и требует роль `Administrator`.
 - API управления серверами и контейнерами сопоставлено под `/api/admin/objects`, требует роль `Administrator`, а все изменяющие методы защищены antiforgery.
 
@@ -44,10 +45,14 @@
 
 Административная страница объектов находится в `/Admin/Objects`. PageModel не загружает коллекции: Razor содержит только статические контейнеры и формы, а данные загружает TypeScript-модуль через MVC API. Интерфейс работает без перезагрузки, создаёт динамические списки через DOM API без `innerHTML`, показывает серверные ошибки рядом с полями и требует подтверждение удаления. TypeScript собирается строгим `Microsoft.TypeScript.MSBuild` из `wwwroot/ts` в `wwwroot/dist`.
 
+Главная страница `/` содержит статические контейнеры панели и не загружает коллекции в PageModel. TypeScript получает snapshot через `/api/dashboard`, выполняет server-side поиск по текущей строке, строит вложенные карточки DOM API и показывает отдельные состояния loading, empty, no-results и error. Тёмный layout использует Bootstrap и адаптивную сетку для desktop/mobile. Браузерный SignalR client фиксированной версии подключён как внешний статический script; потеря push-канала не блокирует HTTP snapshot.
+
 `JsonResultMapper` возвращает единый envelope и при field-specific validation добавляет необязательное поле `field`. Остальные ошибки сохраняют контракт `{ success: false, message: ... }` без дополнительного поля.
 
 ## SignalR
 
-`MonitoringHub` требует аутентификацию и пока не содержит методов. Для будущего выбора получателей подготовлены `AccessibleObjectsService.CanAccessServerAsync` и `CanAccessContainerAsync`; SignalR publisher обязан использовать тот же Application-сервис, что и HTTP-чтения.
+`MonitoringHub` требует аутентификацию и не содержит вызываемых клиентом методов выбора пользователя или группы. Стандартный SignalR user-id берётся из аутентифицированного `NameIdentifier`. `SignalRMonitoringEventHandler` получает разрешённые user-id через Application resolver и не делает broadcast данных объекта.
+
+Событие `MonitoringObjectChanged` содержит только `objectId` и `objectKind`; получатель перечитывает защищённый snapshot. Клиент включает автоматическое переподключение, повторяет initial start после исчерпания reconnect-попыток и после `onreconnected` полностью заменяет состояние актуальным snapshot.
 
 После успешного административного сохранения `SignalRObjectAdministrationChangePublisher` отправляет всем аутентифицированным открытым панелям только событие `ObjectAdministrationChanged` без данных объекта. Получатель должен перечитать разрешённый ему snapshot через защищённый API; событие не является источником истины и не раскрывает скрытые объекты.

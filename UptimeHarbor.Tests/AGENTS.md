@@ -14,3 +14,4 @@
 - При изменении структуры или типа тестов обновлять этот файл и `Documentation/Technical/Testing.md`.
 - HTTP-проверки тестировать через управляемый fake `HttpMessageHandler`; timeout и текущее время контролировать через options и `TimeProvider` без внешних endpoint.
 - Параллельность worker проверять через управляемые `TaskCompletionSource`, не используя реальные задержки, кроме изолированной проверки timeout.
+- Dashboard query проверять на серверную видимость, поиск, UTC и uptime с фиксированным `TimeProvider`; SignalR — через fake hub context без запуска Web-хоста.

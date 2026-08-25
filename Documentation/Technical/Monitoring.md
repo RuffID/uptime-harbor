@@ -33,7 +33,9 @@
 
 `MonitoringService` после HTTP-проверки заново загружает tracked объект через `IMonitoringUnitOfWork`. Результат игнорируется, если объект за время запроса удалён, выключен или его endpoint изменён. Иначе use case вызывает существующий доменный переход и одним `SaveChangesAsync` сохраняет все поля текущего состояния.
 
-`MonitoringStateChangedEvent` содержит тип и ID объекта, parent server ID контейнера, описание, имя, status, transition, failure counter, времена, успешность и семантическую endpoint-ошибку. `MonitoringEventPublisher` передаёт его внутренним handlers только после успешного сохранения. SignalR handler и Telegram handler не реализуются до этапов 6 и 7. PostgreSQL остаётся источником истины.
+`MonitoringStateChangedEvent` содержит тип и ID объекта, parent server ID контейнера, описание, имя, status, transition, failure counter, времена, успешность и семантическую endpoint-ошибку. `MonitoringEventPublisher` передаёт его внутренним handlers только после успешного сохранения.
+
+SignalR handler реализован в Web. Он получает из Application список разрешённых включённых пользователей и отправляет им только `objectId` и `objectKind`; скрытые имя, описание, состояние и времена в push payload не попадают. Ошибка отправки изолируется на границе handler и не отменяет уже сохранённый результат мониторинга. Telegram handler остаётся задачей этапа 7. PostgreSQL остаётся источником истины.
 
 ## Конкурентность
 

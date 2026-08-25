@@ -24,8 +24,8 @@ public class AccessibleObjectsService(
         List<MonitoredServer> servers = await unitOfWork.MonitoredServers.GetAllAsync(cancellationToken);
         List<MonitoredContainer> containers = await unitOfWork.MonitoredContainers.GetAllAsync(cancellationToken);
 
-        HashSet<Guid>? serverIds = null;
-        HashSet<Guid>? containerIds = null;
+        HashSet<Guid> serverIds = [];
+        HashSet<Guid> containerIds = [];
         if (!accessContext.IsAdministrator)
         {
             List<ServerVisibilityPermission> serverPermissions =
@@ -41,12 +41,20 @@ public class AccessibleObjectsService(
         }
 
         List<AccessibleServerDto> result = servers
-            .Where(server => serverIds is null || serverIds.Contains(server.Id))
+            .Where(server => ObjectVisibilityPolicy.CanAccessServer(
+                accessContext.IsAdministrator,
+                server.Id,
+                serverIds))
             .Select(server => MapServer(
                 server,
                 containers.Where(container =>
                     container.ServerId == server.Id
-                    && (containerIds is null || containerIds.Contains(container.Id)))))
+                    && ObjectVisibilityPolicy.CanAccessContainer(
+                        accessContext.IsAdministrator,
+                        container.ServerId,
+                        container.Id,
+                        serverIds,
+                        containerIds))))
             .ToList();
 
         return ServiceResult<IReadOnlyList<AccessibleServerDto>>.Ok(result);
