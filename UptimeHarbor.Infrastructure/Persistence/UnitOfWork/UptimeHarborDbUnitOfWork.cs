@@ -32,9 +32,9 @@ public abstract class UptimeHarborDbUnitOfWork(IUptimeHarborDbContextSession ses
             {
                 await transaction.RollbackAsync(cancellationToken);
             }
-            catch (OperationCanceledException) when (originalException is OperationCanceledException)
+            catch (Exception rollbackException)
             {
-                // Сохраняет исходную отмену операции, если rollback получил тот же отменённый token.
+                originalException.Data["RollbackException"] = rollbackException;
             }
 
             throw;

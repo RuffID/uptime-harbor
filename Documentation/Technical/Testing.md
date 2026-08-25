@@ -31,9 +31,14 @@ dotnet test --project .\UptimeHarbor.Tests\UptimeHarbor.Tests.csproj
 - инфраструктурные registrations без реального подключения к БД;
 - EF model metadata, каскады, ключи и indexes;
 - UTC converter;
-- notification binding factories.
+- notification binding factories;
+- bootstrap администратора и повторный запуск;
+- управление пользователями и permissions;
+- полная и ограниченная видимость, прямой доступ и блокировка;
+- role metadata административного контроллера;
+- полная DI validation Web composition root.
 
-Текущий набор содержит 28 изолированных тестов.
+После завершения этапа аутентификации набор содержит 41 изолированный тест.
 
 ## Изоляция
 

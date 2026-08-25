@@ -1,0 +1,23 @@
+@page
+@model UptimeHarbor.Web.Pages.Account.LoginModel
+@{
+    ViewData["Title"] = "Вход";
+}
+
+<h1>Вход</h1>
+<form method="post">
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <div class="mb-3">
+        <label asp-for="Login" class="form-label">Логин</label>
+        <input asp-for="Login" class="form-control" autocomplete="username" />
+    </div>
+    <div class="mb-3">
+        <label asp-for="Password" class="form-label">Пароль</label>
+        <input asp-for="Password" class="form-control" type="password" autocomplete="current-password" />
+    </div>
+    <div class="form-check mb-3">
+        <input asp-for="RememberMe" class="form-check-input" />
+        <label asp-for="RememberMe" class="form-check-label">Запомнить меня</label>
+    </div>
+    <button type="submit" class="btn btn-primary">Войти</button>
+</form>

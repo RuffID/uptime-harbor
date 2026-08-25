@@ -10,17 +10,6 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(configuration);
 
         services
-            .AddOptions<BootstrapAdminOptions>()
-            .Bind(configuration.GetSection(BootstrapAdminOptions.SECTION_NAME))
-            .Validate(
-                options => !string.IsNullOrWhiteSpace(options.Login),
-                $"{BootstrapAdminOptions.SECTION_NAME}:Login is required.")
-            .Validate(
-                options => !string.IsNullOrWhiteSpace(options.Password),
-                $"{BootstrapAdminOptions.SECTION_NAME}:Password is required.")
-            .ValidateOnStart();
-
-        services
             .AddOptions<MonitoringOptions>()
             .Bind(configuration.GetSection(MonitoringOptions.SECTION_NAME))
             .Validate(

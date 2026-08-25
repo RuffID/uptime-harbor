@@ -9,8 +9,6 @@ namespace UptimeHarbor.Tests.Configuration;
 public class ServiceCollectionExtensionsTests
 {
     [Theory]
-    [InlineData("BootstrapAdmin:Login", "", "BootstrapAdmin:Login is required.")]
-    [InlineData("BootstrapAdmin:Password", "", "BootstrapAdmin:Password is required.")]
     [InlineData("Monitoring:IntervalSeconds", "0", "Monitoring:IntervalSeconds must be greater than zero.")]
     [InlineData("Monitoring:TimeoutSeconds", "0", "Monitoring:TimeoutSeconds must be greater than zero.")]
     [InlineData("Monitoring:FailuresBeforeUnavailable", "0", "Monitoring:FailuresBeforeUnavailable must be greater than zero.")]
@@ -46,9 +44,6 @@ public class ServiceCollectionExtensionsTests
 
         using ServiceProvider serviceProvider = services.BuildServiceProvider();
 
-        BootstrapAdminOptions bootstrapAdmin = serviceProvider
-            .GetRequiredService<IOptions<BootstrapAdminOptions>>()
-            .Value;
         MonitoringOptions monitoring = serviceProvider
             .GetRequiredService<IOptions<MonitoringOptions>>()
             .Value;
@@ -56,8 +51,6 @@ public class ServiceCollectionExtensionsTests
             .GetRequiredService<IOptions<TelegramOptions>>()
             .Value;
 
-        Assert.Equal("admin", bootstrapAdmin.Login);
-        Assert.Equal("test-password", bootstrapAdmin.Password);
         Assert.Equal(30, monitoring.IntervalSeconds);
         Assert.Equal(30, monitoring.TimeoutSeconds);
         Assert.Equal(3, monitoring.FailuresBeforeUnavailable);
@@ -79,12 +72,6 @@ public class ServiceCollectionExtensionsTests
 
     private static void ResolveOptionsForKey(IServiceProvider serviceProvider, string key)
     {
-        if (key.StartsWith($"{BootstrapAdminOptions.SECTION_NAME}:", StringComparison.Ordinal))
-        {
-            _ = serviceProvider.GetRequiredService<IOptions<BootstrapAdminOptions>>().Value;
-            return;
-        }
-
         if (key.StartsWith($"{MonitoringOptions.SECTION_NAME}:", StringComparison.Ordinal))
         {
             _ = serviceProvider.GetRequiredService<IOptions<MonitoringOptions>>().Value;

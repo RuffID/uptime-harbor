@@ -12,3 +12,5 @@
 - Не обращаться к EF Core или Telegram API напрямую из UI.
 - Изменяющие запросы защищать авторизацией и antiforgery согласно типу клиента.
 - При изменении Web pipeline, endpoint или UI-границ обновлять этот файл и `Documentation/Technical/Web application.md`.
+- Все Razor Pages, кроме явно разрешённых страниц входа и ошибки, требуют аутентификации; административное API требует роль `Administrator`.
+- `ServiceResult` преобразовывать в единый JSON envelope через Web-мэппер, не помещая HTTP-статусы в Application.

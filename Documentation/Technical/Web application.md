@@ -9,14 +9,15 @@
 1. production exception handler и HSTS вне Development;
 2. HTTPS redirection;
 3. routing;
-4. authorization;
-5. static assets;
-6. MVC controllers;
-7. Razor Pages;
-8. SignalR hub;
-9. health check.
+4. authentication;
+5. authorization;
+6. static assets;
+7. MVC controllers;
+8. Razor Pages;
+9. SignalR hub;
+10. health check.
 
-Authentication middleware будет добавлен вместе с этапом аутентификации; сейчас полноценный вход ещё не реализован.
+До построения pipeline вызывается инфраструктурный bootstrap ролей и начального администратора. Миграции при этом не применяются автоматически.
 
 ## Типы endpoint
 
@@ -25,6 +26,8 @@ Authentication middleware будет добавлен вместе с этапо
 - Minimal API handlers `MapGet`, `MapPost`, `MapPut`, `MapDelete` и `MapPatch` не используются.
 - SignalR hub сопоставлен по пути `/hubs/monitoring`.
 - Стандартный health-check endpoint сопоставлен по пути `/health`.
+- API чтения доступных объектов сопоставлено под `/api/objects`.
+- API управления пользователями сопоставлено под `/api/admin/users` и требует роль `Administrator`.
 
 `MapHealthChecks` и `MapHub` являются специализированными mappings платформы, а не обработчиками бизнес-API.
 
@@ -34,10 +37,10 @@ Authentication middleware будет добавлен вместе с этапо
 
 ## Razor Pages
 
-Текущие страницы являются стартовым шаблоном. По мере реализации PageModel должны зависеть от Application use case и работать с DTO/UI-моделями, не передавая EF-сущности в Razor.
+Страницы входа и выхода находятся в `/Account`. Для всего каталога Razor Pages действует обязательная авторизация; анонимный доступ разрешён только странице входа и странице ошибки.
 
 Изменяющие формы должны использовать POST, antiforgery и серверную авторизацию. API-контроллеры должны возвращать явные HTTP-контракты и также проверять роль/доступ.
 
 ## SignalR
 
-`MonitoringHub` пока не содержит методов. В целевой реализации сервер сам определяет пользователя соединения, не передаёт события скрытых объектов и после переподключения позволяет клиенту перечитать актуальный snapshot.
+`MonitoringHub` требует аутентификацию и пока не содержит методов. Для будущего выбора получателей подготовлены `AccessibleObjectsService.CanAccessServerAsync` и `CanAccessContainerAsync`; SignalR publisher обязан использовать тот же Application-сервис, что и HTTP-чтения.

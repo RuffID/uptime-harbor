@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
 using UptimeHarbor.Domain.Access;
 using UptimeHarbor.Domain.Monitoring;
 using UptimeHarbor.Domain.Notifications;
@@ -27,10 +29,14 @@ public class UptimeHarborDbContextModelTests
         IForeignKey serverPermissionServerForeignKey = Assert.Single(
             serverPermissionType.GetForeignKeys(),
             foreignKey => foreignKey.PrincipalEntityType.ClrType == typeof(MonitoredServer));
+        IForeignKey containerPermissionContainerForeignKey = Assert.Single(
+            containerPermissionType.GetForeignKeys(),
+            foreignKey => foreignKey.PrincipalEntityType.ClrType == typeof(MonitoredContainer));
 
         Assert.Equal(DeleteBehavior.Cascade, containerServerForeignKey.DeleteBehavior);
         Assert.Equal(DeleteBehavior.Cascade, containerPermissionServerPermissionForeignKey.DeleteBehavior);
         Assert.Equal(DeleteBehavior.Cascade, serverPermissionServerForeignKey.DeleteBehavior);
+        Assert.Equal(DeleteBehavior.Cascade, containerPermissionContainerForeignKey.DeleteBehavior);
     }
 
     [Fact]
@@ -77,6 +83,38 @@ public class UptimeHarborDbContextModelTests
         Assert.Equal(
             [nameof(ContainerVisibilityPermission.UserId), nameof(ContainerVisibilityPermission.ContainerId)],
             containerPermissionType.FindPrimaryKey()!.Properties.Select(property => property.Name));
+    }
+
+    [Fact]
+    public void Model_StoresIdentityAndDataProtectionKeysInDedicatedTables()
+    {
+        using UptimeHarborDbContext context = CreateContext();
+
+        Assert.Equal("users", context.Model.FindEntityType(typeof(UptimeHarbor.Infrastructure.Identity.ApplicationUser))!.GetTableName());
+        Assert.Equal("roles", context.Model.FindEntityType(typeof(UptimeHarbor.Infrastructure.Identity.ApplicationRole))!.GetTableName());
+        Assert.Equal("user_roles", context.Model.FindEntityType(typeof(IdentityUserRole<Guid>))!.GetTableName());
+        Assert.Equal("data_protection_keys", context.Model.FindEntityType(typeof(DataProtectionKey))!.GetTableName());
+    }
+
+    [Fact]
+    public void Model_RequiresContainerPermissionToMatchItsServerPermissionAndContainerParent()
+    {
+        using UptimeHarborDbContext context = CreateContext();
+        IEntityType permissionType = context.Model.FindEntityType(typeof(ContainerVisibilityPermission))!;
+
+        IForeignKey serverPermissionForeignKey = Assert.Single(
+            permissionType.GetForeignKeys(),
+            foreignKey => foreignKey.PrincipalEntityType.ClrType == typeof(ServerVisibilityPermission));
+        IForeignKey containerForeignKey = Assert.Single(
+            permissionType.GetForeignKeys(),
+            foreignKey => foreignKey.PrincipalEntityType.ClrType == typeof(MonitoredContainer));
+
+        Assert.Equal(
+            [nameof(ContainerVisibilityPermission.UserId), nameof(ContainerVisibilityPermission.ServerId)],
+            serverPermissionForeignKey.Properties.Select(property => property.Name));
+        Assert.Equal(
+            [nameof(ContainerVisibilityPermission.ServerId), nameof(ContainerVisibilityPermission.ContainerId)],
+            containerForeignKey.Properties.Select(property => property.Name));
     }
 
     [Fact]

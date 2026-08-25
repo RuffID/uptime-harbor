@@ -25,6 +25,8 @@ builder.Services
 
 var app = builder.Build();
 
+await app.Services.InitializeInfrastructureAsync();
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error");
@@ -33,6 +35,7 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseRouting();
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapStaticAssets();

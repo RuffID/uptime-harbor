@@ -10,6 +10,14 @@ public class MonitoredContainerRepository(
     IDeleteItemRepository<MonitoredContainer, UptimeHarborDbContext> deleteRepository)
     : IMonitoredContainerRepository
 {
+    public Task<List<MonitoredContainer>> GetAllAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return getRepository.GetItemsByPredicateAsync(
+            asNoTracking: true,
+            ct: cancellationToken);
+    }
+
     public Task<MonitoredContainer?> GetItemByIdAsync(
         Guid id,
         CancellationToken cancellationToken = default)

@@ -6,13 +6,13 @@ Web-проект использует стандартную конфигура�
 
 ## Типизированные группы
 
-Сейчас определены три options-типа:
+Определены три options-типа:
 
 - `BootstrapAdminOptions` — логин и начальный пароль администратора;
 - `MonitoringOptions` — интервал, timeout и порог ошибок;
 - `TelegramOptions` — токен бота.
 
-`AddApplicationConfiguration` привязывает секции и включает `ValidateOnStart`. Пустые обязательные строки и неположительные числовые значения приводят к понятной ошибке запуска. Запасные значения, скрывающие некорректную конфигурацию, не используются.
+`MonitoringOptions` и `TelegramOptions` привязываются в Web через `AddApplicationConfiguration` и используют `ValidateOnStart`. `BootstrapAdminOptions` принадлежит Infrastructure и валидируется при bootstrap только если администратор отсутствует. Это позволяет повторному запуску с уже созданным администратором не зависеть от сохранения начального пароля в конфигурации.
 
 Строка подключения `ConnectionStrings:PostgreSql` проверяется в `AddInfrastructure` до регистрации DbContext.
 
@@ -30,4 +30,4 @@ Application регистрирует `TimeProvider.System`. Сценарии, з
 
 ## Текущее ограничение
 
-Bootstrap администратора, monitoring hosted service и Telegram sender пока не реализованы, поэтому их options уже валидируются, но ещё не имеют production-потребителей.
+Bootstrap администратора реализован. Monitoring hosted service и Telegram sender пока не реализованы, поэтому их options валидируются, но ещё не имеют production-потребителей.

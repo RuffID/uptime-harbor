@@ -6,13 +6,15 @@ UptimeHarbor не применяет миграции автоматически
 
 ## Первая миграция
 
-После настройки локальной строки подключения нужно создать миграцию с именем `InitialPostgreSqlSchema`:
+Миграция создаётся с именем `InitialPostgreSqlSchema`:
 
 ```powershell
 dotnet ef migrations add InitialPostgreSqlSchema --project .\UptimeHarbor.Infrastructure\UptimeHarbor.Infrastructure.csproj --startup-project .\UptimeHarbor.Web\UptimeHarbor.Web.csproj --output-dir Persistence\Migrations
 ```
 
-Миграция должна включать доменные таблицы, ASP.NET Core Identity и таблицу ключей Data Protection. Сгенерированные файлы необходимо проверить перед применением; вручную они не редактируются.
+Design-time factory настраивает Npgsql без строки подключения, поэтому команда не требует локального секрета и не подключается к PostgreSQL. Миграция должна включать доменные таблицы, ASP.NET Core Identity и таблицу ключей Data Protection. Сгенерированные файлы необходимо проверить перед применением; вручную они не редактируются.
+
+Первая миграция создана: `Persistence/Migrations/20260825121410_InitialPostgreSqlSchema.cs`. Проверка сгенерированной модели подтвердила наличие Identity, доменных таблиц, каскадов, составных внешних ключей permissions и `data_protection_keys`.
 
 ## Обновление production
 

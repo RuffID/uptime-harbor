@@ -3,7 +3,11 @@ using EFCoreLibrary.EfCore;
 using EFCoreLibrary.Extensions;
 using HttpClientLibrary.Abstractions;
 using HttpClientLibrary.Clients;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,6 +16,8 @@ using UptimeHarbor.Application.Abstractions.UnitOfWork;
 using UptimeHarbor.Infrastructure.Persistence;
 using UptimeHarbor.Infrastructure.Persistence.Repositories;
 using UptimeHarbor.Infrastructure.Persistence.UnitOfWork;
+using UptimeHarbor.Infrastructure.Identity;
+using UptimeHarbor.Application.Users;
 
 namespace UptimeHarbor.Infrastructure;
 
@@ -34,6 +40,38 @@ public static class ServiceCollectionExtensions
 
         services.AddDbContext<UptimeHarborDbContext>(options =>
             options.UseNpgsql(connectionString));
+
+        services
+            .AddOptions<BootstrapAdminOptions>()
+            .Bind(configuration.GetSection(BootstrapAdminOptions.SECTION_NAME))
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.Login),
+                $"{BootstrapAdminOptions.SECTION_NAME}:Login is required.")
+            .Validate(
+                options => !string.IsNullOrWhiteSpace(options.Password),
+                $"{BootstrapAdminOptions.SECTION_NAME}:Password is required.");
+
+        services
+            .AddIdentity<ApplicationUser, ApplicationRole>(options =>
+            {
+                options.User.RequireUniqueEmail = false;
+                options.SignIn.RequireConfirmedAccount = false;
+            })
+            .AddEntityFrameworkStores<UptimeHarborDbContext>()
+            .AddDefaultTokenProviders();
+        services.Configure<SecurityStampValidatorOptions>(options =>
+            options.ValidationInterval = TimeSpan.Zero);
+        services.ConfigureApplicationCookie(options =>
+        {
+            options.LoginPath = "/Account/Login";
+            options.AccessDeniedPath = "/Account/AccessDenied";
+            options.Cookie.HttpOnly = true;
+            options.Cookie.SameSite = SameSiteMode.Lax;
+            options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+            options.ExpireTimeSpan = TimeSpan.FromHours(8);
+            options.SlidingExpiration = true;
+            options.Events.OnValidatePrincipal = ValidateEnabledUserAsync;
+        });
         services.AddScoped<IAppDbContext<UptimeHarborDbContext>, EfDbContextAdapter<UptimeHarborDbContext>>();
         services.AddEfCoreBaseRepositories<UptimeHarborDbContext>();
 
@@ -46,6 +84,13 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IMonitoringUnitOfWork, MonitoringUnitOfWork>();
         services.AddScoped<IVisibilitySettingsUnitOfWork, VisibilitySettingsUnitOfWork>();
         services.AddScoped<INotificationSettingsUnitOfWork, NotificationSettingsUnitOfWork>();
+        services.AddScoped<IdentityUserAccountStore>();
+        services.AddScoped<IUserAccountStore>(provider =>
+            provider.GetRequiredService<IdentityUserAccountStore>());
+        services.AddScoped<IInitialAdministratorStore>(provider =>
+            provider.GetRequiredService<IdentityUserAccountStore>());
+        services.AddScoped<InitialAdministratorBootstrapper>();
+        services.AddScoped<IUserSignInService, UserSignInService>();
 
         services
             .AddDataProtection()
@@ -54,5 +99,25 @@ public static class ServiceCollectionExtensions
         services.AddHttpClient<IHttpApiClient, HttpApiClient>();
 
         return services;
+    }
+
+    private static async Task ValidateEnabledUserAsync(CookieValidatePrincipalContext context)
+    {
+        ISecurityStampValidator securityStampValidator = context.HttpContext.RequestServices
+            .GetRequiredService<ISecurityStampValidator>();
+        await securityStampValidator.ValidateAsync(context);
+        if (context.Principal?.Identity?.IsAuthenticated != true)
+        {
+            return;
+        }
+
+        UserManager<ApplicationUser> userManager = context.HttpContext.RequestServices
+            .GetRequiredService<UserManager<ApplicationUser>>();
+        ApplicationUser? user = await userManager.GetUserAsync(context.Principal);
+        if (user is null || !user.IsEnabled)
+        {
+            context.RejectPrincipal();
+            await context.HttpContext.SignOutAsync(IdentityConstants.ApplicationScheme);
+        }
     }
 }

@@ -1,4 +1,4 @@
-namespace UptimeHarbor.Web.Configuration;
+namespace UptimeHarbor.Infrastructure.Identity;
 
 public class BootstrapAdminOptions
 {
