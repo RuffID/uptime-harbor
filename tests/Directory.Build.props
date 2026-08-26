@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project>
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -22,13 +22,6 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\UptimeHarbor.Application\UptimeHarbor.Application.csproj" />
-    <ProjectReference Include="..\UptimeHarbor.Domain\UptimeHarbor.Domain.csproj" />
-    <ProjectReference Include="..\UptimeHarbor.Infrastructure\UptimeHarbor.Infrastructure.csproj" />
-    <ProjectReference Include="..\UptimeHarbor.Web\UptimeHarbor.Web.csproj" />
   </ItemGroup>
 
 </Project>

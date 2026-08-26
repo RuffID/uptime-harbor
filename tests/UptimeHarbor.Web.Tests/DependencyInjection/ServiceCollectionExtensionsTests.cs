@@ -17,7 +17,7 @@ using UptimeHarbor.Web.Configuration;
 using UptimeHarbor.Web.Pages;
 using Xunit;
 
-namespace UptimeHarbor.Tests.Infrastructure;
+namespace UptimeHarbor.Tests.Web.DependencyInjection;
 
 public class ServiceCollectionExtensionsTests
 {

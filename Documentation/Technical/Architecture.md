@@ -2,13 +2,16 @@
 
 ## Текущее состояние
 
-Решение состоит из пяти SDK-style проектов под `net10.0`:
+Решение состоит из восьми SDK-style проектов под `net10.0`:
 
 - `UptimeHarbor.Domain` — доменные сущности и локальные инварианты;
 - `UptimeHarbor.Application` — use case управления пользователями, видимостью, объектами и результатами мониторинга, DTO, endpoint/event-контракты, независимые репозитории и сценарные Unit of Work;
 - `UptimeHarbor.Infrastructure` — EF Core, Identity, persistence, HTTP/JSON-адаптер и фоновый worker;
 - `UptimeHarbor.Web` — исполняемый ASP.NET Core-проект и composition root;
-- `UptimeHarbor.Tests` — общий изолированный test-проект.
+- `tests/UptimeHarbor.Domain.Tests` — изолированные тесты Domain;
+- `tests/UptimeHarbor.Application.Tests` — изолированные тесты Application;
+- `tests/UptimeHarbor.Infrastructure.Tests` — изолированные тесты Infrastructure;
+- `tests/UptimeHarbor.Web.Tests` — изолированные тесты Web и composition root.
 
 ## Направление зависимостей
 
@@ -25,6 +28,8 @@ UptimeHarbor.Infrastructure ─────────┘
 ```
 
 `Domain` не имеет project references. `Application` ссылается только на `Domain`. `Infrastructure` ссылается на `Application` и `Domain`. `Web` ссылается на `Application` и `Infrastructure`.
+
+Test-проекты ссылаются только на проверяемый production-слой и его необходимые зависимости. Общий test stack задаётся в `tests/Directory.Build.props`, а Web composition root и configuration проверяются в `UptimeHarbor.Web.Tests`, поэтому Infrastructure-тесты не зависят от Web.
 
 Эти ссылки являются компиляционной защитой границ. Domain и Application не должны получать EF Core, ASP.NET Core, Web или integration-типы даже ради удобства реализации.
 

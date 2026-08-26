@@ -6,7 +6,7 @@ using UptimeHarbor.Infrastructure.Telegram;
 using UptimeHarbor.Web.Configuration;
 using Xunit;
 
-namespace UptimeHarbor.Tests.Configuration;
+namespace UptimeHarbor.Tests.Web.Configuration;
 
 public class ServiceCollectionExtensionsTests
 {

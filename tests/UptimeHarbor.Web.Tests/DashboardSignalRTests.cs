@@ -86,6 +86,7 @@ public class DashboardSignalRTests
                 "..",
                 "..",
                 "..",
+                "..",
                 "UptimeHarbor.Web",
                 "wwwroot",
                 "ts",

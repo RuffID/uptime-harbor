@@ -33,5 +33,12 @@
   <Project Path="UptimeHarbor.Application/UptimeHarbor.Application.csproj" />
   <Project Path="UptimeHarbor.Infrastructure/UptimeHarbor.Infrastructure.csproj" />
   <Project Path="UptimeHarbor.Web/UptimeHarbor.Web.csproj" />
-  <Project Path="UptimeHarbor.Tests/UptimeHarbor.Tests.csproj" />
+  <Folder Name="/tests/">
+    <File Path="tests/AGENTS.md" />
+    <File Path="tests/Directory.Build.props" />
+    <Project Path="tests/UptimeHarbor.Domain.Tests/UptimeHarbor.Domain.Tests.csproj" />
+    <Project Path="tests/UptimeHarbor.Application.Tests/UptimeHarbor.Application.Tests.csproj" />
+    <Project Path="tests/UptimeHarbor.Infrastructure.Tests/UptimeHarbor.Infrastructure.Tests.csproj" />
+    <Project Path="tests/UptimeHarbor.Web.Tests/UptimeHarbor.Web.Tests.csproj" />
+  </Folder>
 </Solution>

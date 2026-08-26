@@ -24,4 +24,4 @@ UptimeHarbor — Web-приложение для контроля доступн
 ## Проверка
 
 - Production-проекты собирать отдельно без запуска Web-хоста.
-- Изолированные тесты запускать через Microsoft Testing Platform: `dotnet test --project .\UptimeHarbor.Tests\UptimeHarbor.Tests.csproj`.
+- Изолированные тесты запускать через Microsoft Testing Platform отдельно для проектов в `tests`: `UptimeHarbor.Domain.Tests`, `UptimeHarbor.Application.Tests`, `UptimeHarbor.Infrastructure.Tests` и `UptimeHarbor.Web.Tests`.

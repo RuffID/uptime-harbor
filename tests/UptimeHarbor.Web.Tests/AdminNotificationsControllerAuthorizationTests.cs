@@ -48,7 +48,7 @@ public class AdminNotificationsControllerAuthorizationTests
     {
         string repositoryRoot = Path.GetFullPath(Path.Combine(
             AppContext.BaseDirectory,
-            "..", "..", "..", ".."));
+            "..", "..", "..", "..", ".."));
         string source = File.ReadAllText(Path.Combine(
             repositoryRoot,
             "UptimeHarbor.Web",

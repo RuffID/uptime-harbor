@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\UptimeHarbor.Application\UptimeHarbor.Application.csproj" />
+    <ProjectReference Include="..\..\UptimeHarbor.Domain\UptimeHarbor.Domain.csproj" />
+    <ProjectReference Include="..\..\UptimeHarbor.Infrastructure\UptimeHarbor.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -2,7 +2,7 @@
 
 ## Test stack
 
-`UptimeHarbor.Tests` использует:
+Четыре test-проекта в каталоге `tests` используют общие настройки из `tests/Directory.Build.props`:
 
 - `xunit.v3` 4.0.0;
 - Visual Studio runner 4.0.0;
@@ -14,17 +14,27 @@
 
 ## Запуск
 
-Основная команда:
+Каждый набор запускается отдельно:
 
 ```powershell
-dotnet test --project .\UptimeHarbor.Tests\UptimeHarbor.Tests.csproj
+dotnet test --project .\tests\UptimeHarbor.Domain.Tests\UptimeHarbor.Domain.Tests.csproj
+dotnet test --project .\tests\UptimeHarbor.Application.Tests\UptimeHarbor.Application.Tests.csproj
+dotnet test --project .\tests\UptimeHarbor.Infrastructure.Tests\UptimeHarbor.Infrastructure.Tests.csproj
+dotnet test --project .\tests\UptimeHarbor.Web.Tests\UptimeHarbor.Web.Tests.csproj
 ```
 
 Старый синтаксис `dotnet test <project>` включает VSTest target и несовместим с выбранным runner на .NET 10.
 
 Перед тестами затронутые production- и test-проекты собираются отдельно. Compile-check выполняется без запуска Web-хоста и с отдельным `BaseOutputPath` в `artifacts/compile-check`.
 
-## Состав текущего набора
+## Структура и состав наборов
+
+- `UptimeHarbor.Domain.Tests` — доменные переходы и фабрики;
+- `UptimeHarbor.Application.Tests` — use case, политики, DTO и Application DI;
+- `UptimeHarbor.Infrastructure.Tests` — persistence metadata, Identity bootstrap, monitoring worker и внешние адаптеры на fake transport;
+- `UptimeHarbor.Web.Tests` — Web DI/configuration, authorization/antiforgery metadata, JSON mapping, SignalR и статические frontend-инварианты.
+
+Совокупный набор проверяет:
 
 - доменные переходы серверов и контейнеров;
 - validation options и DI регистрации;
@@ -49,7 +59,7 @@ dotnet test --project .\UptimeHarbor.Tests\UptimeHarbor.Tests.csproj
 - административные Telegram use case, роль и antiforgery metadata MVC API, AJAX/DOM-инварианты frontend;
 - Telegram HTTP adapter через fake `HttpMessageHandler`, безопасные исключения и изоляция ошибки одного чата.
 
-После завершения этапа Telegram-уведомлений набор содержит 155 изолированных тестов.
+После завершения этапа Telegram-уведомлений четыре проекта суммарно содержат 155 изолированных тестов.
 
 ## Изоляция
 
