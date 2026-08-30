@@ -6,7 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
     <DefaultItemExcludes>$(DefaultItemExcludes);bin\**;obj\**;artifacts\**</DefaultItemExcludes>
-    <CompileTypeScriptBeforeTargets>$(CompileTypeScriptBeforeTargets);ResolveCoreStaticWebAssets</CompileTypeScriptBeforeTargets>
+    <TypeScriptEnableIncrementalMSBuild>false</TypeScriptEnableIncrementalMSBuild>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,5 +18,9 @@
     <ProjectReference Include="..\UptimeHarbor.Application\UptimeHarbor.Application.csproj" />
     <ProjectReference Include="..\UptimeHarbor.Infrastructure\UptimeHarbor.Infrastructure.csproj" />
   </ItemGroup>
+
+  <Target Name="PrepareTypeScriptForStaticWebAssets"
+          BeforeTargets="ResolveProjectStaticWebAssets;ResolveCoreStaticWebAssets"
+          DependsOnTargets="CheckFileSystemCaseSensitive;FindConfigFiles;TypeScriptDeleteOutputFromOtherConfigs;CompileTypeScriptWithTSConfig" />
 
 </Project>

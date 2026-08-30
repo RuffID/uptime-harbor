@@ -1,4 +1,10 @@
 import { ApiError, sendJsonRequest, unwrapServiceResult, unwrapServiceSuccess } from "../../shared/http.js";
+var MonitoringStatus;
+(function (MonitoringStatus) {
+    MonitoringStatus[MonitoringStatus["Unknown"] = 0] = "Unknown";
+    MonitoringStatus[MonitoringStatus["Available"] = 1] = "Available";
+    MonitoringStatus[MonitoringStatus["Unavailable"] = 2] = "Unavailable";
+})(MonitoringStatus || (MonitoringStatus = {}));
 const state = {
     servers: [],
     containers: [],
@@ -336,13 +342,13 @@ function shortGuid(id) {
     return id.slice(0, 8);
 }
 function statusText(status) {
-    if (status === "Unknown") {
+    if (status === MonitoringStatus.Unknown) {
         return "Неизвестно";
     }
-    if (status === "Available") {
+    if (status === MonitoringStatus.Available) {
         return "Доступен";
     }
-    if (status === "Unavailable") {
+    if (status === MonitoringStatus.Unavailable) {
         return "Недоступен";
     }
     throw new Error(`Неизвестный статус: ${String(status)}.`);

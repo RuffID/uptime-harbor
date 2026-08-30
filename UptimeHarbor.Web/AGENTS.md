@@ -16,7 +16,10 @@
 - `ServiceResult` преобразовывать в единый JSON envelope через Web-мэппер, не помещая HTTP-статусы в Application.
 - Административное API объектов размещено под `/api/admin/objects`; после сохранения публикуется только обезличенный сигнал `ObjectAdministrationChanged`.
 - Новый клиентский код писать на TypeScript в `wwwroot/ts`, собранный JavaScript подключать из `wwwroot/dist`.
-- TypeScript должен компилироваться до `ResolveCoreStaticWebAssets`, чтобы Clean/Rebuild сначала восстанавливал удалённые файлы `wwwroot/dist`.
+- Полная TypeScript-цепочка `FindConfigFiles` → `TypeScriptDeleteOutputFromOtherConfigs` → `CompileTypeScriptWithTSConfig` должна выполняться через `PrepareTypeScriptForStaticWebAssets` перед `ResolveProjectStaticWebAssets` и `ResolveCoreStaticWebAssets`, чтобы удаление outputs другой конфигурации не происходило после компиляции и сборка решения сначала восстанавливала `wwwroot/dist`.
+- Инкрементальная TypeScript-сборка отключена, чтобы отсутствующие generated `.js` восстанавливались и в Debug, и в Release.
 - API главной панели размещено под `/api/dashboard`, требует аутентификацию и возвращает только отфильтрованные dashboard DTO через `JsonResultMapper`.
 - Monitoring SignalR-событие содержит только тип и идентификатор объекта и отправляется сервером конкретным разрешённым user-id; клиент перечитывает snapshot после события и reconnect.
 - Административное API уведомлений размещено под `/api/admin/notifications`; token не входит в Web-контракты, а mutating actions и тестовая отправка требуют роль `Administrator` и antiforgery.
+- Административная страница пользователей размещена под `/Admin/Users`; UI работает через `/api/admin/users` без перезагрузки, а операции изменения защищены antiforgery и ролью `Administrator`.
+- Forwarded headers принимаются только из явно настроенной proxy-сети с ограничением `ForwardLimit` до одного прокси; liveness и readiness health endpoints разделены.

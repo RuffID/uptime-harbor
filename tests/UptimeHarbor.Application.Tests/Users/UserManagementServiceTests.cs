@@ -68,6 +68,37 @@ public class UserManagementServiceTests
         Assert.Empty(data.Permissions.ContainerPermissions);
     }
 
+    [Fact]
+    public async Task SetEnabledAsync_CannotDisableCurrentAdministrator()
+    {
+        TestData data = new(isAdministrator: true);
+
+        ServiceResult result = await data.Service.SetEnabledAsync(
+            data.AdministratorId,
+            false,
+            TestContext.Current.CancellationToken);
+
+        Assert.False(result.Success);
+        Assert.Equal(ServiceErrorType.Forbidden, result.Error!.Type);
+        Assert.Equal(0, data.Accounts.SetEnabledCount);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_CannotDeleteCurrentAdministrator()
+    {
+        TestData data = new(isAdministrator: true);
+
+        ServiceResult result = await data.Service.DeleteAsync(
+            data.AdministratorId,
+            TestContext.Current.CancellationToken);
+
+        Assert.False(result.Success);
+        Assert.Equal(ServiceErrorType.Forbidden, result.Error!.Type);
+        Assert.NotNull(await data.Accounts.GetByIdAsync(
+            data.ManagedUserId,
+            TestContext.Current.CancellationToken));
+    }
+
     private class TestData
     {
         public TestData(bool isAdministrator)
@@ -87,12 +118,13 @@ public class UserManagementServiceTests
                 new FakeContainerRepository([Container]),
                 Permissions);
             Service = new UserManagementService(
-                new FakeAccessContext(Guid.NewGuid(), true, isAdministrator, true),
+                new FakeAccessContext(AdministratorId, true, isAdministrator, true),
                 Accounts,
                 unitOfWork);
         }
 
         public Guid ManagedUserId { get; } = Guid.NewGuid();
+        public Guid AdministratorId { get; } = Guid.NewGuid();
         public MonitoredServer Server { get; }
         public MonitoredContainer Container { get; }
         public FakeAccountStore Accounts { get; }
@@ -113,6 +145,7 @@ public class UserManagementServiceTests
     {
         private readonly List<UserAccountRecord> users = [initialUser];
         public int CreateCount { get; private set; }
+        public int SetEnabledCount { get; private set; }
         public Task<IReadOnlyList<UserAccountRecord>> GetAllAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<UserAccountRecord>>(users.ToList());
         public Task<UserAccountRecord?> GetByIdAsync(Guid userId, CancellationToken cancellationToken = default) =>
@@ -123,8 +156,11 @@ public class UserManagementServiceTests
             users.Add(new UserAccountRecord(userId, login, true, false));
             return Task.FromResult(AccountStoreResult.Success());
         }
-        public Task<AccountStoreResult> SetEnabledAsync(Guid userId, bool isEnabled, CancellationToken cancellationToken = default) =>
-            Task.FromResult(AccountStoreResult.Success());
+        public Task<AccountStoreResult> SetEnabledAsync(Guid userId, bool isEnabled, CancellationToken cancellationToken = default)
+        {
+            SetEnabledCount++;
+            return Task.FromResult(AccountStoreResult.Success());
+        }
         public Task<AccountStoreResult> DeleteAsync(Guid userId, CancellationToken cancellationToken = default)
         {
             users.RemoveAll(user => user.Id == userId);

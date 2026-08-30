@@ -59,7 +59,7 @@ dotnet test --project .\tests\UptimeHarbor.Web.Tests\UptimeHarbor.Web.Tests.cspr
 - административные Telegram use case, роль и antiforgery metadata MVC API, AJAX/DOM-инварианты frontend;
 - Telegram HTTP adapter через fake `HttpMessageHandler`, безопасные исключения и изоляция ошибки одного чата.
 
-После завершения этапа Telegram-уведомлений четыре проекта суммарно содержат 155 изолированных тестов.
+Добавлены Web contract tests фактической MVC JSON-сериализации `AdminServerDto`/`AdminContainerDto` и тесты self-disable/self-delete в Application. Runtime smoke для Docker/PostgreSQL/Nginx остаётся отдельной ручной проверкой.
 
 ## Изоляция
 

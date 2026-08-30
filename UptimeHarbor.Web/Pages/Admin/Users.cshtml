@@ -1,0 +1,75 @@
+@page
+@model UptimeHarbor.Web.Pages.Admin.UsersModel
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@{
+    ViewData["Title"] = "Пользователи";
+    string requestVerificationToken = Antiforgery.GetAndStoreTokens(ViewContext.HttpContext).RequestToken
+        ?? throw new InvalidOperationException("Не удалось создать antiforgery token.");
+}
+
+<meta name="request-verification-token" content="@requestVerificationToken" />
+<meta name="current-user-id" content="@User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value" />
+
+<div class="d-flex flex-column gap-4" data-users-page>
+    <div>
+        <h1 class="mb-1">Пользователи</h1>
+        <p class="text-body-secondary mb-0">Управление учётными записями и видимостью объектов.</p>
+    </div>
+
+    <div class="alert alert-danger d-none" role="alert" data-page-error></div>
+    <div class="alert alert-success d-none" role="status" data-page-success></div>
+
+    <div class="row g-4">
+        <section class="col-12 col-lg-4" aria-labelledby="users-heading">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h2 id="users-heading" class="h4 mb-0">Учётные записи</h2>
+                <button type="button" class="btn btn-sm btn-primary" data-action="new-user">Добавить</button>
+            </div>
+            <div class="list-group" data-user-list></div>
+            <p class="text-body-secondary d-none" data-user-empty>Пользователи ещё не созданы.</p>
+        </section>
+
+        <section class="col-12 col-lg-8" aria-labelledby="user-details-heading">
+            <h2 id="user-details-heading" class="h4">Настройки</h2>
+            <p class="text-body-secondary" data-selection-placeholder>Выберите пользователя или создайте нового.</p>
+
+            <form class="card d-none" data-create-form novalidate>
+                <div class="card-body">
+                    <h3 class="h5">Новый пользователь</h3>
+                    <div class="mb-3">
+                        <label class="form-label" for="newUserLogin">Логин</label>
+                        <input class="form-control" id="newUserLogin" name="login" type="text" maxlength="256" required data-create-login />
+                        <div class="invalid-feedback" data-create-error="login"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="newUserPassword">Начальный пароль</label>
+                        <input class="form-control" id="newUserPassword" name="initialPassword" type="password" required data-create-password />
+                        <div class="invalid-feedback" data-create-error="initialPassword"></div>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Создать</button>
+                </div>
+            </form>
+
+            <div class="card d-none" data-user-details>
+                <div class="card-body">
+                    <h3 class="h5" data-user-title></h3>
+                    <p class="text-body-secondary" data-user-role></p>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" id="userEnabled" name="isEnabled" type="checkbox" data-user-enabled />
+                        <label class="form-check-label" for="userEnabled">Учётная запись включена</label>
+                    </div>
+                    <h4 class="h6">Видимые серверы и контейнеры</h4>
+                    <div class="d-flex flex-column gap-2 mb-3" data-visibility-list></div>
+                    <div class="d-flex flex-wrap gap-2">
+                        <button type="button" class="btn btn-primary" data-action="save-visibility">Сохранить видимость</button>
+                        <button type="button" class="btn btn-outline-danger" data-action="delete-user">Удалить</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+
+@section Scripts {
+    <script type="module" src="~/dist/pages/admin/users.js" asp-append-version="true"></script>
+}

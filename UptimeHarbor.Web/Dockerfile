@@ -11,6 +11,9 @@ EXPOSE 8080
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends nodejs npm \
+    && rm -rf /var/lib/apt/lists/*
 COPY ["UptimeHarbor.Domain/UptimeHarbor.Domain.csproj", "UptimeHarbor.Domain/"]
 COPY ["UptimeHarbor.Application/UptimeHarbor.Application.csproj", "UptimeHarbor.Application/"]
 COPY ["UptimeHarbor.Infrastructure/UptimeHarbor.Infrastructure.csproj", "UptimeHarbor.Infrastructure/"]

@@ -2,6 +2,7 @@
   <Folder Name="/Documentation/">
     <File Path="Documentation/AGENTS.md" />
     <File Path="Documentation/Technical requirements.md" />
+    <File Path="Documentation/V1 Technical Review Findings.md" />
   </Folder>
   <Folder Name="/Documentation/Technical/">
     <File Path="Documentation/Technical/AGENTS.md" />

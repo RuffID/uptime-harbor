@@ -3,6 +3,8 @@ using UptimeHarbor.Infrastructure;
 using UptimeHarbor.Web.Configuration;
 using UptimeHarbor.Web.Hubs;
 using UptimeHarbor.Web.Pages;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.HttpOverrides;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,6 +35,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+app.UseForwardedHeaders();
 app.UseHttpsRedirection();
 app.UseRouting();
 app.UseAuthentication();
@@ -43,6 +46,17 @@ app.MapControllers();
 app.MapRazorPages()
    .WithStaticAssets();
 app.MapHub<MonitoringHub>("/hubs/monitoring");
-app.MapHealthChecks("/health");
+app.MapHealthChecks("/health/live", new HealthCheckOptions
+{
+    Predicate = registration => registration.Tags.Contains("live")
+});
+app.MapHealthChecks("/health/ready", new HealthCheckOptions
+{
+    Predicate = registration => registration.Tags.Contains("ready")
+});
+app.MapHealthChecks("/health", new HealthCheckOptions
+{
+    Predicate = registration => registration.Tags.Contains("ready")
+});
 
 app.Run();

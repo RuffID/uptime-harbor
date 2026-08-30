@@ -57,11 +57,20 @@ public class UserManagementService(
                 ?? throw new InvalidOperationException("Неуспешный результат должен содержать ошибку."));
         }
 
-        if (string.IsNullOrWhiteSpace(login) || string.IsNullOrWhiteSpace(initialPassword))
+        if (string.IsNullOrWhiteSpace(login))
         {
             return ServiceResult<UserAccountDto>.Fail(
                 ServiceErrorType.Validation,
-                "Логин и начальный пароль обязательны.");
+                "Логин обязателен.",
+                "login");
+        }
+
+        if (string.IsNullOrWhiteSpace(initialPassword))
+        {
+            return ServiceResult<UserAccountDto>.Fail(
+                ServiceErrorType.Validation,
+                "Начальный пароль обязателен.",
+                "initialPassword");
         }
 
         Guid userId = Guid.NewGuid();
@@ -92,6 +101,13 @@ public class UserManagementService(
             return authorizationFailure;
         }
 
+        if (userId == accessContext.UserId)
+        {
+            return ServiceResult.Fail(
+                ServiceErrorType.Forbidden,
+                "Нельзя изменить состояние собственной учётной записи.");
+        }
+
         AccountStoreResult storeResult = await accountStore.SetEnabledAsync(userId, isEnabled, cancellationToken);
         return MapStoreResult(storeResult);
     }
@@ -104,6 +120,13 @@ public class UserManagementService(
         if (authorizationFailure is not null)
         {
             return authorizationFailure;
+        }
+
+        if (userId == accessContext.UserId)
+        {
+            return ServiceResult.Fail(
+                ServiceErrorType.Forbidden,
+                "Нельзя удалить собственную учётную запись.");
         }
 
         UserAccountRecord? account = await accountStore.GetByIdAsync(userId, cancellationToken);

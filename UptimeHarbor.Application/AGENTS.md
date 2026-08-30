@@ -20,3 +20,4 @@
 - Главная панель загружается через независимый `DashboardQuery`, который фильтрует сущности до формирования отдельных dashboard DTO и рассчитывает uptime через `TimeProvider`.
 - HTTP-чтение и SignalR-получатели используют общую `ObjectVisibilityPolicy`; доступ к серверу не заменяет отдельное разрешение контейнера.
 - Уведомления используют независимый `INotificationSender`, административный use case и per-binding фиксацию outage/recovery через `INotificationSettingsUnitOfWork`; transport и логирование остаются в Infrastructure.
+- `UserManagementService` запрещает текущему администратору отключать или удалять собственную учётную запись.

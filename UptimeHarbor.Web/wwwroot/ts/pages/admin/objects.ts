@@ -7,7 +7,11 @@ import {
     unwrapServiceSuccess
 } from "../../shared/http.js";
 
-type MonitoringStatus = "Unknown" | "Available" | "Unavailable";
+enum MonitoringStatus {
+    Unknown = 0,
+    Available = 1,
+    Unavailable = 2
+}
 
 interface ObjectSettings {
     endpointUrl: string;
@@ -454,13 +458,13 @@ function shortGuid(id: string): string {
 }
 
 function statusText(status: MonitoringStatus): string {
-    if (status === "Unknown") {
+    if (status === MonitoringStatus.Unknown) {
         return "Неизвестно";
     }
-    if (status === "Available") {
+    if (status === MonitoringStatus.Available) {
         return "Доступен";
     }
-    if (status === "Unavailable") {
+    if (status === MonitoringStatus.Unavailable) {
         return "Недоступен";
     }
     throw new Error(`Неизвестный статус: ${String(status)}.`);

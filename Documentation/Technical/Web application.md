@@ -7,7 +7,8 @@
 Текущий pipeline:
 
 1. production exception handler и HSTS вне Development;
-2. HTTPS redirection;
+2. обработка `X-Forwarded-*` только от явно настроенной proxy-сети с `ForwardLimit = 1`;
+3. HTTPS redirection;
 3. routing;
 4. authentication;
 5. authorization;
@@ -15,7 +16,7 @@
 7. MVC controllers;
 8. Razor Pages;
 9. SignalR hub;
-10. health check.
+10. health endpoints `/health/live` (liveness) и `/health/ready` (PostgreSQL readiness); `/health` оставлен алиасом readiness.
 
 До построения pipeline вызывается инфраструктурный bootstrap ролей и начального администратора. Миграции при этом не применяются автоматически.
 
@@ -44,9 +45,11 @@
 
 Изменяющие формы должны использовать POST, antiforgery и серверную авторизацию. API-контроллеры должны возвращать явные HTTP-контракты и также проверять роль/доступ.
 
-Административная страница объектов находится в `/Admin/Objects`. PageModel не загружает коллекции: Razor содержит только статические контейнеры и формы, а данные загружает TypeScript-модуль через MVC API. Интерфейс работает без перезагрузки, создаёт динамические списки через DOM API без `innerHTML`, показывает серверные ошибки рядом с полями и требует подтверждение удаления. TypeScript собирается строгим `Microsoft.TypeScript.MSBuild` из `wwwroot/ts` в `wwwroot/dist`; компиляция выполняется до `ResolveCoreStaticWebAssets`, включая Clean/Rebuild.
+Административная страница объектов находится в `/Admin/Objects`. PageModel не загружает коллекции: Razor содержит только статические контейнеры и формы, а данные загружает TypeScript-модуль через MVC API. Интерфейс работает без перезагрузки, создаёт динамические списки через DOM API без `innerHTML`, показывает серверные ошибки рядом с полями и требует подтверждение удаления. TypeScript собирается строгим `Microsoft.TypeScript.MSBuild` из `wwwroot/ts` в `wwwroot/dist`; target `PrepareTypeScriptForStaticWebAssets` перед `ResolveProjectStaticWebAssets` и `ResolveCoreStaticWebAssets` выполняет поиск конфигурации, удаление outputs другой конфигурации и `CompileTypeScriptWithTSConfig`. Поэтому удаление старых outputs всегда предшествует компиляции, а оба этапа разрешения static assets выполняются только после восстановления generated-файлов. Инкрементальный режим отключён, чтобы удалённые generated-файлы всегда восстанавливались.
 
 Административная страница уведомлений находится в `/Admin/Notifications` и следует тому же AJAX-only контракту. Она управляет чатами, тестовой отправкой и независимыми server/container bindings; bot token отсутствует в HTML, TypeScript и API payload. Состояния loading, empty, error и saving управляются клиентским модулем, опасные удаления требуют подтверждения.
+
+Административная страница пользователей находится в `/Admin/Users`. TypeScript загружает пользователей, серверы и контейнеры через MVC API, строит permissions через DOM API без `innerHTML`, перехватывает submit и передаёт antiforgery для mutating requests. Формы содержат связанные `id`/`name` и выводят field-specific ошибки.
 
 Главная страница `/` содержит статические контейнеры панели и не загружает коллекции в PageModel. TypeScript получает snapshot через `/api/dashboard`, выполняет server-side поиск по текущей строке, строит вложенные карточки DOM API и показывает отдельные состояния loading, empty, no-results и error. Тёмный layout использует Bootstrap и адаптивную сетку для desktop/mobile. Браузерный SignalR client фиксированной версии подключён как внешний статический script; потеря push-канала не блокирует HTTP snapshot.
 
