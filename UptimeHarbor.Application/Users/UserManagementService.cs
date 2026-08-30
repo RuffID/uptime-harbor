@@ -9,6 +9,7 @@ namespace UptimeHarbor.Application.Users;
 
 public class UserManagementService(
     IUserAccessContext accessContext,
+    IAdministratorAccessPolicy administratorAccessPolicy,
     IUserAccountStore accountStore,
     IVisibilitySettingsUnitOfWork unitOfWork)
     : IUserManagementService
@@ -16,21 +17,19 @@ public class UserManagementService(
     public async Task<ServiceResult<IReadOnlyList<UserAccountDto>>> GetUsersAsync(
         CancellationToken cancellationToken = default)
     {
-        ServiceResult? authorizationFailure = AuthorizeAdministrator();
-        if (authorizationFailure is not null)
+        ServiceError? accessError = administratorAccessPolicy.GetAccessError();
+        if (accessError is not null)
         {
-            return ServiceResult<IReadOnlyList<UserAccountDto>>.Fail(
-                authorizationFailure.Error
-                ?? throw new InvalidOperationException("Неуспешный результат должен содержать ошибку."));
+            return ServiceResult<IReadOnlyList<UserAccountDto>>.Fail(accessError);
         }
 
         IReadOnlyList<UserAccountRecord> accounts = await accountStore.GetAllAsync(cancellationToken);
         List<UserAccountDto> users = [];
         foreach (UserAccountRecord account in accounts)
         {
-            List<ServerVisibilityPermission> serverPermissions =
+            IReadOnlyList<ServerVisibilityPermission> serverPermissions =
                 await unitOfWork.VisibilityPermissions.GetServerPermissionsAsync(account.Id, cancellationToken);
-            List<ContainerVisibilityPermission> containerPermissions =
+            IReadOnlyList<ContainerVisibilityPermission> containerPermissions =
                 await unitOfWork.VisibilityPermissions.GetContainerPermissionsAsync(account.Id, cancellationToken);
             users.Add(new UserAccountDto(
                 account.Id,
@@ -49,12 +48,10 @@ public class UserManagementService(
         string initialPassword,
         CancellationToken cancellationToken = default)
     {
-        ServiceResult? authorizationFailure = AuthorizeAdministrator();
-        if (authorizationFailure is not null)
+        ServiceError? accessError = administratorAccessPolicy.GetAccessError();
+        if (accessError is not null)
         {
-            return ServiceResult<UserAccountDto>.Fail(
-                authorizationFailure.Error
-                ?? throw new InvalidOperationException("Неуспешный результат должен содержать ошибку."));
+            return ServiceResult<UserAccountDto>.Fail(accessError);
         }
 
         if (string.IsNullOrWhiteSpace(login))
@@ -95,10 +92,10 @@ public class UserManagementService(
         bool isEnabled,
         CancellationToken cancellationToken = default)
     {
-        ServiceResult? authorizationFailure = AuthorizeAdministrator();
-        if (authorizationFailure is not null)
+        ServiceError? accessError = administratorAccessPolicy.GetAccessError();
+        if (accessError is not null)
         {
-            return authorizationFailure;
+            return ServiceResult.Fail(accessError);
         }
 
         if (userId == accessContext.UserId)
@@ -132,10 +129,10 @@ public class UserManagementService(
         Guid userId,
         CancellationToken cancellationToken = default)
     {
-        ServiceResult? authorizationFailure = AuthorizeAdministrator();
-        if (authorizationFailure is not null)
+        ServiceError? accessError = administratorAccessPolicy.GetAccessError();
+        if (accessError is not null)
         {
-            return authorizationFailure;
+            return ServiceResult.Fail(accessError);
         }
 
         if (userId == accessContext.UserId)
@@ -170,10 +167,10 @@ public class UserManagementService(
         IReadOnlyCollection<Guid> containerIds,
         CancellationToken cancellationToken = default)
     {
-        ServiceResult? authorizationFailure = AuthorizeAdministrator();
-        if (authorizationFailure is not null)
+        ServiceError? accessError = administratorAccessPolicy.GetAccessError();
+        if (accessError is not null)
         {
-            return authorizationFailure;
+            return ServiceResult.Fail(accessError);
         }
 
         ArgumentNullException.ThrowIfNull(serverIds);
@@ -187,13 +184,15 @@ public class UserManagementService(
 
         HashSet<Guid> requestedServerIds = serverIds.ToHashSet();
         HashSet<Guid> requestedContainerIds = containerIds.ToHashSet();
-        List<MonitoredServer> servers = await unitOfWork.MonitoredServers.GetAllAsync(cancellationToken);
+        IReadOnlyList<MonitoredServer> servers =
+            await unitOfWork.MonitoredServers.GetAllAsync(cancellationToken);
         if (!requestedServerIds.IsSubsetOf(servers.Select(server => server.Id)))
         {
             return ServiceResult.Fail(ServiceErrorType.Validation, "Указан несуществующий сервер.");
         }
 
-        List<MonitoredContainer> containers = await unitOfWork.MonitoredContainers.GetAllAsync(cancellationToken);
+        IReadOnlyList<MonitoredContainer> containers =
+            await unitOfWork.MonitoredContainers.GetAllAsync(cancellationToken);
         List<MonitoredContainer> requestedContainers = containers
             .Where(container => requestedContainerIds.Contains(container.Id))
             .ToList();
@@ -212,11 +211,11 @@ public class UserManagementService(
         await unitOfWork.ExecuteInTransactionAsync(
             async transactionCancellationToken =>
             {
-                List<ServerVisibilityPermission> currentServerPermissions =
+                IReadOnlyList<ServerVisibilityPermission> currentServerPermissions =
                     await unitOfWork.VisibilityPermissions.GetServerPermissionsAsync(
                         userId,
                         transactionCancellationToken);
-                List<ContainerVisibilityPermission> currentContainerPermissions =
+                IReadOnlyList<ContainerVisibilityPermission> currentContainerPermissions =
                     await unitOfWork.VisibilityPermissions.GetContainerPermissionsAsync(
                         userId,
                         transactionCancellationToken);
@@ -239,21 +238,6 @@ public class UserManagementService(
             cancellationToken);
 
         return ServiceResult.Ok();
-    }
-
-    private ServiceResult? AuthorizeAdministrator()
-    {
-        if (!accessContext.IsAuthenticated)
-        {
-            return ServiceResult.Fail(ServiceErrorType.Unauthorized, "Требуется аутентификация.");
-        }
-
-        if (!accessContext.IsEnabled || !accessContext.IsAdministrator)
-        {
-            return ServiceResult.Fail(ServiceErrorType.Forbidden, "Операция доступна только администратору.");
-        }
-
-        return null;
     }
 
     private static ServiceResult MapStoreResult(AccountStoreResult storeResult)

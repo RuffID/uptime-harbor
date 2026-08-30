@@ -8,18 +8,18 @@ public interface INotificationBindingRepository :
     IDeleteItemRepository<NotificationBinding>,
     IGetItemByIdRepository<NotificationBinding, Guid>
 {
-    Task<List<NotificationBinding>> GetAllAsync(
+    Task<IReadOnlyList<NotificationBinding>> GetAllAsync(
         CancellationToken cancellationToken = default);
 
-    Task<List<NotificationBinding>> GetByChatIdAsync(
+    Task<IReadOnlyList<NotificationBinding>> GetByChatIdAsync(
         Guid telegramChatId,
         CancellationToken cancellationToken = default);
 
-    Task<List<NotificationBinding>> GetByServerIdAsync(
+    Task<IReadOnlyList<NotificationBinding>> GetByServerIdAsync(
         Guid serverId,
         CancellationToken cancellationToken = default);
 
-    Task<List<NotificationBinding>> GetByContainerIdAsync(
+    Task<IReadOnlyList<NotificationBinding>> GetByContainerIdAsync(
         Guid containerId,
         CancellationToken cancellationToken = default);
 }

@@ -2,7 +2,7 @@
 
 ## Статус
 
-**В работе.** Telegram отделён от monitoring durable outbox/worker, получатели запускаются параллельно, retry ограничен пятью попытками, а transport-семантика зафиксирована как at-least-once. SQLite/fake transport tests проходят; остаются ручные process-restart и реальная Telegram runtime-проверки после migration.
+**В работе.** Telegram отделён от monitoring durable outbox/worker, административные use case проверяют единую administrator policy до чтения и тестовой отправки, получатели запускаются параллельно, retry ограничен пятью попытками, а transport-семантика зафиксирована как at-least-once. SQLite/fake transport tests проходят; остаются ручные process-restart и реальная Telegram runtime-проверки после migration.
 
 ## Цель
 

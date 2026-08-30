@@ -22,6 +22,7 @@
 - HTTP-проверки тестировать через управляемый fake `HttpMessageHandler`; timeout и текущее время контролировать через options и `TimeProvider` без внешних endpoint.
 - Параллельность worker проверять через управляемые `TaskCompletionSource`, не используя реальные задержки, кроме изолированной проверки timeout.
 - Dashboard query проверять на серверную видимость, поиск, UTC и uptime с фиксированным `TimeProvider`; SignalR — через fake hub context без запуска Web-хоста.
+- Общую administrator policy проверять отдельно и через все три защищённых сервиса с fail-fast зависимостями; materialized dashboard/recipient queries проверять на SQLite без внешней БД и на отсутствие N+1.
 - Telegram transport проверять fake `HttpMessageHandler`; частичную доставку — in-memory repositories/scopes, без сети и БД; frontend — статически по TypeScript/Razor исходникам.
 - Web contract tests должны сериализовать DTO через фактические MVC `JsonOptions`, а не через произвольные `JsonSerializerOptions`.
 - Model-state tests вызывают фактически зарегистрированную `InvalidModelStateResponseFactory`; TypeScript lifecycle проверяется статически, а реальные browser burst/cancellation сценарии не выдаются за автоматические.

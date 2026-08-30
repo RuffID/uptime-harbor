@@ -2,7 +2,7 @@
 
 ## Статус
 
-**В работе.** HTTP adapter ограничен 64 KiB и не следует redirect; stale monitoring write отклоняется optimistic concurrency без SignalR/outbox events. Fake transport и SQLite provider tests проходят; остаётся ручная PostgreSQL runtime-проверка после migration.
+**В работе.** HTTP adapter ограничен 64 KiB и не следует redirect; списковые цели читаются через materialized `IReadOnlyList`, stale monitoring write отклоняется optimistic concurrency без SignalR/outbox events. Fake transport и SQLite provider tests проходят; остаётся ручная PostgreSQL runtime-проверка после migration.
 
 ## Цель
 

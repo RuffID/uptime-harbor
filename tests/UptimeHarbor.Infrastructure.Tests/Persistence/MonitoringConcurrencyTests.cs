@@ -205,11 +205,11 @@ public class MonitoringConcurrencyTests
             return server;
         }
 
-        public Task<List<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default) =>
-            context.MonitoredServers.AsNoTracking().ToListAsync(cancellationToken);
+        public async Task<IReadOnlyList<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default) =>
+            await context.MonitoredServers.AsNoTracking().ToListAsync(cancellationToken);
 
-        public Task<List<MonitoredServer>> GetEnabledAsync(CancellationToken cancellationToken = default) =>
-            context.MonitoredServers.AsNoTracking()
+        public async Task<IReadOnlyList<MonitoredServer>> GetEnabledAsync(CancellationToken cancellationToken = default) =>
+            await context.MonitoredServers.AsNoTracking()
                 .Where(server => server.IsMonitoringEnabled)
                 .ToListAsync(cancellationToken);
 
@@ -221,9 +221,9 @@ public class MonitoringConcurrencyTests
 
     private class EmptyContainerRepository : IMonitoredContainerRepository
     {
-        public Task<List<MonitoredContainer>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<List<MonitoredContainer>>([]);
-        public Task<List<MonitoredContainer>> GetEnabledAsync(CancellationToken cancellationToken = default) => Task.FromResult<List<MonitoredContainer>>([]);
-        public Task<List<MonitoredContainer>> GetByServerIdAsync(Guid serverId, CancellationToken cancellationToken = default) => Task.FromResult<List<MonitoredContainer>>([]);
+        public Task<IReadOnlyList<MonitoredContainer>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MonitoredContainer>>([]);
+        public Task<IReadOnlyList<MonitoredContainer>> GetEnabledAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MonitoredContainer>>([]);
+        public Task<IReadOnlyList<MonitoredContainer>> GetByServerIdAsync(Guid serverId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MonitoredContainer>>([]);
         public Task<MonitoredContainer?> GetItemByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult<MonitoredContainer?>(null);
         public void Create(MonitoredContainer item) => throw new NotSupportedException();
         public void CreateRange(IEnumerable<MonitoredContainer> entities) => throw new NotSupportedException();

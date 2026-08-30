@@ -19,42 +19,46 @@ public class NotificationBindingRepository(
             ct: cancellationToken);
     }
 
-    public Task<List<NotificationBinding>> GetAllAsync(
+    public async Task<IReadOnlyList<NotificationBinding>> GetAllAsync(
         CancellationToken cancellationToken = default)
     {
-        return getRepository.GetItemsByPredicateAsync(
+        List<NotificationBinding> bindings = await getRepository.GetItemsByPredicateAsync(
             asNoTracking: true,
             ct: cancellationToken);
+        return bindings;
     }
 
-    public Task<List<NotificationBinding>> GetByChatIdAsync(
+    public async Task<IReadOnlyList<NotificationBinding>> GetByChatIdAsync(
         Guid telegramChatId,
         CancellationToken cancellationToken = default)
     {
-        return getRepository.GetItemsByPredicateAsync(
+        List<NotificationBinding> bindings = await getRepository.GetItemsByPredicateAsync(
             binding => binding.TelegramChatId == telegramChatId,
             asNoTracking: true,
             ct: cancellationToken);
+        return bindings;
     }
 
-    public Task<List<NotificationBinding>> GetByServerIdAsync(
+    public async Task<IReadOnlyList<NotificationBinding>> GetByServerIdAsync(
         Guid serverId,
         CancellationToken cancellationToken = default)
     {
-        return getRepository.GetItemsByPredicateAsync(
+        List<NotificationBinding> bindings = await getRepository.GetItemsByPredicateAsync(
             binding => binding.ServerId == serverId,
             asNoTracking: true,
             ct: cancellationToken);
+        return bindings;
     }
 
-    public Task<List<NotificationBinding>> GetByContainerIdAsync(
+    public async Task<IReadOnlyList<NotificationBinding>> GetByContainerIdAsync(
         Guid containerId,
         CancellationToken cancellationToken = default)
     {
-        return getRepository.GetItemsByPredicateAsync(
+        List<NotificationBinding> bindings = await getRepository.GetItemsByPredicateAsync(
             binding => binding.ContainerId == containerId,
             asNoTracking: true,
             ct: cancellationToken);
+        return bindings;
     }
 
     public void Create(NotificationBinding item)

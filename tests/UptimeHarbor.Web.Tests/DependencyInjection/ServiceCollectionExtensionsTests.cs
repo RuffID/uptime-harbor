@@ -7,9 +7,11 @@ using Microsoft.AspNetCore.Builder;
 using UptimeHarbor.Application;
 using UptimeHarbor.Application.Abstractions.UnitOfWork;
 using UptimeHarbor.Application.Common;
+using UptimeHarbor.Application.Dashboard;
 using UptimeHarbor.Application.Monitoring.Models;
 using UptimeHarbor.Application.Notifications;
 using UptimeHarbor.Application.Notifications.Models;
+using UptimeHarbor.Application.Visibility;
 using UptimeHarbor.Infrastructure;
 using UptimeHarbor.Infrastructure.Identity;
 using UptimeHarbor.Infrastructure.Persistence;
@@ -64,6 +66,10 @@ public class ServiceCollectionExtensionsTests
             scope.ServiceProvider.GetRequiredService<IVisibilitySettingsUnitOfWork>();
         INotificationSettingsUnitOfWork notifications =
             scope.ServiceProvider.GetRequiredService<INotificationSettingsUnitOfWork>();
+        IDashboardSnapshotReadQuery dashboardReadQuery =
+            scope.ServiceProvider.GetRequiredService<IDashboardSnapshotReadQuery>();
+        IMonitoringRecipientReadQuery recipientReadQuery =
+            scope.ServiceProvider.GetRequiredService<IMonitoringRecipientReadQuery>();
 
         Assert.NotNull(monitoring.MonitoredServers);
         Assert.NotNull(monitoring.MonitoredContainers);
@@ -72,6 +78,8 @@ public class ServiceCollectionExtensionsTests
         Assert.NotNull(visibility.VisibilityPermissions);
         Assert.NotNull(notifications.TelegramChats);
         Assert.NotNull(notifications.NotificationBindings);
+        Assert.NotNull(dashboardReadQuery);
+        Assert.NotNull(recipientReadQuery);
         Assert.Contains(
             services,
             descriptor => descriptor.ServiceType.FullName?.StartsWith(

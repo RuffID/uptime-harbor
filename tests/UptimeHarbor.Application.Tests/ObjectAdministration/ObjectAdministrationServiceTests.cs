@@ -383,8 +383,9 @@ public class ObjectAdministrationServiceTests
                 throwConcurrencyOnSave,
                 throwOnSave);
             Publisher = new FakeChangePublisher();
+            FakeAccessContext accessContext = new(isAdministrator);
             Service = new ObjectAdministrationService(
-                new FakeAccessContext(isAdministrator),
+                new AdministratorAccessPolicy(accessContext),
                 UnitOfWork,
                 Publisher);
         }
@@ -477,11 +478,12 @@ public class ObjectAdministrationServiceTests
     {
         public List<MonitoredServer> Items { get; } = [];
 
-        public Task<List<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(Items.ToList());
+        public Task<IReadOnlyList<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<MonitoredServer>>(Items.ToList());
 
-        public Task<List<MonitoredServer>> GetEnabledAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(Items.Where(item => item.IsMonitoringEnabled).ToList());
+        public Task<IReadOnlyList<MonitoredServer>> GetEnabledAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<MonitoredServer>>(
+                Items.Where(item => item.IsMonitoringEnabled).ToList());
 
         public Task<MonitoredServer?> GetItemByIdAsync(
             Guid id,
@@ -507,16 +509,18 @@ public class ObjectAdministrationServiceTests
     {
         public List<MonitoredContainer> Items { get; } = [];
 
-        public Task<List<MonitoredContainer>> GetAllAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(Items.ToList());
+        public Task<IReadOnlyList<MonitoredContainer>> GetAllAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<MonitoredContainer>>(Items.ToList());
 
-        public Task<List<MonitoredContainer>> GetEnabledAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(Items.Where(item => item.IsMonitoringEnabled).ToList());
+        public Task<IReadOnlyList<MonitoredContainer>> GetEnabledAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<MonitoredContainer>>(
+                Items.Where(item => item.IsMonitoringEnabled).ToList());
 
-        public Task<List<MonitoredContainer>> GetByServerIdAsync(
+        public Task<IReadOnlyList<MonitoredContainer>> GetByServerIdAsync(
             Guid serverId,
             CancellationToken cancellationToken = default) =>
-            Task.FromResult(Items.Where(item => item.ServerId == serverId).ToList());
+            Task.FromResult<IReadOnlyList<MonitoredContainer>>(
+                Items.Where(item => item.ServerId == serverId).ToList());
 
         public Task<MonitoredContainer?> GetItemByIdAsync(
             Guid id,

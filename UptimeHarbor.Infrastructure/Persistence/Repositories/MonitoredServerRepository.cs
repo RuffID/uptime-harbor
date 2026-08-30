@@ -19,21 +19,23 @@ public class MonitoredServerRepository(
             ct: cancellationToken);
     }
 
-    public Task<List<MonitoredServer>> GetAllAsync(
+    public async Task<IReadOnlyList<MonitoredServer>> GetAllAsync(
         CancellationToken cancellationToken = default)
     {
-        return getRepository.GetItemsByPredicateAsync(
+        List<MonitoredServer> servers = await getRepository.GetItemsByPredicateAsync(
             asNoTracking: true,
             ct: cancellationToken);
+        return servers;
     }
 
-    public Task<List<MonitoredServer>> GetEnabledAsync(
+    public async Task<IReadOnlyList<MonitoredServer>> GetEnabledAsync(
         CancellationToken cancellationToken = default)
     {
-        return getRepository.GetItemsByPredicateAsync(
+        List<MonitoredServer> servers = await getRepository.GetItemsByPredicateAsync(
             server => server.IsMonitoringEnabled,
             asNoTracking: true,
             ct: cancellationToken);
+        return servers;
     }
 
     public void Create(MonitoredServer item)

@@ -33,9 +33,9 @@ Persistence реализован в `UptimeHarbor.Infrastructure`. `UptimeHarbor
 
 Предметные репозитории адаптируют их к Application-контрактам. Для поиска по ID используется predicate repository, поэтому Domain не реализует библиотечный `IEntity<TId>`.
 
-Запросы чтения списков выполняются no-tracking. Запрос объекта для последующего изменения остаётся tracked. `IQueryable` не выходит из Infrastructure.
+Все внешние списковые read-методы Application repositories возвращают `Task<IReadOnlyList<T>>`. Infrastructure по-прежнему materialize-ит запросы в конкретные `List<T>` через базовые list operations или `ToListAsync`; изменяемый тип не выходит через контракт. Запросы чтения выполняются no-tracking, запрос объекта для последующего изменения остаётся tracked. `IQueryable` не выходит из Infrastructure.
 
-Для одного monitoring event recipient resolver передаёт Infrastructure набор обычных user-id. Репозиторий materialize-ит permissions одним no-tracking запросом на server permissions и, для container event, одним запросом на container permissions. Application получает только списки доменных permission-объектов; EF query и `IQueryable` наружу не выходят.
+`DashboardSnapshotReadQuery` отдельно проецирует server/container dashboard records без endpoint URL и permission IDs текущего пользователя. `MonitoringRecipientReadQuery` отдельно materialize-ит users с ролью Administrator и пакетные permission ID обычных пользователей: один server-permission query и, только для container event, один container-permission query. Оба контракта находятся в Application, реализации — в Infrastructure; EF entities, provider-типы и `IQueryable` наружу не выходят.
 
 Для начала каждого monitoring cycle `GetEnabledAsync` фильтрует включённые серверы и контейнеры в БД и возвращает materialized no-tracking snapshot. Результат каждой параллельной проверки записывается в отдельном DI scope: объект повторно загружается tracked и сохраняется через scoped `IMonitoringUnitOfWork`.
 

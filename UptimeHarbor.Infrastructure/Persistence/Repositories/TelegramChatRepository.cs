@@ -19,12 +19,13 @@ public class TelegramChatRepository(
             ct: cancellationToken);
     }
 
-    public Task<List<TelegramChat>> GetAllAsync(
+    public async Task<IReadOnlyList<TelegramChat>> GetAllAsync(
         CancellationToken cancellationToken = default)
     {
-        return getRepository.GetItemsByPredicateAsync(
+        List<TelegramChat> chats = await getRepository.GetItemsByPredicateAsync(
             asNoTracking: true,
             ct: cancellationToken);
+        return chats;
     }
 
     public Task<TelegramChat?> GetByTelegramChatIdAsync(

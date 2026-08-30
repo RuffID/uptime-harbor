@@ -39,9 +39,9 @@ Test-проекты ссылаются только на проверяемый 
 
 Регистрации распределены по модулям:
 
-- `AddApplication` — `TimeProvider.System`, управление пользователями и объектами, dashboard/recipient visibility use case и publisher мониторинга;
+- `AddApplication` — `TimeProvider.System`, единая administrator access policy, управление пользователями и объектами, dashboard/recipient visibility use case и publisher мониторинга;
 - `AddApplicationConfiguration` — options и их fail-fast валидация;
-- `AddInfrastructure` — база данных, Identity/cookies, bootstrap администратора, репозитории, Unit of Work, Data Protection, HTTP-клиенты и monitoring worker;
+- `AddInfrastructure` — база данных, Identity/cookies, bootstrap администратора, репозитории, специализированные materialized read queries, Unit of Work, Data Protection, HTTP-клиенты и monitoring worker;
 - `AddWebPresentation` — контроллеры, Razor Pages, SignalR, publisher административных изменений и health checks.
 
 ## Границы моделей
@@ -50,13 +50,13 @@ Test-проекты ссылаются только на проверяемый 
 
 Identity-типы находятся в Infrastructure, потому что наследование от ASP.NET Core Identity является технической деталью хранения и аутентификации.
 
-Application получает сведения о текущем пользователе через независимый `IUserAccessContext`, а операции Identity — через `IUserAccountStore`. Ожидаемые ошибки сценариев описываются `ServiceResult` и переводятся в HTTP-статусы только в Web.
+Application получает сведения о текущем пользователе через независимый `IUserAccessContext`, а операции Identity — через `IUserAccountStore`. `IAdministratorAccessPolicy` единообразно возвращает semantic `Unauthorized`/`Forbidden` для `UserManagementService`, `ObjectAdministrationService` и `NotificationAdministrationService`; каждый use case вызывает policy до I/O. Ожидаемые ошибки сценариев описываются `ServiceResult` и переводятся в HTTP-статусы только в Web.
 
-`ObjectAdministrationService` повторно проверяет административную роль внутри каждого сценария и использует отдельный `IObjectAdministrationUnitOfWork`. После успешного сохранения он вызывает независимый `IObjectAdministrationChangePublisher`; Web-реализация best-effort отправляет обезличенный SignalR-сигнал, изолирует transport exception и не меняет уже успешный результат commit.
+`ObjectAdministrationService` проверяет административный доступ через общую policy внутри каждого сценария и использует отдельный `IObjectAdministrationUnitOfWork`. После успешного сохранения он вызывает независимый `IObjectAdministrationChangePublisher`; Web-реализация best-effort отправляет обезличенный SignalR-сигнал, изолирует transport exception и не меняет уже успешный результат commit.
 
 `MonitoringService` получает независимые результаты server/container endpoint, повторно проверяет актуальность включённого объекта и endpoint, вызывает доменные переходы и сохраняет через `IMonitoringUnitOfWork`. Optimistic concurrency отклоняет stale write. Outage/recovery payload добавляется в durable outbox в том же `SaveChangesAsync`, а `MonitoringStateChangedEvent` для SignalR публикуется только после успешного сохранения. HTTP, JSON, monitoring worker, Telegram outbox dispatcher и keyed-координация остаются в Infrastructure.
 
-`DashboardQuery` зависит только от независимого `IVisibilitySettingsUnitOfWork`, `IUserAccessContext` и `TimeProvider`. Он фильтрует доменные объекты до формирования dashboard DTO без endpoint URL, выполняет поиск только по доступному набору и рассчитывает uptime относительно UTC-времени snapshot. `MonitoringEventRecipientResolver` использует общую `ObjectVisibilityPolicy` и пакетные materialized permission queries, поэтому SignalR не вводит отдельную модель доступа или N+1.
+`DashboardQuery` зависит от `IDashboardSnapshotReadQuery`, `IUserAccessContext` и `TimeProvider`. Infrastructure query проецирует materialized read records без endpoint URL; Application применяет чистую `ObjectVisibilityPolicy` до формирования dashboard DTO, выполняет поиск только по доступному набору и рассчитывает uptime относительно UTC-времени snapshot. `MonitoringEventRecipientResolver` использует отдельный `IMonitoringRecipientReadQuery`: users и признак Administrator загружаются одним запросом, server/container permissions — пакетно, без per-user N+1. Dashboard и recipient contracts не объединены в универсальный visibility repository.
 
 Web-обработчик внутреннего monitoring event определяет разрешённые Identity user-id в Application, а через SignalR отправляет только тип и GUID изменившегося объекта. Клиент использует событие как сигнал перечитать защищённый snapshot; PostgreSQL остаётся источником истины.
 

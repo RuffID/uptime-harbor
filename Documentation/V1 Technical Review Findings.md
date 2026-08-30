@@ -4,11 +4,11 @@
 
 Проверка выполнена относительно `Technical requirements.md` и текущей технической документации. В область проверки вошли Domain, Application, Infrastructure, Web, TypeScript-клиент, persistence, monitoring worker, Telegram-доставка, тесты и deployment-материалы.
 
-Разрешённые Release-сборки и изолированные тесты выполнены после P2-исправлений: Domain 16, Application 80, Infrastructure 59 и Web 51 тест прошли. Docker, Web-host, browser automation, PostgreSQL, SQL, миграции, npm, LibMan и проектные скрипты не запускались. Provider-level проверки выполнены только на SQLite in-memory.
+Разрешённые Release-сборки и изолированные тесты повторно выполнены после P3-рефакторинга: Domain 16, Application 91, Infrastructure 61 и Web 51 тест прошли. Docker, Web-host, browser automation, PostgreSQL, SQL, миграции, npm, LibMan и проектные скрипты не запускались. Provider-level проверки выполнены только на SQLite in-memory.
 
 ## Итог
 
-P0-1 и P0-2 устранены, P0-3 исключён из v1; статусы и гарантии P0/P1 не ослаблялись. P2-1—P2-4 устранены в исходном коде и разрешённом изолированном наборе, при этом browser burst/cancellation и настоящий HTTP input formatter pipeline остаются ручными runtime-проверками. P2-5 устранён частично: Identity lockout, login rate limit и базовые security headers готовы, но локальный SignalR browser client и CSP заблокированы отсутствием точного asset в разрешённых локальных источниках. P3 не выполнялся. До ручных P1/P2 runtime-проверок, применения migration и завершения P2-5 версию нельзя считать runtime-ready.
+P0-1 и P0-2 устранены, P0-3 исключён из v1; статусы и гарантии P0/P1 не ослаблялись. P2-1—P2-4 устранены в исходном коде и разрешённом изолированном наборе, при этом browser burst/cancellation и настоящий HTTP input formatter pipeline остаются ручными runtime-проверками. P2-5 устранён частично: Identity lockout, login rate limit и базовые security headers готовы, но локальный SignalR browser client и CSP заблокированы отсутствием точного asset в разрешённых локальных источниках. P3-1—P3-3 устранены полностью как внутренний серверный рефакторинг без изменения продуктовых контрактов. До ручных P1/P2 runtime-проверок, применения migration и завершения P2-5 версию нельзя считать runtime-ready.
 
 ## Блокирующие проблемы
 
@@ -237,17 +237,23 @@ Keyed coordination защищает только две monitoring-провер�
 
 Рекомендуемое решение: выделить небольшой независимый Application policy/service, возвращающий единый `ServiceError?`. Не переносить проверку только в controller: защищаемый use case должен продолжать проверять доступ сам.
 
+**Статус: устранён полностью.** Добавлен независимый `IAdministratorAccessPolicy`, использующий только `IUserAccessContext` и semantic `ServiceError`. `UserManagementService`, `ObjectAdministrationService` и `NotificationAdministrationService` вызывают policy внутри каждого защищённого use case до I/O и side effects; controller role metadata, self/last-admin guards и best-effort SignalR после commit сохранены.
+
 ### P3-2. Контракты репозиториев возвращают изменяемые `List<T>`
 
 Application-интерфейсы спискового чтения возвращают `Task<List<T>>`, хотя потребителям не требуется изменять коллекцию и проектные правила требуют read-only materialized results.
 
 Рекомендуемое решение: после более срочных исправлений заменить внешние контракты на `IReadOnlyList<T>` и оставить конкретный `List<T>` деталью Infrastructure/materialization. Не выполнять это одновременно с функциональными исправлениями конкурентности.
 
+**Статус: устранён полностью.** Все списковые read-методы Application persistence contracts возвращают `Task<IReadOnlyList<T>>`. Infrastructure по-прежнему materialize-ит результаты в `List<T>` через list operations/`ToListAsync`; `IQueryable` и EF-типы не вышли за пределы Infrastructure, write-range контракты и схема БД не менялись.
+
 ### P3-3. Visibility/read-query логика размножена
 
 `AccessibleObjectsService`, `DashboardQuery` и `MonitoringEventRecipientResolver` отдельно загружают объекты/permissions и повторяют orchestration фильтрации. Это уже привело к лишнему `/api/objects` и N+1 запросам.
 
 Рекомендуемое решение: оставить `ObjectVisibilityPolicy` чистым правилом, но добавить специализированные materialized query-контракты для dashboard и recipient resolution с пакетной загрузкой. Не возвращать `IQueryable` в Application.
+
+**Статус: устранён полностью.** Добавлены отдельные `IDashboardSnapshotReadQuery` и `IMonitoringRecipientReadQuery` в Application с Infrastructure-реализациями. Dashboard projection не содержит endpoint URL, visibility применяется до пользовательских DTO; recipient query пакетно materialize-ит users с ролью и permissions без per-user N+1. `ObjectVisibilityPolicy` осталась чистой синхронной политикой, `/api/objects` не возвращён.
 
 ## Рекомендуемый порядок исправлений
 

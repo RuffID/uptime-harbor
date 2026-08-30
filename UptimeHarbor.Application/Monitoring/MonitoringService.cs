@@ -12,9 +12,9 @@ public class MonitoringService(
     public async Task<IReadOnlyList<MonitoringTargetDto>> GetEnabledTargetsAsync(
         CancellationToken cancellationToken = default)
     {
-        List<MonitoredServer> servers =
+        IReadOnlyList<MonitoredServer> servers =
             await unitOfWork.MonitoredServers.GetEnabledAsync(cancellationToken);
-        List<MonitoredContainer> containers =
+        IReadOnlyList<MonitoredContainer> containers =
             await unitOfWork.MonitoredContainers.GetEnabledAsync(cancellationToken);
 
         List<MonitoringTargetDto> targets = new(servers.Count + containers.Count);

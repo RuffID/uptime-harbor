@@ -8,7 +8,7 @@ public interface ITelegramChatRepository :
     IDeleteItemRepository<TelegramChat>,
     IGetItemByIdRepository<TelegramChat, Guid>
 {
-    Task<List<TelegramChat>> GetAllAsync(
+    Task<IReadOnlyList<TelegramChat>> GetAllAsync(
         CancellationToken cancellationToken = default);
 
     Task<TelegramChat?> GetByTelegramChatIdAsync(

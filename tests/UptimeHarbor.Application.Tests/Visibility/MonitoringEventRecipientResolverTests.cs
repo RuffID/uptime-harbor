@@ -4,6 +4,7 @@ using UptimeHarbor.Application.Monitoring;
 using UptimeHarbor.Application.Users;
 using UptimeHarbor.Application.Users.Models;
 using UptimeHarbor.Application.Visibility;
+using UptimeHarbor.Application.Visibility.Models;
 using UptimeHarbor.Domain.Access;
 using UptimeHarbor.Domain.Monitoring;
 using Xunit;
@@ -140,23 +141,20 @@ public class MonitoringEventRecipientResolverTests
             TestContext.Current.CancellationToken);
 
         Assert.Equal(3, recipients.Count);
-        Assert.Equal(0, data.Permissions.SingleUserServerReadCount);
-        Assert.Equal(0, data.Permissions.SingleUserContainerReadCount);
-        Assert.Equal(1, data.Permissions.BatchServerReadCount);
-        Assert.Equal(1, data.Permissions.BatchContainerReadCount);
+        Assert.Equal(1, data.ReadQuery.ReadCount);
     }
 
     private class TestData
     {
         public TestData()
         {
-            Resolver = new MonitoringEventRecipientResolver(
-                Users,
-                new FakeVisibilityUnitOfWork(Permissions));
+            ReadQuery = new FakeRecipientReadQuery(Users, Permissions);
+            Resolver = new MonitoringEventRecipientResolver(ReadQuery);
         }
 
         public FakeUserAccountStore Users { get; } = new();
         public FakePermissionRepository Permissions { get; } = new();
+        public FakeRecipientReadQuery ReadQuery { get; }
         public MonitoringEventRecipientResolver Resolver { get; }
 
         public Guid AddUser(bool isAdministrator)
@@ -164,6 +162,38 @@ public class MonitoringEventRecipientResolverTests
             Guid id = Guid.NewGuid();
             Users.Items.Add(new UserAccountRecord(id, id.ToString(), true, isAdministrator));
             return id;
+        }
+    }
+
+    private class FakeRecipientReadQuery(
+        FakeUserAccountStore users,
+        FakePermissionRepository permissions)
+        : IMonitoringRecipientReadQuery
+    {
+        public int ReadCount { get; private set; }
+
+        public Task<IReadOnlyList<MonitoringRecipientReadRecord>> GetCandidatesAsync(
+            MonitoringObjectKind objectKind,
+            CancellationToken cancellationToken = default)
+        {
+            ReadCount++;
+            IReadOnlyList<MonitoringRecipientReadRecord> candidates = users.Items
+                .Select(user => new MonitoringRecipientReadRecord(
+                    user.Id,
+                    user.IsEnabled,
+                    user.IsAdministrator,
+                    permissions.ServerPermissions
+                        .Where(permission => permission.UserId == user.Id)
+                        .Select(permission => permission.ServerId)
+                        .ToList(),
+                    objectKind == MonitoringObjectKind.Container
+                        ? permissions.ContainerPermissions
+                            .Where(permission => permission.UserId == user.Id)
+                            .Select(permission => permission.ContainerId)
+                            .ToList()
+                        : []))
+                .ToList();
+            return Task.FromResult(candidates);
         }
     }
 
@@ -197,8 +227,8 @@ public class MonitoringEventRecipientResolverTests
 
     private class EmptyServerRepository : IMonitoredServerRepository
     {
-        public Task<List<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<List<MonitoredServer>>([]);
-        public Task<List<MonitoredServer>> GetEnabledAsync(CancellationToken cancellationToken = default) => Task.FromResult<List<MonitoredServer>>([]);
+        public Task<IReadOnlyList<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MonitoredServer>>([]);
+        public Task<IReadOnlyList<MonitoredServer>> GetEnabledAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MonitoredServer>>([]);
         public Task<MonitoredServer?> GetItemByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult<MonitoredServer?>(null);
         public void Create(MonitoredServer item) => throw new NotSupportedException();
         public void CreateRange(IEnumerable<MonitoredServer> entities) => throw new NotSupportedException();
@@ -208,9 +238,9 @@ public class MonitoringEventRecipientResolverTests
 
     private class EmptyContainerRepository : IMonitoredContainerRepository
     {
-        public Task<List<MonitoredContainer>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<List<MonitoredContainer>>([]);
-        public Task<List<MonitoredContainer>> GetEnabledAsync(CancellationToken cancellationToken = default) => Task.FromResult<List<MonitoredContainer>>([]);
-        public Task<List<MonitoredContainer>> GetByServerIdAsync(Guid serverId, CancellationToken cancellationToken = default) => Task.FromResult<List<MonitoredContainer>>([]);
+        public Task<IReadOnlyList<MonitoredContainer>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MonitoredContainer>>([]);
+        public Task<IReadOnlyList<MonitoredContainer>> GetEnabledAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MonitoredContainer>>([]);
+        public Task<IReadOnlyList<MonitoredContainer>> GetByServerIdAsync(Guid serverId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MonitoredContainer>>([]);
         public Task<MonitoredContainer?> GetItemByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult<MonitoredContainer?>(null);
         public void Create(MonitoredContainer item) => throw new NotSupportedException();
         public void CreateRange(IEnumerable<MonitoredContainer> entities) => throw new NotSupportedException();
@@ -226,25 +256,29 @@ public class MonitoringEventRecipientResolverTests
         public int SingleUserContainerReadCount { get; private set; }
         public int BatchServerReadCount { get; private set; }
         public int BatchContainerReadCount { get; private set; }
-        public Task<List<ServerVisibilityPermission>> GetServerPermissionsAsync(Guid userId, CancellationToken cancellationToken = default)
+        public Task<IReadOnlyList<ServerVisibilityPermission>> GetServerPermissionsAsync(Guid userId, CancellationToken cancellationToken = default)
         {
             SingleUserServerReadCount++;
-            return Task.FromResult(ServerPermissions.Where(item => item.UserId == userId).ToList());
+            return Task.FromResult<IReadOnlyList<ServerVisibilityPermission>>(
+                ServerPermissions.Where(item => item.UserId == userId).ToList());
         }
-        public Task<List<ContainerVisibilityPermission>> GetContainerPermissionsAsync(Guid userId, CancellationToken cancellationToken = default)
+        public Task<IReadOnlyList<ContainerVisibilityPermission>> GetContainerPermissionsAsync(Guid userId, CancellationToken cancellationToken = default)
         {
             SingleUserContainerReadCount++;
-            return Task.FromResult(ContainerPermissions.Where(item => item.UserId == userId).ToList());
+            return Task.FromResult<IReadOnlyList<ContainerVisibilityPermission>>(
+                ContainerPermissions.Where(item => item.UserId == userId).ToList());
         }
-        public Task<List<ServerVisibilityPermission>> GetServerPermissionsForUsersAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken = default)
+        public Task<IReadOnlyList<ServerVisibilityPermission>> GetServerPermissionsForUsersAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken = default)
         {
             BatchServerReadCount++;
-            return Task.FromResult(ServerPermissions.Where(item => userIds.Contains(item.UserId)).ToList());
+            return Task.FromResult<IReadOnlyList<ServerVisibilityPermission>>(
+                ServerPermissions.Where(item => userIds.Contains(item.UserId)).ToList());
         }
-        public Task<List<ContainerVisibilityPermission>> GetContainerPermissionsForUsersAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken = default)
+        public Task<IReadOnlyList<ContainerVisibilityPermission>> GetContainerPermissionsForUsersAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken = default)
         {
             BatchContainerReadCount++;
-            return Task.FromResult(ContainerPermissions.Where(item => userIds.Contains(item.UserId)).ToList());
+            return Task.FromResult<IReadOnlyList<ContainerVisibilityPermission>>(
+                ContainerPermissions.Where(item => userIds.Contains(item.UserId)).ToList());
         }
         public void Create(ServerVisibilityPermission item) => ServerPermissions.Add(item);
         public void CreateRange(IEnumerable<ServerVisibilityPermission> entities) => ServerPermissions.AddRange(entities);

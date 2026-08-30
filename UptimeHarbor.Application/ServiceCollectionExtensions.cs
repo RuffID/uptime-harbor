@@ -3,6 +3,7 @@ using UptimeHarbor.Application.Dashboard;
 using UptimeHarbor.Application.Monitoring;
 using UptimeHarbor.Application.Notifications;
 using UptimeHarbor.Application.ObjectAdministration;
+using UptimeHarbor.Application.Security;
 using UptimeHarbor.Application.Users;
 using UptimeHarbor.Application.Visibility;
 
@@ -15,6 +16,7 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
 
         services.AddSingleton(TimeProvider.System);
+        services.AddScoped<IAdministratorAccessPolicy, AdministratorAccessPolicy>();
         services.AddScoped<IUserManagementService, UserManagementService>();
         services.AddScoped<IDashboardQuery, DashboardQuery>();
         services.AddScoped<IMonitoringEventRecipientResolver, MonitoringEventRecipientResolver>();

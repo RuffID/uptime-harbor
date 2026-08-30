@@ -241,7 +241,7 @@ public class DashboardQueryTests
         {
             return new DashboardQuery(
                 new FakeAccessContext(UserId, isAdministrator),
-                new FakeVisibilityUnitOfWork(Servers, Containers, Permissions),
+                new FakeDashboardSnapshotReadQuery(Servers, Containers, Permissions),
                 new FixedTimeProvider(NOW_UTC));
         }
     }
@@ -257,6 +257,44 @@ public class DashboardQueryTests
         public bool IsAdministrator { get; } = isAdministrator;
         public bool IsEnabled => true;
         public Guid UserId { get; } = userId;
+    }
+
+    private class FakeDashboardSnapshotReadQuery(
+        FakeServerRepository servers,
+        FakeContainerRepository containers,
+        FakePermissionRepository permissions)
+        : IDashboardSnapshotReadQuery
+    {
+        public Task<DashboardReadSnapshot> GetSnapshotAsync(
+            Guid userId,
+            bool isAdministrator,
+            CancellationToken cancellationToken = default)
+        {
+            DashboardReadSnapshot snapshot = new(
+                servers.Items.Select(server => new DashboardServerReadRecord(
+                    server.Id,
+                    server.Description,
+                    server.LastKnownName,
+                    server.Status,
+                    server.LastCheckedAtUtc)).ToList(),
+                containers.Items.Select(container => new DashboardContainerReadRecord(
+                    container.Id,
+                    container.ServerId,
+                    container.Description,
+                    container.LastKnownName,
+                    container.Status,
+                    container.LastCheckedAtUtc,
+                    container.StartedAtUtc)).ToList(),
+                permissions.ServerPermissions
+                    .Where(permission => permission.UserId == userId)
+                    .Select(permission => permission.ServerId)
+                    .ToList(),
+                permissions.ContainerPermissions
+                    .Where(permission => permission.UserId == userId)
+                    .Select(permission => permission.ContainerId)
+                    .ToList());
+            return Task.FromResult(snapshot);
+        }
     }
 
     private class FakeVisibilityUnitOfWork(
@@ -275,10 +313,12 @@ public class DashboardQueryTests
 
     private class FakeServerRepository(List<MonitoredServer> items) : IMonitoredServerRepository
     {
-        public Task<List<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(items.ToList());
-        public Task<List<MonitoredServer>> GetEnabledAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(items.Where(item => item.IsMonitoringEnabled).ToList());
+        public List<MonitoredServer> Items => items;
+        public Task<IReadOnlyList<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<MonitoredServer>>(items.ToList());
+        public Task<IReadOnlyList<MonitoredServer>> GetEnabledAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<MonitoredServer>>(
+                items.Where(item => item.IsMonitoringEnabled).ToList());
         public Task<MonitoredServer?> GetItemByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
             Task.FromResult(items.SingleOrDefault(item => item.Id == id));
         public void Create(MonitoredServer item) => items.Add(item);
@@ -292,12 +332,15 @@ public class DashboardQueryTests
 
     private class FakeContainerRepository(List<MonitoredContainer> items) : IMonitoredContainerRepository
     {
-        public Task<List<MonitoredContainer>> GetAllAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(items.ToList());
-        public Task<List<MonitoredContainer>> GetEnabledAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult(items.Where(item => item.IsMonitoringEnabled).ToList());
-        public Task<List<MonitoredContainer>> GetByServerIdAsync(Guid serverId, CancellationToken cancellationToken = default) =>
-            Task.FromResult(items.Where(item => item.ServerId == serverId).ToList());
+        public List<MonitoredContainer> Items => items;
+        public Task<IReadOnlyList<MonitoredContainer>> GetAllAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<MonitoredContainer>>(items.ToList());
+        public Task<IReadOnlyList<MonitoredContainer>> GetEnabledAsync(CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<MonitoredContainer>>(
+                items.Where(item => item.IsMonitoringEnabled).ToList());
+        public Task<IReadOnlyList<MonitoredContainer>> GetByServerIdAsync(Guid serverId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<MonitoredContainer>>(
+                items.Where(item => item.ServerId == serverId).ToList());
         public Task<MonitoredContainer?> GetItemByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
             Task.FromResult(items.SingleOrDefault(item => item.Id == id));
         public void Create(MonitoredContainer item) => items.Add(item);
@@ -313,14 +356,18 @@ public class DashboardQueryTests
     {
         public List<ServerVisibilityPermission> ServerPermissions { get; } = [];
         public List<ContainerVisibilityPermission> ContainerPermissions { get; } = [];
-        public Task<List<ServerVisibilityPermission>> GetServerPermissionsAsync(Guid userId, CancellationToken cancellationToken = default) =>
-            Task.FromResult(ServerPermissions.Where(item => item.UserId == userId).ToList());
-        public Task<List<ContainerVisibilityPermission>> GetContainerPermissionsAsync(Guid userId, CancellationToken cancellationToken = default) =>
-            Task.FromResult(ContainerPermissions.Where(item => item.UserId == userId).ToList());
-        public Task<List<ServerVisibilityPermission>> GetServerPermissionsForUsersAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken = default) =>
-            Task.FromResult(ServerPermissions.Where(item => userIds.Contains(item.UserId)).ToList());
-        public Task<List<ContainerVisibilityPermission>> GetContainerPermissionsForUsersAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken = default) =>
-            Task.FromResult(ContainerPermissions.Where(item => userIds.Contains(item.UserId)).ToList());
+        public Task<IReadOnlyList<ServerVisibilityPermission>> GetServerPermissionsAsync(Guid userId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<ServerVisibilityPermission>>(
+                ServerPermissions.Where(item => item.UserId == userId).ToList());
+        public Task<IReadOnlyList<ContainerVisibilityPermission>> GetContainerPermissionsAsync(Guid userId, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<ContainerVisibilityPermission>>(
+                ContainerPermissions.Where(item => item.UserId == userId).ToList());
+        public Task<IReadOnlyList<ServerVisibilityPermission>> GetServerPermissionsForUsersAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<ServerVisibilityPermission>>(
+                ServerPermissions.Where(item => userIds.Contains(item.UserId)).ToList());
+        public Task<IReadOnlyList<ContainerVisibilityPermission>> GetContainerPermissionsForUsersAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<ContainerVisibilityPermission>>(
+                ContainerPermissions.Where(item => userIds.Contains(item.UserId)).ToList());
         public void Create(ServerVisibilityPermission item) => ServerPermissions.Add(item);
         public void CreateRange(IEnumerable<ServerVisibilityPermission> entities) => ServerPermissions.AddRange(entities);
         public void Create(ContainerVisibilityPermission item) => ContainerPermissions.Add(item);

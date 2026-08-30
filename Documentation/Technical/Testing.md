@@ -45,6 +45,7 @@ dotnet test --project .\tests\UptimeHarbor.Web.Tests\UptimeHarbor.Web.Tests.cspr
 - notification binding factories;
 - bootstrap администратора и повторный запуск;
 - управление пользователями и permissions;
+- единый `IAdministratorAccessPolicy`: unauthenticated, disabled, ordinary и administrator outcomes, одинаковая семантика трёх защищённых сервисов и отсутствие repository/UoW/save/Telegram/publisher вызовов при отказе;
 - полная и ограниченная видимость, прямой доступ и блокировка;
 - role metadata административного контроллера;
 - административные сценарии серверов и контейнеров, валидация, независимые переключатели и уведомление после сохранения;
@@ -57,6 +58,8 @@ dotnet test --project .\tests\UptimeHarbor.Web.Tests\UptimeHarbor.Web.Tests.cspr
 - dashboard query для администратора и пользователя, независимые container permissions, поиск, fallback имени, UTC и uptime через фиксированный `TimeProvider`;
 - серверное определение SignalR-получателей, минимальный payload, изоляция push-ошибки, auth metadata и reconnect/snapshot lifecycle клиента.
 - пакетное чтение recipient permissions без per-user вызовов и прежнюю server/container visibility semantics;
+- read-only signatures всех списковых Application repository contracts, отсутствие `IQueryable` в публичных Application-контрактах и materialized dashboard/recipient read models;
+- SQLite-проверку специализированных dashboard/recipient Infrastructure queries, отсутствия endpoint URL в projection и трёх пакетных recipient queries независимо от числа пользователей;
 - отсутствие endpoint URL в dashboard DTO, сохранение endpoint в admin DTO и отсутствие controller route `/api/objects`;
 - best-effort administrative SignalR publisher: commit остаётся успешным при transport exception, ошибка журналируется, а до commit/conflict publisher не вызывается;
 - фактически зарегистрированную `InvalidModelStateResponseFactory` и MVC JSON options для malformed body, отсутствующего body, неверного типа и field validation без parser details;

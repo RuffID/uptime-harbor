@@ -13,56 +13,26 @@ public class VisibilityPermissionRepository(
     IDeleteItemRepository<ContainerVisibilityPermission, UptimeHarborDbContext> containerDeleteRepository)
     : IVisibilityPermissionRepository
 {
-    public Task<List<ServerVisibilityPermission>> GetServerPermissionsAsync(
+    public async Task<IReadOnlyList<ServerVisibilityPermission>> GetServerPermissionsAsync(
         Guid userId,
         CancellationToken cancellationToken = default)
     {
-        return serverGetRepository.GetItemsByPredicateAsync(
+        List<ServerVisibilityPermission> permissions = await serverGetRepository.GetItemsByPredicateAsync(
             permission => permission.UserId == userId,
             asNoTracking: true,
             ct: cancellationToken);
+        return permissions;
     }
 
-    public Task<List<ContainerVisibilityPermission>> GetContainerPermissionsAsync(
+    public async Task<IReadOnlyList<ContainerVisibilityPermission>> GetContainerPermissionsAsync(
         Guid userId,
         CancellationToken cancellationToken = default)
     {
-        return containerGetRepository.GetItemsByPredicateAsync(
+        List<ContainerVisibilityPermission> permissions = await containerGetRepository.GetItemsByPredicateAsync(
             permission => permission.UserId == userId,
             asNoTracking: true,
             ct: cancellationToken);
-    }
-
-    public Task<List<ServerVisibilityPermission>> GetServerPermissionsForUsersAsync(
-        IReadOnlyCollection<Guid> userIds,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(userIds);
-        if (userIds.Count == 0)
-        {
-            return Task.FromResult<List<ServerVisibilityPermission>>([]);
-        }
-
-        return serverGetRepository.GetItemsByPredicateAsync(
-            permission => userIds.Contains(permission.UserId),
-            asNoTracking: true,
-            ct: cancellationToken);
-    }
-
-    public Task<List<ContainerVisibilityPermission>> GetContainerPermissionsForUsersAsync(
-        IReadOnlyCollection<Guid> userIds,
-        CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(userIds);
-        if (userIds.Count == 0)
-        {
-            return Task.FromResult<List<ContainerVisibilityPermission>>([]);
-        }
-
-        return containerGetRepository.GetItemsByPredicateAsync(
-            permission => userIds.Contains(permission.UserId),
-            asNoTracking: true,
-            ct: cancellationToken);
+        return permissions;
     }
 
     public void Create(ServerVisibilityPermission item)

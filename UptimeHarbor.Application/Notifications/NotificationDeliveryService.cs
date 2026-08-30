@@ -40,7 +40,7 @@ public class NotificationDeliveryService(
             return [];
         }
 
-        List<NotificationBinding> bindings = monitoringEvent.ObjectKind switch
+        IReadOnlyList<NotificationBinding> bindings = monitoringEvent.ObjectKind switch
         {
             MonitoringObjectKind.Server => await unitOfWork.NotificationBindings.GetByServerIdAsync(
                 monitoringEvent.ObjectId,

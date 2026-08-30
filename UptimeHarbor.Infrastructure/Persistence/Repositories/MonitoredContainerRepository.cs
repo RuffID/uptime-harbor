@@ -10,21 +10,23 @@ public class MonitoredContainerRepository(
     IDeleteItemRepository<MonitoredContainer, UptimeHarborDbContext> deleteRepository)
     : IMonitoredContainerRepository
 {
-    public Task<List<MonitoredContainer>> GetAllAsync(
+    public async Task<IReadOnlyList<MonitoredContainer>> GetAllAsync(
         CancellationToken cancellationToken = default)
     {
-        return getRepository.GetItemsByPredicateAsync(
+        List<MonitoredContainer> containers = await getRepository.GetItemsByPredicateAsync(
             asNoTracking: true,
             ct: cancellationToken);
+        return containers;
     }
 
-    public Task<List<MonitoredContainer>> GetEnabledAsync(
+    public async Task<IReadOnlyList<MonitoredContainer>> GetEnabledAsync(
         CancellationToken cancellationToken = default)
     {
-        return getRepository.GetItemsByPredicateAsync(
+        List<MonitoredContainer> containers = await getRepository.GetItemsByPredicateAsync(
             container => container.IsMonitoringEnabled,
             asNoTracking: true,
             ct: cancellationToken);
+        return containers;
     }
 
     public Task<MonitoredContainer?> GetItemByIdAsync(
@@ -36,14 +38,15 @@ public class MonitoredContainerRepository(
             ct: cancellationToken);
     }
 
-    public Task<List<MonitoredContainer>> GetByServerIdAsync(
+    public async Task<IReadOnlyList<MonitoredContainer>> GetByServerIdAsync(
         Guid serverId,
         CancellationToken cancellationToken = default)
     {
-        return getRepository.GetItemsByPredicateAsync(
+        List<MonitoredContainer> containers = await getRepository.GetItemsByPredicateAsync(
             container => container.ServerId == serverId,
             asNoTracking: true,
             ct: cancellationToken);
+        return containers;
     }
 
     public void Create(MonitoredContainer item)

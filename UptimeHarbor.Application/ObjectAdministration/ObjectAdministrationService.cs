@@ -8,7 +8,7 @@ using UptimeHarbor.Domain.Monitoring;
 namespace UptimeHarbor.Application.ObjectAdministration;
 
 public class ObjectAdministrationService(
-    IUserAccessContext accessContext,
+    IAdministratorAccessPolicy administratorAccessPolicy,
     IObjectAdministrationUnitOfWork unitOfWork,
     IObjectAdministrationChangePublisher changePublisher)
     : IObjectAdministrationService
@@ -16,13 +16,14 @@ public class ObjectAdministrationService(
     public async Task<ServiceResult<IReadOnlyList<AdminServerDto>>> GetServersAsync(
         CancellationToken cancellationToken = default)
     {
-        ServiceError? accessError = GetAdministratorAccessError();
+        ServiceError? accessError = administratorAccessPolicy.GetAccessError();
         if (accessError is not null)
         {
             return ServiceResult<IReadOnlyList<AdminServerDto>>.Fail(accessError);
         }
 
-        List<MonitoredServer> servers = await unitOfWork.MonitoredServers.GetAllAsync(cancellationToken);
+        IReadOnlyList<MonitoredServer> servers =
+            await unitOfWork.MonitoredServers.GetAllAsync(cancellationToken);
         return ServiceResult<IReadOnlyList<AdminServerDto>>.Ok(servers.Select(MapServer).ToList());
     }
 
@@ -30,7 +31,7 @@ public class ObjectAdministrationService(
         Guid serverId,
         CancellationToken cancellationToken = default)
     {
-        ServiceError? accessError = GetAdministratorAccessError();
+        ServiceError? accessError = administratorAccessPolicy.GetAccessError();
         if (accessError is not null)
         {
             return ServiceResult<IReadOnlyList<AdminContainerDto>>.Fail(accessError);
@@ -44,7 +45,7 @@ public class ObjectAdministrationService(
                 "Сервер не найден.");
         }
 
-        List<MonitoredContainer> containers =
+        IReadOnlyList<MonitoredContainer> containers =
             await unitOfWork.MonitoredContainers.GetByServerIdAsync(serverId, cancellationToken);
         return ServiceResult<IReadOnlyList<AdminContainerDto>>.Ok(
             containers.Select(MapContainer).ToList());
@@ -56,7 +57,7 @@ public class ObjectAdministrationService(
         bool isMonitoringEnabled,
         CancellationToken cancellationToken = default)
     {
-        ServiceError? error = GetAdministratorAccessError() ?? ValidateSettings(endpointUrl, description);
+        ServiceError? error = administratorAccessPolicy.GetAccessError() ?? ValidateSettings(endpointUrl, description);
         if (error is not null)
         {
             return ServiceResult<AdminServerDto>.Fail(error);
@@ -77,7 +78,7 @@ public class ObjectAdministrationService(
         long expectedVersion,
         CancellationToken cancellationToken = default)
     {
-        ServiceError? error = GetAdministratorAccessError() ?? ValidateSettings(endpointUrl, description);
+        ServiceError? error = administratorAccessPolicy.GetAccessError() ?? ValidateSettings(endpointUrl, description);
         if (error is not null)
         {
             return ServiceResult<AdminServerDto>.Fail(error);
@@ -114,7 +115,7 @@ public class ObjectAdministrationService(
         bool isMonitoringEnabled,
         CancellationToken cancellationToken = default)
     {
-        ServiceError? error = GetAdministratorAccessError() ?? ValidateSettings(endpointUrl, description);
+        ServiceError? error = administratorAccessPolicy.GetAccessError() ?? ValidateSettings(endpointUrl, description);
         if (error is not null)
         {
             return ServiceResult<AdminContainerDto>.Fail(error);
@@ -149,7 +150,7 @@ public class ObjectAdministrationService(
         long expectedVersion,
         CancellationToken cancellationToken = default)
     {
-        ServiceError? error = GetAdministratorAccessError() ?? ValidateSettings(endpointUrl, description);
+        ServiceError? error = administratorAccessPolicy.GetAccessError() ?? ValidateSettings(endpointUrl, description);
         if (error is not null)
         {
             return ServiceResult<AdminContainerDto>.Fail(error);
@@ -194,7 +195,7 @@ public class ObjectAdministrationService(
         Guid serverId,
         CancellationToken cancellationToken = default)
     {
-        ServiceError? accessError = GetAdministratorAccessError();
+        ServiceError? accessError = administratorAccessPolicy.GetAccessError();
         if (accessError is not null)
         {
             return ServiceResult<ServerDeletionImpactDto>.Fail(accessError);
@@ -206,7 +207,7 @@ public class ObjectAdministrationService(
             return ServiceResult<ServerDeletionImpactDto>.Fail(ServiceErrorType.NotFound, "Сервер не найден.");
         }
 
-        List<MonitoredContainer> containers =
+        IReadOnlyList<MonitoredContainer> containers =
             await unitOfWork.MonitoredContainers.GetByServerIdAsync(serverId, cancellationToken);
         return ServiceResult<ServerDeletionImpactDto>.Ok(
             new(server.Id, containers.Count, server.Version));
@@ -218,7 +219,7 @@ public class ObjectAdministrationService(
         long expectedVersion,
         CancellationToken cancellationToken = default)
     {
-        ServiceError? accessError = GetAdministratorAccessError();
+        ServiceError? accessError = administratorAccessPolicy.GetAccessError();
         if (accessError is not null)
         {
             return ServiceResult.Fail(accessError);
@@ -253,7 +254,7 @@ public class ObjectAdministrationService(
                         return;
                     }
 
-                    List<MonitoredContainer> containers =
+                    IReadOnlyList<MonitoredContainer> containers =
                         await unitOfWork.MonitoredContainers.GetByServerIdAsync(
                             serverId,
                             transactionCancellationToken);
@@ -290,7 +291,7 @@ public class ObjectAdministrationService(
         long expectedVersion,
         CancellationToken cancellationToken = default)
     {
-        ServiceError? accessError = GetAdministratorAccessError();
+        ServiceError? accessError = administratorAccessPolicy.GetAccessError();
         if (accessError is not null)
         {
             return ServiceResult.Fail(accessError);
@@ -319,23 +320,6 @@ public class ObjectAdministrationService(
         }
         await changePublisher.PublishObjectsChangedAsync(cancellationToken);
         return ServiceResult.Ok();
-    }
-
-    private ServiceError? GetAdministratorAccessError()
-    {
-        if (!accessContext.IsAuthenticated)
-        {
-            return new ServiceError(ServiceErrorType.Unauthorized, "Требуется аутентификация.");
-        }
-
-        if (!accessContext.IsEnabled || !accessContext.IsAdministrator)
-        {
-            return new ServiceError(
-                ServiceErrorType.Forbidden,
-                "Операция доступна только администратору.");
-        }
-
-        return null;
     }
 
     private static ServiceError? ValidateSettings(string endpointUrl, string? description)

@@ -21,8 +21,9 @@ internal class NotificationTestData
         TimeProvider = new FixedTimeProvider(
             nowUtc ?? new DateTimeOffset(2026, 8, 25, 12, 0, 0, TimeSpan.Zero));
         DeliveryService = new NotificationDeliveryService(UnitOfWork, TimeProvider);
+        AccessContext accessContext = new(isAdministrator);
         AdministrationService = new NotificationAdministrationService(
-            new AccessContext(isAdministrator),
+            new AdministratorAccessPolicy(accessContext),
             UnitOfWork,
             Sender);
     }
@@ -149,8 +150,8 @@ internal class NotificationTestData
     internal class ServerRepository : IMonitoredServerRepository
     {
         public List<MonitoredServer> Items { get; } = [];
-        public Task<List<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult(Items.ToList());
-        public Task<List<MonitoredServer>> GetEnabledAsync(CancellationToken cancellationToken = default) => Task.FromResult(Items.Where(item => item.IsMonitoringEnabled).ToList());
+        public Task<IReadOnlyList<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MonitoredServer>>(Items.ToList());
+        public Task<IReadOnlyList<MonitoredServer>> GetEnabledAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MonitoredServer>>(Items.Where(item => item.IsMonitoringEnabled).ToList());
         public Task<MonitoredServer?> GetItemByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(Items.SingleOrDefault(item => item.Id == id));
         public void Create(MonitoredServer item) => Items.Add(item);
         public void CreateRange(IEnumerable<MonitoredServer> entities) => Items.AddRange(entities);
@@ -161,9 +162,9 @@ internal class NotificationTestData
     internal class ContainerRepository : IMonitoredContainerRepository
     {
         public List<MonitoredContainer> Items { get; } = [];
-        public Task<List<MonitoredContainer>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult(Items.ToList());
-        public Task<List<MonitoredContainer>> GetEnabledAsync(CancellationToken cancellationToken = default) => Task.FromResult(Items.Where(item => item.IsMonitoringEnabled).ToList());
-        public Task<List<MonitoredContainer>> GetByServerIdAsync(Guid serverId, CancellationToken cancellationToken = default) => Task.FromResult(Items.Where(item => item.ServerId == serverId).ToList());
+        public Task<IReadOnlyList<MonitoredContainer>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MonitoredContainer>>(Items.ToList());
+        public Task<IReadOnlyList<MonitoredContainer>> GetEnabledAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MonitoredContainer>>(Items.Where(item => item.IsMonitoringEnabled).ToList());
+        public Task<IReadOnlyList<MonitoredContainer>> GetByServerIdAsync(Guid serverId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MonitoredContainer>>(Items.Where(item => item.ServerId == serverId).ToList());
         public Task<MonitoredContainer?> GetItemByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(Items.SingleOrDefault(item => item.Id == id));
         public void Create(MonitoredContainer item) => Items.Add(item);
         public void CreateRange(IEnumerable<MonitoredContainer> entities) => Items.AddRange(entities);
@@ -174,7 +175,7 @@ internal class NotificationTestData
     internal class ChatRepository : ITelegramChatRepository
     {
         public List<TelegramChat> Items { get; } = [];
-        public Task<List<TelegramChat>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult(Items.ToList());
+        public Task<IReadOnlyList<TelegramChat>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<TelegramChat>>(Items.ToList());
         public Task<TelegramChat?> GetItemByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(Items.SingleOrDefault(item => item.Id == id));
         public Task<TelegramChat?> GetByTelegramChatIdAsync(long telegramChatId, CancellationToken cancellationToken = default) => Task.FromResult(Items.SingleOrDefault(item => item.TelegramChatId == telegramChatId));
         public void Create(TelegramChat item) => Items.Add(item);
@@ -186,11 +187,11 @@ internal class NotificationTestData
     internal class BindingRepository : INotificationBindingRepository
     {
         public List<NotificationBinding> Items { get; } = [];
-        public Task<List<NotificationBinding>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult(Items.ToList());
+        public Task<IReadOnlyList<NotificationBinding>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<NotificationBinding>>(Items.ToList());
         public Task<NotificationBinding?> GetItemByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(Items.SingleOrDefault(item => item.Id == id));
-        public Task<List<NotificationBinding>> GetByChatIdAsync(Guid telegramChatId, CancellationToken cancellationToken = default) => Task.FromResult(Items.Where(item => item.TelegramChatId == telegramChatId).ToList());
-        public Task<List<NotificationBinding>> GetByServerIdAsync(Guid serverId, CancellationToken cancellationToken = default) => Task.FromResult(Items.Where(item => item.ServerId == serverId).ToList());
-        public Task<List<NotificationBinding>> GetByContainerIdAsync(Guid containerId, CancellationToken cancellationToken = default) => Task.FromResult(Items.Where(item => item.ContainerId == containerId).ToList());
+        public Task<IReadOnlyList<NotificationBinding>> GetByChatIdAsync(Guid telegramChatId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<NotificationBinding>>(Items.Where(item => item.TelegramChatId == telegramChatId).ToList());
+        public Task<IReadOnlyList<NotificationBinding>> GetByServerIdAsync(Guid serverId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<NotificationBinding>>(Items.Where(item => item.ServerId == serverId).ToList());
+        public Task<IReadOnlyList<NotificationBinding>> GetByContainerIdAsync(Guid containerId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<NotificationBinding>>(Items.Where(item => item.ContainerId == containerId).ToList());
         public void Create(NotificationBinding item) => Items.Add(item);
         public void CreateRange(IEnumerable<NotificationBinding> entities) => Items.AddRange(entities);
         public void Delete(NotificationBinding item) => Items.Remove(item);

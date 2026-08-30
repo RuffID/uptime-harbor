@@ -8,13 +8,13 @@ public interface IMonitoredContainerRepository :
     IDeleteItemRepository<MonitoredContainer>,
     IGetItemByIdRepository<MonitoredContainer, Guid>
 {
-    Task<List<MonitoredContainer>> GetAllAsync(
+    Task<IReadOnlyList<MonitoredContainer>> GetAllAsync(
         CancellationToken cancellationToken = default);
 
-    Task<List<MonitoredContainer>> GetEnabledAsync(
+    Task<IReadOnlyList<MonitoredContainer>> GetEnabledAsync(
         CancellationToken cancellationToken = default);
 
-    Task<List<MonitoredContainer>> GetByServerIdAsync(
+    Task<IReadOnlyList<MonitoredContainer>> GetByServerIdAsync(
         Guid serverId,
         CancellationToken cancellationToken = default);
 }

@@ -9,19 +9,12 @@ public interface IVisibilityPermissionRepository :
     IDeleteItemRepository<ServerVisibilityPermission>,
     IDeleteItemRepository<ContainerVisibilityPermission>
 {
-    Task<List<ServerVisibilityPermission>> GetServerPermissionsAsync(
+    Task<IReadOnlyList<ServerVisibilityPermission>> GetServerPermissionsAsync(
         Guid userId,
         CancellationToken cancellationToken = default);
 
-    Task<List<ContainerVisibilityPermission>> GetContainerPermissionsAsync(
+    Task<IReadOnlyList<ContainerVisibilityPermission>> GetContainerPermissionsAsync(
         Guid userId,
         CancellationToken cancellationToken = default);
 
-    Task<List<ServerVisibilityPermission>> GetServerPermissionsForUsersAsync(
-        IReadOnlyCollection<Guid> userIds,
-        CancellationToken cancellationToken = default);
-
-    Task<List<ContainerVisibilityPermission>> GetContainerPermissionsForUsersAsync(
-        IReadOnlyCollection<Guid> userIds,
-        CancellationToken cancellationToken = default);
 }

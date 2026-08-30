@@ -11,7 +11,7 @@ using UptimeHarbor.Domain.Notifications;
 namespace UptimeHarbor.Application.Notifications;
 
 public class NotificationAdministrationService(
-    IUserAccessContext accessContext,
+    IAdministratorAccessPolicy administratorAccessPolicy,
     INotificationSettingsUnitOfWork unitOfWork,
     INotificationSender sender)
     : INotificationAdministrationService
@@ -19,16 +19,20 @@ public class NotificationAdministrationService(
     public async Task<ServiceResult<NotificationSettingsDto>> GetSettingsAsync(
         CancellationToken cancellationToken = default)
     {
-        ServiceError? accessError = GetAdministratorAccessError();
+        ServiceError? accessError = administratorAccessPolicy.GetAccessError();
         if (accessError is not null)
         {
             return ServiceResult<NotificationSettingsDto>.Fail(accessError);
         }
 
-        List<TelegramChat> chats = await unitOfWork.TelegramChats.GetAllAsync(cancellationToken);
-        List<NotificationBinding> bindings = await unitOfWork.NotificationBindings.GetAllAsync(cancellationToken);
-        List<MonitoredServer> servers = await unitOfWork.MonitoredServers.GetAllAsync(cancellationToken);
-        List<MonitoredContainer> containers = await unitOfWork.MonitoredContainers.GetAllAsync(cancellationToken);
+        IReadOnlyList<TelegramChat> chats =
+            await unitOfWork.TelegramChats.GetAllAsync(cancellationToken);
+        IReadOnlyList<NotificationBinding> bindings =
+            await unitOfWork.NotificationBindings.GetAllAsync(cancellationToken);
+        IReadOnlyList<MonitoredServer> servers =
+            await unitOfWork.MonitoredServers.GetAllAsync(cancellationToken);
+        IReadOnlyList<MonitoredContainer> containers =
+            await unitOfWork.MonitoredContainers.GetAllAsync(cancellationToken);
 
         List<NotificationTargetDto> targets = servers
             .Select(server => new NotificationTargetDto(
@@ -54,7 +58,7 @@ public class NotificationAdministrationService(
         string name,
         CancellationToken cancellationToken = default)
     {
-        ServiceError? error = GetAdministratorAccessError() ?? ValidateChat(telegramChatId, name);
+        ServiceError? error = administratorAccessPolicy.GetAccessError() ?? ValidateChat(telegramChatId, name);
         if (error is not null)
         {
             return ServiceResult<TelegramChatDto>.Fail(error);
@@ -83,7 +87,7 @@ public class NotificationAdministrationService(
         string name,
         CancellationToken cancellationToken = default)
     {
-        ServiceError? error = GetAdministratorAccessError() ?? ValidateChat(telegramChatId, name);
+        ServiceError? error = administratorAccessPolicy.GetAccessError() ?? ValidateChat(telegramChatId, name);
         if (error is not null)
         {
             return ServiceResult<TelegramChatDto>.Fail(error);
@@ -115,7 +119,7 @@ public class NotificationAdministrationService(
         Guid chatId,
         CancellationToken cancellationToken = default)
     {
-        ServiceError? accessError = GetAdministratorAccessError();
+        ServiceError? accessError = administratorAccessPolicy.GetAccessError();
         if (accessError is not null)
         {
             return ServiceResult.Fail(accessError);
@@ -136,7 +140,7 @@ public class NotificationAdministrationService(
         Guid chatId,
         CancellationToken cancellationToken = default)
     {
-        ServiceError? accessError = GetAdministratorAccessError();
+        ServiceError? accessError = administratorAccessPolicy.GetAccessError();
         if (accessError is not null)
         {
             return ServiceResult.Fail(accessError);
@@ -173,7 +177,7 @@ public class NotificationAdministrationService(
         Guid objectId,
         CancellationToken cancellationToken = default)
     {
-        ServiceError? accessError = GetAdministratorAccessError();
+        ServiceError? accessError = administratorAccessPolicy.GetAccessError();
         if (accessError is not null)
         {
             return ServiceResult<NotificationBindingDto>.Fail(accessError);
@@ -203,7 +207,7 @@ public class NotificationAdministrationService(
                 "chatId");
         }
 
-        List<NotificationBinding> existingBindings = objectKind switch
+        IReadOnlyList<NotificationBinding> existingBindings = objectKind switch
         {
             MonitoringObjectKind.Server => await unitOfWork.NotificationBindings.GetByServerIdAsync(
                 objectId,
@@ -259,7 +263,7 @@ public class NotificationAdministrationService(
         Guid bindingId,
         CancellationToken cancellationToken = default)
     {
-        ServiceError? accessError = GetAdministratorAccessError();
+        ServiceError? accessError = administratorAccessPolicy.GetAccessError();
         if (accessError is not null)
         {
             return ServiceResult.Fail(accessError);
@@ -276,21 +280,6 @@ public class NotificationAdministrationService(
         unitOfWork.NotificationBindings.Delete(binding);
         await unitOfWork.SaveChangesAsync(cancellationToken);
         return ServiceResult.Ok();
-    }
-
-    private ServiceError? GetAdministratorAccessError()
-    {
-        if (!accessContext.IsAuthenticated)
-        {
-            return new ServiceError(ServiceErrorType.Unauthorized, "Требуется аутентификация.");
-        }
-
-        if (!accessContext.IsEnabled || !accessContext.IsAdministrator)
-        {
-            return new ServiceError(ServiceErrorType.Forbidden, "Операция доступна только администратору.");
-        }
-
-        return null;
     }
 
     private static ServiceError? ValidateChat(long telegramChatId, string name)

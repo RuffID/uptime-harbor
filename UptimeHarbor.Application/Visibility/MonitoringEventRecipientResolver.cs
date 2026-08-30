@@ -1,14 +1,10 @@
-using UptimeHarbor.Application.Abstractions.UnitOfWork;
 using UptimeHarbor.Application.Monitoring;
-using UptimeHarbor.Application.Users;
-using UptimeHarbor.Application.Users.Models;
-using UptimeHarbor.Domain.Access;
+using UptimeHarbor.Application.Visibility.Models;
 
 namespace UptimeHarbor.Application.Visibility;
 
 public class MonitoringEventRecipientResolver(
-    IUserAccountStore userAccountStore,
-    IVisibilitySettingsUnitOfWork unitOfWork)
+    IMonitoringRecipientReadQuery recipientReadQuery)
     : IMonitoringEventRecipientResolver
 {
     public async Task<IReadOnlyList<Guid>> GetRecipientUserIdsAsync(
@@ -31,44 +27,24 @@ public class MonitoringEventRecipientResolver(
                 "Неизвестный тип объекта мониторинга.");
         }
 
-        IReadOnlyList<UserAccountRecord> users =
-            await userAccountStore.GetAllAsync(cancellationToken);
-        List<UserAccountRecord> enabledUsers = users
-            .Where(user => user.IsEnabled)
-            .ToList();
-        List<Guid> ordinaryUserIds = enabledUsers
-            .Where(user => !user.IsAdministrator)
-            .Select(user => user.Id)
-            .ToList();
-        List<ServerVisibilityPermission> serverPermissions =
-            await unitOfWork.VisibilityPermissions.GetServerPermissionsForUsersAsync(
-                ordinaryUserIds,
-                cancellationToken);
-        ILookup<Guid, ServerVisibilityPermission> serverPermissionsByUser =
-            serverPermissions.ToLookup(permission => permission.UserId);
-        ILookup<Guid, ContainerVisibilityPermission>? containerPermissionsByUser = null;
-        if (objectKind == MonitoringObjectKind.Container)
-        {
-            List<ContainerVisibilityPermission> containerPermissions =
-                await unitOfWork.VisibilityPermissions.GetContainerPermissionsForUsersAsync(
-                    ordinaryUserIds,
-                    cancellationToken);
-            containerPermissionsByUser = containerPermissions.ToLookup(permission => permission.UserId);
-        }
-
+        IReadOnlyList<MonitoringRecipientReadRecord> candidates =
+            await recipientReadQuery.GetCandidatesAsync(objectKind, cancellationToken);
         List<Guid> recipients = [];
 
-        foreach (UserAccountRecord user in enabledUsers)
+        foreach (MonitoringRecipientReadRecord candidate in candidates)
         {
-            if (user.IsAdministrator)
+            if (!candidate.IsEnabled)
             {
-                recipients.Add(user.Id);
                 continue;
             }
 
-            HashSet<Guid> permittedServerIds = serverPermissionsByUser[user.Id]
-                .Select(permission => permission.ServerId)
-                .ToHashSet();
+            if (candidate.IsAdministrator)
+            {
+                recipients.Add(candidate.UserId);
+                continue;
+            }
+
+            HashSet<Guid> permittedServerIds = candidate.PermittedServerIds.ToHashSet();
 
             bool canAccess = objectKind switch
             {
@@ -81,9 +57,7 @@ public class MonitoringEventRecipientResolver(
                     serverId!.Value,
                     objectId,
                     permittedServerIds,
-                    containerPermissionsByUser![user.Id]
-                        .Select(permission => permission.ContainerId)
-                        .ToHashSet()),
+                    candidate.PermittedContainerIds.ToHashSet()),
                 _ => throw new ArgumentOutOfRangeException(
                     nameof(objectKind),
                     objectKind,
@@ -92,7 +66,7 @@ public class MonitoringEventRecipientResolver(
 
             if (canAccess)
             {
-                recipients.Add(user.Id);
+                recipients.Add(candidate.UserId);
             }
         }
 

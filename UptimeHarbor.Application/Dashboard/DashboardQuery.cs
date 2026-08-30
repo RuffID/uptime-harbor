@@ -1,16 +1,13 @@
-using UptimeHarbor.Application.Abstractions.UnitOfWork;
 using UptimeHarbor.Application.Common;
 using UptimeHarbor.Application.Dashboard.Models;
 using UptimeHarbor.Application.Security;
 using UptimeHarbor.Application.Visibility;
-using UptimeHarbor.Domain.Access;
-using UptimeHarbor.Domain.Monitoring;
 
 namespace UptimeHarbor.Application.Dashboard;
 
 public class DashboardQuery(
     IUserAccessContext accessContext,
-    IVisibilitySettingsUnitOfWork unitOfWork,
+    IDashboardSnapshotReadQuery snapshotReadQuery,
     TimeProvider timeProvider)
     : IDashboardQuery
 {
@@ -26,38 +23,19 @@ public class DashboardQuery(
             return ServiceResult<DashboardSnapshotDto>.Fail(accessError);
         }
 
-        List<MonitoredServer> allServers =
-            await unitOfWork.MonitoredServers.GetAllAsync(cancellationToken);
-        List<MonitoredContainer> allContainers =
-            await unitOfWork.MonitoredContainers.GetAllAsync(cancellationToken);
-
-        HashSet<Guid> permittedServerIds = [];
-        HashSet<Guid> permittedContainerIds = [];
-        if (!accessContext.IsAdministrator)
-        {
-            List<ServerVisibilityPermission> serverPermissions =
-                await unitOfWork.VisibilityPermissions.GetServerPermissionsAsync(
-                    accessContext.UserId,
-                    cancellationToken);
-            List<ContainerVisibilityPermission> containerPermissions =
-                await unitOfWork.VisibilityPermissions.GetContainerPermissionsAsync(
-                    accessContext.UserId,
-                    cancellationToken);
-            permittedServerIds = serverPermissions
-                .Select(permission => permission.ServerId)
-                .ToHashSet();
-            permittedContainerIds = containerPermissions
-                .Select(permission => permission.ContainerId)
-                .ToHashSet();
-        }
-
-        List<MonitoredServer> accessibleServers = allServers
+        DashboardReadSnapshot readSnapshot = await snapshotReadQuery.GetSnapshotAsync(
+            accessContext.UserId,
+            accessContext.IsAdministrator,
+            cancellationToken);
+        HashSet<Guid> permittedServerIds = readSnapshot.PermittedServerIds.ToHashSet();
+        HashSet<Guid> permittedContainerIds = readSnapshot.PermittedContainerIds.ToHashSet();
+        List<DashboardServerReadRecord> accessibleServers = readSnapshot.Servers
             .Where(server => ObjectVisibilityPolicy.CanAccessServer(
                 accessContext.IsAdministrator,
                 server.Id,
                 permittedServerIds))
             .ToList();
-        List<MonitoredContainer> accessibleContainers = allContainers
+        List<DashboardContainerReadRecord> accessibleContainers = readSnapshot.Containers
             .Where(container => ObjectVisibilityPolicy.CanAccessContainer(
                 accessContext.IsAdministrator,
                 container.ServerId,
@@ -71,10 +49,10 @@ public class DashboardQuery(
         EnsureUtc(generatedAtUtc, nameof(generatedAtUtc));
 
         List<DashboardServerDto> servers = [];
-        foreach (MonitoredServer server in accessibleServers.OrderBy(GetDisplayName))
+        foreach (DashboardServerReadRecord server in accessibleServers.OrderBy(GetDisplayName))
         {
             bool serverMatches = Matches(server, normalizedSearch);
-            IEnumerable<MonitoredContainer> serverContainers = accessibleContainers
+            IEnumerable<DashboardContainerReadRecord> serverContainers = accessibleContainers
                 .Where(container => container.ServerId == server.Id);
 
             if (normalizedSearch is not null && !serverMatches)
@@ -82,7 +60,7 @@ public class DashboardQuery(
                 serverContainers = serverContainers.Where(container => Matches(container, normalizedSearch));
             }
 
-            List<MonitoredContainer> matchingContainers = serverContainers
+            List<DashboardContainerReadRecord> matchingContainers = serverContainers
                 .OrderBy(GetDisplayName)
                 .ToList();
             if (normalizedSearch is not null && !serverMatches && matchingContainers.Count == 0)
@@ -110,8 +88,8 @@ public class DashboardQuery(
     }
 
     private static DashboardServerDto MapServer(
-        MonitoredServer server,
-        IReadOnlyList<MonitoredContainer> containers,
+        DashboardServerReadRecord server,
+        IReadOnlyList<DashboardContainerReadRecord> containers,
         DateTimeOffset generatedAtUtc)
     {
         EnsureUtc(server.LastCheckedAtUtc, nameof(server.LastCheckedAtUtc));
@@ -125,7 +103,7 @@ public class DashboardQuery(
     }
 
     private static DashboardContainerDto MapContainer(
-        MonitoredContainer container,
+        DashboardContainerReadRecord container,
         DateTimeOffset generatedAtUtc)
     {
         EnsureUtc(container.LastCheckedAtUtc, nameof(container.LastCheckedAtUtc));
@@ -155,18 +133,25 @@ public class DashboardQuery(
             uptimeSeconds);
     }
 
-    private static bool Matches(MonitoredObject monitoredObject, string? search)
+    private static bool Matches(DashboardServerReadRecord server, string? search)
     {
         return search is null
-            || GetDisplayName(monitoredObject).Contains(search, StringComparison.OrdinalIgnoreCase)
-            || monitoredObject.Description?.Contains(search, StringComparison.OrdinalIgnoreCase) == true;
+            || GetDisplayName(server).Contains(search, StringComparison.OrdinalIgnoreCase)
+            || server.Description?.Contains(search, StringComparison.OrdinalIgnoreCase) == true;
     }
 
-    private static string GetDisplayName(MonitoredObject monitoredObject)
+    private static bool Matches(DashboardContainerReadRecord container, string? search)
     {
-        return monitoredObject.LastKnownName
-            ?? $"{MISSING_NAME} · {monitoredObject.Id.ToString("N")[..8]}";
+        return search is null
+            || GetDisplayName(container).Contains(search, StringComparison.OrdinalIgnoreCase)
+            || container.Description?.Contains(search, StringComparison.OrdinalIgnoreCase) == true;
     }
+
+    private static string GetDisplayName(DashboardServerReadRecord server) =>
+        server.LastKnownName ?? $"{MISSING_NAME} · {server.Id.ToString("N")[..8]}";
+
+    private static string GetDisplayName(DashboardContainerReadRecord container) =>
+        container.LastKnownName ?? $"{MISSING_NAME} · {container.Id.ToString("N")[..8]}";
 
     private static void EnsureUtc(DateTimeOffset? value, string fieldName)
     {

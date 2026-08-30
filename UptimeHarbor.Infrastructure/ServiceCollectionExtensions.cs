@@ -15,6 +15,7 @@ using UptimeHarbor.Application.Abstractions.Persistence;
 using UptimeHarbor.Application.Abstractions.UnitOfWork;
 using UptimeHarbor.Infrastructure.Persistence;
 using UptimeHarbor.Infrastructure.Persistence.Repositories;
+using UptimeHarbor.Infrastructure.Persistence.Queries;
 using UptimeHarbor.Infrastructure.Persistence.UnitOfWork;
 using UptimeHarbor.Infrastructure.Identity;
 using UptimeHarbor.Application.Users;
@@ -22,6 +23,8 @@ using UptimeHarbor.Application.Monitoring;
 using UptimeHarbor.Infrastructure.Monitoring;
 using UptimeHarbor.Application.Notifications;
 using UptimeHarbor.Infrastructure.Telegram;
+using UptimeHarbor.Application.Dashboard;
+using UptimeHarbor.Application.Visibility;
 
 namespace UptimeHarbor.Infrastructure;
 
@@ -87,6 +90,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ITelegramChatRepository, TelegramChatRepository>();
         services.AddScoped<INotificationBindingRepository, NotificationBindingRepository>();
         services.AddScoped<IVisibilityPermissionRepository, VisibilityPermissionRepository>();
+        services.AddScoped<IDashboardSnapshotReadQuery, DashboardSnapshotReadQuery>();
+        services.AddScoped<IMonitoringRecipientReadQuery, MonitoringRecipientReadQuery>();
         services.AddScoped<IUptimeHarborDbContextSession, UptimeHarborDbContextSession>();
         services.AddScoped<IMonitoringUnitOfWork, MonitoringUnitOfWork>();
         services.AddScoped<IObjectAdministrationUnitOfWork, ObjectAdministrationUnitOfWork>();
