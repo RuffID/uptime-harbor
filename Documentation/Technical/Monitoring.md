@@ -14,7 +14,9 @@
 
 Имя trim-ится, обязано быть непустым и не превышать `ModelConstraints.OBJECT_NAME_MAX_LENGTH`. `startedAtUtc` обязан быть JSON-строкой с нулевым UTC offset и не превышать время завершения проверки.
 
-Неуспешный HTTP status, timeout, сетевое исключение, некорректный JSON или неверное обязательное поле преобразуются в `EndpointCheckFailureKind` и считаются неудачной проверкой одного объекта. Неожиданные исключения не маскируются таким результатом: цикл изолирует их на границе объекта и логирует.
+Неуспешный HTTP status, timeout, сетевое исключение, превышение размера, некорректный JSON или неверное обязательное поле преобразуются в `EndpointCheckFailureKind` и считаются неудачной проверкой одного объекта. Неожиданные исключения не маскируются таким результатом: цикл изолирует их на границе объекта и логирует.
+
+Автоматические redirect отключены, поэтому любой `3xx`, включая redirect на другой host и loop, считается HTTP-ошибкой. Максимальный response body равен 64 KiB: сначала проверяется `Content-Length`, затем обычное, chunked или streamed тело читается только в буфер `limit + 1`. URL и body ответа не включаются в исключения и логи.
 
 ## Цикл
 
@@ -31,12 +33,14 @@
 
 ## Сохранение результата
 
-`MonitoringService` после HTTP-проверки заново загружает tracked объект через `IMonitoringUnitOfWork`. Результат игнорируется, если объект за время запроса удалён, выключен или его endpoint изменён. Иначе use case вызывает существующий доменный переход и одним `SaveChangesAsync` сохраняет все поля текущего состояния.
+`MonitoringService` после HTTP-проверки заново загружает tracked объект через `IMonitoringUnitOfWork`. Результат игнорируется, если объект за время запроса удалён, выключен или его endpoint изменён. Иначе use case вызывает существующий доменный переход, добавляет outage/recovery payload в durable outbox и одним `SaveChangesAsync` сохраняет состояние и job.
 
 `MonitoringStateChangedEvent` содержит тип и ID объекта, parent server ID контейнера, описание, имя, status, transition, failure counter, времена, успешность и семантическую endpoint-ошибку. `MonitoringEventPublisher` передаёт его внутренним handlers только после успешного сохранения.
 
-SignalR handler реализован в Web. Он получает из Application список разрешённых включённых пользователей и отправляет им только `objectId` и `objectKind`; скрытые имя, описание, состояние и времена в push payload не попадают. Telegram handler реализован в Infrastructure и получает независимый Application use case доставки. Оба handler вызываются только после успешного сохранения; их ошибки изолированы и не отменяют сохранённый результат мониторинга. PostgreSQL остаётся источником истины.
+SignalR handler реализован в Web. Он получает из Application список разрешённых включённых пользователей и отправляет им только `objectId` и `objectKind`; скрытые имя, описание, состояние и времена в push payload не попадают. Telegram не является synchronous handler: отдельный Infrastructure worker читает durable outbox. PostgreSQL остаётся источником истины.
 
 ## Конкурентность
 
-Однопроцессная первая версия использует keyed in-memory coordination. Если появится несколько экземпляров приложения, потребуется отдельное распределённое решение, но оно не входит в первую версию.
+Однопроцессная первая версия использует keyed in-memory coordination. Дополнительно `MonitoredServer.Version` и `MonitoredContainer.Version` являются optimistic concurrency token. Если административное изменение фиксируется после повторной проверки объекта, stale monitoring write получает `DbUpdateConcurrencyException`, переводится в `PersistenceConcurrencyException`, очищает tracking и не публикует SignalR-событие или Telegram job. Stale административный request возвращает `409 Conflict`.
+
+Если появится несколько экземпляров приложения, потребуется отдельное распределённое решение для запуска checks и claim outbox jobs, но оно не входит в первую версию.

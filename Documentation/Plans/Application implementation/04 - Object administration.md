@@ -2,7 +2,7 @@
 
 ## Статус
 
-**Завершён.** Административные use case, MVC API, AJAX-only Razor-интерфейс, каскадное удаление и внутреннее уведомление открытых панелей проверены сборкой и изолированными тестами.
+**В работе.** Административные use case, MVC API и TypeScript UI используют `Version`, stale update/delete возвращает HTTP `409`, а publisher не вызывается после конфликта. SQLite provider и Web contract tests проходят; PostgreSQL runtime-проверка зависит от ручного применения migration.
 
 ## Цель
 

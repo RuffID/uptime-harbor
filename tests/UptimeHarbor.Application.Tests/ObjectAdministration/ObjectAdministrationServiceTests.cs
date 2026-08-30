@@ -151,6 +151,7 @@ public class ObjectAdministrationServiceTests
             "https://new-server.example/health",
             "Новое описание",
             true,
+            server.Version,
             TestContext.Current.CancellationToken);
 
         Assert.True(result.Success);
@@ -173,6 +174,7 @@ public class ObjectAdministrationServiceTests
             "https://new-container.example/health",
             "Новое описание",
             true,
+            container.Version,
             TestContext.Current.CancellationToken);
 
         Assert.True(result.Success);
@@ -193,6 +195,7 @@ public class ObjectAdministrationServiceTests
             server.EndpointUrl,
             server.Description,
             false,
+            server.Version,
             TestContext.Current.CancellationToken);
 
         Assert.False(server.IsMonitoringEnabled);
@@ -211,6 +214,7 @@ public class ObjectAdministrationServiceTests
             container.EndpointUrl,
             container.Description,
             false,
+            container.Version,
             TestContext.Current.CancellationToken);
 
         Assert.False(container.IsMonitoringEnabled);
@@ -232,6 +236,7 @@ public class ObjectAdministrationServiceTests
             server.EndpointUrl,
             server.Description,
             false,
+            server.Version,
             TestContext.Current.CancellationToken);
 
         Assert.True(result.Success);
@@ -249,6 +254,7 @@ public class ObjectAdministrationServiceTests
 
         ServiceResult result = await data.Service.DeleteContainerAsync(
             container.Id,
+            container.Version,
             TestContext.Current.CancellationToken);
 
         Assert.True(result.Success);
@@ -266,6 +272,7 @@ public class ObjectAdministrationServiceTests
         ServiceResult result = await data.Service.DeleteServerAsync(
             server.Id,
             expectedContainerCount: 1,
+            expectedVersion: server.Version,
             TestContext.Current.CancellationToken);
 
         Assert.True(result.Success);
@@ -283,11 +290,31 @@ public class ObjectAdministrationServiceTests
         ServiceResult result = await data.Service.DeleteServerAsync(
             server.Id,
             expectedContainerCount: 0,
+            expectedVersion: server.Version,
             TestContext.Current.CancellationToken);
 
         Assert.False(result.Success);
         Assert.Equal(ServiceErrorType.Conflict, result.Error!.Type);
         Assert.Single(data.Servers.Items);
+        Assert.Equal(0, data.Publisher.PublishCount);
+    }
+
+    [Fact]
+    public async Task UpdateServerAsync_WhenPersistenceConcurrencyConflicts_ReturnsConflictWithoutEvent()
+    {
+        TestData data = new(throwConcurrencyOnSave: true);
+        MonitoredServer server = data.AddServer(isMonitoringEnabled: true);
+
+        ServiceResult<AdminServerDto> result = await data.Service.UpdateServerAsync(
+            server.Id,
+            "https://new.example/health",
+            null,
+            true,
+            server.Version,
+            TestContext.Current.CancellationToken);
+
+        Assert.False(result.Success);
+        Assert.Equal(ServiceErrorType.Conflict, result.Error!.Type);
         Assert.Equal(0, data.Publisher.PublishCount);
     }
 
@@ -312,12 +339,12 @@ public class ObjectAdministrationServiceTests
             "GetServers" => (await data.Service.GetServersAsync(TestContext.Current.CancellationToken)).Error!,
             "GetContainers" => (await data.Service.GetContainersAsync(server.Id, TestContext.Current.CancellationToken)).Error!,
             "CreateServer" => (await data.Service.CreateServerAsync("https://new.example/health", null, true, TestContext.Current.CancellationToken)).Error!,
-            "UpdateServer" => (await data.Service.UpdateServerAsync(server.Id, server.EndpointUrl, null, true, TestContext.Current.CancellationToken)).Error!,
+            "UpdateServer" => (await data.Service.UpdateServerAsync(server.Id, server.EndpointUrl, null, true, server.Version, TestContext.Current.CancellationToken)).Error!,
             "CreateContainer" => (await data.Service.CreateContainerAsync(server.Id, "https://new-container.example/health", null, true, TestContext.Current.CancellationToken)).Error!,
-            "UpdateContainer" => (await data.Service.UpdateContainerAsync(container.Id, container.EndpointUrl, null, true, TestContext.Current.CancellationToken)).Error!,
+            "UpdateContainer" => (await data.Service.UpdateContainerAsync(container.Id, container.EndpointUrl, null, true, container.Version, TestContext.Current.CancellationToken)).Error!,
             "GetDeletionImpact" => (await data.Service.GetServerDeletionImpactAsync(server.Id, TestContext.Current.CancellationToken)).Error!,
-            "DeleteServer" => (await data.Service.DeleteServerAsync(server.Id, 1, TestContext.Current.CancellationToken)).Error!,
-            "DeleteContainer" => (await data.Service.DeleteContainerAsync(container.Id, TestContext.Current.CancellationToken)).Error!,
+            "DeleteServer" => (await data.Service.DeleteServerAsync(server.Id, 1, server.Version, TestContext.Current.CancellationToken)).Error!,
+            "DeleteContainer" => (await data.Service.DeleteContainerAsync(container.Id, container.Version, TestContext.Current.CancellationToken)).Error!,
             _ => throw new ArgumentOutOfRangeException(nameof(operation), operation, "Неизвестная операция.")
         };
 
@@ -328,11 +355,14 @@ public class ObjectAdministrationServiceTests
 
     private class TestData
     {
-        public TestData(bool isAdministrator = true)
+        public TestData(bool isAdministrator = true, bool throwConcurrencyOnSave = false)
         {
             Servers = new FakeServerRepository();
             Containers = new FakeContainerRepository();
-            UnitOfWork = new FakeObjectAdministrationUnitOfWork(Servers, Containers);
+            UnitOfWork = new FakeObjectAdministrationUnitOfWork(
+                Servers,
+                Containers,
+                throwConcurrencyOnSave);
             Publisher = new FakeChangePublisher();
             Service = new ObjectAdministrationService(
                 new FakeAccessContext(isAdministrator),
@@ -387,7 +417,8 @@ public class ObjectAdministrationServiceTests
 
     private class FakeObjectAdministrationUnitOfWork(
         IMonitoredServerRepository servers,
-        IMonitoredContainerRepository containers)
+        IMonitoredContainerRepository containers,
+        bool throwConcurrencyOnSave)
         : IObjectAdministrationUnitOfWork
     {
         public IMonitoredServerRepository MonitoredServers { get; } = servers;
@@ -398,6 +429,12 @@ public class ObjectAdministrationServiceTests
 
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
+            if (throwConcurrencyOnSave)
+            {
+                throw new PersistenceConcurrencyException(
+                    new InvalidOperationException("Concurrency conflict."));
+            }
+
             SaveCount++;
             return Task.FromResult(1);
         }

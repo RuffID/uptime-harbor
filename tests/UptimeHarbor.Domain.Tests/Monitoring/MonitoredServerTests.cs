@@ -71,6 +71,21 @@ public class MonitoredServerTests
         Assert.Equal(MonitoringStatus.Unknown, server.Status);
     }
 
+    [Fact]
+    public void AdministrativeAndMonitoringChanges_IncrementConcurrencyVersion()
+    {
+        MonitoredServer server = CreateServer();
+
+        server.UpdateSettings("https://new.example.com/health", null, true);
+        long afterAdministration = server.Version;
+        server.RecordSuccessfulCheck(
+            "server-01",
+            new DateTimeOffset(2026, 8, 30, 9, 0, 0, TimeSpan.Zero));
+
+        Assert.Equal(1, afterAdministration);
+        Assert.Equal(2, server.Version);
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("ftp://example.com/health")]

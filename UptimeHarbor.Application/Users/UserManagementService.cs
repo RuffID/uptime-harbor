@@ -108,6 +108,22 @@ public class UserManagementService(
                 "Нельзя изменить состояние собственной учётной записи.");
         }
 
+        UserAccountRecord? account = await accountStore.GetByIdAsync(userId, cancellationToken);
+        if (account is null)
+        {
+            return ServiceResult.Fail(ServiceErrorType.NotFound, "Пользователь не найден.");
+        }
+
+        if (!isEnabled
+            && account.IsAdministrator
+            && account.IsEnabled
+            && !await accountStore.HasOtherEnabledAdministratorAsync(userId, cancellationToken))
+        {
+            return ServiceResult.Fail(
+                ServiceErrorType.Conflict,
+                "Нельзя заблокировать последнего включённого администратора.");
+        }
+
         AccountStoreResult storeResult = await accountStore.SetEnabledAsync(userId, isEnabled, cancellationToken);
         return MapStoreResult(storeResult);
     }
@@ -135,31 +151,17 @@ public class UserManagementService(
             return ServiceResult.Fail(ServiceErrorType.NotFound, "Пользователь не найден.");
         }
 
-        AccountStoreResult? deleteResult = null;
-        await unitOfWork.ExecuteInTransactionAsync(
-            async transactionCancellationToken =>
-            {
-                List<ContainerVisibilityPermission> containerPermissions =
-                    await unitOfWork.VisibilityPermissions.GetContainerPermissionsAsync(
-                        userId,
-                        transactionCancellationToken);
-                List<ServerVisibilityPermission> serverPermissions =
-                    await unitOfWork.VisibilityPermissions.GetServerPermissionsAsync(
-                        userId,
-                        transactionCancellationToken);
-                unitOfWork.VisibilityPermissions.DeleteRange(containerPermissions);
-                unitOfWork.VisibilityPermissions.DeleteRange(serverPermissions);
-                deleteResult = await accountStore.DeleteAsync(userId, transactionCancellationToken);
-                if (!deleteResult.Succeeded)
-                {
-                    throw new InvalidOperationException(string.Join(" ", deleteResult.Errors));
-                }
-            },
-            cancellationToken);
+        if (account.IsAdministrator
+            && account.IsEnabled
+            && !await accountStore.HasOtherEnabledAdministratorAsync(userId, cancellationToken))
+        {
+            return ServiceResult.Fail(
+                ServiceErrorType.Conflict,
+                "Нельзя удалить последнего включённого администратора.");
+        }
 
-        return deleteResult is null
-            ? throw new InvalidOperationException("Удаление пользователя не было выполнено.")
-            : ServiceResult.Ok();
+        AccountStoreResult deleteResult = await accountStore.DeleteAsync(userId, cancellationToken);
+        return MapStoreResult(deleteResult);
     }
 
     public async Task<ServiceResult> SetVisibilityAsync(
@@ -256,8 +258,22 @@ public class UserManagementService(
 
     private static ServiceResult MapStoreResult(AccountStoreResult storeResult)
     {
-        return storeResult.Succeeded
-            ? ServiceResult.Ok()
-            : ServiceResult.Fail(ServiceErrorType.Validation, string.Join(" ", storeResult.Errors));
+        if (storeResult.Succeeded)
+        {
+            return ServiceResult.Ok();
+        }
+
+        ServiceErrorType errorType = storeResult.FailureKind switch
+        {
+            AccountStoreFailureKind.Validation => ServiceErrorType.Validation,
+            AccountStoreFailureKind.NotFound => ServiceErrorType.NotFound,
+            AccountStoreFailureKind.Conflict => ServiceErrorType.Conflict,
+            null => throw new InvalidOperationException("Ошибка account store должна содержать тип."),
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(storeResult.FailureKind),
+                storeResult.FailureKind,
+                "Неизвестный тип ошибки account store.")
+        };
+        return ServiceResult.Fail(errorType, string.Join(" ", storeResult.Errors));
     }
 }

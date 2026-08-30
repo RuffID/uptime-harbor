@@ -115,7 +115,10 @@ async function saveServer(event) {
             ? "/api/admin/objects/servers"
             : `/api/admin/objects/servers/${requireSelectedServerId()}`;
         const method = state.creatingServer ? "POST" : "PUT";
-        const response = await sendJsonRequest(url, method, settings);
+        const payload = state.creatingServer
+            ? settings
+            : { ...settings, version: requireServer(requireSelectedServerId()).version };
+        const response = await sendJsonRequest(url, method, payload);
         const savedServer = unwrapServiceResult(response);
         await loadServers(savedServer.id);
     }
@@ -134,7 +137,10 @@ async function saveContainer(event) {
             ? `/api/admin/objects/servers/${serverId}/containers`
             : `/api/admin/objects/containers/${requireSelectedContainerId()}`;
         const method = state.creatingContainer ? "POST" : "PUT";
-        const response = await sendJsonRequest(url, method, settings);
+        const payload = state.creatingContainer
+            ? settings
+            : { ...settings, version: requireContainer(requireSelectedContainerId()).version };
+        const response = await sendJsonRequest(url, method, payload);
         const savedContainer = unwrapServiceResult(response);
         await selectServer(serverId);
         selectContainer(savedContainer.id);
@@ -151,7 +157,7 @@ async function deleteServer() {
     if (!confirmed) {
         return;
     }
-    const response = await sendJsonRequest(`/api/admin/objects/servers/${serverId}`, "DELETE", { expectedContainerCount: impact.containerCount });
+    const response = await sendJsonRequest(`/api/admin/objects/servers/${serverId}`, "DELETE", { expectedContainerCount: impact.containerCount, version: impact.version });
     unwrapServiceSuccess(response);
     clearSelection();
     await loadServers();
@@ -161,7 +167,7 @@ async function deleteContainer() {
     if (!window.confirm("Удалить выбранный контейнер?")) {
         return;
     }
-    const response = await sendJsonRequest(`/api/admin/objects/containers/${containerId}`, "DELETE");
+    const response = await sendJsonRequest(`/api/admin/objects/containers/${containerId}`, "DELETE", { version: requireContainer(containerId).version });
     unwrapServiceSuccess(response);
     await selectServer(requireSelectedServerId());
 }
@@ -318,6 +324,13 @@ function requireServer(serverId) {
         throw new Error("Выбранный сервер не найден в состоянии страницы.");
     }
     return server;
+}
+function requireContainer(containerId) {
+    const container = state.containers.find(item => item.id === containerId);
+    if (!container) {
+        throw new Error("Контейнер не найден.");
+    }
+    return container;
 }
 function requireSelectedServerId() {
     if (state.selectedServerId === null) {

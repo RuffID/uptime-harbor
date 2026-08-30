@@ -24,6 +24,7 @@ interface AdminServer extends ObjectSettings {
     lastKnownName: string | null;
     status: MonitoringStatus;
     consecutiveFailures: number;
+    version: number;
 }
 
 interface AdminContainer extends ObjectSettings {
@@ -32,11 +33,13 @@ interface AdminContainer extends ObjectSettings {
     lastKnownName: string | null;
     status: MonitoringStatus;
     consecutiveFailures: number;
+    version: number;
 }
 
 interface ServerDeletionImpact {
     serverId: string;
     containerCount: number;
+    version: number;
 }
 
 interface PageState {
@@ -173,7 +176,10 @@ async function saveServer(event: SubmitEvent): Promise<void> {
             ? "/api/admin/objects/servers"
             : `/api/admin/objects/servers/${requireSelectedServerId()}`;
         const method = state.creatingServer ? "POST" : "PUT";
-        const response = await sendJsonRequest<ServiceResultWithData<AdminServer>>(url, method, settings);
+        const payload = state.creatingServer
+            ? settings
+            : { ...settings, version: requireServer(requireSelectedServerId()).version };
+        const response = await sendJsonRequest<ServiceResultWithData<AdminServer>>(url, method, payload);
         const savedServer = unwrapServiceResult(response);
         await loadServers(savedServer.id);
     }
@@ -194,7 +200,10 @@ async function saveContainer(event: SubmitEvent): Promise<void> {
             ? `/api/admin/objects/servers/${serverId}/containers`
             : `/api/admin/objects/containers/${requireSelectedContainerId()}`;
         const method = state.creatingContainer ? "POST" : "PUT";
-        const response = await sendJsonRequest<ServiceResultWithData<AdminContainer>>(url, method, settings);
+        const payload = state.creatingContainer
+            ? settings
+            : { ...settings, version: requireContainer(requireSelectedContainerId()).version };
+        const response = await sendJsonRequest<ServiceResultWithData<AdminContainer>>(url, method, payload);
         const savedContainer = unwrapServiceResult(response);
         await selectServer(serverId);
         selectContainer(savedContainer.id);
@@ -218,7 +227,7 @@ async function deleteServer(): Promise<void> {
     const response = await sendJsonRequest<ServiceResult>(
         `/api/admin/objects/servers/${serverId}`,
         "DELETE",
-        { expectedContainerCount: impact.containerCount });
+        { expectedContainerCount: impact.containerCount, version: impact.version });
     unwrapServiceSuccess(response);
     clearSelection();
     await loadServers();
@@ -232,7 +241,8 @@ async function deleteContainer(): Promise<void> {
 
     const response = await sendJsonRequest<ServiceResult>(
         `/api/admin/objects/containers/${containerId}`,
-        "DELETE");
+        "DELETE",
+        { version: requireContainer(containerId).version });
     unwrapServiceSuccess(response);
     await selectServer(requireSelectedServerId());
 }
@@ -429,6 +439,15 @@ function requireServer(serverId: string): AdminServer {
         throw new Error("Выбранный сервер не найден в состоянии страницы.");
     }
     return server;
+}
+
+function requireContainer(containerId: string): AdminContainer {
+    const container = state.containers.find(item => item.id === containerId);
+    if (!container) {
+        throw new Error("Контейнер не найден.");
+    }
+
+    return container;
 }
 
 function requireSelectedServerId(): string {

@@ -25,6 +25,7 @@ public class MonitoringServiceTests
         Assert.Equal(MonitoringStatus.Unavailable, server.Status);
         Assert.Equal(3, server.ConsecutiveFailures);
         Assert.Equal(MonitoringTransition.BecameUnavailable, data.Publisher.Events[^1].Transition);
+        Assert.Single(data.UnitOfWork.EnqueuedNotifications);
     }
 
     [Fact]
@@ -65,6 +66,7 @@ public class MonitoringServiceTests
         Assert.Equal(MonitoringStatus.Available, server.Status);
         Assert.Equal(0, server.ConsecutiveFailures);
         Assert.Equal(MonitoringTransition.Recovered, data.Publisher.Events[^1].Transition);
+        Assert.Equal(2, data.UnitOfWork.EnqueuedNotifications.Count);
     }
 
     [Fact]
@@ -238,6 +240,13 @@ public class MonitoringServiceTests
         public IMonitoredContainerRepository MonitoredContainers { get; } = containers;
 
         public int SaveCount { get; private set; }
+
+        public List<MonitoringStateChangedEvent> EnqueuedNotifications { get; } = [];
+
+        public void EnqueueNotification(MonitoringStateChangedEvent monitoringEvent)
+        {
+            EnqueuedNotifications.Add(monitoringEvent);
+        }
 
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {

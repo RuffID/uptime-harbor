@@ -4,7 +4,7 @@
 
 Persistence реализован в `UptimeHarbor.Infrastructure`. `UptimeHarbor.Application` содержит только контекстно-независимые интерфейсы.
 
-`UptimeHarborDbContext` наследует Identity DbContext с ключом `Guid` и одновременно реализует контекст хранения ключей Data Protection. В модель входят объекты мониторинга, permissions, Telegram-чаты и notification bindings с per-binding состоянием доставки текущего инцидента.
+`UptimeHarborDbContext` наследует Identity DbContext с ключом `Guid` и одновременно реализует контекст хранения ключей Data Protection. В модель входят объекты мониторинга, permissions, Telegram-чаты, notification bindings с per-binding состоянием доставки текущего инцидента и durable notification outbox.
 
 ## EF-конфигурации
 
@@ -19,7 +19,9 @@ Persistence реализован в `UptimeHarbor.Infrastructure`. `UptimeHarbor
 - каскадное удаление контейнеров, permissions и notification bindings;
 - составные ключи, запрещающие доступ к контейнеру вне назначенного сервера;
 - правило notification binding «ровно один target»;
-- хранение времён как UTC.
+- хранение времён как UTC;
+- явный `Version` серверов и контейнеров как concurrency token;
+- таблицу `notification_outbox_jobs` с payload, attempt, next-attempt, lease и terminal timestamps без внешнего ключа к удаляемому объекту.
 
 Для идемпотентности уведомлений объект хранит nullable `CurrentIncidentId`, а каждая привязка — nullable идентификаторы инцидента успешной outage- и recovery-доставки. Глобальный `OutageNotificationSent` удалён из кодовой модели, потому что не описывает частичный успех нескольких чатов.
 
@@ -34,6 +36,8 @@ Persistence реализован в `UptimeHarbor.Infrastructure`. `UptimeHarbor
 Запросы чтения списков выполняются no-tracking. Запрос объекта для последующего изменения остаётся tracked. `IQueryable` не выходит из Infrastructure.
 
 Для начала каждого monitoring cycle `GetEnabledAsync` фильтрует включённые серверы и контейнеры в БД и возвращает materialized no-tracking snapshot. Результат каждой параллельной проверки записывается в отдельном DI scope: объект повторно загружается tracked и сохраняется через scoped `IMonitoringUnitOfWork`.
+
+`Version` увеличивается доменными методами. EF добавляет исходное значение в `UPDATE`/`DELETE`; нулевое число затронутых строк даёт `DbUpdateConcurrencyException`. Технический Unit of Work очищает stale change tracker и переводит исключение в независимый `PersistenceConcurrencyException`. Monitoring считает его устаревшим результатом без событий, а административный use case возвращает semantic conflict.
 
 ## Сценарные Unit of Work
 
@@ -54,7 +58,7 @@ Infrastructure использует одну scoped-сессию `IUptimeHarborD
 
 Identity store использует тот же scoped `UptimeHarborDbContext`, что позволяет удалению пользователя и его permissions выполняться внутри сценарной транзакции видимости без глобального Unit of Work.
 
-Подготовка списка Telegram-доставок выполняет no-tracking чтение привязок. После успешного transport-вызова конкретная привязка повторно загружается tracked и сохраняется через отдельный scope `INotificationSettingsUnitOfWork`, поэтому состояние одного получателя не объединяется с результатом другого.
+`IMonitoringUnitOfWork` атомарно сохраняет состояние объекта и outage/recovery outbox job. Отдельный dispatcher claim-ит due jobs коротким lease. Подготовка списка Telegram-доставок выполняет no-tracking чтение привязок. После успешного transport-вызова конкретная привязка повторно загружается tracked и сохраняется через отдельный scope `INotificationSettingsUnitOfWork`, поэтому состояние одного получателя не объединяется с результатом другого.
 
 ## Миграции
 
@@ -65,3 +69,5 @@ Identity store использует тот же scoped `UptimeHarborDbContext`, 
 Первая миграция `20260825121410_InitialPostgreSqlSchema` создана в `Persistence/Migrations`. Она включает доменные таблицы, ASP.NET Core Identity, составные ограничения видимости и таблицу ключей Data Protection.
 
 Миграция `20260825154441_AddNotificationDeliveryState` удаляет глобальный `OutageNotificationSent` и добавляет nullable incident-ID поля объектам и привязкам. Она создана штатным EF tooling и проверена сборкой и model metadata tests.
+
+Миграция `20260830090000_AddMonitoringConcurrencyAndNotificationOutbox` добавляет только `Version` в две monitoring-таблицы и `notification_outbox_jobs`. Она включена в исходный код, но не применялась: применение к PostgreSQL остаётся отдельным ручным release-шагом.

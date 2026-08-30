@@ -2,7 +2,7 @@
 
 ## Состояние реализации
 
-Application содержит независимые `INotificationSender`, административный use case и use case подготовки/фиксации доставки. Infrastructure содержит HTTP adapter Bot API и обработчик `MonitoringStateChangedEvent`. Web содержит административный MVC API `/api/admin/notifications` и AJAX-only страницу `/Admin/Notifications` на TypeScript. Persistence-схема обновлена миграцией `AddNotificationDeliveryState`.
+Application содержит независимые `INotificationSender`, административный use case и use case подготовки/фиксации доставки. Infrastructure содержит HTTP adapter Bot API, durable outbox dispatcher и отдельный hosted worker. Web содержит административный MVC API `/api/admin/notifications` и AJAX-only страницу `/Admin/Notifications` на TypeScript. Persistence-схема дополнена миграцией `AddMonitoringConcurrencyAndNotificationOutbox`.
 
 ## Хранение
 
@@ -12,13 +12,16 @@ Application содержит независимые `INotificationSender`, ад�
 
 Объект мониторинга хранит `CurrentIncidentId`. Каждая привязка хранит `OutageDeliveredIncidentId` и `RecoveryDeliveredIncidentId`. Эти поля описывают только текущее состояние доставки одного последнего актуального инцидента и перезаписываются новым инцидентом.
 
+`notification_outbox_jobs` хранит сериализованный monitoring event, число попыток, время следующей попытки, lease и terminal timestamps. Job не имеет внешнего ключа к объекту: уже сохранённое уведомление не исчезает при последующем административном удалении.
+
 ## Поток доставки
 
-1. После сохранения перехода `BecameUnavailable` `MonitoringStateChangedEvent` содержит `CurrentIncidentId`, после чего загружаются привязанные чаты.
-2. Outage-сообщение отправляется каждому чату независимо.
-3. Повторные проверки того же инцидента не создают новые сообщения.
-4. После `Recovered` recovery отправляется только привязкам с совпадающим `OutageDeliveredIncidentId`.
-5. Ошибка Telegram не меняет результат HTTP-проверки и не блокирует другие объекты.
+1. При `BecameUnavailable` или `Recovered` monitoring payload сохраняется в outbox одной транзакцией с новым состоянием объекта.
+2. Monitoring check завершается без ожидания Telegram HTTP transport.
+3. Отдельный worker claim-ит due jobs lease на две минуты и обрабатывает до четырёх jobs параллельно.
+4. Получатели одного job запускаются параллельно с лимитом четыре; зависание или ошибка одного чата не задерживает начало остальных.
+5. После `Recovered` recovery отправляется только привязкам с совпадающим `OutageDeliveredIncidentId`.
+6. Успешные привязки получают marker в отдельных scopes, а job завершается только когда нет неуспешных получателей.
 
 Сообщение включает тип объекта, имя или идентификатор, описание при наличии, новый статус и UTC-время события. Для контейнера также указывается родительский сервер; recovery может включать время запуска и uptime.
 
@@ -26,7 +29,13 @@ Application содержит независимые `INotificationSender`, ад�
 
 Если объект связан с несколькими чатами, состояние доставки нужно учитывать по каждой привязке текущего инцидента. Успех одного чата не должен скрывать ошибку другого, а retry не должен повторно отправлять сообщение уже успешному получателю.
 
-Успешная отправка фиксируется отдельным коротким scope и `INotificationSettingsUnitOfWork` для конкретной привязки. Повторная обработка outage или последующие проверки недоступного объекта выбирают только привязки без совпадающего outage-маркера. Recovery и его повторная обработка выбирают только привязки с успешным outage и без recovery-маркера того же инцидента. Ошибка одного transport-вызова не прекращает цикл по остальным чатам и не изменяет уже сохранённый monitoring status.
+Успешная отправка фиксируется отдельным коротким scope и `INotificationSettingsUnitOfWork` для конкретной привязки. Повторная обработка выбирает только привязки без соответствующего marker. Ошибка одного transport-вызова не изменяет уже сохранённый monitoring status.
+
+Retry ограничен пятью попытками. Между неуспешными попытками используются интервалы 5 секунд, 30 секунд, 2 минуты и 5 минут; после пятой job остаётся в БД с `FailedAtUtc` для диагностики и не запускается автоматически.
+
+## Семантика доставки
+
+Transport-гарантия — **at-least-once**, не exactly-once. Outbox исключает потерю локального задания при перезапуске, но Telegram Bot API `sendMessage` не принимает idempotency key. Если Telegram уже принял сообщение, а процесс завершился до фиксации per-binding marker, следующая попытка может отправить дубликат. Обратный порядок создавал бы риск потери, поэтому exactly-once в текущей архитектуре честно не заявляется.
 
 ## Секреты и логирование
 

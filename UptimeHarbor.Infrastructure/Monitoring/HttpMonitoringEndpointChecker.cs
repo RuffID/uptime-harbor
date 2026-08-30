@@ -14,6 +14,15 @@ public class HttpMonitoringEndpointChecker(
     : IServerEndpointChecker, IContainerEndpointChecker
 {
     public const string HTTP_CLIENT_NAME = "MonitoringEndpoints";
+    public const int MAXIMUM_RESPONSE_BODY_BYTES = 64 * 1024;
+
+    public static HttpMessageHandler CreatePrimaryHandler()
+    {
+        return new HttpClientHandler
+        {
+            AllowAutoRedirect = false
+        };
+    }
 
     public async Task<ServerEndpointCheckResult> CheckAsync(
         string endpointUrl,
@@ -97,12 +106,26 @@ public class HttpMonitoringEndpointChecker(
                     checkedAtUtc);
             }
 
+            if (response.Content.Headers.ContentLength is long contentLength
+                && contentLength > MAXIMUM_RESPONSE_BODY_BYTES)
+            {
+                return HttpPayloadResult.Failed(
+                    EndpointCheckFailureKind.ResponseTooLarge,
+                    checkedAtUtc);
+            }
+
             try
             {
                 await using Stream content = await response.Content.ReadAsStreamAsync(requestSource.Token);
-                JsonDocument document = await JsonDocument.ParseAsync(
-                    content,
-                    cancellationToken: requestSource.Token);
+                byte[] payload = await ReadBoundedBodyAsync(content, requestSource.Token);
+                if (payload.Length > MAXIMUM_RESPONSE_BODY_BYTES)
+                {
+                    return HttpPayloadResult.Failed(
+                        EndpointCheckFailureKind.ResponseTooLarge,
+                        timeProvider.GetUtcNow());
+                }
+
+                JsonDocument document = JsonDocument.Parse(payload);
                 return HttpPayloadResult.Succeeded(document, timeProvider.GetUtcNow());
             }
             catch (JsonException)
@@ -125,6 +148,26 @@ public class HttpMonitoringEndpointChecker(
                 EndpointCheckFailureKind.Network,
                 timeProvider.GetUtcNow());
         }
+    }
+
+    private static async Task<byte[]> ReadBoundedBodyAsync(
+        Stream content,
+        CancellationToken cancellationToken)
+    {
+        byte[] buffer = GC.AllocateUninitializedArray<byte>(MAXIMUM_RESPONSE_BODY_BYTES + 1);
+        int totalRead = 0;
+        while (totalRead < buffer.Length)
+        {
+            int read = await content.ReadAsync(buffer.AsMemory(totalRead), cancellationToken);
+            if (read == 0)
+            {
+                break;
+            }
+
+            totalRead += read;
+        }
+
+        return buffer.AsSpan(0, totalRead).ToArray();
     }
 
     private static bool TryReadName(JsonElement root, out string name)

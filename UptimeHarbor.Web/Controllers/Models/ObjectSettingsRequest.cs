@@ -7,4 +7,6 @@ public class ObjectSettingsRequest
     public string? Description { get; init; }
 
     public bool IsMonitoringEnabled { get; init; }
+
+    public long? Version { get; init; }
 }

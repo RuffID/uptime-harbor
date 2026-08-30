@@ -12,6 +12,9 @@ public abstract class MonitoredObjectConfiguration<TEntity> : IEntityTypeConfigu
     {
         builder.HasKey(entity => entity.Id);
         builder.Property(entity => entity.Id).ValueGeneratedNever();
+        builder.Property(entity => entity.Version)
+            .IsConcurrencyToken()
+            .IsRequired();
         builder.Property(entity => entity.EndpointUrl)
             .HasMaxLength(ModelConstraints.ENDPOINT_URL_MAX_LENGTH)
             .IsRequired();

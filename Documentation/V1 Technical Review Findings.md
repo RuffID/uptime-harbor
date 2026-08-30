@@ -4,11 +4,11 @@
 
 Проверка выполнена относительно `Technical requirements.md` и текущей технической документации. В область проверки вошли Domain, Application, Infrastructure, Web, TypeScript-клиент, persistence, monitoring worker, Telegram-доставка, тесты и deployment-материалы.
 
-Разрешённые Release-сборки и изолированные тесты выполнены после исправлений: Domain 15, Application 79, Infrastructure 34 и Web 31 тест прошли. Docker, runtime, PostgreSQL и проектные скрипты не запускались; выводы о runtime-развёртывании остаются основанными на статическом анализе и документации.
+Разрешённые Release-сборки и изолированные тесты выполнены после исправлений: Domain 16, Application 82, Infrastructure 55 и Web 33 теста прошли. Docker, Web-host, runtime, PostgreSQL, SQL, миграции и проектные скрипты не запускались. Provider-level проверки выполнены только на SQLite in-memory.
 
 ## Итог
 
-P0-1 и P0-2 устранены и закреплены Web/Application-тестами. P0-3 исключён из объёма требований первой версии; остаются P1/P2-дефекты конкурентности, надёжности и безопасности, поэтому текущую версию ещё нельзя считать полностью готовой.
+P0-1 и P0-2 устранены и закреплены Web/Application-тестами. P0-3 исключён из объёма требований первой версии. P1-1—P1-6 устранены в исходном коде и разрешённом изолированном наборе; P1-1, P1-3 и P1-6 требуют ручного подтверждения на PostgreSQL/process restart/Telegram runtime. До этих проверок и применения migration текущую версию нельзя считать runtime-ready. P2/P3 остаются вне текущей задачи.
 
 ## Блокирующие проблемы
 
@@ -75,6 +75,8 @@ P0-1 и P0-2 устранены и закреплены Web/Application-тест
 
 ### P1-1. Результат старой проверки может перезаписать административное изменение
 
+**Статус исправления: устранено в коде и provider tests; PostgreSQL runtime-проверка остаётся ручной.** `MonitoredServer` и `MonitoredContainer` получили явный `Version` concurrency token. Infrastructure переводит `DbUpdateConcurrencyException` в независимый `PersistenceConcurrencyException` и очищает stale tracking. Monitoring возвращает ожидаемый ignored result без SignalR/outbox event; административный DTO/request передаёт version и получает `409 Conflict`. SQLite provider tests используют два независимых DbContext для disable, endpoint change и двух admin updates. Добавлена минимальная migration `AddMonitoringConcurrencyAndNotificationOutbox`; она не применялась.
+
 `MonitoringService` повторно загружает объект и проверяет enabled/endpoint перед изменением, но между этой проверкой и `SaveChangesAsync` другой scope может выключить мониторинг или заменить endpoint. Для monitored entities не настроен concurrency token. В результате старая проверка способна записать `Available`, имя и времена уже выключенному объекту либо объекту с новым endpoint.
 
 Keyed coordination защищает только две monitoring-проверки одного объекта и не координируется с административными запросами.
@@ -91,6 +93,8 @@ Keyed coordination защищает только две monitoring-провер�
 
 ### P1-2. Единственный администратор может заблокировать систему
 
+**Статус исправления: устранено и проверено.** Self-disable/self-delete возвращают существующий `ServiceResult/ServiceError`; отключение и удаление последнего enabled administrator возвращает `Conflict`. Identity store повторяет guard транзакционно и использует concurrency stamp общей роли для конкурирующих операций. Bootstrap при единственном disabled administrator включает существующую запись без дубликата и смены пароля. UI скрывает/отключает очевидные действия для текущего администратора.
+
 `UserManagementService.SetEnabledAsync` и `DeleteAsync` не запрещают текущему администратору отключить или удалить самого себя. Это особенно опасно, потому что UI/API не умеют создавать второго администратора. `AdministratorExistsAsync` считает отключённого администратора существующим, поэтому bootstrap после перезапуска не создаст доступную административную запись.
 
 Затронутые места:
@@ -103,6 +107,8 @@ Keyed coordination защищает только две monitoring-провер�
 Обязательная проверка: тесты self-disable, self-delete, last-enabled-admin и bootstrap при наличии только отключённого администратора.
 
 ### P1-3. Telegram-доставка синхронно задерживает monitoring worker
+
+**Статус исправления: устранено в коде и изолированных тестах; process restart и Telegram runtime остаются ручными.** Outage/recovery payload сохраняется в durable outbox одной транзакцией с monitoring state. Отдельный hosted worker claim-ит jobs с lease, обрабатывает до четырёх jobs и четырёх получателей параллельно и не участвует в monitoring cycle. Retry ограничен пятью попытками с backoff 5 секунд, 30 секунд, 2 минуты и 5 минут. SQLite/fake tests подтверждают сохранность job, новый DbContext, независимость следующего monitoring cycle и начало доставки другого чата при зависшем transport.
 
 После сохранения результата `MonitoringService` ожидает `MonitoringEventPublisher`. Telegram handler последовательно отправляет сообщения каждому чату, а timeout одного вызова равен 30 секундам. Пока отправки не завершены, задача объекта остаётся частью `Task.WhenAll` текущего цикла; следующий monitoring cycle не запускается. Несколько медленных чатов способны задержать проверки всех объектов на минуты.
 
@@ -120,6 +126,8 @@ Keyed coordination защищает только две monitoring-провер�
 
 ### P1-4. Гарантия «одно Telegram-сообщение» технически не выполняется
 
+**Статус исправления: устранено согласованием контракта.** `Technical requirements.md`, техническая документация и тестовые ожидания теперь фиксируют at-least-once. Durable outbox исключает потерю локального job, но не скрывает окно после принятия `sendMessage` и до локального marker; редкий дубликат явно допускается. Exactly-once больше не заявляется.
+
 Текущий поток сначала вызывает Telegram, затем в другом scope сохраняет marker успешной доставки. При падении процесса или БД после `sendMessage`, но до `MarkDeliverySuccessfulAsync`, следующий цикл отправит то же сообщение повторно. Обратный порядок привёл бы к потере сообщения. Telegram Bot API не предоставляет idempotency key для `sendMessage`, поэтому строгий exactly-once контракт таким способом недостижим.
 
 Затронутое место: `UptimeHarbor.Infrastructure/Telegram/TelegramMonitoringEventHandler.cs:45-54`.
@@ -127,6 +135,8 @@ Keyed coordination защищает только две monitoring-провер�
 Рекомендуемое решение: принять и явно задокументировать at-least-once семантику с редкими дубликатами либо изменить внешний transport/посредника на поддерживающий идемпотентность. Durable outbox существенно уменьшит окно сбоев и исключит потерю задания, но сам по себе не докажет exactly-once Telegram-доставку. Формулировку `Technical requirements.md` и тесты нужно привести к реально обеспечиваемой гарантии.
 
 ### P1-5. Monitoring HTTP adapter не ограничивает размер ответа и следует redirect по умолчанию
+
+**Статус исправления: устранено и проверено.** Максимум response body — 64 KiB. Adapter проверяет `Content-Length`, ограничивает обычное/chunked/streamed чтение буфером `limit + 1`, возвращает `ResponseTooLarge`, сохраняет cancellation/timeout и не включает body/URL в ошибки. Named client явно использует `AllowAutoRedirect = false`, а любой `3xx` считается `HttpStatus`. Fake transport tests покрывают oversized варианты, redirects, cancellation и timeout чтения.
 
 Ответ читается и разбирается потоково, но предельный размер JSON отсутствует. Скомпрометированный или ошибочно настроенный endpoint может вернуть большой/бесконечный ответ и создать высокий расход памяти/CPU сразу для множества параллельных проверок. Автоматические redirect также позволяют исходно разрешённому адресу перенаправить запрос на другой, в том числе внутренний, адрес.
 
@@ -137,6 +147,8 @@ Keyed coordination защищает только две monitoring-провер�
 Обязательная проверка: oversized body, chunked oversized body, redirect на другой host, redirect loop и cancellation во время чтения.
 
 ### P1-6. Тестовый набор не проверяет реальные Web-контракты и критические гонки
+
+**Статус исправления: устранено в разрешённом изолированном наборе; внешние runtime smoke остаются ручными.** MVC contract tests используют фактические `JsonOptions`; ServiceResult/HTTP mapping включает `409`; optimistic concurrency и отсутствие events проверяются реальным SQLite provider с двумя DbContext; security, outbox/retry и HTTP limits/redirect закреплены тестами. PostgreSQL migration/concurrency, реальный process restart, Telegram API и browser smoke не запускались согласно ограничениям задачи. Docker/Nginx/Compose не являются обязательным P1-тестом v1 после исключения P0-3.
 
 `JsonResultMapperTests` проверяет объект `JsonResult.Value`, но не прогоняет его через фактические MVC JSON options. Поэтому несовпадение enum-контракта осталось незамеченным. Большинство Web-проверок являются metadata/static tests; отсутствует smoke-проверка критических пользовательских потоков. Persistence tests проверяют metadata, но не конфликт двух реальных DbContext и не release-миграцию PostgreSQL.
 

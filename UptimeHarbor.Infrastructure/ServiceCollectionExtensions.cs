@@ -103,7 +103,9 @@ public static class ServiceCollectionExtensions
 
         services.AddHttpClient<IHttpApiClient, HttpApiClient>();
         services.AddHttpClient(HttpMonitoringEndpointChecker.HTTP_CLIENT_NAME, client =>
-            client.Timeout = Timeout.InfiniteTimeSpan);
+            client.Timeout = Timeout.InfiniteTimeSpan)
+            .ConfigurePrimaryHttpMessageHandler(
+                HttpMonitoringEndpointChecker.CreatePrimaryHandler);
         services.AddSingleton<HttpMonitoringEndpointChecker>();
         services.AddSingleton<IServerEndpointChecker>(provider =>
             provider.GetRequiredService<HttpMonitoringEndpointChecker>());
@@ -119,7 +121,9 @@ public static class ServiceCollectionExtensions
         }).RemoveAllLoggers();
         services.AddScoped<INotificationSender>(provider =>
             provider.GetRequiredService<TelegramHttpNotificationSender>());
-        services.AddScoped<IMonitoringEventHandler, TelegramMonitoringEventHandler>();
+        services.AddScoped<NotificationOutboxStore>();
+        services.AddSingleton<TelegramOutboxDispatcher>();
+        services.AddHostedService<TelegramOutboxWorker>();
 
         return services;
     }

@@ -15,6 +15,7 @@
 - Все Razor Pages, кроме явно разрешённых страниц входа и ошибки, требуют аутентификации; административное API требует роль `Administrator`.
 - `ServiceResult` преобразовывать в единый JSON envelope через Web-мэппер, не помещая HTTP-статусы в Application.
 - Административное API объектов размещено под `/api/admin/objects`; после сохранения публикуется только обезличенный сигнал `ObjectAdministrationChanged`.
+- Administrative object DTO/request передают числовой `Version`; stale update/delete возвращает единый JSON envelope с HTTP `409 Conflict`.
 - Новый клиентский код писать на TypeScript в `wwwroot/ts`, собранный JavaScript подключать из `wwwroot/dist`.
 - Полная TypeScript-цепочка `FindConfigFiles` → `TypeScriptDeleteOutputFromOtherConfigs` → `CompileTypeScriptWithTSConfig` должна выполняться через `PrepareTypeScriptForStaticWebAssets` перед `ResolveProjectStaticWebAssets` и `ResolveCoreStaticWebAssets`, чтобы удаление outputs другой конфигурации не происходило после компиляции и сборка решения сначала восстанавливала `wwwroot/dist`.
 - Инкрементальная TypeScript-сборка отключена, чтобы отсутствующие generated `.js` восстанавливались и в Debug, и в Release.

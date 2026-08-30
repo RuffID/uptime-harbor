@@ -9,4 +9,5 @@ public record AdminServerDto(
     bool IsMonitoringEnabled,
     string? LastKnownName,
     MonitoringStatus Status,
-    int ConsecutiveFailures);
+    int ConsecutiveFailures,
+    long Version);

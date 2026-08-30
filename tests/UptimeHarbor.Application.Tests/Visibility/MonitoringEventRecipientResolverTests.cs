@@ -128,6 +128,8 @@ public class MonitoringEventRecipientResolverTests
             Task.FromResult<IReadOnlyList<UserAccountRecord>>(Items.ToList());
         public Task<UserAccountRecord?> GetByIdAsync(Guid userId, CancellationToken cancellationToken = default) =>
             Task.FromResult(Items.SingleOrDefault(user => user.Id == userId));
+        public Task<bool> HasOtherEnabledAdministratorAsync(Guid excludedUserId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(Items.Any(user => user.Id != excludedUserId && user.IsAdministrator && user.IsEnabled));
         public Task<AccountStoreResult> CreateAsync(Guid userId, string login, string initialPassword, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
         public Task<AccountStoreResult> SetEnabledAsync(Guid userId, bool isEnabled, CancellationToken cancellationToken = default) =>

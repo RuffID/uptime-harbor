@@ -223,6 +223,10 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
 
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
                     b.HasKey("Id");
 
                     b.HasAlternateKey("ServerId", "Id")
@@ -275,6 +279,10 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
 
                     b.HasKey("Id");
 
@@ -347,6 +355,40 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("telegram_chats", (string)null);
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Infrastructure.Persistence.NotificationOutboxJob", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("CompletedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("FailedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("LockedUntilUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("NextAttemptAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompletedAtUtc", "FailedAtUtc", "NextAttemptAtUtc");
+
+                    b.ToTable("notification_outbox_jobs", (string)null);
                 });
 
             modelBuilder.Entity("UptimeHarbor.Infrastructure.Identity.ApplicationRole", b =>

@@ -31,7 +31,7 @@ dotnet test --project .\tests\UptimeHarbor.Web.Tests\UptimeHarbor.Web.Tests.cspr
 
 - `UptimeHarbor.Domain.Tests` — доменные переходы и фабрики;
 - `UptimeHarbor.Application.Tests` — use case, политики, DTO и Application DI;
-- `UptimeHarbor.Infrastructure.Tests` — persistence metadata, Identity bootstrap, monitoring worker и внешние адаптеры на fake transport;
+- `UptimeHarbor.Infrastructure.Tests` — persistence metadata и SQLite provider behavior, Identity bootstrap, monitoring/outbox workers и внешние адаптеры на fake transport;
 - `UptimeHarbor.Web.Tests` — Web DI/configuration, authorization/antiforgery metadata, JSON mapping, SignalR и статические frontend-инварианты.
 
 Совокупный набор проверяет:
@@ -40,6 +40,7 @@ dotnet test --project .\tests\UptimeHarbor.Web.Tests\UptimeHarbor.Web.Tests.cspr
 - validation options и DI регистрации;
 - инфраструктурные registrations без реального подключения к БД;
 - EF model metadata, каскады, ключи и indexes;
+- optimistic concurrency через два независимых `UptimeHarborDbContext` на SQLite in-memory provider: monitoring/disable, monitoring/endpoint и два admin updates;
 - UTC converter;
 - notification binding factories;
 - bootstrap администратора и повторный запуск;
@@ -50,22 +51,24 @@ dotnet test --project .\tests\UptimeHarbor.Web.Tests\UptimeHarbor.Web.Tests.cspr
 - role и antiforgery metadata административного API объектов;
 - HTTP/JSON mapping всех типов `ServiceError`;
 - полная DI validation Web composition root;
-- HTTP/JSON-контракт server/container через fake `HttpMessageHandler`, включая status, timeout, network и все обязательные поля;
+- HTTP/JSON-контракт server/container через fake `HttpMessageHandler`, включая status, timeout/cancellation во время чтения, network, 64 KiB limit, chunked body, redirect policy и все обязательные поля;
 - application-переходы monitoring engine, независимость server/container и порядок save→publish;
 - параллельность разных объектов, keyed-защита одной цели, изоляция ошибки и cancellation hosted worker.
 - dashboard query для администратора и пользователя, независимые container permissions, поиск, fallback имени, UTC и uptime через фиксированный `TimeProvider`;
 - серверное определение SignalR-получателей, минимальный payload, изоляция push-ошибки, auth metadata и reconnect/snapshot lifecycle клиента.
 - per-binding состояние outage/recovery, частичный успех, повторная обработка только неуспешных получателей, независимые server/container bindings, fallback имени, parent server, UTC и uptime через fake `TimeProvider`;
 - административные Telegram use case, роль и antiforgery metadata MVC API, AJAX/DOM-инварианты frontend;
-- Telegram HTTP adapter через fake `HttpMessageHandler`, безопасные исключения и изоляция ошибки одного чата.
+- Telegram HTTP adapter через fake `HttpMessageHandler`, безопасные исключения и изоляция ошибки одного чата;
+- durable outbox до/после нового DbContext, параллельное начало доставки чатов, независимость monitoring cycle и лимит пяти retry через управляемый `TimeProvider`;
+- отсутствие SignalR/outbox event после provider concurrency conflict и HTTP `409` для administrative conflict.
 
-Добавлены Web contract tests фактической MVC JSON-сериализации `AdminServerDto`/`AdminContainerDto` и тесты self-disable/self-delete в Application. Runtime smoke для Docker/PostgreSQL/Nginx остаётся отдельной ручной проверкой.
+Web contract tests сериализуют `JsonResult` и administrative DTO через фактические MVC `JsonOptions`. Application проверяет self-disable/self-delete и last-enabled-admin. Runtime-проверка PostgreSQL migration/concurrency, restart процесса и Telegram остается отдельной ручной проверкой; Docker/Nginx не входят в scope v1.
 
 ## Изоляция
 
 Обычные тесты не обращаются к реальной БД, HTTP endpoint, Docker, PowerShell, процессам или внешним сервисам.
 
-EF model tests создают DbContext с provider options, но не открывают соединение. HTTP-тесты monitoring adapter используют управляемый fake handler и не создают сетевых соединений. Worker-тесты используют in-memory services и управляемые `TaskCompletionSource`.
+EF metadata tests не открывают соединение. Provider-level concurrency/outbox tests используют только SQLite in-memory connection внутри процесса, без PostgreSQL, SQL-команд и Docker. HTTP-тесты monitoring adapter используют управляемый fake handler и не создают сетевых соединений. Worker-тесты используют in-memory services и управляемые `TaskCompletionSource`.
 
 Каждый test-файл явно импортирует `Xunit`; `GlobalUsings.cs` в проекте не используется.
 

@@ -74,6 +74,7 @@ public class ObjectAdministrationService(
         string endpointUrl,
         string? description,
         bool isMonitoringEnabled,
+        long expectedVersion,
         CancellationToken cancellationToken = default)
     {
         ServiceError? error = GetAdministratorAccessError() ?? ValidateSettings(endpointUrl, description);
@@ -88,8 +89,20 @@ public class ObjectAdministrationService(
             return ServiceResult<AdminServerDto>.Fail(ServiceErrorType.NotFound, "Сервер не найден.");
         }
 
+        if (server.Version != expectedVersion)
+        {
+            return ServiceResult<AdminServerDto>.Fail(CreateConcurrencyError());
+        }
+
         server.UpdateSettings(endpointUrl, description, isMonitoringEnabled);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (PersistenceConcurrencyException)
+        {
+            return ServiceResult<AdminServerDto>.Fail(CreateConcurrencyError());
+        }
         await changePublisher.PublishObjectsChangedAsync(cancellationToken);
         return ServiceResult<AdminServerDto>.Ok(MapServer(server));
     }
@@ -133,6 +146,7 @@ public class ObjectAdministrationService(
         string endpointUrl,
         string? description,
         bool isMonitoringEnabled,
+        long expectedVersion,
         CancellationToken cancellationToken = default)
     {
         ServiceError? error = GetAdministratorAccessError() ?? ValidateSettings(endpointUrl, description);
@@ -148,6 +162,11 @@ public class ObjectAdministrationService(
             return ServiceResult<AdminContainerDto>.Fail(ServiceErrorType.NotFound, "Контейнер не найден.");
         }
 
+        if (container.Version != expectedVersion)
+        {
+            return ServiceResult<AdminContainerDto>.Fail(CreateConcurrencyError());
+        }
+
         MonitoredServer? server =
             await unitOfWork.MonitoredServers.GetItemByIdAsync(container.ServerId, cancellationToken);
         if (server is null)
@@ -159,7 +178,14 @@ public class ObjectAdministrationService(
         }
 
         container.UpdateSettings(endpointUrl, description, isMonitoringEnabled);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (PersistenceConcurrencyException)
+        {
+            return ServiceResult<AdminContainerDto>.Fail(CreateConcurrencyError());
+        }
         await changePublisher.PublishObjectsChangedAsync(cancellationToken);
         return ServiceResult<AdminContainerDto>.Ok(MapContainer(container));
     }
@@ -182,12 +208,14 @@ public class ObjectAdministrationService(
 
         List<MonitoredContainer> containers =
             await unitOfWork.MonitoredContainers.GetByServerIdAsync(serverId, cancellationToken);
-        return ServiceResult<ServerDeletionImpactDto>.Ok(new(server.Id, containers.Count));
+        return ServiceResult<ServerDeletionImpactDto>.Ok(
+            new(server.Id, containers.Count, server.Version));
     }
 
     public async Task<ServiceResult> DeleteServerAsync(
         Guid serverId,
         int expectedContainerCount,
+        long expectedVersion,
         CancellationToken cancellationToken = default)
     {
         ServiceError? accessError = GetAdministratorAccessError();
@@ -205,34 +233,47 @@ public class ObjectAdministrationService(
         }
 
         ServiceResult? operationResult = null;
-        await unitOfWork.ExecuteInTransactionAsync(
-            async transactionCancellationToken =>
-            {
-                MonitoredServer? server = await unitOfWork.MonitoredServers.GetItemByIdAsync(
-                    serverId,
-                    transactionCancellationToken);
-                if (server is null)
+        try
+        {
+            await unitOfWork.ExecuteInTransactionAsync(
+                async transactionCancellationToken =>
                 {
-                    operationResult = ServiceResult.Fail(ServiceErrorType.NotFound, "Сервер не найден.");
-                    return;
-                }
-
-                List<MonitoredContainer> containers =
-                    await unitOfWork.MonitoredContainers.GetByServerIdAsync(
+                    MonitoredServer? server = await unitOfWork.MonitoredServers.GetItemByIdAsync(
                         serverId,
                         transactionCancellationToken);
-                if (containers.Count != expectedContainerCount)
-                {
-                    operationResult = ServiceResult.Fail(
-                        ServiceErrorType.Conflict,
-                        "Количество контейнеров изменилось. Повторите подтверждение удаления.");
-                    return;
-                }
+                    if (server is null)
+                    {
+                        operationResult = ServiceResult.Fail(ServiceErrorType.NotFound, "Сервер не найден.");
+                        return;
+                    }
 
-                unitOfWork.MonitoredServers.Delete(server);
-                operationResult = ServiceResult.Ok();
-            },
-            cancellationToken);
+                    if (server.Version != expectedVersion)
+                    {
+                        operationResult = ServiceResult.Fail(CreateConcurrencyError());
+                        return;
+                    }
+
+                    List<MonitoredContainer> containers =
+                        await unitOfWork.MonitoredContainers.GetByServerIdAsync(
+                            serverId,
+                            transactionCancellationToken);
+                    if (containers.Count != expectedContainerCount)
+                    {
+                        operationResult = ServiceResult.Fail(
+                            ServiceErrorType.Conflict,
+                            "Количество контейнеров изменилось. Повторите подтверждение удаления.");
+                        return;
+                    }
+
+                    unitOfWork.MonitoredServers.Delete(server);
+                    operationResult = ServiceResult.Ok();
+                },
+                cancellationToken);
+        }
+        catch (PersistenceConcurrencyException)
+        {
+            return ServiceResult.Fail(CreateConcurrencyError());
+        }
 
         ServiceResult result = operationResult
             ?? throw new InvalidOperationException("Удаление сервера не было выполнено.");
@@ -246,6 +287,7 @@ public class ObjectAdministrationService(
 
     public async Task<ServiceResult> DeleteContainerAsync(
         Guid containerId,
+        long expectedVersion,
         CancellationToken cancellationToken = default)
     {
         ServiceError? accessError = GetAdministratorAccessError();
@@ -261,8 +303,20 @@ public class ObjectAdministrationService(
             return ServiceResult.Fail(ServiceErrorType.NotFound, "Контейнер не найден.");
         }
 
+        if (container.Version != expectedVersion)
+        {
+            return ServiceResult.Fail(CreateConcurrencyError());
+        }
+
         unitOfWork.MonitoredContainers.Delete(container);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (PersistenceConcurrencyException)
+        {
+            return ServiceResult.Fail(CreateConcurrencyError());
+        }
         await changePublisher.PublishObjectsChangedAsync(cancellationToken);
         return ServiceResult.Ok();
     }
@@ -330,7 +384,8 @@ public class ObjectAdministrationService(
             server.IsMonitoringEnabled,
             server.LastKnownName,
             server.Status,
-            server.ConsecutiveFailures);
+            server.ConsecutiveFailures,
+            server.Version);
     }
 
     private static AdminContainerDto MapContainer(MonitoredContainer container)
@@ -343,6 +398,14 @@ public class ObjectAdministrationService(
             container.IsMonitoringEnabled,
             container.LastKnownName,
             container.Status,
-            container.ConsecutiveFailures);
+            container.ConsecutiveFailures,
+            container.Version);
+    }
+
+    private static ServiceError CreateConcurrencyError()
+    {
+        return new ServiceError(
+            ServiceErrorType.Conflict,
+            "Объект был изменён другим процессом. Обновите данные и повторите операцию.");
     }
 }

@@ -23,6 +23,7 @@ public interface IObjectAdministrationService
         string endpointUrl,
         string? description,
         bool isMonitoringEnabled,
+        long expectedVersion,
         CancellationToken cancellationToken = default);
 
     Task<ServiceResult<AdminContainerDto>> CreateContainerAsync(
@@ -37,6 +38,7 @@ public interface IObjectAdministrationService
         string endpointUrl,
         string? description,
         bool isMonitoringEnabled,
+        long expectedVersion,
         CancellationToken cancellationToken = default);
 
     Task<ServiceResult<ServerDeletionImpactDto>> GetServerDeletionImpactAsync(
@@ -46,9 +48,11 @@ public interface IObjectAdministrationService
     Task<ServiceResult> DeleteServerAsync(
         Guid serverId,
         int expectedContainerCount,
+        long expectedVersion,
         CancellationToken cancellationToken = default);
 
     Task<ServiceResult> DeleteContainerAsync(
         Guid containerId,
+        long expectedVersion,
         CancellationToken cancellationToken = default);
 }

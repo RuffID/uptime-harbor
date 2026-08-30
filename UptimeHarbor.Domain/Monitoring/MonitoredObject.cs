@@ -25,6 +25,8 @@ public abstract class MonitoredObject
 
     public Guid Id { get; private set; }
 
+    public long Version { get; private set; }
+
     public string EndpointUrl { get; private set; } = string.Empty;
 
     public string? Description { get; private set; }
@@ -74,6 +76,8 @@ public abstract class MonitoredObject
             ResetMonitoringState();
         }
 
+        IncrementVersion();
+
         return monitoringDisabled ? MonitoringTransition.MonitoringDisabled : MonitoringTransition.None;
     }
 
@@ -86,6 +90,7 @@ public abstract class MonitoredObject
 
         IsMonitoringEnabled = isMonitoringEnabled;
         ResetMonitoringState();
+        IncrementVersion();
 
         return isMonitoringEnabled
             ? MonitoringTransition.None
@@ -108,6 +113,7 @@ public abstract class MonitoredObject
 
         LastCheckedAtUtc = checkedAtUtc;
         ConsecutiveFailures++;
+        IncrementVersion();
 
         if (ConsecutiveFailures < failuresBeforeUnavailable || Status == MonitoringStatus.Unavailable)
         {
@@ -133,6 +139,7 @@ public abstract class MonitoredObject
         LastSuccessfulCheckAtUtc = checkedAtUtc;
         ConsecutiveFailures = 0;
         Status = MonitoringStatus.Available;
+        IncrementVersion();
 
         return previousStatus switch
         {
@@ -225,5 +232,10 @@ public abstract class MonitoredObject
         Status = MonitoringStatus.Unknown;
         ConsecutiveFailures = 0;
         CurrentIncidentId = null;
+    }
+
+    private void IncrementVersion()
+    {
+        Version = checked(Version + 1);
     }
 }

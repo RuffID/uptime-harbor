@@ -24,3 +24,5 @@
 - Dashboard query проверять на серверную видимость, поиск, UTC и uptime с фиксированным `TimeProvider`; SignalR — через fake hub context без запуска Web-хоста.
 - Telegram transport проверять fake `HttpMessageHandler`; частичную доставку — in-memory repositories/scopes, без сети и БД; frontend — статически по TypeScript/Razor исходникам.
 - Web contract tests должны сериализовать DTO через фактические MVC `JsonOptions`, а не через произвольные `JsonSerializerOptions`.
+- Optimistic concurrency и durable outbox проверять через два независимых `UptimeHarborDbContext` на SQLite in-memory provider; EF InMemory и metadata-only проверки не заменяют provider behavior.
+- Telegram retry проверять с управляемым `TimeProvider`; зависания чатов — через `TaskCompletionSource` без внешней сети.

@@ -99,6 +99,43 @@ public class UserManagementServiceTests
             TestContext.Current.CancellationToken));
     }
 
+    [Fact]
+    public async Task SetEnabledAsync_CannotDisableLastEnabledAdministrator()
+    {
+        TestData data = new(isAdministrator: true);
+        Guid targetAdministratorId = Guid.NewGuid();
+        data.Accounts.Items.Add(
+            new UserAccountRecord(targetAdministratorId, "last-admin", true, true));
+
+        ServiceResult result = await data.Service.SetEnabledAsync(
+            targetAdministratorId,
+            false,
+            TestContext.Current.CancellationToken);
+
+        Assert.False(result.Success);
+        Assert.Equal(ServiceErrorType.Conflict, result.Error!.Type);
+        Assert.Equal(0, data.Accounts.SetEnabledCount);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_CannotDeleteLastEnabledAdministrator()
+    {
+        TestData data = new(isAdministrator: true);
+        Guid targetAdministratorId = Guid.NewGuid();
+        data.Accounts.Items.Add(
+            new UserAccountRecord(targetAdministratorId, "last-admin", true, true));
+
+        ServiceResult result = await data.Service.DeleteAsync(
+            targetAdministratorId,
+            TestContext.Current.CancellationToken);
+
+        Assert.False(result.Success);
+        Assert.Equal(ServiceErrorType.Conflict, result.Error!.Type);
+        Assert.NotNull(await data.Accounts.GetByIdAsync(
+            targetAdministratorId,
+            TestContext.Current.CancellationToken));
+    }
+
     private class TestData
     {
         public TestData(bool isAdministrator)
@@ -113,6 +150,11 @@ public class UserManagementServiceTests
             Accounts = new FakeAccountStore(
                 new UserAccountRecord(ManagedUserId, "managed-user", true, false));
             Permissions = new FakePermissionRepository();
+            Accounts.OnDelete = userId =>
+            {
+                Permissions.ServerPermissions.RemoveAll(permission => permission.UserId == userId);
+                Permissions.ContainerPermissions.RemoveAll(permission => permission.UserId == userId);
+            };
             FakeVisibilityUnitOfWork unitOfWork = new(
                 new FakeServerRepository([Server]),
                 new FakeContainerRepository([Container]),
@@ -144,12 +186,16 @@ public class UserManagementServiceTests
     private class FakeAccountStore(UserAccountRecord initialUser) : IUserAccountStore
     {
         private readonly List<UserAccountRecord> users = [initialUser];
+        public List<UserAccountRecord> Items => users;
+        public Action<Guid>? OnDelete { get; set; }
         public int CreateCount { get; private set; }
         public int SetEnabledCount { get; private set; }
         public Task<IReadOnlyList<UserAccountRecord>> GetAllAsync(CancellationToken cancellationToken = default) =>
             Task.FromResult<IReadOnlyList<UserAccountRecord>>(users.ToList());
         public Task<UserAccountRecord?> GetByIdAsync(Guid userId, CancellationToken cancellationToken = default) =>
             Task.FromResult(users.SingleOrDefault(user => user.Id == userId));
+        public Task<bool> HasOtherEnabledAdministratorAsync(Guid excludedUserId, CancellationToken cancellationToken = default) =>
+            Task.FromResult(users.Any(user => user.Id != excludedUserId && user.IsAdministrator && user.IsEnabled));
         public Task<AccountStoreResult> CreateAsync(Guid userId, string login, string initialPassword, CancellationToken cancellationToken = default)
         {
             CreateCount++;
@@ -164,6 +210,7 @@ public class UserManagementServiceTests
         public Task<AccountStoreResult> DeleteAsync(Guid userId, CancellationToken cancellationToken = default)
         {
             users.RemoveAll(user => user.Id == userId);
+            OnDelete?.Invoke(userId);
             return Task.FromResult(AccountStoreResult.Success());
         }
     }

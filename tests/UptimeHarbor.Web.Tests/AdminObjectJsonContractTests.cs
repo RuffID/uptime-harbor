@@ -30,7 +30,8 @@ public class AdminObjectJsonContractTests
             true,
             "Server",
             MonitoringStatus.Available,
-            0);
+            0,
+            7);
         AdminContainerDto container = new(
             Guid.NewGuid(),
             server.Id,
@@ -39,7 +40,8 @@ public class AdminObjectJsonContractTests
             true,
             "Container",
             MonitoringStatus.Unavailable,
-            2);
+            2,
+            9);
         AdminServerDto unknownServer = server with { Status = MonitoringStatus.Unknown };
 
         JsonResult serverResult = JsonResultMapper.ToJsonResult(

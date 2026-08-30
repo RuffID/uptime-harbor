@@ -13,6 +13,30 @@ namespace UptimeHarbor.Tests.Infrastructure.Persistence;
 public class UptimeHarborDbContextModelTests
 {
     [Fact]
+    public void MonitoringEntities_UseExplicitConcurrencyVersion()
+    {
+        using UptimeHarborDbContext context = CreateContext();
+        IProperty serverVersion = context.Model.FindEntityType(typeof(MonitoredServer))!
+            .FindProperty(nameof(MonitoredServer.Version))!;
+        IProperty containerVersion = context.Model.FindEntityType(typeof(MonitoredContainer))!
+            .FindProperty(nameof(MonitoredContainer.Version))!;
+
+        Assert.True(serverVersion.IsConcurrencyToken);
+        Assert.True(containerVersion.IsConcurrencyToken);
+    }
+
+    [Fact]
+    public void NotificationOutbox_IsPersistedWithoutForeignKeyToMonitoringObject()
+    {
+        using UptimeHarborDbContext context = CreateContext();
+        IEntityType outboxType = context.Model.FindEntityType(typeof(NotificationOutboxJob))!;
+
+        Assert.Equal("notification_outbox_jobs", outboxType.GetTableName());
+        Assert.Empty(outboxType.GetForeignKeys());
+        Assert.Equal("jsonb", outboxType.FindProperty(nameof(NotificationOutboxJob.PayloadJson))!.GetColumnType());
+    }
+
+    [Fact]
     public void NotificationDeliveryState_IsPersistedPerBindingAndCurrentIncident()
     {
         using UptimeHarborDbContext context = CreateContext();

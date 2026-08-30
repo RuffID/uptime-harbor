@@ -1,6 +1,8 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using UptimeHarbor.Application.Common;
 using UptimeHarbor.Web.Http;
 using Xunit;
@@ -73,6 +75,13 @@ public class JsonResultMapperTests
 
     private static JsonDocument SerializeValue(JsonResult result)
     {
-        return JsonDocument.Parse(JsonSerializer.Serialize(result.Value));
+        ServiceCollection services = new();
+        services.AddControllers();
+        using ServiceProvider provider = services.BuildServiceProvider();
+        JsonSerializerOptions options = provider
+            .GetRequiredService<IOptions<JsonOptions>>()
+            .Value
+            .JsonSerializerOptions;
+        return JsonDocument.Parse(JsonSerializer.Serialize(result.Value, options));
     }
 }

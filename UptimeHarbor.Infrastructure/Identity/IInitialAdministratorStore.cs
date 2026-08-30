@@ -4,7 +4,8 @@ namespace UptimeHarbor.Infrastructure.Identity;
 
 public interface IInitialAdministratorStore
 {
-    Task<bool> AdministratorExistsAsync(CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<UserAccountRecord>> GetAdministratorsAsync(
+        CancellationToken cancellationToken = default);
 
     Task<AccountStoreResult> EnsureRoleAsync(string roleName, CancellationToken cancellationToken = default);
 
@@ -12,5 +13,9 @@ public interface IInitialAdministratorStore
         Guid userId,
         string login,
         string password,
+        CancellationToken cancellationToken = default);
+
+    Task<AccountStoreResult> EnableAdministratorAsync(
+        Guid userId,
         CancellationToken cancellationToken = default);
 }

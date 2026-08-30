@@ -7,5 +7,6 @@ public enum EndpointCheckFailureKind
     HttpStatus = 2,
     InvalidJson = 3,
     InvalidName = 4,
-    InvalidStartedAtUtc = 5
+    InvalidStartedAtUtc = 5,
+    ResponseTooLarge = 6
 }

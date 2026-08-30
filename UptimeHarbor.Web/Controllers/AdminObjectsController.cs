@@ -49,6 +49,7 @@ public class AdminObjectsController(IObjectAdministrationService administrationS
                 request.EndpointUrl ?? string.Empty,
                 request.Description,
                 request.IsMonitoringEnabled,
+                request.Version ?? -1,
                 cancellationToken);
         return JsonResultMapper.ToJsonResult(result);
     }
@@ -93,6 +94,7 @@ public class AdminObjectsController(IObjectAdministrationService administrationS
                 request.EndpointUrl ?? string.Empty,
                 request.Description,
                 request.IsMonitoringEnabled,
+                request.Version ?? -1,
                 cancellationToken);
         return JsonResultMapper.ToJsonResult(result);
     }
@@ -117,6 +119,7 @@ public class AdminObjectsController(IObjectAdministrationService administrationS
         Application.Common.ServiceResult result = await administrationService.DeleteServerAsync(
             serverId,
             request.ExpectedContainerCount,
+            request.Version,
             cancellationToken);
         return JsonResultMapper.ToJsonResult(result);
     }
@@ -125,10 +128,14 @@ public class AdminObjectsController(IObjectAdministrationService administrationS
     [ValidateAntiForgeryToken]
     public async Task<JsonResult> DeleteContainerAsync(
         Guid containerId,
+        DeleteObjectRequest request,
         CancellationToken cancellationToken)
     {
         Application.Common.ServiceResult result =
-            await administrationService.DeleteContainerAsync(containerId, cancellationToken);
+            await administrationService.DeleteContainerAsync(
+                containerId,
+                request.Version,
+                cancellationToken);
         return JsonResultMapper.ToJsonResult(result);
     }
 }

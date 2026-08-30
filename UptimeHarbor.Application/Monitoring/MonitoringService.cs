@@ -51,10 +51,19 @@ public class MonitoringService(
                 result.CheckedAtUtc)
             : server!.RecordFailedCheck(result.CheckedAtUtc, failuresBeforeUnavailable);
 
-        await unitOfWork.SaveChangesAsync(cancellationToken);
-        await eventPublisher.PublishAsync(
-            CreateEvent(server, transition, result.Success, result.FailureKind),
-            cancellationToken);
+        MonitoringStateChangedEvent monitoringEvent =
+            CreateEvent(server, transition, result.Success, result.FailureKind);
+        EnqueueNotificationIfRequired(monitoringEvent);
+        try
+        {
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (PersistenceConcurrencyException)
+        {
+            return false;
+        }
+
+        await eventPublisher.PublishAsync(monitoringEvent, cancellationToken);
         return true;
     }
 
@@ -81,10 +90,19 @@ public class MonitoringService(
                 result.CheckedAtUtc)
             : container!.RecordFailedCheck(result.CheckedAtUtc, failuresBeforeUnavailable);
 
-        await unitOfWork.SaveChangesAsync(cancellationToken);
-        await eventPublisher.PublishAsync(
-            CreateEvent(container, transition, result.Success, result.FailureKind),
-            cancellationToken);
+        MonitoringStateChangedEvent monitoringEvent =
+            CreateEvent(container, transition, result.Success, result.FailureKind);
+        EnqueueNotificationIfRequired(monitoringEvent);
+        try
+        {
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (PersistenceConcurrencyException)
+        {
+            return false;
+        }
+
+        await eventPublisher.PublishAsync(monitoringEvent, cancellationToken);
         return true;
     }
 
@@ -96,6 +114,15 @@ public class MonitoringService(
                 monitoredObject.EndpointUrl,
                 checkedEndpointUrl,
                 StringComparison.Ordinal);
+    }
+
+    private void EnqueueNotificationIfRequired(MonitoringStateChangedEvent monitoringEvent)
+    {
+        if (monitoringEvent.Transition is MonitoringTransition.BecameUnavailable
+            or MonitoringTransition.Recovered)
+        {
+            unitOfWork.EnqueueNotification(monitoringEvent);
+        }
     }
 
     private static MonitoringStateChangedEvent CreateEvent(

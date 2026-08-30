@@ -11,3 +11,5 @@
 - Не менять имена таблиц, ключей и constraints без оценки миграции и совместимости.
 - При изменении конфигураций обновлять model tests, этот файл и `Documentation/Technical/Persistence.md`.
 - Состояние частичной доставки хранить на `NotificationBinding` по incident ID; не возвращать глобальный флаг объекту мониторинга.
+- `MonitoredServer.Version` и `MonitoredContainer.Version` настраивать как optimistic concurrency token.
+- Outbox job не связывать внешним ключом с удаляемым объектом мониторинга: сохранённый payload должен переживать административное удаление.

@@ -13,8 +13,20 @@ public class InitialAdministratorBootstrapper(
         await EnsureRoleAsync(ApplicationRoles.ADMINISTRATOR, cancellationToken);
         await EnsureRoleAsync(ApplicationRoles.USER, cancellationToken);
 
-        if (await store.AdministratorExistsAsync(cancellationToken))
+        IReadOnlyList<UserAccountRecord> administrators =
+            await store.GetAdministratorsAsync(cancellationToken);
+        if (administrators.Any(administrator => administrator.IsEnabled))
         {
+            return;
+        }
+
+        UserAccountRecord? disabledAdministrator = administrators.FirstOrDefault();
+        if (disabledAdministrator is not null)
+        {
+            AccountStoreResult enableResult = await store.EnableAdministratorAsync(
+                disabledAdministrator.Id,
+                cancellationToken);
+            EnsureSucceeded(enableResult, "Не удалось включить существующего администратора.");
             return;
         }
 

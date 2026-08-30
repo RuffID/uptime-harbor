@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using UptimeHarbor.Application.Abstractions.UnitOfWork;
 
@@ -6,9 +7,17 @@ namespace UptimeHarbor.Infrastructure.Persistence.UnitOfWork;
 public abstract class UptimeHarborDbUnitOfWork(IUptimeHarborDbContextSession session)
     : IUnitOfWorkScope
 {
-    public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        return session.SaveChangesAsync(cancellationToken);
+        try
+        {
+            return await session.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException exception)
+        {
+            session.Clear();
+            throw new PersistenceConcurrencyException(exception);
+        }
     }
 
     public async Task ExecuteInTransactionAsync(

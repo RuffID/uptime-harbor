@@ -25,6 +25,8 @@ public class UptimeHarborDbContext(
 
     public DbSet<NotificationBinding> NotificationBindings => Set<NotificationBinding>();
 
+    public DbSet<NotificationOutboxJob> NotificationOutboxJobs => Set<NotificationOutboxJob>();
+
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)

@@ -10,4 +10,5 @@
 - Проверять роль администратора внутри каждого административного use case.
 - Outage выбирать только для привязок без успешного маркера текущего incident ID; recovery — только после успешного outage той же привязки.
 - Формировать DTO и текст сообщения из сохранённого `MonitoringStateChangedEvent`; UTC и uptime получать через `TimeProvider`.
+- Повторная outbox-обработка должна выбирать только привязки без соответствующего successful marker; внешний Telegram transport имеет at-least-once, а не exactly-once семантику.
 - При изменении контракта обновлять тесты и `Documentation/Technical/Notifications.md`.

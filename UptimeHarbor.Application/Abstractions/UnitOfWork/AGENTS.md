@@ -11,6 +11,7 @@
 - Сохранение и транзакции инициировать через сценарный Unit of Work.
 - Все репозитории одного сценария должны использовать одну scoped-сессию Infrastructure.
 - Администрирование серверов и контейнеров использует отдельный `IObjectAdministrationUnitOfWork`.
-- Запись результата одной проверки использует `IMonitoringUnitOfWork`; каждый параллельно проверяемый объект получает отдельный DI scope и собственную scoped-сессию.
+- Запись результата одной проверки и её notification outbox job использует `IMonitoringUnitOfWork` в одном `SaveChangesAsync`; каждый параллельно проверяемый объект получает отдельный DI scope и собственную scoped-сессию.
+- EF concurrency exception переводится Infrastructure в независимый `PersistenceConcurrencyException`; Application не зависит от EF Core.
 - Администрирование и фиксация успешной доставки одной привязки используют сценарный `INotificationSettingsUnitOfWork`; получатели сохраняются независимо.
 - При изменении границ сценариев обновлять реализации, DI, этот файл и `Documentation/Technical/Persistence.md`.

@@ -14,4 +14,9 @@ public class UptimeHarborDbContextSession(UptimeHarborDbContext dbContext)
     {
         return dbContext.SaveChangesAsync(cancellationToken);
     }
+
+    public void Clear()
+    {
+        dbContext.ChangeTracker.Clear();
+    }
 }

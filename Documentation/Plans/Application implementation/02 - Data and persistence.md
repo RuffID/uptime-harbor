@@ -2,7 +2,7 @@
 
 ## Статус
 
-**Завершён.** Доменная модель, persistence-инфраструктура, сценарные Unit of Work, model metadata tests, хранение ключей Data Protection и первая миграция PostgreSQL проверены сборкой и изолированными тестами.
+**В работе.** Доменная модель, persistence, scenario Unit of Work, optimistic concurrency и durable outbox проверены metadata и SQLite provider tests. Миграция `AddMonitoringConcurrencyAndNotificationOutbox` создана, но её ручное применение и проверка на PostgreSQL не выполнялись.
 
 ## Цель
 

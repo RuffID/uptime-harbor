@@ -8,6 +8,10 @@ public interface IUserAccountStore
 
     Task<UserAccountRecord?> GetByIdAsync(Guid userId, CancellationToken cancellationToken = default);
 
+    Task<bool> HasOtherEnabledAdministratorAsync(
+        Guid excludedUserId,
+        CancellationToken cancellationToken = default);
+
     Task<AccountStoreResult> CreateAsync(
         Guid userId,
         string login,

@@ -20,6 +20,12 @@ Design-time factory настраивает Npgsql без строки подкл
 
 Миграция `20260825154441_AddNotificationDeliveryState` заменяет глобальный `OutageNotificationSent` на `CurrentIncidentId` объекта и per-binding поля `OutageDeliveredIncidentId`/`RecoveryDeliveredIncidentId`. Сгенерированные migration и snapshot проверены без ручного редактирования.
 
+## Миграция concurrency и outbox
+
+Миграция `20260830090000_AddMonitoringConcurrencyAndNotificationOutbox` добавляет два столбца `Version` типа `bigint` и таблицу `notification_outbox_jobs`. Других изменений схемы она не содержит. Существующие migration-файлы не изменялись; snapshot синхронизирован с текущей EF-моделью.
+
+Миграция не запускалась и не применялась к PostgreSQL в рамках исправления P1. Её review и применение остаются ручной runtime-проверкой до запуска обновлённой версии.
+
 ## Обновление production
 
 1. Создать резервную копию PostgreSQL.
