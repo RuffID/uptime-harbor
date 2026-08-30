@@ -108,7 +108,13 @@ public class ServiceCollectionExtensionsTests
         SecurityStampValidatorOptions stampOptions = application.Services
             .GetRequiredService<IOptions<SecurityStampValidatorOptions>>()
             .Value;
+        IdentityOptions identityOptions = application.Services
+            .GetRequiredService<IOptions<IdentityOptions>>()
+            .Value;
         Assert.Equal(TimeSpan.Zero, stampOptions.ValidationInterval);
+        Assert.True(identityOptions.Lockout.AllowedForNewUsers);
+        Assert.Equal(5, identityOptions.Lockout.MaxFailedAccessAttempts);
+        Assert.Equal(TimeSpan.FromMinutes(5), identityOptions.Lockout.DefaultLockoutTimeSpan);
     }
 
     [Fact]

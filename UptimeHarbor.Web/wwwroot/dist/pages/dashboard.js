@@ -1,4 +1,4 @@
-import { sendJsonRequest, unwrapServiceResult } from "../shared/http.js";
+import { isAbortError, sendJsonRequest, unwrapServiceResult } from "../shared/http.js";
 var MonitoringStatus;
 (function (MonitoringStatus) {
     MonitoringStatus[MonitoringStatus["Unknown"] = 0] = "Unknown";
@@ -10,8 +10,11 @@ const state = {
     requestVersion: 0,
     snapshot: null
 };
+const SNAPSHOT_REFRESH_DEBOUNCE_MS = 200;
 let searchTimer = null;
+let snapshotRefreshTimer = null;
 let reconnectTimer = null;
+let snapshotAbortController = null;
 let connection = null;
 const content = requireElement("[data-dashboard-content]");
 const stateContainer = requireElement("[data-dashboard-state]");
@@ -51,22 +54,39 @@ function bindSearch() {
 function configureSignalR(hubConnection) {
     hubConnection.on("MonitoringObjectChanged", (...args) => {
         validateMonitoringMessage(args[0]);
-        void loadSnapshot(false);
+        scheduleSnapshotRefresh();
     });
     hubConnection.on("ObjectAdministrationChanged", () => {
-        void loadSnapshot(false);
+        scheduleSnapshotRefresh();
     });
     hubConnection.onreconnecting(() => {
         setSignalState("reconnecting", "Связь потеряна, переподключаемся…");
     });
     hubConnection.onreconnected(() => {
         setSignalState("connected", "Обновления подключены");
+        cancelScheduledSnapshotRefresh();
         void loadSnapshot(false);
     });
     hubConnection.onclose(() => {
         setSignalState("disconnected", "Обновления временно недоступны");
         scheduleSignalRStart();
     });
+}
+function scheduleSnapshotRefresh() {
+    if (snapshotRefreshTimer !== null) {
+        window.clearTimeout(snapshotRefreshTimer);
+    }
+    snapshotRefreshTimer = window.setTimeout(() => {
+        snapshotRefreshTimer = null;
+        void loadSnapshot(false);
+    }, SNAPSHOT_REFRESH_DEBOUNCE_MS);
+}
+function cancelScheduledSnapshotRefresh() {
+    if (snapshotRefreshTimer === null) {
+        return;
+    }
+    window.clearTimeout(snapshotRefreshTimer);
+    snapshotRefreshTimer = null;
 }
 async function startSignalR() {
     if (connection === null) {
@@ -96,12 +116,15 @@ function scheduleSignalRStart() {
 }
 async function loadSnapshot(showLoading) {
     const requestVersion = ++state.requestVersion;
+    snapshotAbortController?.abort();
+    const abortController = new AbortController();
+    snapshotAbortController = abortController;
     if (showLoading) {
         renderMessage("loading", "Загружаем актуальное состояние…");
     }
     try {
         const query = state.search ? `?search=${encodeURIComponent(state.search)}` : "";
-        const response = await sendJsonRequest(`/api/dashboard${query}`);
+        const response = await sendJsonRequest(`/api/dashboard${query}`, "GET", null, abortController.signal);
         const snapshot = unwrapServiceResult(response);
         if (requestVersion !== state.requestVersion) {
             return;
@@ -110,11 +133,19 @@ async function loadSnapshot(showLoading) {
         renderDashboard(snapshot);
     }
     catch (error) {
+        if (isAbortError(error)) {
+            return;
+        }
         if (requestVersion !== state.requestVersion) {
             return;
         }
         const message = error instanceof Error ? error.message : "Не удалось загрузить панель.";
         renderMessage("error", message);
+    }
+    finally {
+        if (snapshotAbortController === abortController) {
+            snapshotAbortController = null;
+        }
     }
 }
 function renderDashboard(snapshot) {

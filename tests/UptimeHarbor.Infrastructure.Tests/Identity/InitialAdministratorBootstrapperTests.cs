@@ -48,6 +48,21 @@ public class InitialAdministratorBootstrapperTests
         Assert.True(store.AdministratorEnabled);
     }
 
+    [Fact]
+    public async Task InitializeAsync_WhenEnabledAdministratorIsIdentityLockedOut_DoesNotCreateOrEnableAnother()
+    {
+        FakeInitialAdministratorStore store = new(
+            hasAdministrator: true,
+            administratorEnabled: true);
+        InitialAdministratorBootstrapper bootstrapper = CreateBootstrapper(store);
+
+        await bootstrapper.InitializeAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, store.CreateCount);
+        Assert.Equal(0, store.EnableCount);
+        Assert.True(store.AdministratorEnabled);
+    }
+
     private static InitialAdministratorBootstrapper CreateBootstrapper(
         FakeInitialAdministratorStore store)
     {

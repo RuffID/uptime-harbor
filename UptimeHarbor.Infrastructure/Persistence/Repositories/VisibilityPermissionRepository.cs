@@ -33,6 +33,38 @@ public class VisibilityPermissionRepository(
             ct: cancellationToken);
     }
 
+    public Task<List<ServerVisibilityPermission>> GetServerPermissionsForUsersAsync(
+        IReadOnlyCollection<Guid> userIds,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(userIds);
+        if (userIds.Count == 0)
+        {
+            return Task.FromResult<List<ServerVisibilityPermission>>([]);
+        }
+
+        return serverGetRepository.GetItemsByPredicateAsync(
+            permission => userIds.Contains(permission.UserId),
+            asNoTracking: true,
+            ct: cancellationToken);
+    }
+
+    public Task<List<ContainerVisibilityPermission>> GetContainerPermissionsForUsersAsync(
+        IReadOnlyCollection<Guid> userIds,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(userIds);
+        if (userIds.Count == 0)
+        {
+            return Task.FromResult<List<ContainerVisibilityPermission>>([]);
+        }
+
+        return containerGetRepository.GetItemsByPredicateAsync(
+            permission => userIds.Contains(permission.UserId),
+            asNoTracking: true,
+            ct: cancellationToken);
+    }
+
     public void Create(ServerVisibilityPermission item)
     {
         serverCreateRepository.Create(item);

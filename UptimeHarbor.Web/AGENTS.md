@@ -19,8 +19,11 @@
 - Новый клиентский код писать на TypeScript в `wwwroot/ts`, собранный JavaScript подключать из `wwwroot/dist`.
 - Полная TypeScript-цепочка `FindConfigFiles` → `TypeScriptDeleteOutputFromOtherConfigs` → `CompileTypeScriptWithTSConfig` должна выполняться через `PrepareTypeScriptForStaticWebAssets` перед `ResolveProjectStaticWebAssets` и `ResolveCoreStaticWebAssets`, чтобы удаление outputs другой конфигурации не происходило после компиляции и сборка решения сначала восстанавливала `wwwroot/dist`.
 - Инкрементальная TypeScript-сборка отключена, чтобы отсутствующие generated `.js` восстанавливались и в Debug, и в Release.
-- API главной панели размещено под `/api/dashboard`, требует аутентификацию и возвращает только отфильтрованные dashboard DTO через `JsonResultMapper`.
+- API главной панели размещено под `/api/dashboard`, требует аутентификацию и возвращает только отфильтрованные dashboard DTO без endpoint URL через `JsonResultMapper`; отдельного публичного `/api/objects` нет.
 - Monitoring SignalR-событие содержит только тип и идентификатор объекта и отправляется сервером конкретным разрешённым user-id; клиент перечитывает snapshot после события и reconnect.
+- Клиент объединяет SignalR refresh-события окном 200 мс и отменяет устаревший snapshot-fetch через `AbortController`; reconnect загружает snapshot немедленно.
+- Автоматические `[ApiController]` model-state ошибки используют тот же `{ success: false, message, field? }` envelope, что и `JsonResultMapper`.
+- Login имеет отдельную rate-limit policy; Web добавляет `nosniff`, `no-referrer` и запрет framing. CSP и локальный SignalR browser asset нельзя считать реализованными, пока фиксированный asset не получен разрешённым способом.
 - Административное API уведомлений размещено под `/api/admin/notifications`; token не входит в Web-контракты, а mutating actions и тестовая отправка требуют роль `Administrator` и antiforgery.
 - Административная страница пользователей размещена под `/Admin/Users`; UI работает через `/api/admin/users` без перезагрузки, а операции изменения защищены antiforgery и ролью `Administrator`.
 - Forwarded headers принимаются только из явно настроенной proxy-сети с ограничением `ForwardLimit` до одного прокси; liveness и readiness health endpoints разделены.

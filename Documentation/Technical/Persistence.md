@@ -35,6 +35,8 @@ Persistence реализован в `UptimeHarbor.Infrastructure`. `UptimeHarbor
 
 Запросы чтения списков выполняются no-tracking. Запрос объекта для последующего изменения остаётся tracked. `IQueryable` не выходит из Infrastructure.
 
+Для одного monitoring event recipient resolver передаёт Infrastructure набор обычных user-id. Репозиторий materialize-ит permissions одним no-tracking запросом на server permissions и, для container event, одним запросом на container permissions. Application получает только списки доменных permission-объектов; EF query и `IQueryable` наружу не выходят.
+
 Для начала каждого monitoring cycle `GetEnabledAsync` фильтрует включённые серверы и контейнеры в БД и возвращает materialized no-tracking snapshot. Результат каждой параллельной проверки записывается в отдельном DI scope: объект повторно загружается tracked и сохраняется через scoped `IMonitoringUnitOfWork`.
 
 `Version` увеличивается доменными методами. EF добавляет исходное значение в `UPDATE`/`DELETE`; нулевое число затронутых строк даёт `DbUpdateConcurrencyException`. Технический Unit of Work очищает stale change tracker и переводит исключение в независимый `PersistenceConcurrencyException`. Monitoring считает его устаревшим результатом без событий, а административный use case возвращает semantic conflict.

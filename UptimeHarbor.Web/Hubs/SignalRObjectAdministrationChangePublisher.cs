@@ -3,13 +3,24 @@ using UptimeHarbor.Application.ObjectAdministration;
 
 namespace UptimeHarbor.Web.Hubs;
 
-public class SignalRObjectAdministrationChangePublisher(IHubContext<MonitoringHub> hubContext)
+public class SignalRObjectAdministrationChangePublisher(
+    IHubContext<MonitoringHub> hubContext,
+    ILogger<SignalRObjectAdministrationChangePublisher> logger)
     : IObjectAdministrationChangePublisher
 {
-    public Task PublishObjectsChangedAsync(CancellationToken cancellationToken = default)
+    public async Task PublishObjectsChangedAsync(CancellationToken cancellationToken = default)
     {
-        return hubContext.Clients.All.SendAsync(
-            "ObjectAdministrationChanged",
-            cancellationToken: cancellationToken);
+        try
+        {
+            await hubContext.Clients.All.SendAsync(
+                "ObjectAdministrationChanged",
+                cancellationToken: cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(
+                exception,
+                "Не удалось отправить SignalR-сигнал обновления административных данных.");
+        }
     }
 }

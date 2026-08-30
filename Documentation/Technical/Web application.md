@@ -9,14 +9,15 @@
 1. production exception handler и HSTS вне Development;
 2. обработка `X-Forwarded-*` только от явно настроенной proxy-сети с `ForwardLimit = 1`;
 3. HTTPS redirection;
-3. routing;
-4. authentication;
-5. authorization;
-6. static assets;
-7. MVC controllers;
-8. Razor Pages;
-9. SignalR hub;
-10. health endpoints `/health/live` (liveness) и `/health/ready` (PostgreSQL readiness); `/health` оставлен алиасом readiness.
+4. routing;
+5. базовые security headers и login rate limiting;
+6. authentication;
+7. authorization;
+8. static assets;
+9. MVC controllers;
+10. Razor Pages;
+11. SignalR hub;
+12. health endpoints `/health/live` (liveness) и `/health/ready` (PostgreSQL readiness); `/health` оставлен алиасом readiness.
 
 До построения pipeline вызывается инфраструктурный bootstrap ролей и начального администратора. Миграции при этом не применяются автоматически.
 
@@ -27,7 +28,6 @@
 - Minimal API handlers `MapGet`, `MapPost`, `MapPut`, `MapDelete` и `MapPatch` не используются.
 - SignalR hub сопоставлен по пути `/hubs/monitoring`.
 - Стандартный health-check endpoint сопоставлен по пути `/health`.
-- API чтения доступных объектов сопоставлено под `/api/objects`.
 - API snapshot главной панели сопоставлено под `/api/dashboard` и требует аутентификацию.
 - API управления пользователями сопоставлено под `/api/admin/users` и требует роль `Administrator`.
 - API управления серверами и контейнерами сопоставлено под `/api/admin/objects`, требует роль `Administrator`, а все изменяющие методы защищены antiforgery.
@@ -51,9 +51,17 @@
 
 Административная страница пользователей находится в `/Admin/Users`. TypeScript загружает пользователей, серверы и контейнеры через MVC API, строит permissions через DOM API без `innerHTML`, перехватывает submit и передаёт antiforgery для mutating requests. Формы содержат связанные `id`/`name` и выводят field-specific ошибки.
 
-Главная страница `/` содержит статические контейнеры панели и не загружает коллекции в PageModel. TypeScript получает snapshot через `/api/dashboard`, выполняет server-side поиск по текущей строке, строит вложенные карточки DOM API и показывает отдельные состояния loading, empty, no-results и error. Тёмный layout использует Bootstrap и адаптивную сетку для desktop/mobile. Браузерный SignalR client фиксированной версии подключён как внешний статический script; потеря push-канала не блокирует HTTP snapshot.
+Главная страница `/` содержит статические контейнеры панели и не загружает коллекции в PageModel. TypeScript получает snapshot через `/api/dashboard`, выполняет server-side поиск по текущей строке, строит вложенные карточки DOM API и показывает отдельные состояния loading, empty, no-results и error. Пачка SignalR refresh-событий объединяется окном 200 мс. Каждый новый snapshot-fetch отменяет прежний через `AbortController`; штатный `AbortError` не отображается пользователю. Reconnect отменяет отложенный refresh и немедленно загружает актуальный snapshot. Тёмный layout использует Bootstrap и адаптивную сетку для desktop/mobile.
+
+Публичный `/api/objects` удалён как неиспользуемый v1 endpoint, раскрывавший endpoint URL. Пользовательские read-контракты dashboard не содержат endpoint и административные поля; `/api/admin/objects` сохраняет endpoint URL для редактирования.
 
 `JsonResultMapper` возвращает единый envelope и при field-specific validation добавляет необязательное поле `field`. Остальные ошибки сохраняют контракт `{ success: false, message: ... }` без дополнительного поля.
+
+`InvalidModelStateResponseFactory` переводит автоматические `[ApiController]` ошибки в тот же envelope с HTTP 400. Ошибки body получают безопасное сообщение без `field`, ошибки конкретного поля — детерминированное camelCase-поле; exception message JSON parser и CLR-типы в ответ не включаются. TypeScript HTTP helper сохраняет нативный `AbortError`, возвращает `ApiError` с HTTP status для JSON, пустых и non-JSON error responses и по-прежнему fail-fast отклоняет неожиданный пустой успешный ответ.
+
+Login Page имеет отдельную fixed-window policy: не более 10 попыток в минуту на `RemoteIpAddress`, без очереди. `X-Forwarded-For` влияет на этот адрес только после существующей проверки trusted proxy network. Ответ 429 одинаков для любого логина. Dashboard, admin API, SignalR и остальные страницы login-specific policy не получают.
+
+На все ответы добавляются `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` и `X-Frame-Options: DENY`. Локального SignalR browser asset в репозитории/SDK/локальных package caches нет; запрещённые npm/LibMan и неподтверждённая загрузка не выполнялись. Поэтому CDN-зависимость и CSP без внешних script origins пока остаются незавершённой частью P2-5: включение требуемой CSP до локализации клиента сломало бы realtime.
 
 ## SignalR
 
@@ -62,3 +70,5 @@
 Событие `MonitoringObjectChanged` содержит только `objectId` и `objectKind`; получатель перечитывает защищённый snapshot. Клиент включает автоматическое переподключение, повторяет initial start после исчерпания reconnect-попыток и после `onreconnected` полностью заменяет состояние актуальным snapshot.
 
 После успешного административного сохранения `SignalRObjectAdministrationChangePublisher` отправляет всем аутентифицированным открытым панелям только событие `ObjectAdministrationChanged` без данных объекта. Получатель должен перечитать разрешённый ему snapshot через защищённый API; событие не является источником истины и не раскрывает скрытые объекты.
+
+Административный SignalR refresh является best-effort: publisher вызывается только после commit, изолирует и журналирует transport exception без данных объекта. Ошибка push не меняет успешный `ServiceResult` сохранённой операции и не требует повторного HTTP-запроса; после save/concurrency error publisher не вызывается.

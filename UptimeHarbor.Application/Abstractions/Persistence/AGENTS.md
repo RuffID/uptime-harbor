@@ -12,5 +12,6 @@
 - Решения о tracking и форме EF-запроса оставлять Infrastructure.
 - При изменении контрактов синхронизировать реализации, DI, тесты, этот файл и `Documentation/Technical/Persistence.md`.
 - Списковые чтения для Application materialize-ить в Infrastructure; фильтрацию доступа и формирование DTO выполнять в use case.
+- Определение SignalR-получателей загружает server/container permissions для набора пользователей пакетными materialized запросами, без per-user N+1.
 - Для цикла мониторинга репозитории возвращают materialized no-tracking списки только включённых объектов через `GetEnabledAsync`.
 - Чтение привязок для подготовки уведомлений выполняется materialized no-tracking; успешный маркер конкретной доставки записывается после отдельной tracked-загрузки по ID.

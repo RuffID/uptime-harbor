@@ -18,7 +18,8 @@
 - Мониторинг координировать через `MonitoringService`: endpoint проверяет независимый контракт, состояние изменяется доменными переходами, событие публикуется только после сохранения.
 - `MonitoringOptions` принадлежит Application как общий типизированный контракт цикла и HTTP-адаптера; привязка конфигурации остаётся в Web composition root.
 - Главная панель загружается через независимый `DashboardQuery`, который фильтрует сущности до формирования отдельных dashboard DTO и рассчитывает uptime через `TimeProvider`.
-- HTTP-чтение и SignalR-получатели используют общую `ObjectVisibilityPolicy`; доступ к серверу не заменяет отдельное разрешение контейнера.
+- Dashboard и SignalR-получатели используют общую `ObjectVisibilityPolicy`; публичного `/api/objects` в v1 нет, а recipient resolver загружает permissions обычных пользователей пакетно.
+- `IObjectAdministrationChangePublisher` вызывается только после успешного сохранения; Web-реализация обязана изолировать best-effort SignalR transport error.
 - Уведомления используют независимый `INotificationSender`, административный use case и per-binding фиксацию outage/recovery через `INotificationSettingsUnitOfWork`; transport и логирование остаются в Infrastructure.
 - `UserManagementService` запрещает текущему администратору отключать или удалять собственную учётную запись.
 - `UserManagementService` также запрещает отключение и удаление последнего включённого администратора; ожидаемый отказ возвращается как `ServiceErrorType.Conflict`.

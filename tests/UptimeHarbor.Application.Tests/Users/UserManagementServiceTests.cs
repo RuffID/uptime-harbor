@@ -267,6 +267,8 @@ public class UserManagementServiceTests
         public List<ContainerVisibilityPermission> ContainerPermissions { get; } = [];
         public Task<List<ServerVisibilityPermission>> GetServerPermissionsAsync(Guid userId, CancellationToken cancellationToken = default) => Task.FromResult(ServerPermissions.Where(item => item.UserId == userId).ToList());
         public Task<List<ContainerVisibilityPermission>> GetContainerPermissionsAsync(Guid userId, CancellationToken cancellationToken = default) => Task.FromResult(ContainerPermissions.Where(item => item.UserId == userId).ToList());
+        public Task<List<ServerVisibilityPermission>> GetServerPermissionsForUsersAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken = default) => Task.FromResult(ServerPermissions.Where(item => userIds.Contains(item.UserId)).ToList());
+        public Task<List<ContainerVisibilityPermission>> GetContainerPermissionsForUsersAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken = default) => Task.FromResult(ContainerPermissions.Where(item => userIds.Contains(item.UserId)).ToList());
         public void Create(ServerVisibilityPermission item) => ServerPermissions.Add(item);
         public void CreateRange(IEnumerable<ServerVisibilityPermission> entities) => ServerPermissions.AddRange(entities);
         public void Create(ContainerVisibilityPermission item) => ContainerPermissions.Add(item);

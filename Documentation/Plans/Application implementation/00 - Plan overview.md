@@ -2,7 +2,7 @@
 
 ## Статус
 
-**В работе.** Исходный код этапов 1–7 реализован; P1-1—P1-6 закрыты code/provider/contract tests. До runtime-ready остаются ручное применение и проверка новой PostgreSQL migration, restart-проверка outbox и реальная Telegram-доставка. Этап 8 приостановлен: Docker Compose и orchestration не входят в требования первой версии.
+**В работе.** P2-1—P2-4 исправлены в исходном коде и разрешённых изолированных тестах; browser burst/cancellation и настоящий HTTP formatter pipeline остаются ручными. P2-5 частично исправлен: Identity lockout, login rate limit и базовые headers готовы, но локальный SignalR client и CSP заблокированы отсутствием разрешённо полученного asset. P1 runtime-проверки PostgreSQL migration, process restart и Telegram также остаются. Этап 8 приостановлен: Docker Compose и orchestration не входят в v1.
 
 ## Цель
 

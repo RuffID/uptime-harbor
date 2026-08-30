@@ -60,6 +60,9 @@ public static class ServiceCollectionExtensions
             {
                 options.User.RequireUniqueEmail = false;
                 options.SignIn.RequireConfirmedAccount = false;
+                options.Lockout.AllowedForNewUsers = true;
+                options.Lockout.MaxFailedAccessAttempts = 5;
+                options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
             })
             .AddEntityFrameworkStores<UptimeHarborDbContext>()
             .AddDefaultTokenProviders();

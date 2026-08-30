@@ -17,11 +17,48 @@ public class MonitoringEventRecipientResolver(
         Guid? serverId,
         CancellationToken cancellationToken = default)
     {
+        if (objectKind == MonitoringObjectKind.Container && serverId is null)
+        {
+            throw new InvalidOperationException(
+                "Событие контейнера должно содержать идентификатор родительского сервера.");
+        }
+
+        if (objectKind is not MonitoringObjectKind.Server and not MonitoringObjectKind.Container)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(objectKind),
+                objectKind,
+                "Неизвестный тип объекта мониторинга.");
+        }
+
         IReadOnlyList<UserAccountRecord> users =
             await userAccountStore.GetAllAsync(cancellationToken);
+        List<UserAccountRecord> enabledUsers = users
+            .Where(user => user.IsEnabled)
+            .ToList();
+        List<Guid> ordinaryUserIds = enabledUsers
+            .Where(user => !user.IsAdministrator)
+            .Select(user => user.Id)
+            .ToList();
+        List<ServerVisibilityPermission> serverPermissions =
+            await unitOfWork.VisibilityPermissions.GetServerPermissionsForUsersAsync(
+                ordinaryUserIds,
+                cancellationToken);
+        ILookup<Guid, ServerVisibilityPermission> serverPermissionsByUser =
+            serverPermissions.ToLookup(permission => permission.UserId);
+        ILookup<Guid, ContainerVisibilityPermission>? containerPermissionsByUser = null;
+        if (objectKind == MonitoringObjectKind.Container)
+        {
+            List<ContainerVisibilityPermission> containerPermissions =
+                await unitOfWork.VisibilityPermissions.GetContainerPermissionsForUsersAsync(
+                    ordinaryUserIds,
+                    cancellationToken);
+            containerPermissionsByUser = containerPermissions.ToLookup(permission => permission.UserId);
+        }
+
         List<Guid> recipients = [];
 
-        foreach (UserAccountRecord user in users.Where(user => user.IsEnabled))
+        foreach (UserAccountRecord user in enabledUsers)
         {
             if (user.IsAdministrator)
             {
@@ -29,11 +66,7 @@ public class MonitoringEventRecipientResolver(
                 continue;
             }
 
-            List<ServerVisibilityPermission> serverPermissions =
-                await unitOfWork.VisibilityPermissions.GetServerPermissionsAsync(
-                    user.Id,
-                    cancellationToken);
-            HashSet<Guid> permittedServerIds = serverPermissions
+            HashSet<Guid> permittedServerIds = serverPermissionsByUser[user.Id]
                 .Select(permission => permission.ServerId)
                 .ToHashSet();
 
@@ -43,12 +76,14 @@ public class MonitoringEventRecipientResolver(
                     false,
                     objectId,
                     permittedServerIds),
-                MonitoringObjectKind.Container => await CanAccessContainerAsync(
-                    user.Id,
+                MonitoringObjectKind.Container => ObjectVisibilityPolicy.CanAccessContainer(
+                    false,
+                    serverId!.Value,
                     objectId,
-                    serverId,
                     permittedServerIds,
-                    cancellationToken),
+                    containerPermissionsByUser![user.Id]
+                        .Select(permission => permission.ContainerId)
+                        .ToHashSet()),
                 _ => throw new ArgumentOutOfRangeException(
                     nameof(objectKind),
                     objectKind,
@@ -62,33 +97,5 @@ public class MonitoringEventRecipientResolver(
         }
 
         return recipients;
-    }
-
-    private async Task<bool> CanAccessContainerAsync(
-        Guid userId,
-        Guid containerId,
-        Guid? serverId,
-        IReadOnlySet<Guid> permittedServerIds,
-        CancellationToken cancellationToken)
-    {
-        if (serverId is null)
-        {
-            throw new InvalidOperationException(
-                "Событие контейнера должно содержать идентификатор родительского сервера.");
-        }
-
-        List<ContainerVisibilityPermission> containerPermissions =
-            await unitOfWork.VisibilityPermissions.GetContainerPermissionsAsync(
-                userId,
-                cancellationToken);
-        HashSet<Guid> permittedContainerIds = containerPermissions
-            .Select(permission => permission.ContainerId)
-            .ToHashSet();
-        return ObjectVisibilityPolicy.CanAccessContainer(
-            false,
-            serverId.Value,
-            containerId,
-            permittedServerIds,
-            permittedContainerIds);
     }
 }

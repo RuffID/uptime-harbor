@@ -43,6 +43,25 @@ public class MonitoringEventRecipientResolverTests
     }
 
     [Fact]
+    public async Task GetRecipientUserIdsAsync_UserReceivesOnlyPermittedServer()
+    {
+        TestData data = new();
+        Guid permittedUserId = data.AddUser(isAdministrator: false);
+        data.AddUser(isAdministrator: false);
+        Guid serverId = Guid.NewGuid();
+        data.Permissions.ServerPermissions.Add(
+            new ServerVisibilityPermission(permittedUserId, serverId));
+
+        IReadOnlyList<Guid> recipients = await data.Resolver.GetRecipientUserIdsAsync(
+            MonitoringObjectKind.Server,
+            serverId,
+            null,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(permittedUserId, Assert.Single(recipients));
+    }
+
+    [Fact]
     public async Task GetRecipientUserIdsAsync_UserDoesNotReceiveHiddenContainer()
     {
         TestData data = new();
@@ -98,6 +117,33 @@ public class MonitoringEventRecipientResolverTests
             TestContext.Current.CancellationToken);
 
         Assert.Empty(recipients);
+    }
+
+    [Fact]
+    public async Task GetRecipientUserIdsAsync_LoadsPermissionsInBatches()
+    {
+        TestData data = new();
+        Guid serverId = Guid.NewGuid();
+        Guid containerId = Guid.NewGuid();
+        foreach (int _ in Enumerable.Range(0, 3))
+        {
+            Guid userId = data.AddUser(isAdministrator: false);
+            data.Permissions.ServerPermissions.Add(new ServerVisibilityPermission(userId, serverId));
+            data.Permissions.ContainerPermissions.Add(
+                new ContainerVisibilityPermission(userId, serverId, containerId));
+        }
+
+        IReadOnlyList<Guid> recipients = await data.Resolver.GetRecipientUserIdsAsync(
+            MonitoringObjectKind.Container,
+            containerId,
+            serverId,
+            TestContext.Current.CancellationToken);
+
+        Assert.Equal(3, recipients.Count);
+        Assert.Equal(0, data.Permissions.SingleUserServerReadCount);
+        Assert.Equal(0, data.Permissions.SingleUserContainerReadCount);
+        Assert.Equal(1, data.Permissions.BatchServerReadCount);
+        Assert.Equal(1, data.Permissions.BatchContainerReadCount);
     }
 
     private class TestData
@@ -176,10 +222,30 @@ public class MonitoringEventRecipientResolverTests
     {
         public List<ServerVisibilityPermission> ServerPermissions { get; } = [];
         public List<ContainerVisibilityPermission> ContainerPermissions { get; } = [];
-        public Task<List<ServerVisibilityPermission>> GetServerPermissionsAsync(Guid userId, CancellationToken cancellationToken = default) =>
-            Task.FromResult(ServerPermissions.Where(item => item.UserId == userId).ToList());
-        public Task<List<ContainerVisibilityPermission>> GetContainerPermissionsAsync(Guid userId, CancellationToken cancellationToken = default) =>
-            Task.FromResult(ContainerPermissions.Where(item => item.UserId == userId).ToList());
+        public int SingleUserServerReadCount { get; private set; }
+        public int SingleUserContainerReadCount { get; private set; }
+        public int BatchServerReadCount { get; private set; }
+        public int BatchContainerReadCount { get; private set; }
+        public Task<List<ServerVisibilityPermission>> GetServerPermissionsAsync(Guid userId, CancellationToken cancellationToken = default)
+        {
+            SingleUserServerReadCount++;
+            return Task.FromResult(ServerPermissions.Where(item => item.UserId == userId).ToList());
+        }
+        public Task<List<ContainerVisibilityPermission>> GetContainerPermissionsAsync(Guid userId, CancellationToken cancellationToken = default)
+        {
+            SingleUserContainerReadCount++;
+            return Task.FromResult(ContainerPermissions.Where(item => item.UserId == userId).ToList());
+        }
+        public Task<List<ServerVisibilityPermission>> GetServerPermissionsForUsersAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken = default)
+        {
+            BatchServerReadCount++;
+            return Task.FromResult(ServerPermissions.Where(item => userIds.Contains(item.UserId)).ToList());
+        }
+        public Task<List<ContainerVisibilityPermission>> GetContainerPermissionsForUsersAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken = default)
+        {
+            BatchContainerReadCount++;
+            return Task.FromResult(ContainerPermissions.Where(item => userIds.Contains(item.UserId)).ToList());
+        }
         public void Create(ServerVisibilityPermission item) => ServerPermissions.Add(item);
         public void CreateRange(IEnumerable<ServerVisibilityPermission> entities) => ServerPermissions.AddRange(entities);
         public void Create(ContainerVisibilityPermission item) => ContainerPermissions.Add(item);

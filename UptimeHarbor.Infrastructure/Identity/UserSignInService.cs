@@ -24,7 +24,7 @@ public class UserSignInService(
             user,
             password,
             isPersistent,
-            lockoutOnFailure: false);
+            lockoutOnFailure: true);
         return result.Succeeded;
     }
 

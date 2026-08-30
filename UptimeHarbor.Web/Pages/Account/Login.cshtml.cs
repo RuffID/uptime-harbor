@@ -2,10 +2,13 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using UptimeHarbor.Infrastructure.Identity;
+using Microsoft.AspNetCore.RateLimiting;
+using UptimeHarbor.Web.Security;
 
 namespace UptimeHarbor.Web.Pages.Account;
 
 [AllowAnonymous]
+[EnableRateLimiting(WebSecurityPolicies.LOGIN_RATE_LIMIT_POLICY)]
 public class LoginModel(IUserSignInService signInService) : PageModel
 {
     [BindProperty]

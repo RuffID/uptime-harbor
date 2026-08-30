@@ -17,18 +17,31 @@ public class IdentityUserAccountStore(
     public async Task<IReadOnlyList<UserAccountRecord>> GetAllAsync(
         CancellationToken cancellationToken = default)
     {
-        List<ApplicationUser> users = await userManager.Users
+        string normalizedAdministratorRole = ApplicationRoles.ADMINISTRATOR.ToUpperInvariant();
+        var users = await dbContext.Users
             .AsNoTracking()
             .OrderBy(user => user.UserName)
+            .Select(user => new
+            {
+                user.Id,
+                user.UserName,
+                user.IsEnabled,
+                IsAdministrator = dbContext.UserRoles.Any(userRole =>
+                    userRole.UserId == user.Id
+                    && dbContext.Roles.Any(role =>
+                        role.Id == userRole.RoleId
+                        && role.NormalizedName == normalizedAdministratorRole))
+            })
             .ToListAsync(cancellationToken);
-        List<UserAccountRecord> result = [];
-        foreach (ApplicationUser user in users)
-        {
-            bool isAdministrator = await userManager.IsInRoleAsync(user, ApplicationRoles.ADMINISTRATOR);
-            result.Add(Map(user, isAdministrator));
-        }
-
-        return result;
+        return users
+            .Select(user => new UserAccountRecord(
+                user.Id,
+                user.UserName
+                    ?? throw new InvalidOperationException(
+                        "Identity-пользователь должен иметь логин."),
+                user.IsEnabled,
+                user.IsAdministrator))
+            .ToList();
     }
 
     public async Task<UserAccountRecord?> GetByIdAsync(

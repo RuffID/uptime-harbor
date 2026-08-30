@@ -56,6 +56,13 @@ dotnet test --project .\tests\UptimeHarbor.Web.Tests\UptimeHarbor.Web.Tests.cspr
 - параллельность разных объектов, keyed-защита одной цели, изоляция ошибки и cancellation hosted worker.
 - dashboard query для администратора и пользователя, независимые container permissions, поиск, fallback имени, UTC и uptime через фиксированный `TimeProvider`;
 - серверное определение SignalR-получателей, минимальный payload, изоляция push-ошибки, auth metadata и reconnect/snapshot lifecycle клиента.
+- пакетное чтение recipient permissions без per-user вызовов и прежнюю server/container visibility semantics;
+- отсутствие endpoint URL в dashboard DTO, сохранение endpoint в admin DTO и отсутствие controller route `/api/objects`;
+- best-effort administrative SignalR publisher: commit остаётся успешным при transport exception, ошибка журналируется, а до commit/conflict publisher не вызывается;
+- фактически зарегистрированную `InvalidModelStateResponseFactory` и MVC JSON options для malformed body, отсутствующего body, неверного типа и field validation без parser details;
+- безопасные ветви TypeScript HTTP helper для JSON/empty/non-JSON errors и `AbortError`, а также исходный coalescing/`AbortController`/reconnect wiring;
+- Identity lockout через реальный `SignInManager` и SQLite in-memory store: порог, ограниченный срок, reset при успехе и независимость от `IsEnabled`;
+- login-specific rate-limit metadata/rejection и выполнение middleware базовых security headers без Web-host;
 - per-binding состояние outage/recovery, частичный успех, повторная обработка только неуспешных получателей, независимые server/container bindings, fallback имени, parent server, UTC и uptime через fake `TimeProvider`;
 - административные Telegram use case, роль и antiforgery metadata MVC API, AJAX/DOM-инварианты frontend;
 - Telegram HTTP adapter через fake `HttpMessageHandler`, безопасные исключения и изоляция ошибки одного чата;
@@ -72,4 +79,6 @@ EF metadata tests не открывают соединение. Provider-level c
 
 Каждый test-файл явно импортирует `Xunit`; `GlobalUsings.cs` в проекте не используется.
 
-SignalR-тесты используют fake `IHubContext` и не открывают WebSocket. Frontend lifecycle проверяется статически по TypeScript-источнику; реальный Web-хост и браузер в изолированном наборе не запускаются.
+SignalR-тесты используют fake `IHubContext` и не открывают WebSocket. Frontend lifecycle проверяется статически по TypeScript-источнику; реальный Web-хост и браузер в изолированном наборе не запускаются. Поэтому фактический browser-сценарий «30 быстрых событий → ограниченное число snapshot requests», реальная отмена fetch и настоящий MVC input formatter pipeline остаются ручными runtime-проверками и не считаются доказанными статическими тестами.
+
+Локальный SignalR browser asset и CSP не тестируются как реализованные: точный asset отсутствует локально, а запрещённые package manager/download операции не выполнялись.

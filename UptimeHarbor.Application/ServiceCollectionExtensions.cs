@@ -16,7 +16,6 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<IUserManagementService, UserManagementService>();
-        services.AddScoped<IAccessibleObjectsService, AccessibleObjectsService>();
         services.AddScoped<IDashboardQuery, DashboardQuery>();
         services.AddScoped<IMonitoringEventRecipientResolver, MonitoringEventRecipientResolver>();
         services.AddScoped<IObjectAdministrationService, ObjectAdministrationService>();

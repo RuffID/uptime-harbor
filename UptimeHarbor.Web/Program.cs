@@ -3,6 +3,7 @@ using UptimeHarbor.Infrastructure;
 using UptimeHarbor.Web.Configuration;
 using UptimeHarbor.Web.Hubs;
 using UptimeHarbor.Web.Pages;
+using UptimeHarbor.Web.Security;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.HttpOverrides;
 
@@ -38,6 +39,8 @@ if (!app.Environment.IsDevelopment())
 app.UseForwardedHeaders();
 app.UseHttpsRedirection();
 app.UseRouting();
+app.UseSecurityHeaders();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 

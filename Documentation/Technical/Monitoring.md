@@ -39,6 +39,8 @@
 
 SignalR handler реализован в Web. Он получает из Application список разрешённых включённых пользователей и отправляет им только `objectId` и `objectKind`; скрытые имя, описание, состояние и времена в push payload не попадают. Telegram не является synchronous handler: отдельный Infrastructure worker читает durable outbox. PostgreSQL остаётся источником истины.
 
+Application resolver сохраняет прежнюю семантику `ObjectVisibilityPolicy`: administrator получает событие любого объекта, обычный пользователь — только разрешённого сервера или контейнера вместе с его server permission. Пользователи и permissions загружаются пакетно; отдельного permission query для каждого пользователя нет.
+
 ## Конкурентность
 
 Однопроцессная первая версия использует keyed in-memory coordination. Дополнительно `MonitoredServer.Version` и `MonitoredContainer.Version` являются optimistic concurrency token. Если административное изменение фиксируется после повторной проверки объекта, stale monitoring write получает `DbUpdateConcurrencyException`, переводится в `PersistenceConcurrencyException`, очищает tracking и не публикует SignalR-событие или Telegram job. Stale административный request возвращает `409 Conflict`.

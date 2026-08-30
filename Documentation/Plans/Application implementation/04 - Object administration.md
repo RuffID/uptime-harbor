@@ -2,7 +2,7 @@
 
 ## Статус
 
-**В работе.** Административные use case, MVC API и TypeScript UI используют `Version`, stale update/delete возвращает HTTP `409`, а publisher не вызывается после конфликта. SQLite provider и Web contract tests проходят; PostgreSQL runtime-проверка зависит от ручного применения migration.
+**В работе.** Административные use case, MVC API и TypeScript UI используют `Version`; stale update/delete возвращает HTTP `409`. После commit обезличенный SignalR refresh является best-effort: transport exception журналируется и не превращает сохранённую операцию в HTTP-ошибку, а после save failure/conflict publisher не вызывается. PostgreSQL runtime-проверка зависит от ручного применения migration.
 
 ## Цель
 
@@ -36,6 +36,7 @@
 8. Реализовать удаление контейнера с подтверждением.
 9. Реализовать каскадное удаление сервера с показом количества дочерних контейнеров.
 10. После административных изменений уведомлять открытые панели через внутренний механизм обновлений.
+11. Считать refresh-сигнал best-effort после commit и не изменять результат сохранения при ошибке SignalR transport.
 
 ## UX-требования
 

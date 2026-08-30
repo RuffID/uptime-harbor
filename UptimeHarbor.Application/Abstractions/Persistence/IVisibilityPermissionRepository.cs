@@ -16,4 +16,12 @@ public interface IVisibilityPermissionRepository :
     Task<List<ContainerVisibilityPermission>> GetContainerPermissionsAsync(
         Guid userId,
         CancellationToken cancellationToken = default);
+
+    Task<List<ServerVisibilityPermission>> GetServerPermissionsForUsersAsync(
+        IReadOnlyCollection<Guid> userIds,
+        CancellationToken cancellationToken = default);
+
+    Task<List<ContainerVisibilityPermission>> GetContainerPermissionsForUsersAsync(
+        IReadOnlyCollection<Guid> userIds,
+        CancellationToken cancellationToken = default);
 }

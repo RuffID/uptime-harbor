@@ -4,11 +4,11 @@
 
 Проверка выполнена относительно `Technical requirements.md` и текущей технической документации. В область проверки вошли Domain, Application, Infrastructure, Web, TypeScript-клиент, persistence, monitoring worker, Telegram-доставка, тесты и deployment-материалы.
 
-Разрешённые Release-сборки и изолированные тесты выполнены после исправлений: Domain 16, Application 82, Infrastructure 55 и Web 33 теста прошли. Docker, Web-host, runtime, PostgreSQL, SQL, миграции и проектные скрипты не запускались. Provider-level проверки выполнены только на SQLite in-memory.
+Разрешённые Release-сборки и изолированные тесты выполнены после P2-исправлений: Domain 16, Application 80, Infrastructure 59 и Web 51 тест прошли. Docker, Web-host, browser automation, PostgreSQL, SQL, миграции, npm, LibMan и проектные скрипты не запускались. Provider-level проверки выполнены только на SQLite in-memory.
 
 ## Итог
 
-P0-1 и P0-2 устранены и закреплены Web/Application-тестами. P0-3 исключён из объёма требований первой версии. P1-1—P1-6 устранены в исходном коде и разрешённом изолированном наборе; P1-1, P1-3 и P1-6 требуют ручного подтверждения на PostgreSQL/process restart/Telegram runtime. До этих проверок и применения migration текущую версию нельзя считать runtime-ready. P2/P3 остаются вне текущей задачи.
+P0-1 и P0-2 устранены, P0-3 исключён из v1; статусы и гарантии P0/P1 не ослаблялись. P2-1—P2-4 устранены в исходном коде и разрешённом изолированном наборе, при этом browser burst/cancellation и настоящий HTTP input formatter pipeline остаются ручными runtime-проверками. P2-5 устранён частично: Identity lockout, login rate limit и базовые security headers готовы, но локальный SignalR browser client и CSP заблокированы отсутствием точного asset в разрешённых локальных источниках. P3 не выполнялся. До ручных P1/P2 runtime-проверок, применения migration и завершения P2-5 версию нельзя считать runtime-ready.
 
 ## Блокирующие проблемы
 
@@ -164,6 +164,8 @@ Keyed coordination защищает только две monitoring-провер�
 
 ### P2-1. SignalR создаёт всплеск полных snapshot-запросов
 
+**Статус исправления: устранено в коде и изолированных проверках; browser runtime-проверка остаётся ручной.** Dashboard использует документированное окно coalescing 200 мс, новый snapshot отменяет предыдущий fetch через `AbortController`, а `AbortError` не отображается как ошибка. Reconnect по-прежнему немедленно загружает snapshot. Recipient resolver сохраняет `ObjectVisibilityPolicy`, загружает пользователей один раз и permissions пакетно без per-user N+1. SignalR payload остаётся парой `objectId`/`objectKind`. Фактический сценарий «30 быстрых событий → ограниченное число requests» не запускался без запрещённых Web-host/browser/JS harness и не подменён статическим тестом.
+
 Событие публикуется после каждой проверки каждого объекта, включая проверки без смены статуса. На каждое событие dashboard немедленно вызывает `loadSnapshot(false)`. При целевых 30 объектах один цикл способен создать около 30 полных HTTP snapshot-запросов на каждый открытый dashboard. Старые запросы не отменяются: `requestVersion` только запрещает им перерисовать UI.
 
 Дополнительно `MonitoringEventRecipientResolver` для каждого события получает всех пользователей и отдельно загружает permissions каждого пользователя, что умножает N+1 запросы на число объектов.
@@ -180,6 +182,8 @@ Keyed coordination защищает только две monitoring-провер�
 
 ### P2-2. Обычным пользователям раскрываются endpoint URL через неиспользуемое API
 
+**Статус исправления: устранено и проверено.** Подтверждённых v1-потребителей `/api/objects` нет, поэтому controller, `AccessibleObjectsService`, его interface/DTO и отдельные тесты удалены. Dashboard/read DTO не содержат endpoint URL или monitoring settings, скрытые объекты фильтруются прежним `DashboardQuery`, а `/api/admin/objects` сохраняет endpoint URL для редактирования. Web-тест проверяет отсутствие route `api/objects` во всех controller types.
+
 `/api/objects` доступен любому аутентифицированному пользователю и возвращает `EndpointUrl` в `AccessibleServerDto`/`AccessibleContainerDto`. Главная страница этот API не использует, а требования обычного пользователя предусматривают имя, описание, статус и времена, но не адрес внутренней проверки.
 
 Затронутые места:
@@ -192,6 +196,8 @@ Keyed coordination защищает только две monitoring-провер�
 
 ### P2-3. Сохранённое административное изменение может завершиться HTTP-ошибкой из-за SignalR
 
+**Статус исправления: устранено и проверено.** Сохранение по-прежнему выполняется первым. Web publisher best-effort изолирует SignalR exception и журналирует общую ошибку без объекта/endpoint; сохранённый use case возвращает success без повторного HTTP-запроса. Тесты подтверждают один refresh на успешном пути, отсутствие вызова после save failure/concurrency conflict и успешный результат commit при исключении SignalR. Telegram outbox не используется.
+
 `ObjectAdministrationService` сначала сохраняет данные, затем ожидает `IObjectAdministrationChangePublisher`. Web-реализация не изолирует ошибку SignalR. При сбое push клиент получит ошибку операции, хотя данные уже сохранены, и повтор может создать дубликат или вызвать неожиданный конфликт.
 
 Затронутые места:
@@ -203,11 +209,15 @@ Keyed coordination защищает только две monitoring-провер�
 
 ### P2-4. Единый JSON envelope не действует для ошибок model binding
 
+**Статус исправления: устранено в зарегистрированном MVC-контракте; полный formatter runtime остаётся ручным.** `InvalidModelStateResponseFactory` использует `ServiceResult.Validation` и `JsonResultMapper`, возвращая HTTP 400 и `{ success: false, message, field? }`. Выбор первого поля детерминирован, field переводится в camelCase, parser exception message/CLR type не возвращаются. Реально зарегистрированная factory и MVC JSON options проверены для malformed body, missing body, wrong type и validation field. TypeScript helper безопасно различает JSON, empty/non-JSON HTTP errors и нативный `AbortError`, а неожиданный пустой success остаётся fail-fast. Настоящий input formatter без Web-host не запускался и не заменён статическим поиском.
+
 Контроллеры помечены `[ApiController]`. Ошибки разбора JSON и автоматической валидации до входа в action будут возвращаться стандартным `ValidationProblemDetails`, а не документированным `{ success: false, message, field? }`. TypeScript helper предполагает собственный envelope и при другом теле выдаёт неуправляемую ошибку парсинга/общее сообщение.
 
 Рекомендуемое решение: настроить `InvalidModelStateResponseFactory` на проектный envelope и сделать `sendJsonRequest` fail-fast, но предсказуемо обрабатывать не-JSON/пустые ответы. Закрепить malformed JSON, отсутствующее body и неверный тип поля контрактными тестами.
 
 ### P2-5. Защита Web-периметра неполна
+
+**Статус исправления: частично устранено.** `lockoutOnFailure` включён: пять ошибок дают временный lockout на пять минут, успех до порога сбрасывает failures, `IsEnabled` не смешивается с lockout, bootstrap не снимает lockout и не создаёт второго администратора. Login имеет отдельный лимит 10 запросов в минуту на доверенный connection IP и безопасный 429; остальные API его не получают. Добавлены `nosniff`, `no-referrer` и `X-Frame-Options: DENY`. Точный SignalR 10.0.0 browser asset отсутствует в репозитории, SDK, NuGet/LibMan/npm caches; npm/LibMan и неподтверждённая загрузка запрещены. Поэтому CDN runtime dependency и CSP без external script origins остаются блокером: CSP намеренно не включена, чтобы не сломать текущий realtime до появления локального asset.
 
 Вход выполняется с `lockoutOnFailure: false`, rate limiting отсутствует. SignalR client загружается с внешнего CDN без `integrity`; Content Security Policy не настроена. Недоступность или подмена внешнего ресурса ломает realtime-обновления dashboard.
 

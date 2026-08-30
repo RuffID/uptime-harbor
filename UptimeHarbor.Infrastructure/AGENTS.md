@@ -13,6 +13,8 @@
 - При изменении интеграций, Identity или persistence обновлять этот файл и тематическую документацию `Documentation/Technical`.
 - Identity bootstrap и user store остаются в `Identity`; начальный пароль используется только при создании отсутствующего администратора.
 - Блокировка пользователя обязана обновлять security stamp, а cookie validator — проверять `IsEnabled` на каждом запросе.
+- Неудачные входы учитываются Identity lockout: пять ошибок дают временную блокировку на пять минут; `IsEnabled` и Identity lockout остаются разными состояниями.
+- Список пользователей для server-side SignalR recipient resolution materialize-ится одним query вместе с признаком роли Administrator, без per-user `IsInRoleAsync`.
 - HTTP-проверки мониторинга и hosted worker находятся в `Monitoring`; adapter использует `IHttpClientFactory`, а параллельные объекты обрабатываются в отдельных scopes.
 - Telegram transport, durable outbox dispatcher и worker находятся в `Telegram`; token получается только через `TelegramOptions`, стандартное HTTP-логирование клиента отключено, а ошибки чатов изолируются.
 - Telegram dispatcher и worker читают durable outbox независимо от monitoring worker; retry ограничен, а transport-семантика документирована как at-least-once.

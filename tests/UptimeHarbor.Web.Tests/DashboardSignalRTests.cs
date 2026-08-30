@@ -1,10 +1,17 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging;
 using System.Reflection;
 using UptimeHarbor.Application.Monitoring;
 using UptimeHarbor.Application.Monitoring.Models;
 using UptimeHarbor.Application.Visibility;
+using UptimeHarbor.Application.Abstractions.Persistence;
+using UptimeHarbor.Application.Abstractions.UnitOfWork;
+using UptimeHarbor.Application.Common;
+using UptimeHarbor.Application.ObjectAdministration;
+using UptimeHarbor.Application.ObjectAdministration.Models;
+using UptimeHarbor.Application.Security;
 using UptimeHarbor.Domain.Monitoring;
 using UptimeHarbor.Web.Controllers;
 using UptimeHarbor.Web.Hubs;
@@ -68,12 +75,53 @@ public class DashboardSignalRTests
     {
         RecordingClientProxy proxy = new();
         SignalRObjectAdministrationChangePublisher publisher = new(
-            new FakeHubContext(new RecordingHubClients(proxy)));
+            new FakeHubContext(new RecordingHubClients(proxy)),
+            NullLogger<SignalRObjectAdministrationChangePublisher>.Instance);
 
         await publisher.PublishObjectsChangedAsync(TestContext.Current.CancellationToken);
 
         Assert.Equal("ObjectAdministrationChanged", proxy.LastMethod);
         Assert.Empty(proxy.LastArguments!);
+    }
+
+    [Fact]
+    public async Task ObjectAdministrationChange_WhenSignalRThrows_IsLoggedAndDoesNotPropagate()
+    {
+        RecordingLogger<SignalRObjectAdministrationChangePublisher> logger = new();
+        SignalRObjectAdministrationChangePublisher publisher = new(
+            new FakeHubContext(new RecordingHubClients(new ThrowingClientProxy())),
+            logger);
+
+        Exception? exception = await Record.ExceptionAsync(() =>
+            publisher.PublishObjectsChangedAsync(TestContext.Current.CancellationToken));
+
+        Assert.Null(exception);
+        Assert.Equal(LogLevel.Error, Assert.Single(logger.Levels));
+    }
+
+    [Fact]
+    public async Task ObjectAdministrationSave_WhenSignalRThrows_ReturnsCommittedSuccessWithoutRetry()
+    {
+        RecordingLogger<SignalRObjectAdministrationChangePublisher> logger = new();
+        SignalRObjectAdministrationChangePublisher publisher = new(
+            new FakeHubContext(new RecordingHubClients(new ThrowingClientProxy())),
+            logger);
+        FakeObjectAdministrationUnitOfWork unitOfWork = new();
+        ObjectAdministrationService service = new(
+            new AdministratorAccessContext(),
+            unitOfWork,
+            publisher);
+
+        ServiceResult<AdminServerDto> result = await service.CreateServerAsync(
+            "https://server.example/health",
+            null,
+            true,
+            TestContext.Current.CancellationToken);
+
+        Assert.True(result.Success);
+        Assert.Equal(1, unitOfWork.SaveCount);
+        Assert.Single(unitOfWork.Servers.Items);
+        Assert.Equal(LogLevel.Error, Assert.Single(logger.Levels));
     }
 
     [Fact]
@@ -185,5 +233,84 @@ public class DashboardSignalRTests
             Task.CompletedTask;
         public Task RemoveFromGroupAsync(string connectionId, string groupName, CancellationToken cancellationToken = default) =>
             Task.CompletedTask;
+    }
+
+    private class RecordingLogger<T> : ILogger<T>
+    {
+        public List<LogLevel> Levels { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            Levels.Add(logLevel);
+        }
+    }
+
+    private class AdministratorAccessContext : IUserAccessContext
+    {
+        public bool IsAuthenticated => true;
+        public bool IsAdministrator => true;
+        public bool IsEnabled => true;
+        public Guid UserId { get; } = Guid.NewGuid();
+    }
+
+    private class FakeObjectAdministrationUnitOfWork : IObjectAdministrationUnitOfWork
+    {
+        public FakeServerRepository Servers { get; } = new();
+        public IMonitoredServerRepository MonitoredServers => Servers;
+        public IMonitoredContainerRepository MonitoredContainers { get; } = new EmptyContainerRepository();
+        public int SaveCount { get; private set; }
+
+        public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        {
+            SaveCount++;
+            return Task.FromResult(1);
+        }
+
+        public async Task ExecuteInTransactionAsync(
+            Func<CancellationToken, Task> action,
+            CancellationToken cancellationToken = default)
+        {
+            await action(cancellationToken);
+            await SaveChangesAsync(cancellationToken);
+        }
+    }
+
+    private class FakeServerRepository : IMonitoredServerRepository
+    {
+        public List<MonitoredServer> Items { get; } = [];
+        public Task<List<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult(Items.ToList());
+        public Task<List<MonitoredServer>> GetEnabledAsync(CancellationToken cancellationToken = default) => Task.FromResult(Items.Where(item => item.IsMonitoringEnabled).ToList());
+        public Task<MonitoredServer?> GetItemByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(Items.SingleOrDefault(item => item.Id == id));
+        public void Create(MonitoredServer item) => Items.Add(item);
+        public void CreateRange(IEnumerable<MonitoredServer> entities) => Items.AddRange(entities);
+        public void Delete(MonitoredServer item) => Items.Remove(item);
+        public void DeleteRange(IEnumerable<MonitoredServer> entities)
+        {
+            foreach (MonitoredServer entity in entities.ToList())
+            {
+                Items.Remove(entity);
+            }
+        }
+    }
+
+    private class EmptyContainerRepository : IMonitoredContainerRepository
+    {
+        public Task<List<MonitoredContainer>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<List<MonitoredContainer>>([]);
+        public Task<List<MonitoredContainer>> GetEnabledAsync(CancellationToken cancellationToken = default) => Task.FromResult<List<MonitoredContainer>>([]);
+        public Task<List<MonitoredContainer>> GetByServerIdAsync(Guid serverId, CancellationToken cancellationToken = default) => Task.FromResult<List<MonitoredContainer>>([]);
+        public Task<MonitoredContainer?> GetItemByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult<MonitoredContainer?>(null);
+        public void Create(MonitoredContainer item) => throw new NotSupportedException();
+        public void CreateRange(IEnumerable<MonitoredContainer> entities) => throw new NotSupportedException();
+        public void Delete(MonitoredContainer item) => throw new NotSupportedException();
+        public void DeleteRange(IEnumerable<MonitoredContainer> entities) => throw new NotSupportedException();
     }
 }

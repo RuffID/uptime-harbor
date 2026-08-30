@@ -318,6 +318,21 @@ public class ObjectAdministrationServiceTests
         Assert.Equal(0, data.Publisher.PublishCount);
     }
 
+    [Fact]
+    public async Task CreateServerAsync_WhenSaveFails_DoesNotPublishRefresh()
+    {
+        TestData data = new(throwOnSave: true);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            data.Service.CreateServerAsync(
+                "https://server.example/health",
+                null,
+                true,
+                TestContext.Current.CancellationToken));
+
+        Assert.Equal(0, data.Publisher.PublishCount);
+    }
+
     [Theory]
     [InlineData("GetServers")]
     [InlineData("GetContainers")]
@@ -355,14 +370,18 @@ public class ObjectAdministrationServiceTests
 
     private class TestData
     {
-        public TestData(bool isAdministrator = true, bool throwConcurrencyOnSave = false)
+        public TestData(
+            bool isAdministrator = true,
+            bool throwConcurrencyOnSave = false,
+            bool throwOnSave = false)
         {
             Servers = new FakeServerRepository();
             Containers = new FakeContainerRepository();
             UnitOfWork = new FakeObjectAdministrationUnitOfWork(
                 Servers,
                 Containers,
-                throwConcurrencyOnSave);
+                throwConcurrencyOnSave,
+                throwOnSave);
             Publisher = new FakeChangePublisher();
             Service = new ObjectAdministrationService(
                 new FakeAccessContext(isAdministrator),
@@ -418,7 +437,8 @@ public class ObjectAdministrationServiceTests
     private class FakeObjectAdministrationUnitOfWork(
         IMonitoredServerRepository servers,
         IMonitoredContainerRepository containers,
-        bool throwConcurrencyOnSave)
+        bool throwConcurrencyOnSave,
+        bool throwOnSave)
         : IObjectAdministrationUnitOfWork
     {
         public IMonitoredServerRepository MonitoredServers { get; } = servers;
@@ -433,6 +453,11 @@ public class ObjectAdministrationServiceTests
             {
                 throw new PersistenceConcurrencyException(
                     new InvalidOperationException("Concurrency conflict."));
+            }
+
+            if (throwOnSave)
+            {
+                throw new InvalidOperationException("Save failed.");
             }
 
             SaveCount++;

@@ -13,3 +13,4 @@
 - При изменении запросов или контрактов обновлять этот файл и `Documentation/Technical/Persistence.md`.
 - `GetEnabledAsync` фильтрует включённые server/container цели в БД и materialize-ит их no-tracking для снимка цикла.
 - Привязки для подготовки batch-доставки читать no-tracking, а конкретную привязку для фиксации успеха загружать tracked по ID.
+- Permissions для набора SignalR-получателей читать одним materialized no-tracking запросом на каждый тип permission, не отдельным запросом на пользователя.

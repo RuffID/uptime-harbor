@@ -39,7 +39,7 @@ Test-проекты ссылаются только на проверяемый 
 
 Регистрации распределены по модулям:
 
-- `AddApplication` — `TimeProvider.System`, управление пользователями и объектами, единый сервис видимости, use case и publisher мониторинга;
+- `AddApplication` — `TimeProvider.System`, управление пользователями и объектами, dashboard/recipient visibility use case и publisher мониторинга;
 - `AddApplicationConfiguration` — options и их fail-fast валидация;
 - `AddInfrastructure` — база данных, Identity/cookies, bootstrap администратора, репозитории, Unit of Work, Data Protection, HTTP-клиенты и monitoring worker;
 - `AddWebPresentation` — контроллеры, Razor Pages, SignalR, publisher административных изменений и health checks.
@@ -52,11 +52,11 @@ Identity-типы находятся в Infrastructure, потому что на
 
 Application получает сведения о текущем пользователе через независимый `IUserAccessContext`, а операции Identity — через `IUserAccountStore`. Ожидаемые ошибки сценариев описываются `ServiceResult` и переводятся в HTTP-статусы только в Web.
 
-`ObjectAdministrationService` повторно проверяет административную роль внутри каждого сценария и использует отдельный `IObjectAdministrationUnitOfWork`. После успешного сохранения он вызывает независимый `IObjectAdministrationChangePublisher`; Web-реализация отправляет обезличенный SignalR-сигнал о необходимости перечитать доступные данные.
+`ObjectAdministrationService` повторно проверяет административную роль внутри каждого сценария и использует отдельный `IObjectAdministrationUnitOfWork`. После успешного сохранения он вызывает независимый `IObjectAdministrationChangePublisher`; Web-реализация best-effort отправляет обезличенный SignalR-сигнал, изолирует transport exception и не меняет уже успешный результат commit.
 
 `MonitoringService` получает независимые результаты server/container endpoint, повторно проверяет актуальность включённого объекта и endpoint, вызывает доменные переходы и сохраняет через `IMonitoringUnitOfWork`. Optimistic concurrency отклоняет stale write. Outage/recovery payload добавляется в durable outbox в том же `SaveChangesAsync`, а `MonitoringStateChangedEvent` для SignalR публикуется только после успешного сохранения. HTTP, JSON, monitoring worker, Telegram outbox dispatcher и keyed-координация остаются в Infrastructure.
 
-`DashboardQuery` зависит только от независимого `IVisibilitySettingsUnitOfWork`, `IUserAccessContext` и `TimeProvider`. Он фильтрует доменные объекты до формирования dashboard DTO, выполняет поиск только по доступному набору и рассчитывает uptime относительно UTC-времени snapshot. HTTP-чтение и `MonitoringEventRecipientResolver` используют общую `ObjectVisibilityPolicy`, поэтому SignalR не вводит отдельную модель доступа.
+`DashboardQuery` зависит только от независимого `IVisibilitySettingsUnitOfWork`, `IUserAccessContext` и `TimeProvider`. Он фильтрует доменные объекты до формирования dashboard DTO без endpoint URL, выполняет поиск только по доступному набору и рассчитывает uptime относительно UTC-времени snapshot. `MonitoringEventRecipientResolver` использует общую `ObjectVisibilityPolicy` и пакетные materialized permission queries, поэтому SignalR не вводит отдельную модель доступа или N+1.
 
 Web-обработчик внутреннего monitoring event определяет разрешённые Identity user-id в Application, а через SignalR отправляет только тип и GUID изменившегося объекта. Клиент использует событие как сигнал перечитать защищённый snapshot; PostgreSQL остаётся источником истины.
 
