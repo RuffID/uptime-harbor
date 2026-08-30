@@ -30,6 +30,8 @@ Web pipeline вызывает authentication до authorization. Cookie имее
 
 Login дополнительно ограничен десятью запросами в минуту на адрес соединения. Остальные API и SignalR не получают эту login-specific policy; ответ rate limiter не сообщает, существует ли логин.
 
+Web security headers применяются middleware до authentication/authorization: сохраняются `nosniff`, `no-referrer` и `X-Frame-Options: DENY`, а CSP ограничивает scripts, connections, objects, base URI, framing и forms same-origin политикой без внешних origins.
+
 ## Видимость объектов
 
 `ServerVisibilityPermission` связывает пользователя и сервер. `ContainerVisibilityPermission` хранит пользователя, сервер и контейнер.

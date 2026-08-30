@@ -10,7 +10,7 @@
 2. обработка `X-Forwarded-*` только от явно настроенной proxy-сети с `ForwardLimit = 1`;
 3. HTTPS redirection;
 4. routing;
-5. базовые security headers и login rate limiting;
+5. security headers/CSP и login rate limiting;
 6. authentication;
 7. authorization;
 8. static assets;
@@ -61,7 +61,9 @@
 
 Login Page имеет отдельную fixed-window policy: не более 10 попыток в минуту на `RemoteIpAddress`, без очереди. `X-Forwarded-For` влияет на этот адрес только после существующей проверки trusted proxy network. Ответ 429 одинаков для любого логина. Dashboard, admin API, SignalR и остальные страницы login-specific policy не получают.
 
-На все ответы добавляются `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` и `X-Frame-Options: DENY`. Локального SignalR browser asset в репозитории/SDK/локальных package caches нет; запрещённые npm/LibMan и неподтверждённая загрузка не выполнялись. Поэтому CDN-зависимость и CSP без внешних script origins пока остаются незавершённой частью P2-5: включение требуемой CSP до локализации клиента сломало бы realtime.
+На все ответы добавляются `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY` и применяемая политика `Content-Security-Policy`: `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self';`. Политика разрешает только локальные scripts/styles/images/fonts/forms и same-origin SignalR transport, запрещает object/embed и framing, не содержит `unsafe-inline`, `unsafe-eval`, wildcard или CDN origins.
+
+Главная страница подключает локальный `UptimeHarbor.Web/wwwroot/vendor/signalr/signalr.min.js` с `asp-append-version="true"`. Asset предоставлен локально по `D:\Media\User\Downloads\signalr.min.js`, содержит версию `10.0.11`, скопирован без изменения; SHA-256: `97E9B97E642A72E5A470917147A2BF79F86CAD829A5C6786ADB10614D248BB95`. Дополнительный license/notice-файл вместе с предоставленным asset не поставлялся.
 
 ## SignalR
 

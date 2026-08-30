@@ -2,7 +2,7 @@
 
 ## Статус
 
-**В работе.** Identity, cookie-аутентификация, bootstrap, управление пользователями и server-side visibility реализованы. Три административных сервиса используют единую Application policy, публичный `/api/objects` удалён, отдельный recipient query загружает users/roles/permissions пакетно, пять ошибок входа дают пятиминутный lockout, а login имеет отдельный rate limit. Локальный SignalR asset/CSP из P2-5 ещё не завершены.
+**В работе.** Identity, cookie-аутентификация, bootstrap, управление пользователями и server-side visibility реализованы. Три административных сервиса используют единую Application policy, публичный `/api/objects` удалён, отдельный recipient query загружает users/roles/permissions пакетно, пять ошибок входа дают пятиминутный lockout, а login имеет отдельный rate limit. Web security headers и CSP завершены; локальный SignalR asset версии 10.0.11 поставляется из `wwwroot/vendor`.
 
 ## Цель
 

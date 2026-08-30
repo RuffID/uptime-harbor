@@ -8,7 +8,7 @@
 
 ## Итог
 
-P0-1 и P0-2 устранены, P0-3 исключён из v1; статусы и гарантии P0/P1 не ослаблялись. P2-1—P2-4 устранены в исходном коде и разрешённом изолированном наборе, при этом browser burst/cancellation и настоящий HTTP input formatter pipeline остаются ручными runtime-проверками. P2-5 устранён частично: Identity lockout, login rate limit и базовые security headers готовы, но локальный SignalR browser client и CSP заблокированы отсутствием точного asset в разрешённых локальных источниках. P3-1—P3-3 устранены полностью как внутренний серверный рефакторинг без изменения продуктовых контрактов. До ручных P1/P2 runtime-проверок, применения migration и завершения P2-5 версию нельзя считать runtime-ready.
+P0-1 и P0-2 устранены, P0-3 исключён из v1; статусы и гарантии P0/P1 не ослаблялись. P2-1—P2-5 устранены в исходном коде и разрешённом изолированном наборе, при этом browser burst/cancellation, CSP/SignalR runtime и настоящий HTTP input formatter pipeline остаются ручными runtime-проверками. P3-1—P3-3 устранены полностью как внутренний серверный рефакторинг без изменения продуктовых контрактов. До ручных P1/P2 runtime-проверок и применения migration версию нельзя считать runtime-ready.
 
 ## Блокирующие проблемы
 
@@ -217,7 +217,7 @@ Keyed coordination защищает только две monitoring-провер�
 
 ### P2-5. Защита Web-периметра неполна
 
-**Статус исправления: частично устранено.** `lockoutOnFailure` включён: пять ошибок дают временный lockout на пять минут, успех до порога сбрасывает failures, `IsEnabled` не смешивается с lockout, bootstrap не снимает lockout и не создаёт второго администратора. Login имеет отдельный лимит 10 запросов в минуту на доверенный connection IP и безопасный 429; остальные API его не получают. Добавлены `nosniff`, `no-referrer` и `X-Frame-Options: DENY`. Точный SignalR 10.0.0 browser asset отсутствует в репозитории, SDK, NuGet/LibMan/npm caches; npm/LibMan и неподтверждённая загрузка запрещены. Поэтому CDN runtime dependency и CSP без external script origins остаются блокером: CSP намеренно не включена, чтобы не сломать текущий realtime до появления локального asset.
+**Статус исправления: устранено в коде и изолированных проверках; ручная browser/runtime-проверка остаётся.** `lockoutOnFailure` включён: пять ошибок дают временный lockout на пять минут, успех до порога сбрасывает failures, `IsEnabled` не смешивается с lockout, bootstrap не снимает lockout и не создаёт второго администратора. Login имеет отдельный лимит 10 запросов в минуту на доверенный connection IP и безопасный 429; остальные API его не получают. Добавлены `nosniff`, `no-referrer`, `X-Frame-Options: DENY` и применяемая same-origin CSP без unsafe/wildcard/CDN origins. SignalR browser asset поставляется локально в версии 10.0.11 из `wwwroot/vendor/signalr/signalr.min.js`, подключается с cache busting; SHA-256 зафиксирован в технической документации. Исходное описание прежнего блокера и ограничений сохранено ниже.
 
 Вход выполняется с `lockoutOnFailure: false`, rate limiting отсутствует. SignalR client загружается с внешнего CDN без `integrity`; Content Security Policy не настроена. Недоступность или подмена внешнего ресурса ломает realtime-обновления dashboard.
 

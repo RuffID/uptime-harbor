@@ -23,7 +23,7 @@
 - Monitoring SignalR-событие содержит только тип и идентификатор объекта и отправляется сервером конкретным разрешённым user-id; клиент перечитывает snapshot после события и reconnect.
 - Клиент объединяет SignalR refresh-события окном 200 мс и отменяет устаревший snapshot-fetch через `AbortController`; reconnect загружает snapshot немедленно.
 - Автоматические `[ApiController]` model-state ошибки используют тот же `{ success: false, message, field? }` envelope, что и `JsonResultMapper`.
-- Login имеет отдельную rate-limit policy; Web добавляет `nosniff`, `no-referrer` и запрет framing. CSP и локальный SignalR browser asset нельзя считать реализованными, пока фиксированный asset не получен разрешённым способом.
+- Login имеет отдельную rate-limit policy; Web добавляет `nosniff`, `no-referrer`, запрет framing и применяемую CSP. SignalR browser client поставляется локально в `wwwroot/vendor/signalr/signalr.min.js` (версия 10.0.11, SHA-256 зафиксирован в технической документации).
 - Административное API уведомлений размещено под `/api/admin/notifications`; token не входит в Web-контракты, а mutating actions и тестовая отправка требуют роль `Administrator` и antiforgery.
 - Административная страница пользователей размещена под `/Admin/Users`; UI работает через `/api/admin/users` без перезагрузки, а операции изменения защищены antiforgery и ролью `Administrator`.
 - Forwarded headers принимаются только из явно настроенной proxy-сети с ограничением `ForwardLimit` до одного прокси; liveness и readiness health endpoints разделены.

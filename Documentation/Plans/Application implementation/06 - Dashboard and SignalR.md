@@ -2,7 +2,7 @@
 
 ## Статус
 
-**В работе.** Dashboard и recipient resolution используют два отдельных materialized query-контракта; server-side visibility/search, пакетные users/roles/permissions, отсутствие endpoint URL и минимальный SignalR payload проверены изолированно. Клиент coalesce-ит refresh окном 200 мс и отменяет stale fetch; reconnect перечитывает snapshot. Browser-сценарий burst/cancellation остаётся ручным, а локальный SignalR asset/CSP из P2-5 не завершены.
+**В работе.** Dashboard и recipient resolution используют два отдельных materialized query-контракта; server-side visibility/search, пакетные users/roles/permissions, отсутствие endpoint URL и минимальный SignalR payload проверены изолированно. Клиент coalesce-ит refresh окном 200 мс и отменяет stale fetch; reconnect перечитывает snapshot. Локальный SignalR asset версии 10.0.11 и CSP P2-5 подключены и проверены изолированно; browser-сценарий burst/cancellation и CSP/runtime остаются ручными.
 
 ## Цель
 

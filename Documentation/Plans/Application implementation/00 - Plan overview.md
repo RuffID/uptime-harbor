@@ -2,7 +2,7 @@
 
 ## Статус
 
-**В работе.** P2-1—P2-4 исправлены в исходном коде и разрешённых изолированных тестах; browser burst/cancellation и настоящий HTTP formatter pipeline остаются ручными. P3-1—P3-3 завершены внутренним рефакторингом: административная policy едина, списковые read-контракты read-only, dashboard/recipient queries разделены и materialized в Infrastructure. P2-5 частично исправлен: Identity lockout, login rate limit и базовые headers готовы, но локальный SignalR client и CSP заблокированы отсутствием разрешённо полученного asset. P1 runtime-проверки PostgreSQL migration, process restart и Telegram также остаются. Этап 8 приостановлен: Docker Compose и orchestration не входят в v1.
+**В работе.** P2-1—P2-5 исправлены в исходном коде и разрешённых изолированных тестах; browser burst/cancellation, CSP/SignalR runtime и настоящий HTTP formatter pipeline остаются ручными. P3-1—P3-3 завершены внутренним рефакторингом: административная policy едина, списковые read-контракты read-only, dashboard/recipient queries разделены и materialized в Infrastructure. P1 runtime-проверки PostgreSQL migration, process restart и Telegram также остаются. Этап 8 приостановлен: Docker Compose и orchestration не входят в v1.
 
 ## Цель
 
