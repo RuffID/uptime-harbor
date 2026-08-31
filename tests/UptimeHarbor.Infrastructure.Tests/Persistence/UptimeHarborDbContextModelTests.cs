@@ -33,7 +33,7 @@ public class UptimeHarborDbContextModelTests
 
         Assert.Equal("notification_outbox_jobs", outboxType.GetTableName());
         Assert.Empty(outboxType.GetForeignKeys());
-        Assert.Equal("jsonb", outboxType.FindProperty(nameof(NotificationOutboxJob.PayloadJson))!.GetColumnType());
+        Assert.Equal("nvarchar(max)", outboxType.FindProperty(nameof(NotificationOutboxJob.PayloadJson))!.GetColumnType());
     }
 
     [Fact]
@@ -50,7 +50,7 @@ public class UptimeHarborDbContextModelTests
     }
 
     [Fact]
-    public void Model_ConfiguresRequiredCascadeRelationships()
+    public void Model_ConfiguresSqlServerCompatibleDeleteBehaviors()
     {
         using UptimeHarborDbContext context = CreateContext();
         IEntityType containerType = context.Model.FindEntityType(typeof(MonitoredContainer))!;
@@ -77,7 +77,7 @@ public class UptimeHarborDbContextModelTests
             notificationBindingType.GetForeignKeys(),
             foreignKey => foreignKey.PrincipalEntityType.ClrType == typeof(MonitoredContainer));
 
-        Assert.Equal(DeleteBehavior.Cascade, containerServerForeignKey.DeleteBehavior);
+        Assert.Equal(DeleteBehavior.NoAction, containerServerForeignKey.DeleteBehavior);
         Assert.Equal(DeleteBehavior.Cascade, containerPermissionServerPermissionForeignKey.DeleteBehavior);
         Assert.Equal(DeleteBehavior.Cascade, serverPermissionServerForeignKey.DeleteBehavior);
         Assert.Equal(DeleteBehavior.Cascade, containerPermissionContainerForeignKey.DeleteBehavior);
@@ -181,7 +181,9 @@ public class UptimeHarborDbContextModelTests
     {
         DbContextOptions<UptimeHarborDbContext> options =
             new DbContextOptionsBuilder<UptimeHarborDbContext>()
-                .UseNpgsql("Host=localhost;Database=uptime_harbor_model_tests;Username=test;Password=test")
+                .UseSqlServer(
+                    "Server=localhost;Database=uptime_harbor_model_tests;" +
+                    "User Id=test;Password=test;TrustServerCertificate=True")
                 .Options;
 
         return new UptimeHarborDbContext(options);

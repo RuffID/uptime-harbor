@@ -37,16 +37,16 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
 
-        string? connectionString = configuration.GetConnectionString("PostgreSql");
+        string? connectionString = configuration.GetConnectionString("SqlServer");
 
         if (string.IsNullOrWhiteSpace(connectionString))
         {
             throw new InvalidOperationException(
-                "ConnectionStrings:PostgreSql is required.");
+                "ConnectionStrings:SqlServer is required.");
         }
 
         services.AddDbContext<UptimeHarborDbContext>(options =>
-            options.UseNpgsql(connectionString));
+            options.UseSqlServer(connectionString));
 
         services
             .AddOptions<BootstrapAdminOptions>()

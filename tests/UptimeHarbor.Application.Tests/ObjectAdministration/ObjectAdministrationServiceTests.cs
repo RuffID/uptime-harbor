@@ -277,6 +277,7 @@ public class ObjectAdministrationServiceTests
 
         Assert.True(result.Success);
         Assert.Empty(data.Servers.Items);
+        Assert.Empty(data.Containers.Items);
         Assert.Equal(1, data.Publisher.PublishCount);
     }
 

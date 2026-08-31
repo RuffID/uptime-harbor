@@ -2,7 +2,7 @@
 
 ## Статус
 
-**В работе.** HTTP adapter ограничен 64 KiB и не следует redirect; списковые цели читаются через materialized `IReadOnlyList`, stale monitoring write отклоняется optimistic concurrency без SignalR/outbox events. Fake transport и SQLite provider tests проходят; остаётся ручная PostgreSQL runtime-проверка после migration.
+**В работе.** HTTP adapter ограничен 64 KiB и не следует redirect; списковые цели читаются через materialized `IReadOnlyList`, stale monitoring write отклоняется optimistic concurrency без SignalR/outbox events. Fake transport и SQLite provider tests проходят; остаётся ручная SQL Server runtime-проверка после baseline-миграции.
 
 ## Цель
 
@@ -21,7 +21,7 @@
 
 3. Настроить `IHttpClientFactory` и timeout 30 секунд.
 4. Реализовать фоновый планировщик с интервалом 30 секунд.
-5. Получать список включённых объектов из PostgreSQL на каждом цикле либо безопасно обновлять рабочий набор при изменении настроек.
+5. Получать список включённых объектов из SQL Server на каждом цикле либо безопасно обновлять рабочий набор при изменении настроек.
 6. Проверять разные объекты параллельно, не допуская одновременных проверок одного объекта.
 7. Для результата проверки атомарно обновлять:
 

@@ -26,10 +26,8 @@ public abstract class MonitoredObjectConfiguration<TEntity> : IEntityTypeConfigu
             .HasConversion<string>()
             .HasMaxLength(32)
             .IsRequired();
-        builder.Property(entity => entity.LastCheckedAtUtc)
-            .HasColumnType("timestamp with time zone");
-        builder.Property(entity => entity.LastSuccessfulCheckAtUtc)
-            .HasColumnType("timestamp with time zone");
+        builder.Property(entity => entity.LastCheckedAtUtc);
+        builder.Property(entity => entity.LastSuccessfulCheckAtUtc);
         builder.Property(entity => entity.CurrentIncidentId);
     }
 }

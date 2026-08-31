@@ -54,7 +54,7 @@ public static class ServiceCollectionExtensions
         });
         services.AddHealthChecks()
             .AddCheck("web", () => HealthCheckResult.Healthy(), tags: ["live"])
-            .AddCheck<PostgreSqlHealthCheck>("postgresql", tags: ["ready"]);
+            .AddCheck<SqlServerHealthCheck>("sqlserver", tags: ["ready"]);
         services.AddHttpContextAccessor();
         services.AddScoped<IUserAccessContext, CurrentUserAccessContext>();
         services.AddScoped<IObjectAdministrationChangePublisher, SignalRObjectAdministrationChangePublisher>();

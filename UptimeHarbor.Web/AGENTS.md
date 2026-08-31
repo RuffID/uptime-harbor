@@ -27,3 +27,4 @@
 - Административное API уведомлений размещено под `/api/admin/notifications`; token не входит в Web-контракты, а mutating actions и тестовая отправка требуют роль `Administrator` и antiforgery.
 - Административная страница пользователей размещена под `/Admin/Users`; UI работает через `/api/admin/users` без перезагрузки, а операции изменения защищены antiforgery и ролью `Administrator`.
 - Forwarded headers принимаются только из явно настроенной proxy-сети с ограничением `ForwardLimit` до одного прокси; liveness и readiness health endpoints разделены.
+- Readiness health-check проверяет доступность SQL Server через `UptimeHarborDbContext`.

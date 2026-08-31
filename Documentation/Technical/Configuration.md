@@ -14,7 +14,7 @@ Web-проект использует стандартную конфигура�
 
 `MonitoringOptions` и `TelegramOptions` привязываются в Web через `AddApplicationConfiguration` и используют `ValidateOnStart`. Monitoring worker и HTTP-адаптер получают только `IOptions<MonitoringOptions>`, Telegram adapter — только `IOptions<TelegramOptions>`; потребители не зависят от `IConfiguration`. `BootstrapAdminOptions` принадлежит Infrastructure и валидируется при bootstrap только если администратор отсутствует. Это позволяет повторному запуску с уже созданным администратором не зависеть от сохранения начального пароля в конфигурации.
 
-Строка подключения `ConnectionStrings:PostgreSql` проверяется в `AddInfrastructure` до регистрации DbContext.
+Строка подключения `ConnectionStrings:SqlServer` проверяется в `AddInfrastructure` до регистрации DbContext. В production она передаётся внешней конфигурацией, например через переменную окружения `ConnectionStrings__SqlServer`; секреты не хранятся в репозитории.
 
 `ForwardedHeaders:KnownNetworks` задаёт CIDR доверенной proxy-сети; приложение принимает forwarded-заголовки только из этой сети и ограничивает цепочку одним прокси (`ForwardLimit = 1`). Значение сети должно совпадать с подсетью используемого reverse proxy.
 

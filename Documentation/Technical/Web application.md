@@ -17,7 +17,7 @@
 9. MVC controllers;
 10. Razor Pages;
 11. SignalR hub;
-12. health endpoints `/health/live` (liveness) и `/health/ready` (PostgreSQL readiness); `/health` оставлен алиасом readiness.
+12. health endpoints `/health/live` (liveness) и `/health/ready` (SQL Server readiness); `/health` оставлен алиасом readiness.
 
 До построения pipeline вызывается инфраструктурный bootstrap ролей и начального администратора. Миграции при этом не применяются автоматически.
 

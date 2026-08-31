@@ -58,7 +58,7 @@ Application получает сведения о текущем пользова
 
 `DashboardQuery` зависит от `IDashboardSnapshotReadQuery`, `IUserAccessContext` и `TimeProvider`. Infrastructure query проецирует materialized read records без endpoint URL; Application применяет чистую `ObjectVisibilityPolicy` до формирования dashboard DTO, выполняет поиск только по доступному набору и рассчитывает uptime относительно UTC-времени snapshot. `MonitoringEventRecipientResolver` использует отдельный `IMonitoringRecipientReadQuery`: users и признак Administrator загружаются одним запросом, server/container permissions — пакетно, без per-user N+1. Dashboard и recipient contracts не объединены в универсальный visibility repository.
 
-Web-обработчик внутреннего monitoring event определяет разрешённые Identity user-id в Application, а через SignalR отправляет только тип и GUID изменившегося объекта. Клиент использует событие как сигнал перечитать защищённый snapshot; PostgreSQL остаётся источником истины.
+Web-обработчик внутреннего monitoring event определяет разрешённые Identity user-id в Application, а через SignalR отправляет только тип и GUID изменившегося объекта. Клиент использует событие как сигнал перечитать защищённый snapshot; SQL Server остаётся источником истины.
 
 ## Правила сопровождения
 

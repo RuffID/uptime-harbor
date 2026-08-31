@@ -32,7 +32,7 @@ public class ServiceCollectionExtensionsTests
         InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
             services.AddInfrastructure(configuration));
 
-        Assert.Equal("ConnectionStrings:PostgreSql is required.", exception.Message);
+        Assert.Equal("ConnectionStrings:SqlServer is required.", exception.Message);
     }
 
     [Fact]
@@ -44,8 +44,9 @@ public class ServiceCollectionExtensionsTests
         IConfiguration configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["ConnectionStrings:PostgreSql"] =
-                    "Host=localhost;Database=uptime_harbor_di_tests;Username=test;Password=test"
+                ["ConnectionStrings:SqlServer"] =
+                    "Server=localhost;Database=uptime_harbor_di_tests;" +
+                    "User Id=test;Password=test;TrustServerCertificate=True"
             })
             .Build();
         services.AddInfrastructure(configuration);
@@ -132,8 +133,9 @@ public class ServiceCollectionExtensionsTests
         IConfiguration configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["ConnectionStrings:PostgreSql"] =
-                    "Host=localhost;Database=uptime_harbor_di_tests;Username=test;Password=test",
+                ["ConnectionStrings:SqlServer"] =
+                    "Server=localhost;Database=uptime_harbor_di_tests;" +
+                    "User Id=test;Password=test;TrustServerCertificate=True",
                 ["BootstrapAdmin:Login"] = "",
                 ["BootstrapAdmin:Password"] = ""
             })
@@ -153,8 +155,9 @@ public class ServiceCollectionExtensionsTests
         return new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["ConnectionStrings:PostgreSql"] =
-                    "Host=localhost;Database=uptime_harbor_di_tests;Username=test;Password=test",
+                ["ConnectionStrings:SqlServer"] =
+                    "Server=localhost;Database=uptime_harbor_di_tests;" +
+                    "User Id=test;Password=test;TrustServerCertificate=True",
                 ["BootstrapAdmin:Login"] = "admin",
                 ["BootstrapAdmin:Password"] = "initial-password",
                 ["Monitoring:IntervalSeconds"] = "30",

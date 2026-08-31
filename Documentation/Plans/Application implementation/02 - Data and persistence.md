@@ -2,11 +2,11 @@
 
 ## Статус
 
-**В работе.** Доменная модель, persistence, scenario Unit of Work, read-only списковые Application-контракты, специализированные materialized dashboard/recipient queries, optimistic concurrency и durable outbox проверены metadata и SQLite provider tests. Миграция `AddMonitoringConcurrencyAndNotificationOutbox` создана, но её ручное применение и проверка на PostgreSQL не выполнялись.
+**В работе.** Доменная модель, persistence, scenario Unit of Work, read-only списковые Application-контракты, специализированные materialized dashboard/recipient queries, optimistic concurrency и durable outbox проверены metadata и SQLite provider tests. Runtime provider переведён на SQL Server; PostgreSQL-миграции удалены, baseline-миграция `20260831015604_InitialSqlServerSchema` создана. Её применение и runtime-проверка остаются ручным release-шагом.
 
 ## Цель
 
-Создать доменную модель, схему PostgreSQL и инфраструктуру сохранения текущего состояния без истории проверок.
+Создать доменную модель, схему SQL Server и инфраструктуру сохранения текущего состояния без истории проверок.
 
 ## Работы
 
@@ -35,7 +35,7 @@
 4. Для контейнера дополнительно хранить последнее `startedAtUtc` и обязательную связь с сервером.
 5. Реализовать доменные операции переходов статуса, не допуская произвольного изменения связанных полей внешним кодом.
 6. Настроить `DbContext`, ограничения, индексы, длины строк, каскадное удаление и UTC-конвертацию в Infrastructure.
-7. Создать первую миграцию PostgreSQL в проекте Infrastructure, используя Web как startup project.
+7. Создать первую миграцию SQL Server в проекте Infrastructure, используя Web как startup project.
 8. Реализовать слой доступа к данным с явными границами транзакций и отдельными сценарными Unit of Work без единого агрегирующего Unit of Work.
 9. Определить безопасный способ применения миграций при развёртывании.
 10. Настроить сохранение ключей ASP.NET Core Data Protection вне временной файловой системы контейнера.
@@ -63,4 +63,4 @@
 
 ## Результат этапа
 
-Создана мигрируемая схема PostgreSQL и протестированная модель текущего состояния UptimeHarbor.
+Подготовлена модель текущего состояния UptimeHarbor для миграции SQL Server; baseline-миграция будет создана отдельным шагом штатным EF tooling.

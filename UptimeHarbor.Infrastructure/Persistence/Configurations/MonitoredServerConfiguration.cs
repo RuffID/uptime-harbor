@@ -16,13 +16,13 @@ public class MonitoredServerConfiguration : MonitoredObjectConfiguration<Monitor
             {
                 table.HasCheckConstraint(
                     "ck_monitored_servers_status",
-                    "\"Status\" IN ('Unknown', 'Available', 'Unavailable')");
+                    "[Status] IN ('Unknown', 'Available', 'Unavailable')");
                 table.HasCheckConstraint(
                     "ck_monitored_servers_endpoint_url",
-                    "lower(\"EndpointUrl\") LIKE 'http://%' OR lower(\"EndpointUrl\") LIKE 'https://%'");
+                    "LOWER([EndpointUrl]) LIKE 'http://%' OR LOWER([EndpointUrl]) LIKE 'https://%'");
                 table.HasCheckConstraint(
                     "ck_monitored_servers_consecutive_failures",
-                    "\"ConsecutiveFailures\" >= 0");
+                    "[ConsecutiveFailures] >= 0");
             });
     }
 }

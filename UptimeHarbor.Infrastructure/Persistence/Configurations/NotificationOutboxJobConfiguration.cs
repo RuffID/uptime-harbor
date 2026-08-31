@@ -11,7 +11,6 @@ public class NotificationOutboxJobConfiguration : IEntityTypeConfiguration<Notif
         builder.HasKey(job => job.Id);
         builder.Property(job => job.Id).ValueGeneratedNever();
         builder.Property(job => job.PayloadJson)
-            .HasColumnType("jsonb")
             .IsRequired();
         builder.HasIndex(job => new
         {

@@ -72,13 +72,13 @@ dotnet test --project .\tests\UptimeHarbor.Web.Tests\UptimeHarbor.Web.Tests.cspr
 - durable outbox до/после нового DbContext, параллельное начало доставки чатов, независимость monitoring cycle и лимит пяти retry через управляемый `TimeProvider`;
 - отсутствие SignalR/outbox event после provider concurrency conflict и HTTP `409` для administrative conflict.
 
-Web contract tests сериализуют `JsonResult` и administrative DTO через фактические MVC `JsonOptions`. Application проверяет self-disable/self-delete и last-enabled-admin. Runtime-проверка PostgreSQL migration/concurrency, restart процесса и Telegram остается отдельной ручной проверкой; Docker/Nginx не входят в scope v1.
+Web contract tests сериализуют `JsonResult` и administrative DTO через фактические MVC `JsonOptions`. Application проверяет self-disable/self-delete и last-enabled-admin. Runtime-проверка SQL Server migration/concurrency, restart процесса и Telegram остается отдельной ручной проверкой; Docker/Nginx не входят в scope v1.
 
 ## Изоляция
 
 Обычные тесты не обращаются к реальной БД, HTTP endpoint, Docker, PowerShell, процессам или внешним сервисам.
 
-EF metadata tests не открывают соединение. Provider-level concurrency/outbox tests используют только SQLite in-memory connection внутри процесса, без PostgreSQL, SQL-команд и Docker. HTTP-тесты monitoring adapter используют управляемый fake handler и не создают сетевых соединений. Worker-тесты используют in-memory services и управляемые `TaskCompletionSource`.
+EF metadata tests не открывают соединение. Provider-level concurrency/outbox tests используют только SQLite in-memory connection внутри процесса, без SQL Server, SQL-команд и Docker. HTTP-тесты monitoring adapter используют управляемый fake handler и не создают сетевых соединений. Worker-тесты используют in-memory services и управляемые `TaskCompletionSource`.
 
 Каждый test-файл явно импортирует `Xunit`; `GlobalUsings.cs` в проекте не используется.
 

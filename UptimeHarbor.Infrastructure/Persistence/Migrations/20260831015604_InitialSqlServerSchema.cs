@@ -1,13 +1,12 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
 namespace UptimeHarbor.Infrastructure.Persistence.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialPostgreSqlSchema : Migration
+    public partial class InitialSqlServerSchema : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -16,10 +15,10 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                 name: "data_protection_keys",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    FriendlyName = table.Column<string>(type: "text", nullable: true),
-                    Xml = table.Column<string>(type: "text", nullable: true)
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    FriendlyName = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    Xml = table.Column<string>(type: "nvarchar(max)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -30,33 +29,52 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                 name: "monitored_servers",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    EndpointUrl = table.Column<string>(type: "character varying(2048)", maxLength: 2048, nullable: false),
-                    Description = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
-                    IsMonitoringEnabled = table.Column<bool>(type: "boolean", nullable: false),
-                    LastKnownName = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
-                    Status = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
-                    ConsecutiveFailures = table.Column<int>(type: "integer", nullable: false),
-                    LastCheckedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    LastSuccessfulCheckAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    OutageNotificationSent = table.Column<bool>(type: "boolean", nullable: false)
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Version = table.Column<long>(type: "bigint", nullable: false),
+                    EndpointUrl = table.Column<string>(type: "nvarchar(2048)", maxLength: 2048, nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    IsMonitoringEnabled = table.Column<bool>(type: "bit", nullable: false),
+                    LastKnownName = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
+                    Status = table.Column<string>(type: "nvarchar(32)", maxLength: 32, nullable: false),
+                    ConsecutiveFailures = table.Column<int>(type: "int", nullable: false),
+                    LastCheckedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    LastSuccessfulCheckAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CurrentIncidentId = table.Column<Guid>(type: "uniqueidentifier", nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_monitored_servers", x => x.Id);
-                    table.CheckConstraint("ck_monitored_servers_consecutive_failures", "\"ConsecutiveFailures\" >= 0");
-                    table.CheckConstraint("ck_monitored_servers_endpoint_url", "lower(\"EndpointUrl\") LIKE 'http://%' OR lower(\"EndpointUrl\") LIKE 'https://%'");
-                    table.CheckConstraint("ck_monitored_servers_status", "\"Status\" IN ('Unknown', 'Available', 'Unavailable')");
+                    table.CheckConstraint("ck_monitored_servers_consecutive_failures", "[ConsecutiveFailures] >= 0");
+                    table.CheckConstraint("ck_monitored_servers_endpoint_url", "LOWER([EndpointUrl]) LIKE 'http://%' OR LOWER([EndpointUrl]) LIKE 'https://%'");
+                    table.CheckConstraint("ck_monitored_servers_status", "[Status] IN ('Unknown', 'Available', 'Unavailable')");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "notification_outbox_jobs",
+                columns: table => new
+                {
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    PayloadJson = table.Column<string>(type: "nvarchar(max)", nullable: false),
+                    CreatedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    AttemptCount = table.Column<int>(type: "int", nullable: false),
+                    NextAttemptAtUtc = table.Column<DateTime>(type: "datetime2", nullable: false),
+                    LockedUntilUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CompletedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    FailedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_notification_outbox_jobs", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
                 name: "roles",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    Name = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
-                    NormalizedName = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
-                    ConcurrencyStamp = table.Column<string>(type: "text", nullable: true)
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
+                    NormalizedName = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
+                    ConcurrencyStamp = table.Column<string>(type: "nvarchar(max)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -67,9 +85,9 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                 name: "telegram_chats",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
                     TelegramChatId = table.Column<long>(type: "bigint", nullable: false),
-                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false)
+                    Name = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false)
                 },
                 constraints: table =>
                 {
@@ -80,22 +98,22 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                 name: "users",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    IsEnabled = table.Column<bool>(type: "boolean", nullable: false),
-                    UserName = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
-                    NormalizedUserName = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
-                    Email = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
-                    NormalizedEmail = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
-                    EmailConfirmed = table.Column<bool>(type: "boolean", nullable: false),
-                    PasswordHash = table.Column<string>(type: "text", nullable: true),
-                    SecurityStamp = table.Column<string>(type: "text", nullable: true),
-                    ConcurrencyStamp = table.Column<string>(type: "text", nullable: true),
-                    PhoneNumber = table.Column<string>(type: "text", nullable: true),
-                    PhoneNumberConfirmed = table.Column<bool>(type: "boolean", nullable: false),
-                    TwoFactorEnabled = table.Column<bool>(type: "boolean", nullable: false),
-                    LockoutEnd = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    LockoutEnabled = table.Column<bool>(type: "boolean", nullable: false),
-                    AccessFailedCount = table.Column<int>(type: "integer", nullable: false)
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    IsEnabled = table.Column<bool>(type: "bit", nullable: false),
+                    UserName = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
+                    NormalizedUserName = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
+                    Email = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
+                    NormalizedEmail = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
+                    EmailConfirmed = table.Column<bool>(type: "bit", nullable: false),
+                    PasswordHash = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    SecurityStamp = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ConcurrencyStamp = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    PhoneNumber = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    PhoneNumberConfirmed = table.Column<bool>(type: "bit", nullable: false),
+                    TwoFactorEnabled = table.Column<bool>(type: "bit", nullable: false),
+                    LockoutEnd = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    LockoutEnabled = table.Column<bool>(type: "bit", nullable: false),
+                    AccessFailedCount = table.Column<int>(type: "int", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -106,43 +124,43 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                 name: "monitored_containers",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    ServerId = table.Column<Guid>(type: "uuid", nullable: false),
-                    StartedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    EndpointUrl = table.Column<string>(type: "character varying(2048)", maxLength: 2048, nullable: false),
-                    Description = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
-                    IsMonitoringEnabled = table.Column<bool>(type: "boolean", nullable: false),
-                    LastKnownName = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
-                    Status = table.Column<string>(type: "character varying(32)", maxLength: 32, nullable: false),
-                    ConsecutiveFailures = table.Column<int>(type: "integer", nullable: false),
-                    LastCheckedAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    LastSuccessfulCheckAtUtc = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    OutageNotificationSent = table.Column<bool>(type: "boolean", nullable: false)
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ServerId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    StartedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    Version = table.Column<long>(type: "bigint", nullable: false),
+                    EndpointUrl = table.Column<string>(type: "nvarchar(2048)", maxLength: 2048, nullable: false),
+                    Description = table.Column<string>(type: "nvarchar(500)", maxLength: 500, nullable: true),
+                    IsMonitoringEnabled = table.Column<bool>(type: "bit", nullable: false),
+                    LastKnownName = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
+                    Status = table.Column<string>(type: "nvarchar(32)", maxLength: 32, nullable: false),
+                    ConsecutiveFailures = table.Column<int>(type: "int", nullable: false),
+                    LastCheckedAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    LastSuccessfulCheckAtUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    CurrentIncidentId = table.Column<Guid>(type: "uniqueidentifier", nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_monitored_containers", x => x.Id);
                     table.UniqueConstraint("ak_monitored_containers_server_id_id", x => new { x.ServerId, x.Id });
-                    table.CheckConstraint("ck_monitored_containers_consecutive_failures", "\"ConsecutiveFailures\" >= 0");
-                    table.CheckConstraint("ck_monitored_containers_endpoint_url", "lower(\"EndpointUrl\") LIKE 'http://%' OR lower(\"EndpointUrl\") LIKE 'https://%'");
-                    table.CheckConstraint("ck_monitored_containers_status", "\"Status\" IN ('Unknown', 'Available', 'Unavailable')");
+                    table.CheckConstraint("ck_monitored_containers_consecutive_failures", "[ConsecutiveFailures] >= 0");
+                    table.CheckConstraint("ck_monitored_containers_endpoint_url", "LOWER([EndpointUrl]) LIKE 'http://%' OR LOWER([EndpointUrl]) LIKE 'https://%'");
+                    table.CheckConstraint("ck_monitored_containers_status", "[Status] IN ('Unknown', 'Available', 'Unavailable')");
                     table.ForeignKey(
                         name: "FK_monitored_containers_monitored_servers_ServerId",
                         column: x => x.ServerId,
                         principalTable: "monitored_servers",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
+                        principalColumn: "Id");
                 });
 
             migrationBuilder.CreateTable(
                 name: "role_claims",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    RoleId = table.Column<Guid>(type: "uuid", nullable: false),
-                    ClaimType = table.Column<string>(type: "text", nullable: true),
-                    ClaimValue = table.Column<string>(type: "text", nullable: true)
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    RoleId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ClaimType = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ClaimValue = table.Column<string>(type: "nvarchar(max)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -159,8 +177,8 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                 name: "server_visibility_permissions",
                 columns: table => new
                 {
-                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    ServerId = table.Column<Guid>(type: "uuid", nullable: false)
+                    UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ServerId = table.Column<Guid>(type: "uniqueidentifier", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -183,11 +201,11 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                 name: "user_claims",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    ClaimType = table.Column<string>(type: "text", nullable: true),
-                    ClaimValue = table.Column<string>(type: "text", nullable: true)
+                    Id = table.Column<int>(type: "int", nullable: false)
+                        .Annotation("SqlServer:Identity", "1, 1"),
+                    UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ClaimType = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    ClaimValue = table.Column<string>(type: "nvarchar(max)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -204,10 +222,10 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                 name: "user_logins",
                 columns: table => new
                 {
-                    LoginProvider = table.Column<string>(type: "text", nullable: false),
-                    ProviderKey = table.Column<string>(type: "text", nullable: false),
-                    ProviderDisplayName = table.Column<string>(type: "text", nullable: true),
-                    UserId = table.Column<Guid>(type: "uuid", nullable: false)
+                    LoginProvider = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    ProviderKey = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    ProviderDisplayName = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -224,8 +242,8 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                 name: "user_roles",
                 columns: table => new
                 {
-                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    RoleId = table.Column<Guid>(type: "uuid", nullable: false)
+                    UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    RoleId = table.Column<Guid>(type: "uniqueidentifier", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -248,10 +266,10 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                 name: "user_tokens",
                 columns: table => new
                 {
-                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    LoginProvider = table.Column<string>(type: "text", nullable: false),
-                    Name = table.Column<string>(type: "text", nullable: false),
-                    Value = table.Column<string>(type: "text", nullable: true)
+                    UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    LoginProvider = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    Name = table.Column<string>(type: "nvarchar(450)", nullable: false),
+                    Value = table.Column<string>(type: "nvarchar(max)", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -268,15 +286,17 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                 name: "notification_bindings",
                 columns: table => new
                 {
-                    Id = table.Column<Guid>(type: "uuid", nullable: false),
-                    TelegramChatId = table.Column<Guid>(type: "uuid", nullable: false),
-                    ServerId = table.Column<Guid>(type: "uuid", nullable: true),
-                    ContainerId = table.Column<Guid>(type: "uuid", nullable: true)
+                    Id = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    TelegramChatId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ServerId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    ContainerId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    OutageDeliveredIncidentId = table.Column<Guid>(type: "uniqueidentifier", nullable: true),
+                    RecoveryDeliveredIncidentId = table.Column<Guid>(type: "uniqueidentifier", nullable: true)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_notification_bindings", x => x.Id);
-                    table.CheckConstraint("ck_notification_bindings_single_target", "(\"ServerId\" IS NOT NULL) <> (\"ContainerId\" IS NOT NULL)");
+                    table.CheckConstraint("ck_notification_bindings_single_target", "([ServerId] IS NOT NULL AND [ContainerId] IS NULL) OR ([ServerId] IS NULL AND [ContainerId] IS NOT NULL)");
                     table.ForeignKey(
                         name: "FK_notification_bindings_monitored_containers_ContainerId",
                         column: x => x.ContainerId,
@@ -301,21 +321,21 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                 name: "container_visibility_permissions",
                 columns: table => new
                 {
-                    UserId = table.Column<Guid>(type: "uuid", nullable: false),
-                    ContainerId = table.Column<Guid>(type: "uuid", nullable: false),
-                    ServerId = table.Column<Guid>(type: "uuid", nullable: false)
+                    UserId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ContainerId = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
+                    ServerId = table.Column<Guid>(type: "uniqueidentifier", nullable: false)
                 },
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_container_visibility_permissions", x => new { x.UserId, x.ContainerId });
                     table.ForeignKey(
-                        name: "FK_container_visibility_permissions_monitored_containers_Serve~",
+                        name: "FK_container_visibility_permissions_monitored_containers_ServerId_ContainerId",
                         columns: x => new { x.ServerId, x.ContainerId },
                         principalTable: "monitored_containers",
                         principalColumns: new[] { "ServerId", "Id" },
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_container_visibility_permissions_server_visibility_permissi~",
+                        name: "FK_container_visibility_permissions_server_visibility_permissions_UserId_ServerId",
                         columns: x => new { x.UserId, x.ServerId },
                         principalTable: "server_visibility_permissions",
                         principalColumns: new[] { "UserId", "ServerId" },
@@ -347,14 +367,19 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                 table: "notification_bindings",
                 columns: new[] { "TelegramChatId", "ContainerId" },
                 unique: true,
-                filter: "\"ContainerId\" IS NOT NULL");
+                filter: "[ContainerId] IS NOT NULL");
 
             migrationBuilder.CreateIndex(
                 name: "IX_notification_bindings_TelegramChatId_ServerId",
                 table: "notification_bindings",
                 columns: new[] { "TelegramChatId", "ServerId" },
                 unique: true,
-                filter: "\"ServerId\" IS NOT NULL");
+                filter: "[ServerId] IS NOT NULL");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_notification_outbox_jobs_CompletedAtUtc_FailedAtUtc_NextAttemptAtUtc",
+                table: "notification_outbox_jobs",
+                columns: new[] { "CompletedAtUtc", "FailedAtUtc", "NextAttemptAtUtc" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_role_claims_RoleId",
@@ -365,7 +390,8 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                 name: "RoleNameIndex",
                 table: "roles",
                 column: "NormalizedName",
-                unique: true);
+                unique: true,
+                filter: "[NormalizedName] IS NOT NULL");
 
             migrationBuilder.CreateIndex(
                 name: "IX_server_visibility_permissions_ServerId",
@@ -402,7 +428,8 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                 name: "UserNameIndex",
                 table: "users",
                 column: "NormalizedUserName",
-                unique: true);
+                unique: true,
+                filter: "[NormalizedUserName] IS NOT NULL");
         }
 
         /// <inheritdoc />
@@ -416,6 +443,9 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
 
             migrationBuilder.DropTable(
                 name: "notification_bindings");
+
+            migrationBuilder.DropTable(
+                name: "notification_outbox_jobs");
 
             migrationBuilder.DropTable(
                 name: "role_claims");

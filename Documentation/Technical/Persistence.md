@@ -2,7 +2,7 @@
 
 ## Текущее состояние
 
-Persistence реализован в `UptimeHarbor.Infrastructure`. `UptimeHarbor.Application` содержит только контекстно-независимые интерфейсы.
+Persistence реализован в `UptimeHarbor.Infrastructure` на EF Core с провайдером Microsoft SQL Server. `UptimeHarbor.Application` содержит только контекстно-независимые интерфейсы.
 
 `UptimeHarborDbContext` наследует Identity DbContext с ключом `Guid` и одновременно реализует контекст хранения ключей Data Protection. В модель входят объекты мониторинга, permissions, Telegram-чаты, notification bindings с per-binding состоянием доставки текущего инцидента и durable notification outbox.
 
@@ -16,12 +16,12 @@ Persistence реализован в `UptimeHarbor.Infrastructure`. `UptimeHarbor
 - строковое хранение статуса и check constraints допустимых значений;
 - обязательные ключи и `ValueGeneratedNever` для идентификаторов приложения;
 - длины строк, индексы и уникальность связей;
-- каскадное удаление контейнеров, permissions и notification bindings;
+- явное удаление контейнеров перед сервером в одной транзакции и каскадное удаление зависимых permissions и notification bindings;
 - составные ключи, запрещающие доступ к контейнеру вне назначенного сервера;
 - правило notification binding «ровно один target»;
-- хранение времён как UTC;
+- хранение времён как UTC в столбцах SQL Server `datetime2`;
 - явный `Version` серверов и контейнеров как concurrency token;
-- таблицу `notification_outbox_jobs` с payload, attempt, next-attempt, lease и terminal timestamps без внешнего ключа к удаляемому объекту.
+- таблицу `notification_outbox_jobs` с JSON payload в `nvarchar(max)`, attempt, next-attempt, lease и terminal timestamps без внешнего ключа к удаляемому объекту.
 
 Для идемпотентности уведомлений объект хранит nullable `CurrentIncidentId`, а каждая привязка — nullable идентификаторы инцидента успешной outage- и recovery-доставки. Глобальный `OutageNotificationSent` удалён из кодовой модели, потому что не описывает частичный успех нескольких чатов.
 
@@ -54,7 +54,7 @@ Application определяет общий `IUnitOfWorkScope` только с `
 
 Infrastructure использует одну scoped-сессию `IUptimeHarborDbContextSession`. `UptimeHarborDbUnitOfWork` реализует сохранение и транзакцию, а сценарные классы добавляют только нужные репозитории.
 
-`IObjectAdministrationUnitOfWork` раскрывает только серверы и контейнеры. Обычное сохранение атомарно фиксирует изменение настроек, включая сброс состояния при выключении мониторинга. Удаление сервера выполняется транзакционно после повторной проверки подтверждённого количества контейнеров; контейнеры, permissions и notification bindings удаляются существующими каскадными внешними ключами.
+`IObjectAdministrationUnitOfWork` раскрывает только серверы и контейнеры. Обычное сохранение атомарно фиксирует изменение настроек, включая сброс состояния при выключении мониторинга. Удаление сервера выполняется транзакционно после повторной проверки подтверждённого количества контейнеров: контейнеры явно помечаются на удаление перед сервером, а их permissions и notification bindings удаляются каскадными внешними ключами. Связь server → containers использует `NoAction`, чтобы схема SQL Server не содержала запрещённых multiple cascade paths.
 
 Транзакционный вызов открывает транзакцию, выполняет действие, один раз сохраняет изменения и делает commit. При исключении выполняется rollback, после чего исходное исключение передаётся вызывающему коду; отдельная ошибка rollback сохраняется в `Exception.Data` и не заменяет первопричину.
 
@@ -66,10 +66,6 @@ Identity store использует тот же scoped `UptimeHarborDbContext`, 
 
 Миграции не применяются автоматически при старте. Порядок создания и применения описан в [Database migrations.md](Database%20migrations.md).
 
-Для design-time scaffolding используется `UptimeHarborDesignTimeDbContextFactory`. Она настраивает провайдер Npgsql без строки подключения: построение модели и генерация миграции не требуют секрета и не открывают соединение с PostgreSQL.
+Для design-time scaffolding используется `UptimeHarborDesignTimeDbContextFactory`. Она настраивает провайдер SQL Server без строки подключения: построение модели и генерация миграции не требуют секрета и не открывают соединение с БД.
 
-Первая миграция `20260825121410_InitialPostgreSqlSchema` создана в `Persistence/Migrations`. Она включает доменные таблицы, ASP.NET Core Identity, составные ограничения видимости и таблицу ключей Data Protection.
-
-Миграция `20260825154441_AddNotificationDeliveryState` удаляет глобальный `OutageNotificationSent` и добавляет nullable incident-ID поля объектам и привязкам. Она создана штатным EF tooling и проверена сборкой и model metadata tests.
-
-Миграция `20260830090000_AddMonitoringConcurrencyAndNotificationOutbox` добавляет только `Version` в две monitoring-таблицы и `notification_outbox_jobs`. Она включена в исходный код, но не применялась: применение к PostgreSQL остаётся отдельным ручным release-шагом.
+Прежняя цепочка PostgreSQL-миграций удалена как несовместимая с новым провайдером. Создана новая baseline-миграция SQL Server `20260831015604_InitialSqlServerSchema`; она включает текущую модель целиком, включая Identity, Data Protection, concurrency columns и durable outbox. Перед применением её нужно проверить в release-среде.

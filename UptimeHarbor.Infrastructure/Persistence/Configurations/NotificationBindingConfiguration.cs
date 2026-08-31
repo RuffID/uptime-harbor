@@ -13,7 +13,8 @@ public class NotificationBindingConfiguration : IEntityTypeConfiguration<Notific
             "notification_bindings",
             table => table.HasCheckConstraint(
                 "ck_notification_bindings_single_target",
-                "(\"ServerId\" IS NOT NULL) <> (\"ContainerId\" IS NOT NULL)"));
+                "([ServerId] IS NOT NULL AND [ContainerId] IS NULL) OR " +
+                "([ServerId] IS NULL AND [ContainerId] IS NOT NULL)"));
         builder.HasKey(binding => binding.Id);
         builder.Property(binding => binding.Id).ValueGeneratedNever();
         builder.HasOne<TelegramChat>()
@@ -30,10 +31,10 @@ public class NotificationBindingConfiguration : IEntityTypeConfiguration<Notific
             .OnDelete(DeleteBehavior.Cascade);
         builder.HasIndex(binding => new { binding.TelegramChatId, binding.ServerId })
             .IsUnique()
-            .HasFilter("\"ServerId\" IS NOT NULL");
+            .HasFilter("[ServerId] IS NOT NULL");
         builder.HasIndex(binding => new { binding.TelegramChatId, binding.ContainerId })
             .IsUnique()
-            .HasFilter("\"ContainerId\" IS NOT NULL");
+            .HasFilter("[ContainerId] IS NOT NULL");
         builder.Property(binding => binding.OutageDeliveredIncidentId);
         builder.Property(binding => binding.RecoveryDeliveredIncidentId);
     }

@@ -266,6 +266,7 @@ public class ObjectAdministrationService(
                         return;
                     }
 
+                    unitOfWork.MonitoredContainers.DeleteRange(containers);
                     unitOfWork.MonitoredServers.Delete(server);
                     operationResult = ServiceResult.Ok();
                 },

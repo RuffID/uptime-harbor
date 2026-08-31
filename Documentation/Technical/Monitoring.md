@@ -37,7 +37,7 @@
 
 `MonitoringStateChangedEvent` содержит тип и ID объекта, parent server ID контейнера, описание, имя, status, transition, failure counter, времена, успешность и семантическую endpoint-ошибку. `MonitoringEventPublisher` передаёт его внутренним handlers только после успешного сохранения.
 
-SignalR handler реализован в Web. Он получает из Application список разрешённых включённых пользователей и отправляет им только `objectId` и `objectKind`; скрытые имя, описание, состояние и времена в push payload не попадают. Telegram не является synchronous handler: отдельный Infrastructure worker читает durable outbox. PostgreSQL остаётся источником истины.
+SignalR handler реализован в Web. Он получает из Application список разрешённых включённых пользователей и отправляет им только `objectId` и `objectKind`; скрытые имя, описание, состояние и времена в push payload не попадают. Telegram не является synchronous handler: отдельный Infrastructure worker читает durable outbox. SQL Server остаётся источником истины.
 
 Application resolver сохраняет прежнюю семантику чистой `ObjectVisibilityPolicy`: administrator получает событие любого объекта, обычный пользователь — только разрешённого сервера или контейнера вместе с его server permission, disabled пользователь не получает событие. Отдельный Infrastructure `IMonitoringRecipientReadQuery` materialize-ит users, roles и permissions пакетно; отдельного permission или role query для каждого пользователя нет.
 

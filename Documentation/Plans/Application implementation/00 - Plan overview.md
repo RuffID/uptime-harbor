@@ -2,7 +2,7 @@
 
 ## Статус
 
-**В работе.** P2-1—P2-5 исправлены в исходном коде и разрешённых изолированных тестах; browser burst/cancellation, CSP/SignalR runtime и настоящий HTTP formatter pipeline остаются ручными. P3-1—P3-3 завершены внутренним рефакторингом: административная policy едина, списковые read-контракты read-only, dashboard/recipient queries разделены и materialized в Infrastructure. P1 runtime-проверки PostgreSQL migration, process restart и Telegram также остаются. Этап 8 приостановлен: Docker Compose и orchestration не входят в v1.
+**В работе.** P2-1—P2-5 исправлены в исходном коде и разрешённых изолированных тестах; browser burst/cancellation, CSP/SignalR runtime и настоящий HTTP formatter pipeline остаются ручными. P3-1—P3-3 завершены внутренним рефакторингом: административная policy едина, списковые read-контракты read-only, dashboard/recipient queries разделены и materialized в Infrastructure. Persistence переведён на SQL Server, baseline-миграция создана; остаются runtime-проверки SQL Server, process restart и Telegram. Этап 8 приостановлен: Docker Compose и orchestration не входят в v1.
 
 ## Цель
 
@@ -12,7 +12,7 @@
 
 - `UptimeHarbor.Domain` — доменные сущности, статусы, value object и инварианты; не зависит от других проектов решения;
 - `UptimeHarbor.Application` — use case, прикладные сервисы, DTO, контракты репозиториев и сценарные Unit of Work; зависит только от Domain;
-- `UptimeHarbor.Infrastructure` — EF Core, PostgreSQL, Identity, Data Protection, HTTP и Telegram; зависит от Application и Domain;
+- `UptimeHarbor.Infrastructure` — EF Core, SQL Server, Identity, Data Protection, HTTP и Telegram; зависит от Application и Domain;
 - `UptimeHarbor.Web` — Razor Pages, SignalR hubs, Web-конфигурация и composition root; зависит от Application и Infrastructure;
 - тестовые проекты ссылаются только на проверяемые слои и необходимые им зависимости.
 
@@ -49,7 +49,7 @@ UptimeHarbor.Web → UptimeHarbor.Infrastructure → UptimeHarbor.Application �
 
 ### После этапа 2
 
-Приложение подключается к PostgreSQL, применяет миграции согласованным способом и сохраняет модель данных.
+Приложение подключается к SQL Server, применяет миграции согласованным способом и сохраняет модель данных.
 
 ### После этапа 4
 
@@ -67,6 +67,6 @@ UptimeHarbor.Web → UptimeHarbor.Infrastructure → UptimeHarbor.Application �
 
 - описание внешней production-конфигурации без настоящих секретов;
 - описание ручного первого запуска;
-- описание обновления схемы PostgreSQL;
+- описание обновления схемы SQL Server;
 - краткая инструкция добавления Telegram-бота в чат;
 - перечень известных ограничений первой версии.

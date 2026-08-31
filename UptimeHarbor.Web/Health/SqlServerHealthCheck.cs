@@ -4,7 +4,7 @@ using UptimeHarbor.Infrastructure.Persistence;
 
 namespace UptimeHarbor.Web.Health;
 
-public class PostgreSqlHealthCheck(UptimeHarborDbContext dbContext) : IHealthCheck
+public class SqlServerHealthCheck(UptimeHarborDbContext dbContext) : IHealthCheck
 {
     public async Task<HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context,
@@ -13,6 +13,6 @@ public class PostgreSqlHealthCheck(UptimeHarborDbContext dbContext) : IHealthChe
         bool canConnect = await dbContext.Database.CanConnectAsync(cancellationToken);
         return canConnect
             ? HealthCheckResult.Healthy()
-            : HealthCheckResult.Unhealthy("PostgreSQL недоступен.");
+            : HealthCheckResult.Unhealthy("SQL Server недоступен.");
     }
 }

@@ -10,7 +10,7 @@ public class UptimeHarborDesignTimeDbContextFactory
     {
         DbContextOptions<UptimeHarborDbContext> options =
             new DbContextOptionsBuilder<UptimeHarborDbContext>()
-                .UseNpgsql()
+                .UseSqlServer()
                 .Options;
 
         return new UptimeHarborDbContext(options);

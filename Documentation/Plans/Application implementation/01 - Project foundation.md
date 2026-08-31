@@ -14,7 +14,7 @@
 
    - `UptimeHarbor.Domain` — class library с сущностями, статусами и правилами переходов;
    - `UptimeHarbor.Application` — class library с use case, прикладными сервисами, DTO, контрактами репозиториев и сценарными Unit of Work;
-   - `UptimeHarbor.Infrastructure` — class library с EF Core, Identity, PostgreSQL, Data Protection, HTTP и Telegram;
+   - `UptimeHarbor.Infrastructure` — class library с EF Core, Identity, SQL Server, Data Protection, HTTP и Telegram;
    - `UptimeHarbor.Web` — исполняемый ASP.NET Core Razor Pages-проект с `Program.cs`, `Pages`, `Hubs` и Web-конфигурацией.
 
 2. Настроить ссылки между проектами:
@@ -27,7 +27,7 @@
 
 3. Подключить пакеты и локальные библиотеки только в использующие их проекты:
 
-   - Entity Framework Core для PostgreSQL, ASP.NET Core Identity с EF Core, `EFCoreLibrary.dll` и `HttpClientLibrary.dll` — в Infrastructure;
+   - Entity Framework Core для SQL Server, ASP.NET Core Identity с EF Core, `EFCoreLibrary.dll` и `HttpClientLibrary.dll` — в Infrastructure;
    - SignalR — в Web, если он не предоставляется shared framework;
    - Telegram-клиент либо небольшой адаптер над официальным Bot API — в Infrastructure.
 

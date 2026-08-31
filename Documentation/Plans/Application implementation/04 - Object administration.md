@@ -2,7 +2,7 @@
 
 ## Статус
 
-**В работе.** Административные use case используют единую Application administrator policy, а MVC API и TypeScript UI — `Version`; stale update/delete возвращает HTTP `409`. После commit обезличенный SignalR refresh является best-effort: transport exception журналируется и не превращает сохранённую операцию в HTTP-ошибку, а после access/save failure или conflict publisher не вызывается. PostgreSQL runtime-проверка зависит от ручного применения migration.
+**В работе.** Административные use case используют единую Application administrator policy, а MVC API и TypeScript UI — `Version`; stale update/delete возвращает HTTP `409`. После commit обезличенный SignalR refresh является best-effort: transport exception журналируется и не превращает сохранённую операцию в HTTP-ошибку, а после access/save failure или conflict publisher не вызывается. SQL Server runtime-проверка зависит от создания и ручного применения baseline-миграции.
 
 ## Цель
 
@@ -57,4 +57,4 @@
 
 ## Результат этапа
 
-Администратор может полностью подготовить список объектов к мониторингу без прямого доступа к PostgreSQL.
+Администратор может полностью подготовить список объектов к мониторингу без прямого доступа к SQL Server.

@@ -8,9 +8,10 @@
 
 - Все репозитории и Unit of Work в одном DI scope используют один `UptimeHarborDbContext`.
 - Модель EF настраивать под защищённую доменную модель, не ослабляя её публичный API.
-- Сохранять ограничения, индексы, каскады и UTC-конвертацию согласованными с доменными правилами.
+- Сохранять ограничения, индексы, каскады и UTC-конвертацию согласованными с доменными правилами. Связь server → containers использует `NoAction`, чтобы SQL Server не создавал multiple cascade paths; сценарий удаления сервера явно удаляет загруженные контейнеры в той же транзакции.
 - Существующие миграции вручную не редактировать; новые создаются отдельной командой после изменения модели.
 - Design-time scaffolding использует `UptimeHarborDesignTimeDbContextFactory` без строки подключения и не открывает соединение с БД.
+- EF-конфигурации и миграции должны быть совместимы с Microsoft SQL Server; PostgreSQL-специфичные типы и SQL не использовать.
 - При изменении схемы или транзакционных границ обновлять этот файл, `Documentation/Technical/Persistence.md` и документ миграций.
 - Цикл загружает включённые цели no-tracking, а результат каждого объекта повторно загружается tracked и сохраняется через отдельный scoped `IMonitoringUnitOfWork`.
 - Специализированные read queries для dashboard и SignalR recipients проецируют только Application read records и полностью materialize-ят их внутри Infrastructure; endpoint URL не входит в dashboard projection.
