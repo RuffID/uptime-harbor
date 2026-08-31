@@ -1,5 +1,6 @@
 using UptimeHarbor.Application.Abstractions.UnitOfWork;
 using UptimeHarbor.Application.Common;
+using UptimeHarbor.Application.Monitoring;
 using UptimeHarbor.Application.ObjectAdministration.Models;
 using UptimeHarbor.Application.Security;
 using UptimeHarbor.Domain;
@@ -95,10 +96,31 @@ public class ObjectAdministrationService(
             return ServiceResult<AdminServerDto>.Fail(CreateConcurrencyError());
         }
 
-        server.UpdateSettings(endpointUrl, description, isMonitoringEnabled);
         try
         {
-            await unitOfWork.SaveChangesAsync(cancellationToken);
+            await unitOfWork.ExecuteInTransactionAsync(
+                async transactionCancellationToken =>
+                {
+                    Guid? incidentId = server.CurrentIncidentId;
+                    RecoveryNotificationCancellationReason? cancellationReason =
+                        GetRecoveryCancellationReason(
+                            server.EndpointUrl,
+                            endpointUrl,
+                            server.IsMonitoringEnabled,
+                            isMonitoringEnabled);
+                    server.UpdateSettings(endpointUrl, description, isMonitoringEnabled);
+                    if (incidentId is Guid requiredIncidentId
+                        && cancellationReason is RecoveryNotificationCancellationReason requiredReason)
+                    {
+                        await unitOfWork.CancelPendingRecoveryNotificationsAsync(
+                            MonitoringObjectKind.Server,
+                            server.Id,
+                            requiredIncidentId,
+                            requiredReason,
+                            transactionCancellationToken);
+                    }
+                },
+                cancellationToken);
         }
         catch (PersistenceConcurrencyException)
         {
@@ -178,10 +200,31 @@ public class ObjectAdministrationService(
                 "serverId");
         }
 
-        container.UpdateSettings(endpointUrl, description, isMonitoringEnabled);
         try
         {
-            await unitOfWork.SaveChangesAsync(cancellationToken);
+            await unitOfWork.ExecuteInTransactionAsync(
+                async transactionCancellationToken =>
+                {
+                    Guid? incidentId = container.CurrentIncidentId;
+                    RecoveryNotificationCancellationReason? cancellationReason =
+                        GetRecoveryCancellationReason(
+                            container.EndpointUrl,
+                            endpointUrl,
+                            container.IsMonitoringEnabled,
+                            isMonitoringEnabled);
+                    container.UpdateSettings(endpointUrl, description, isMonitoringEnabled);
+                    if (incidentId is Guid requiredIncidentId
+                        && cancellationReason is RecoveryNotificationCancellationReason requiredReason)
+                    {
+                        await unitOfWork.CancelPendingRecoveryNotificationsAsync(
+                            MonitoringObjectKind.Container,
+                            container.Id,
+                            requiredIncidentId,
+                            requiredReason,
+                            transactionCancellationToken);
+                    }
+                },
+                cancellationToken);
         }
         catch (PersistenceConcurrencyException)
         {
@@ -392,5 +435,21 @@ public class ObjectAdministrationService(
         return new ServiceError(
             ServiceErrorType.Conflict,
             "Объект был изменён другим процессом. Обновите данные и повторите операцию.");
+    }
+
+    private static RecoveryNotificationCancellationReason? GetRecoveryCancellationReason(
+        string currentEndpointUrl,
+        string newEndpointUrl,
+        bool isMonitoringEnabled,
+        bool willMonitoringBeEnabled)
+    {
+        if (!string.Equals(currentEndpointUrl, newEndpointUrl.Trim(), StringComparison.Ordinal))
+        {
+            return RecoveryNotificationCancellationReason.EndpointChanged;
+        }
+
+        return isMonitoringEnabled && !willMonitoringBeEnabled
+            ? RecoveryNotificationCancellationReason.MonitoringDisabled
+            : null;
     }
 }

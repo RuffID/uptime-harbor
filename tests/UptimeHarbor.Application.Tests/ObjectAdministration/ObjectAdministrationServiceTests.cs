@@ -1,6 +1,7 @@
 using UptimeHarbor.Application.Abstractions.Persistence;
 using UptimeHarbor.Application.Abstractions.UnitOfWork;
 using UptimeHarbor.Application.Common;
+using UptimeHarbor.Application.Monitoring;
 using UptimeHarbor.Application.ObjectAdministration;
 using UptimeHarbor.Application.ObjectAdministration.Models;
 using UptimeHarbor.Application.Security;
@@ -246,6 +247,64 @@ public class ObjectAdministrationServiceTests
     }
 
     [Fact]
+    public async Task UpdateServerAsync_DisablingAfterRecovery_CancelsPendingRecoveryForIncident()
+    {
+        TestData data = new();
+        MonitoredServer server = data.AddServer(isMonitoringEnabled: true);
+        DateTimeOffset checkedAtUtc = new(2026, 8, 25, 10, 0, 0, TimeSpan.Zero);
+        server.RecordFailedCheck(checkedAtUtc, failuresBeforeUnavailable: 1);
+        Guid incidentId = server.CurrentIncidentId!.Value;
+        server.RecordSuccessfulCheck("server", checkedAtUtc.AddMinutes(1));
+
+        ServiceResult<AdminServerDto> result = await data.Service.UpdateServerAsync(
+            server.Id,
+            server.EndpointUrl,
+            server.Description,
+            false,
+            server.Version,
+            TestContext.Current.CancellationToken);
+
+        Assert.True(result.Success);
+        Assert.Equal(
+            (MonitoringObjectKind.Server,
+                server.Id,
+                incidentId,
+                RecoveryNotificationCancellationReason.MonitoringDisabled),
+            Assert.Single(data.UnitOfWork.CancelledRecoveries));
+    }
+
+    [Fact]
+    public async Task UpdateContainerAsync_EndpointChangeAfterRecovery_CancelsPendingRecoveryForIncident()
+    {
+        TestData data = new();
+        MonitoredServer server = data.AddServer(isMonitoringEnabled: true);
+        MonitoredContainer container = data.AddContainer(server, isMonitoringEnabled: true);
+        DateTimeOffset checkedAtUtc = new(2026, 8, 25, 10, 0, 0, TimeSpan.Zero);
+        container.RecordFailedCheck(checkedAtUtc, failuresBeforeUnavailable: 1);
+        Guid incidentId = container.CurrentIncidentId!.Value;
+        container.RecordSuccessfulCheck(
+            "container",
+            checkedAtUtc.AddHours(-1),
+            checkedAtUtc.AddMinutes(1));
+
+        ServiceResult<AdminContainerDto> result = await data.Service.UpdateContainerAsync(
+            container.Id,
+            "https://changed-container.example/health",
+            container.Description,
+            true,
+            container.Version,
+            TestContext.Current.CancellationToken);
+
+        Assert.True(result.Success);
+        Assert.Equal(
+            (MonitoringObjectKind.Container,
+                container.Id,
+                incidentId,
+                RecoveryNotificationCancellationReason.EndpointChanged),
+            Assert.Single(data.UnitOfWork.CancelledRecoveries));
+    }
+
+    [Fact]
     public async Task DeleteContainerAsync_RemovesContainerAndPublishesChange()
     {
         TestData data = new();
@@ -448,6 +507,23 @@ public class ObjectAdministrationServiceTests
         public IMonitoredContainerRepository MonitoredContainers { get; } = containers;
 
         public int SaveCount { get; private set; }
+
+        public List<(
+            MonitoringObjectKind ObjectKind,
+            Guid ObjectId,
+            Guid IncidentId,
+            RecoveryNotificationCancellationReason Reason)> CancelledRecoveries { get; } = [];
+
+        public Task CancelPendingRecoveryNotificationsAsync(
+            MonitoringObjectKind objectKind,
+            Guid objectId,
+            Guid incidentId,
+            RecoveryNotificationCancellationReason reason,
+            CancellationToken cancellationToken = default)
+        {
+            CancelledRecoveries.Add((objectKind, objectId, incidentId, reason));
+            return Task.CompletedTask;
+        }
 
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {

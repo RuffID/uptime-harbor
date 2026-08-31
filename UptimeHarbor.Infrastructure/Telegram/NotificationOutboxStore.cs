@@ -1,9 +1,12 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 using UptimeHarbor.Infrastructure.Persistence;
 
 namespace UptimeHarbor.Infrastructure.Telegram;
 
-public class NotificationOutboxStore(UptimeHarborDbContext dbContext)
+public class NotificationOutboxStore(
+    UptimeHarborDbContext dbContext,
+    TimeProvider timeProvider)
 {
     public async Task<IReadOnlyList<ClaimedNotificationOutboxJob>> ClaimDueAsync(
         DateTimeOffset nowUtc,
@@ -67,6 +70,55 @@ public class NotificationOutboxStore(UptimeHarborDbContext dbContext)
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<bool> ProcessClaimedAsync(
+        Guid jobId,
+        TimeSpan leaseDuration,
+        int maximumAttempts,
+        TimeSpan retryDelay,
+        Func<CancellationToken, Task<bool>> process,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(process);
+        DateTimeOffset startedAtUtc = timeProvider.GetUtcNow();
+        await using IDbContextTransaction transaction =
+            await dbContext.Database.BeginTransactionAsync(cancellationToken);
+
+        int acquired = await dbContext.NotificationOutboxJobs
+            .Where(job => job.Id == jobId
+                && job.CompletedAtUtc == null
+                && job.FailedAtUtc == null)
+            .ExecuteUpdateAsync(
+                setters => setters.SetProperty(
+                    job => job.LockedUntilUtc,
+                    startedAtUtc.Add(leaseDuration)),
+                cancellationToken);
+        if (acquired == 0)
+        {
+            await transaction.CommitAsync(cancellationToken);
+            return false;
+        }
+
+        bool succeeded = await process(cancellationToken);
+        DateTimeOffset completedAtUtc = timeProvider.GetUtcNow();
+        NotificationOutboxJob job = await GetRequiredJobAsync(jobId, cancellationToken);
+        if (succeeded)
+        {
+            job.Complete(completedAtUtc);
+        }
+        else if (job.AttemptCount >= maximumAttempts)
+        {
+            job.Fail(completedAtUtc);
+        }
+        else
+        {
+            job.ScheduleRetry(completedAtUtc, retryDelay);
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return true;
     }
 
     private async Task<NotificationOutboxJob> GetRequiredJobAsync(

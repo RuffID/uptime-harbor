@@ -1,5 +1,7 @@
 # Результаты технического ревью первой версии
 
+> Историческая оговорка: после этого ревью persistence переведён с PostgreSQL на Microsoft SQL Server и создан baseline `20260831015604_InitialSqlServerSchema`. Упоминания PostgreSQL, `xmin`, прежних migration и PostgreSQL health probe ниже относятся к состоянию на момент ревью; они не являются текущей рекомендацией и не подтверждают SQL Server runtime-проверку.
+
 ## Область проверки
 
 Проверка выполнена относительно `Technical requirements.md` и текущей технической документации. В область проверки вошли Domain, Application, Infrastructure, Web, TypeScript-клиент, persistence, monitoring worker, Telegram-доставка, тесты и deployment-материалы.

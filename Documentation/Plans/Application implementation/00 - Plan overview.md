@@ -2,7 +2,7 @@
 
 ## Статус
 
-**В работе.** P2-1—P2-5 исправлены в исходном коде и разрешённых изолированных тестах; browser burst/cancellation, CSP/SignalR runtime и настоящий HTTP formatter pipeline остаются ручными. P3-1—P3-3 завершены внутренним рефакторингом: административная policy едина, списковые read-контракты read-only, dashboard/recipient queries разделены и materialized в Infrastructure. Persistence переведён на SQL Server, baseline-миграция создана; остаются runtime-проверки SQL Server, process restart и Telegram. Этап 8 приостановлен: Docker Compose и orchestration не входят в v1.
+**В работе.** Follow-up P1 recovery cancellation и P2 Telegram unique conflicts исправлены в коде и разрешённых SQLite/fake/classifier tests. Browser burst/cancellation, CSP/SignalR runtime, настоящий HTTP formatter pipeline, SQL Server locking/2601/2627, применение baseline, process restart и Telegram runtime остаются ручными. Persistence использует SQL Server и baseline `20260831015604_InitialSqlServerSchema`; миграция не изменялась. Этап 8 приостановлен: Docker Compose и orchestration не входят в v1.
 
 ## Цель
 

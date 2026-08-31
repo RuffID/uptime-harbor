@@ -152,6 +152,13 @@ public class AdministratorAccessPolicyTests
             throw new InvalidOperationException("Repository must not be called.");
         public IMonitoredContainerRepository MonitoredContainers =>
             throw new InvalidOperationException("Repository must not be called.");
+        public Task CancelPendingRecoveryNotificationsAsync(
+            MonitoringObjectKind objectKind,
+            Guid objectId,
+            Guid incidentId,
+            RecoveryNotificationCancellationReason reason,
+            CancellationToken cancellationToken = default) =>
+            throw new InvalidOperationException("Unit of work must not be called.");
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
             throw new InvalidOperationException("SaveChanges must not be called.");
         public Task ExecuteInTransactionAsync(Func<CancellationToken, Task> action, CancellationToken cancellationToken = default) =>

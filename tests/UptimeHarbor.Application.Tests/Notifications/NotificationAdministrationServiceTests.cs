@@ -1,3 +1,4 @@
+using UptimeHarbor.Application.Abstractions.UnitOfWork;
 using UptimeHarbor.Application.Common;
 using UptimeHarbor.Application.Monitoring;
 using UptimeHarbor.Application.Notifications.Models;
@@ -50,6 +51,68 @@ public class NotificationAdministrationServiceTests
         Assert.True(result.Success);
         Assert.Single(data.Sender.Sent);
         Assert.Equal(chat.Id, data.Sender.Sent[0].Recipient.Id);
+    }
+
+    [Fact]
+    public async Task ConcurrentDuplicateChat_ReturnsSafeConflict()
+    {
+        NotificationTestData data = new(
+            saveException: new PersistenceConflictException(
+                PersistenceConflictKind.DuplicateTelegramChatId,
+                new InvalidOperationException(
+                    "Server=secret; duplicate key in telegram_chats.")));
+
+        ServiceResult<TelegramChatDto> result = await data.AdministrationService.CreateChatAsync(
+            -100123,
+            "Операторы",
+            TestContext.Current.CancellationToken);
+
+        Assert.False(result.Success);
+        Assert.Equal(ServiceErrorType.Conflict, result.Error!.Type);
+        Assert.Equal("telegramChatId", result.Error.Field);
+        Assert.DoesNotContain("secret", result.Error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("telegram_chats", result.Error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ConcurrentDuplicateBinding_ReturnsSafeConflict()
+    {
+        NotificationTestData data = new(
+            saveException: new PersistenceConflictException(
+                PersistenceConflictKind.DuplicateNotificationBinding,
+                new InvalidOperationException(
+                    "Violation of IX_notification_bindings_TelegramChatId_ServerId.")));
+        MonitoredServer server = data.AddServer();
+        TelegramChat chat = data.AddChat(-100123, "Операторы");
+
+        ServiceResult<NotificationBindingDto> result =
+            await data.AdministrationService.CreateBindingAsync(
+                chat.Id,
+                MonitoringObjectKind.Server,
+                server.Id,
+                TestContext.Current.CancellationToken);
+
+        Assert.False(result.Success);
+        Assert.Equal(ServiceErrorType.Conflict, result.Error!.Type);
+        Assert.DoesNotContain("IX_notification", result.Error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task UnexpectedPersistenceConflictKind_IsNotMasked()
+    {
+        PersistenceConflictException exception = new(
+            PersistenceConflictKind.DuplicateNotificationBinding,
+            new InvalidOperationException("Unexpected conflict."));
+        NotificationTestData data = new(saveException: exception);
+
+        PersistenceConflictException thrown =
+            await Assert.ThrowsAsync<PersistenceConflictException>(() =>
+                data.AdministrationService.CreateChatAsync(
+                    -100123,
+                    "Операторы",
+                    TestContext.Current.CancellationToken));
+
+        Assert.Same(exception, thrown);
     }
 
     [Theory]

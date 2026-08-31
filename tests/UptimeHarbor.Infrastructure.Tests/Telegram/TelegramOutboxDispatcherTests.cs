@@ -2,14 +2,18 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using UptimeHarbor.Application.Abstractions.Persistence;
+using UptimeHarbor.Application.Abstractions.UnitOfWork;
 using UptimeHarbor.Application.Common;
 using UptimeHarbor.Application.Monitoring;
 using UptimeHarbor.Application.Monitoring.Models;
 using UptimeHarbor.Application.Notifications;
 using UptimeHarbor.Application.Notifications.Models;
 using UptimeHarbor.Domain.Monitoring;
+using UptimeHarbor.Domain.Notifications;
 using UptimeHarbor.Infrastructure.Monitoring;
 using UptimeHarbor.Infrastructure.Persistence;
+using UptimeHarbor.Infrastructure.Persistence.UnitOfWork;
 using UptimeHarbor.Infrastructure.Telegram;
 using Xunit;
 
@@ -179,6 +183,150 @@ public class TelegramOutboxDispatcherTests
         await dispatch;
     }
 
+    [Fact]
+    public async Task RecoveryQueuedThenDisable_CancelsJobAndDoesNotCallSender()
+    {
+        await using SqliteConnection connection = await OpenDatabaseAsync();
+        RecoveryJobData data = await AddRecoveryJobAsync(connection);
+        MutableTimeProvider timeProvider = new(NOW_UTC.AddMinutes(2));
+        await CancelRecoveryAsync(
+            connection,
+            data,
+            RecoveryNotificationCancellationReason.MonitoringDisabled,
+            timeProvider);
+        await CancelRecoveryAsync(
+            connection,
+            data,
+            RecoveryNotificationCancellationReason.MonitoringDisabled,
+            timeProvider);
+        RecordingSender sender = new();
+        using ServiceProvider provider = CreateProvider(
+            connection,
+            new FakeDeliveryService([CreateRecoveryDelivery(data.IncidentId)]),
+            sender,
+            timeProvider);
+
+        int firstDispatch = await CreateDispatcher(provider, timeProvider)
+            .DispatchDueAsync(TestContext.Current.CancellationToken);
+        int secondDispatch = await CreateDispatcher(provider, timeProvider)
+            .DispatchDueAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(0, firstDispatch);
+        Assert.Equal(0, secondDispatch);
+        Assert.Empty(sender.AttemptedRecipientIds);
+        await using UptimeHarborDbContext verificationContext = CreateContext(connection);
+        NotificationOutboxJob job = await verificationContext.NotificationOutboxJobs
+            .AsNoTracking()
+            .SingleAsync(TestContext.Current.CancellationToken);
+        Assert.NotNull(job.CompletedAtUtc);
+        Assert.Equal(
+            RecoveryNotificationCancellationReason.MonitoringDisabled.ToString(),
+            job.ReadCancellationReason());
+        Assert.Equal(timeProvider.GetUtcNow(), job.ReadCancelledAtUtc());
+    }
+
+    [Fact]
+    public async Task RecoveryQueuedThenEndpointChange_CancelsOldJob()
+    {
+        await using SqliteConnection connection = await OpenDatabaseAsync();
+        RecoveryJobData data = await AddRecoveryJobAsync(connection);
+        MutableTimeProvider timeProvider = new(NOW_UTC.AddMinutes(2));
+
+        await CancelRecoveryAsync(
+            connection,
+            data,
+            RecoveryNotificationCancellationReason.EndpointChanged,
+            timeProvider);
+
+        await using UptimeHarborDbContext verificationContext = CreateContext(connection);
+        NotificationOutboxJob job = await verificationContext.NotificationOutboxJobs
+            .AsNoTracking()
+            .SingleAsync(TestContext.Current.CancellationToken);
+        MonitoredServer server = await verificationContext.MonitoredServers
+            .AsNoTracking()
+            .SingleAsync(TestContext.Current.CancellationToken);
+        Assert.Equal("https://changed.example/health", server.EndpointUrl);
+        Assert.Equal(
+            RecoveryNotificationCancellationReason.EndpointChanged.ToString(),
+            job.ReadCancellationReason());
+    }
+
+    [Fact]
+    public async Task OrdinaryRecovery_StillCallsSenderAndCompletesJob()
+    {
+        await using SqliteConnection connection = await OpenDatabaseAsync();
+        RecoveryJobData data = await AddRecoveryJobAsync(connection);
+        FakeDeliveryService deliveryService = new([CreateRecoveryDelivery(data.IncidentId)]);
+        RecordingSender sender = new();
+        MutableTimeProvider timeProvider = new(NOW_UTC.AddMinutes(2));
+        using ServiceProvider provider = CreateProvider(connection, deliveryService, sender, timeProvider);
+
+        int dispatched = await CreateDispatcher(provider, timeProvider)
+            .DispatchDueAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, dispatched);
+        Assert.Single(sender.AttemptedRecipientIds);
+        await using UptimeHarborDbContext verificationContext = CreateContext(connection);
+        NotificationOutboxJob job = await verificationContext.NotificationOutboxJobs
+            .AsNoTracking()
+            .SingleAsync(TestContext.Current.CancellationToken);
+        Assert.NotNull(job.CompletedAtUtc);
+        Assert.Null(job.ReadCancellationReason());
+    }
+
+    [Fact]
+    public async Task ClaimedRecoveryCancelledBeforeDeliveryGate_IsSkippedSafely()
+    {
+        await using SqliteConnection connection = await OpenDatabaseAsync();
+        RecoveryJobData data = await AddRecoveryJobAsync(connection);
+        MutableTimeProvider timeProvider = new(NOW_UTC.AddMinutes(2));
+        ClaimedNotificationOutboxJob claimed;
+        using (ServiceProvider provider = CreateProvider(
+            connection,
+            new FakeDeliveryService([]),
+            new RecordingSender(),
+            timeProvider))
+        {
+            await using AsyncServiceScope claimScope = provider.CreateAsyncScope();
+            NotificationOutboxStore claimStore = claimScope.ServiceProvider
+                .GetRequiredService<NotificationOutboxStore>();
+            claimed = Assert.Single(await claimStore.ClaimDueAsync(
+                timeProvider.GetUtcNow(),
+                1,
+                TelegramOutboxDispatcher.LEASE_DURATION,
+                TestContext.Current.CancellationToken));
+        }
+        await CancelRecoveryAsync(
+            connection,
+            data,
+            RecoveryNotificationCancellationReason.MonitoringDisabled,
+            timeProvider);
+        int callbackCount = 0;
+        using ServiceProvider processingProvider = CreateProvider(
+            connection,
+            new FakeDeliveryService([]),
+            new RecordingSender(),
+            timeProvider);
+        await using AsyncServiceScope processingScope = processingProvider.CreateAsyncScope();
+        NotificationOutboxStore processingStore = processingScope.ServiceProvider
+            .GetRequiredService<NotificationOutboxStore>();
+
+        bool processed = await processingStore.ProcessClaimedAsync(
+            claimed.Id,
+            TelegramOutboxDispatcher.LEASE_DURATION,
+            TelegramOutboxDispatcher.MAXIMUM_ATTEMPTS,
+            TimeSpan.FromSeconds(5),
+            cancellationToken =>
+            {
+                callbackCount++;
+                return Task.FromResult(true);
+            },
+            TestContext.Current.CancellationToken);
+
+        Assert.False(processed);
+        Assert.Equal(0, callbackCount);
+    }
+
     private static async Task<SqliteConnection> OpenDatabaseAsync()
     {
         SqliteConnection connection = new("Data Source=:memory:");
@@ -202,6 +350,82 @@ public class TelegramOutboxDispatcherTests
         await using UptimeHarborDbContext context = CreateContext(connection);
         context.NotificationOutboxJobs.Add(NotificationOutboxJob.Create(CreateEvent()));
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+    }
+
+    private static async Task<RecoveryJobData> AddRecoveryJobAsync(SqliteConnection connection)
+    {
+        await using UptimeHarborDbContext context = CreateContext(connection);
+        MonitoredServer server = new(
+            Guid.NewGuid(),
+            "https://server.example/health",
+            null,
+            true);
+        server.RecordFailedCheck(NOW_UTC, failuresBeforeUnavailable: 1);
+        Guid incidentId = server.CurrentIncidentId!.Value;
+        TelegramChat chat = new(Guid.NewGuid(), -100123, "Операторы");
+        NotificationBinding binding = NotificationBinding.ForServer(
+            Guid.NewGuid(),
+            chat.Id,
+            server.Id);
+        binding.MarkOutageDelivered(incidentId);
+        server.RecordSuccessfulCheck("server", NOW_UTC.AddMinutes(1));
+        MonitoringStateChangedEvent monitoringEvent = new(
+            server.Id,
+            MonitoringObjectKind.Server,
+            null,
+            server.LastKnownName,
+            server.Description,
+            server.Status,
+            incidentId,
+            server.ConsecutiveFailures,
+            server.LastCheckedAtUtc!.Value,
+            null,
+            MonitoringTransition.Recovered,
+            true,
+            null);
+        NotificationOutboxJob job = NotificationOutboxJob.Create(monitoringEvent);
+        context.AddRange(server, chat, binding, job);
+        await context.SaveChangesAsync(TestContext.Current.CancellationToken);
+        return new RecoveryJobData(server.Id, incidentId);
+    }
+
+    private static async Task CancelRecoveryAsync(
+        SqliteConnection connection,
+        RecoveryJobData data,
+        RecoveryNotificationCancellationReason reason,
+        TimeProvider timeProvider)
+    {
+        await using UptimeHarborDbContext context = CreateContext(connection);
+        ProviderServerRepository servers = new(context);
+        ObjectAdministrationUnitOfWork unitOfWork = new(
+            new UptimeHarborDbContextSession(context),
+            servers,
+            new EmptyContainerRepository(),
+            context,
+            timeProvider);
+        MonitoredServer server = (await servers.GetItemByIdAsync(
+            data.ServerId,
+            TestContext.Current.CancellationToken))!;
+        await unitOfWork.ExecuteInTransactionAsync(
+            async cancellationToken =>
+            {
+                if (reason == RecoveryNotificationCancellationReason.MonitoringDisabled)
+                {
+                    server.SetMonitoringEnabled(false);
+                }
+                else
+                {
+                    server.UpdateSettings("https://changed.example/health", null, true);
+                }
+
+                await unitOfWork.CancelPendingRecoveryNotificationsAsync(
+                    MonitoringObjectKind.Server,
+                    server.Id,
+                    data.IncidentId,
+                    reason,
+                    cancellationToken);
+            },
+            TestContext.Current.CancellationToken);
     }
 
     private static ServiceProvider CreateProvider(
@@ -256,6 +480,18 @@ public class TelegramOutboxDispatcherTests
             new NotificationRecipient(chatId, "-100123"),
             "message");
     }
+
+    private static PendingNotificationDeliveryDto CreateRecoveryDelivery(Guid incidentId)
+    {
+        return new PendingNotificationDeliveryDto(
+            Guid.NewGuid(),
+            incidentId,
+            NotificationDeliveryKind.Recovery,
+            new NotificationRecipient(Guid.NewGuid(), "-100123"),
+            "recovery");
+    }
+
+    private record RecoveryJobData(Guid ServerId, Guid IncidentId);
 
     private class FakeDeliveryService(IReadOnlyList<PendingNotificationDeliveryDto> deliveries)
         : INotificationDeliveryService
@@ -371,6 +607,66 @@ public class TelegramOutboxDispatcherTests
                 SuccessfulCompleted.TrySetResult();
             }
         }
+    }
+
+    private class ProviderServerRepository(UptimeHarborDbContext context)
+        : IMonitoredServerRepository
+    {
+        public async Task<IReadOnlyList<MonitoredServer>> GetAllAsync(
+            CancellationToken cancellationToken = default) =>
+            await context.MonitoredServers.AsNoTracking().ToListAsync(cancellationToken);
+
+        public async Task<IReadOnlyList<MonitoredServer>> GetEnabledAsync(
+            CancellationToken cancellationToken = default) =>
+            await context.MonitoredServers.AsNoTracking()
+                .Where(server => server.IsMonitoringEnabled)
+                .ToListAsync(cancellationToken);
+
+        public Task<MonitoredServer?> GetItemByIdAsync(
+            Guid id,
+            CancellationToken cancellationToken = default) =>
+            context.MonitoredServers.SingleOrDefaultAsync(server => server.Id == id, cancellationToken);
+
+        public void Create(MonitoredServer item) => context.MonitoredServers.Add(item);
+
+        public void CreateRange(IEnumerable<MonitoredServer> entities) =>
+            context.MonitoredServers.AddRange(entities);
+
+        public void Delete(MonitoredServer item) => context.MonitoredServers.Remove(item);
+
+        public void DeleteRange(IEnumerable<MonitoredServer> entities) =>
+            context.MonitoredServers.RemoveRange(entities);
+    }
+
+    private class EmptyContainerRepository : IMonitoredContainerRepository
+    {
+        public Task<IReadOnlyList<MonitoredContainer>> GetAllAsync(
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<MonitoredContainer>>([]);
+
+        public Task<IReadOnlyList<MonitoredContainer>> GetEnabledAsync(
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<MonitoredContainer>>([]);
+
+        public Task<IReadOnlyList<MonitoredContainer>> GetByServerIdAsync(
+            Guid serverId,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<IReadOnlyList<MonitoredContainer>>([]);
+
+        public Task<MonitoredContainer?> GetItemByIdAsync(
+            Guid id,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult<MonitoredContainer?>(null);
+
+        public void Create(MonitoredContainer item) => throw new NotSupportedException();
+
+        public void CreateRange(IEnumerable<MonitoredContainer> entities) =>
+            throw new NotSupportedException();
+
+        public void Delete(MonitoredContainer item) => throw new NotSupportedException();
+
+        public void DeleteRange(IEnumerable<MonitoredContainer> entities) =>
+            throw new NotSupportedException();
     }
 
     private class MutableTimeProvider(DateTimeOffset utcNow) : TimeProvider

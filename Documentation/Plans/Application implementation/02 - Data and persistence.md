@@ -2,7 +2,7 @@
 
 ## Статус
 
-**В работе.** Доменная модель, persistence, scenario Unit of Work, read-only списковые Application-контракты, специализированные materialized dashboard/recipient queries, optimistic concurrency и durable outbox проверены metadata и SQLite provider tests. Runtime provider переведён на SQL Server; PostgreSQL-миграции удалены, baseline-миграция `20260831015604_InitialSqlServerSchema` создана. Её применение и runtime-проверка остаются ручным release-шагом.
+**В работе.** Доменная модель, persistence, scenario Unit of Work, read-only списковые Application-контракты, специализированные materialized dashboard/recipient queries, optimistic concurrency, durable outbox cancellation и Telegram unique constraints проверены metadata/SQLite/isolated classifier tests. Runtime provider переведён на SQL Server; baseline-миграция `20260831015604_InitialSqlServerSchema` создана и не изменялась исправлением. Её применение, SQL Server locking и реальные 2601/2627 остаются ручным release-шагом.
 
 ## Цель
 
@@ -60,7 +60,9 @@
 - ограничения URL и UTC;
 - каскадное удаление модели;
 - уникальность составных связей разрешений и уведомлений.
+- атомарная terminal cancellation recovery job при disable/endpoint change;
+- конкурентные duplicate chat/binding и безопасная классификация известных SQL Server unique violations.
 
 ## Результат этапа
 
-Подготовлена модель текущего состояния UptimeHarbor для миграции SQL Server; baseline-миграция будет создана отдельным шагом штатным EF tooling.
+Подготовлена модель текущего состояния UptimeHarbor и baseline-миграция SQL Server. Применение baseline и provider-specific runtime-проверка остаются отдельным release-шагом.

@@ -2,7 +2,7 @@
 
 ## Состояние реализации
 
-Application содержит независимые `INotificationSender`, административный use case и use case подготовки/фиксации доставки. Infrastructure содержит HTTP adapter Bot API, durable outbox dispatcher и отдельный hosted worker. Web содержит административный MVC API `/api/admin/notifications` и AJAX-only страницу `/Admin/Notifications` на TypeScript. Persistence-схема дополнена миграцией `AddMonitoringConcurrencyAndNotificationOutbox`.
+Application содержит независимые `INotificationSender`, административный use case и use case подготовки/фиксации доставки. Infrastructure содержит HTTP adapter Bot API, durable outbox dispatcher и отдельный hosted worker. Web содержит административный MVC API `/api/admin/notifications` и AJAX-only страницу `/Admin/Notifications` на TypeScript. Текущая persistence-схема входит в SQL Server baseline `20260831015604_InitialSqlServerSchema`.
 
 ## Хранение
 
@@ -12,7 +12,7 @@ Application содержит независимые `INotificationSender`, ад�
 
 Объект мониторинга хранит `CurrentIncidentId`. Каждая привязка хранит `OutageDeliveredIncidentId` и `RecoveryDeliveredIncidentId`. Эти поля описывают только текущее состояние доставки одного последнего актуального инцидента и перезаписываются новым инцидентом.
 
-`notification_outbox_jobs` хранит сериализованный monitoring event, число попыток, время следующей попытки, lease и terminal timestamps. Job не имеет внешнего ключа к объекту: уже сохранённое уведомление не исчезает при последующем административном удалении.
+`notification_outbox_jobs` хранит структурированный JSON payload с monitoring event и необязательными причиной/временем отмены, число попыток, время следующей попытки, lease и terminal timestamps. Job не имеет внешнего ключа к объекту: уже сохранённое уведомление не исчезает при последующем административном удалении. Отмена не удаляет job: она записывает диагностическую причину в payload и использует существующий `CompletedAtUtc` как терминальный признак, поэтому изменение не требует новой колонки или правки SQL Server baseline.
 
 ## Поток доставки
 
@@ -22,6 +22,8 @@ Application содержит независимые `INotificationSender`, ад�
 4. Получатели одного job запускаются параллельно с лимитом четыре; зависание или ошибка одного чата не задерживает начало остальных.
 5. После `Recovered` recovery отправляется только привязкам с совпадающим `OutageDeliveredIncidentId`.
 6. Успешные привязки получают marker в отдельных scopes, а job завершается только когда нет неуспешных получателей.
+7. Отключение мониторинга или смена endpoint в транзакции административного update помечают все незавершённые recovery jobs прежнего объекта/incident как отменённые.
+8. Перед вызовом sender dispatcher выполняет условный транзакционный gate по строке job. Если отмена зафиксирована первой, callback доставки не запускается. Если gate получен первым, строка удерживается до завершения попытки, поэтому административный commit произойдёт только после уже начавшейся отправки.
 
 Сообщение включает тип объекта, имя или идентификатор, описание при наличии, новый статус и UTC-время события. Для контейнера также указывается родительский сервер; recovery может включать время запуска и uptime.
 
@@ -32,6 +34,12 @@ Application содержит независимые `INotificationSender`, ад�
 Успешная отправка фиксируется отдельным коротким scope и `INotificationSettingsUnitOfWork` для конкретной привязки. Повторная обработка выбирает только привязки без соответствующего marker. Ошибка одного transport-вызова не изменяет уже сохранённый monitoring status.
 
 Retry ограничен пятью попытками. Между неуспешными попытками используются интервалы 5 секунд, 30 секунд, 2 минуты и 5 минут; после пятой job остаётся в БД с `FailedAtUtc` для диагностики и не запускается автоматически.
+
+Отменённая job идемпотентно исключается из claim и повторной обработки. Обычная recovery job без административного reset продолжает использовать прежние retry и at-least-once правила. Транзакционный gate относится только к Telegram worker и административному update; monitoring cycle не ждёт transport.
+
+## Конкурентные административные конфликты
+
+Предварительная проверка chat ID и пары binding остаётся удобной валидацией, но не считается защитой от гонки. SQL Server unique errors 2601/2627 преобразуются Infrastructure-слоем в независимый `PersistenceConflictException` только для EF entries `TelegramChat` и `NotificationBinding`, чьи unique indexes имеют стабильные известные имена. Application возвращает безопасный `ServiceResult.Conflict`, Web — HTTP 409 и `{ success: false, message, field? }`. Текст SQL Server, connection string, имя таблицы/index и provider exception в ответ не передаются. Прочие `DbUpdateException` не маскируются как ожидаемый конфликт.
 
 ## Семантика доставки
 

@@ -6,6 +6,7 @@ using UptimeHarbor.Domain.Access;
 using UptimeHarbor.Domain.Monitoring;
 using UptimeHarbor.Domain.Notifications;
 using UptimeHarbor.Infrastructure.Persistence;
+using UptimeHarbor.Infrastructure.Persistence.Configurations;
 using Xunit;
 
 namespace UptimeHarbor.Tests.Infrastructure.Persistence;
@@ -114,6 +115,22 @@ public class UptimeHarborDbContextModelTests
             uniqueIndexes,
             index => index.Properties.Select(property => property.Name)
                 .SequenceEqual([nameof(NotificationBinding.TelegramChatId), nameof(NotificationBinding.ContainerId)]));
+        Assert.Contains(
+            uniqueIndexes,
+            index => index.GetDatabaseName() == NotificationBindingConfiguration.CHAT_SERVER_UNIQUE_INDEX);
+        Assert.Contains(
+            uniqueIndexes,
+            index => index.GetDatabaseName() == NotificationBindingConfiguration.CHAT_CONTAINER_UNIQUE_INDEX);
+    }
+
+    [Fact]
+    public void Model_ConfiguresKnownTelegramChatUniqueIndex()
+    {
+        using UptimeHarborDbContext context = CreateContext();
+        IEntityType chatType = context.Model.FindEntityType(typeof(TelegramChat))!;
+        IIndex index = Assert.Single(chatType.GetIndexes(), candidate => candidate.IsUnique);
+
+        Assert.Equal(TelegramChatConfiguration.TELEGRAM_CHAT_ID_UNIQUE_INDEX, index.GetDatabaseName());
     }
 
     [Fact]

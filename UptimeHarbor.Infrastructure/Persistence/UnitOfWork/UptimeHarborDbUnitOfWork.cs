@@ -18,6 +18,16 @@ public abstract class UptimeHarborDbUnitOfWork(IUptimeHarborDbContextSession ses
             session.Clear();
             throw new PersistenceConcurrencyException(exception);
         }
+        catch (DbUpdateException exception)
+        {
+            if (!SqlServerPersistenceConflictClassifier.TryClassify(exception, out PersistenceConflictKind kind))
+            {
+                throw;
+            }
+
+            session.Clear();
+            throw new PersistenceConflictException(kind, exception);
+        }
     }
 
     public async Task ExecuteInTransactionAsync(

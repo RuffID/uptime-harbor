@@ -270,6 +270,13 @@ public class DashboardSignalRTests
         public IMonitoredContainerRepository MonitoredContainers { get; } = new EmptyContainerRepository();
         public int SaveCount { get; private set; }
 
+        public Task CancelPendingRecoveryNotificationsAsync(
+            MonitoringObjectKind objectKind,
+            Guid objectId,
+            Guid incidentId,
+            RecoveryNotificationCancellationReason reason,
+            CancellationToken cancellationToken = default) => Task.CompletedTask;
+
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
             SaveCount++;

@@ -70,15 +70,18 @@ dotnet test --project .\tests\UptimeHarbor.Web.Tests\UptimeHarbor.Web.Tests.cspr
 - административные Telegram use case, роль и antiforgery metadata MVC API, AJAX/DOM-инварианты frontend;
 - Telegram HTTP adapter через fake `HttpMessageHandler`, безопасные исключения и изоляция ошибки одного чата;
 - durable outbox до/после нового DbContext, параллельное начало доставки чатов, независимость monitoring cycle и лимит пяти retry через управляемый `TimeProvider`;
+- provider-level SQLite-сценарии recovery: outage marker → recovery queued → disable/endpoint change → terminal cancellation без sender, обычная recovery-доставка и безопасный pre-send skip уже claimed job;
+- конкурентные duplicate chat/binding на двух SQLite `DbContext`, Application mapping независимого persistence conflict и безопасный HTTP 409 envelope без SQL/provider details;
+- изолированный классификатор SQL Server 2601/2627 для известных Telegram entities, отказ классифицировать неизвестный номер/тип и проброс неизвестного `DbUpdateException`;
 - отсутствие SignalR/outbox event после provider concurrency conflict и HTTP `409` для administrative conflict.
 
-Web contract tests сериализуют `JsonResult` и administrative DTO через фактические MVC `JsonOptions`. Application проверяет self-disable/self-delete и last-enabled-admin. Runtime-проверка SQL Server migration/concurrency, restart процесса и Telegram остается отдельной ручной проверкой; Docker/Nginx не входят в scope v1.
+Web contract tests сериализуют `JsonResult` и administrative DTO через фактические MVC `JsonOptions`. Application проверяет self-disable/self-delete и last-enabled-admin. Runtime-проверка SQL Server migration/concurrency, row-lock ordering dispatcher против administrative cancellation, фактические `SqlException` 2601/2627 вместе с EF entries, restart процесса и Telegram остаётся отдельной ручной проверкой; Docker/Nginx не входят в scope v1.
 
 ## Изоляция
 
 Обычные тесты не обращаются к реальной БД, HTTP endpoint, Docker, PowerShell, процессам или внешним сервисам.
 
-EF metadata tests не открывают соединение. Provider-level concurrency/outbox tests используют только SQLite in-memory connection внутри процесса, без SQL Server, SQL-команд и Docker. HTTP-тесты monitoring adapter используют управляемый fake handler и не создают сетевых соединений. Worker-тесты используют in-memory services и управляемые `TaskCompletionSource`.
+EF metadata tests не открывают соединение. Provider-level concurrency/outbox/unique tests используют только SQLite in-memory connection внутри процесса, без SQL Server, SQL-команд и Docker. SQLite подтверждает ограничения модели и контролируемые interleaving, но не доказывает SQL Server error numbers, lock granularity, `READ_COMMITTED_SNAPSHOT`, deadlock behavior или migration runtime. HTTP-тесты monitoring adapter используют управляемый fake handler и не создают сетевых соединений. Worker-тесты используют in-memory services и управляемые `TaskCompletionSource`.
 
 Каждый test-файл явно импортирует `Xunit`; `GlobalUsings.cs` в проекте не используется.
 

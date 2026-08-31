@@ -10,13 +10,16 @@ namespace UptimeHarbor.Tests.Application.Notifications;
 
 internal class NotificationTestData
 {
-    public NotificationTestData(bool isAdministrator = true, DateTimeOffset? nowUtc = null)
+    public NotificationTestData(
+        bool isAdministrator = true,
+        DateTimeOffset? nowUtc = null,
+        Exception? saveException = null)
     {
         Servers = new ServerRepository();
         Containers = new ContainerRepository();
         Chats = new ChatRepository();
         Bindings = new BindingRepository();
-        UnitOfWork = new FakeUnitOfWork(Servers, Containers, Chats, Bindings);
+        UnitOfWork = new FakeUnitOfWork(Servers, Containers, Chats, Bindings, saveException);
         Sender = new FakeSender();
         TimeProvider = new FixedTimeProvider(
             nowUtc ?? new DateTimeOffset(2026, 8, 25, 12, 0, 0, TimeSpan.Zero));
@@ -123,7 +126,8 @@ internal class NotificationTestData
         ServerRepository servers,
         ContainerRepository containers,
         ChatRepository chats,
-        BindingRepository bindings)
+        BindingRepository bindings,
+        Exception? saveException)
         : INotificationSettingsUnitOfWork
     {
         public IMonitoredServerRepository MonitoredServers { get; } = servers;
@@ -134,6 +138,11 @@ internal class NotificationTestData
 
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
+            if (saveException is not null)
+            {
+                throw saveException;
+            }
+
             SaveCount++;
             return Task.FromResult(1);
         }

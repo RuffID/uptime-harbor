@@ -65,6 +65,27 @@ public class JsonResultMapperTests
     }
 
     [Fact]
+    public void ToJsonResult_ForPersistenceConflict_ReturnsSafe409Envelope()
+    {
+        JsonResult result = JsonResultMapper.ToJsonResult(
+            ServiceResult<string>.Fail(
+                ServiceErrorType.Conflict,
+                "Telegram chat ID уже добавлен.",
+                "telegramChatId"));
+
+        using JsonDocument json = SerializeValue(result);
+        string serialized = json.RootElement.GetRawText();
+        Assert.Equal(StatusCodes.Status409Conflict, result.StatusCode);
+        Assert.False(json.RootElement.GetProperty("success").GetBoolean());
+        Assert.Equal(
+            "Telegram chat ID уже добавлен.",
+            json.RootElement.GetProperty("message").GetString());
+        Assert.DoesNotContain("Server=", serialized, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("IX_", serialized, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("SqlException", serialized, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void ToJsonResult_ForUnknownErrorType_FailsFast()
     {
         ServiceResult result = ServiceResult.Fail(

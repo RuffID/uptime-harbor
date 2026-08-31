@@ -16,6 +16,7 @@
 - Проверки текущего пользователя получать через `IUserAccessContext`, не добавляя ASP.NET Core dependency.
 - Все административные use case получают единый семантический отказ через `IAdministratorAccessPolicy`; controller authorization не заменяет эту проверку.
 - Администрирование объектов выполнять через `IObjectAdministrationUnitOfWork`, а уведомление после сохранения — через `IObjectAdministrationChangePublisher`.
+- Disable/endpoint change через `IObjectAdministrationUnitOfWork` атомарно отменяет recovery jobs прежнего incident; Application не знает EF/outbox entity.
 - Мониторинг координировать через `MonitoringService`: endpoint проверяет независимый контракт, состояние изменяется доменными переходами, событие публикуется только после сохранения.
 - `MonitoringOptions` принадлежит Application как общий типизированный контракт цикла и HTTP-адаптера; привязка конфигурации остаётся в Web composition root.
 - Главная панель загружается через `DashboardQuery` и специализированный materialized `IDashboardSnapshotReadQuery`; endpoint URL не входит в read records, а фильтрация выполняется до формирования dashboard DTO.
@@ -25,3 +26,4 @@
 - `UserManagementService` запрещает текущему администратору отключать или удалять собственную учётную запись.
 - `UserManagementService` также запрещает отключение и удаление последнего включённого администратора; ожидаемый отказ возвращается как `ServiceErrorType.Conflict`.
 - Telegram delivery использует durable outbox с at-least-once transport-семантикой; Application не заявляет exactly-once для внешнего Telegram API.
+- Известный persistence race уникальности Telegram chat/binding возвращается как `ServiceResult.Conflict`; provider exception остаётся в Infrastructure.

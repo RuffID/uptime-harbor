@@ -29,3 +29,5 @@
 - Identity lockout проверяется реальным `SignInManager` и EF SQLite in-memory store; login rate-limit и security headers — зарегистрированными Web options/metadata и middleware без запуска Web-host.
 - Optimistic concurrency и durable outbox проверять через два независимых `UptimeHarborDbContext` на SQLite in-memory provider; EF InMemory и metadata-only проверки не заменяют provider behavior.
 - Telegram retry проверять с управляемым `TimeProvider`; зависания чатов — через `TaskCompletionSource` без внешней сети.
+- Recovery cancellation проверять SQLite interleaving «claim → cancel → pre-send gate» и terminal payload; не выдавать это за доказательство SQL Server row-lock semantics.
+- SQL Server 2601/2627 проверять изолированным классификатором; SQLite unique conflict не считать проверкой номеров или структуры `SqlException`.

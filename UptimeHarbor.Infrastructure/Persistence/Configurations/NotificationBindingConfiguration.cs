@@ -7,6 +7,11 @@ namespace UptimeHarbor.Infrastructure.Persistence.Configurations;
 
 public class NotificationBindingConfiguration : IEntityTypeConfiguration<NotificationBinding>
 {
+    public const string CHAT_SERVER_UNIQUE_INDEX =
+        "IX_notification_bindings_TelegramChatId_ServerId";
+    public const string CHAT_CONTAINER_UNIQUE_INDEX =
+        "IX_notification_bindings_TelegramChatId_ContainerId";
+
     public void Configure(EntityTypeBuilder<NotificationBinding> builder)
     {
         builder.ToTable(
@@ -31,9 +36,11 @@ public class NotificationBindingConfiguration : IEntityTypeConfiguration<Notific
             .OnDelete(DeleteBehavior.Cascade);
         builder.HasIndex(binding => new { binding.TelegramChatId, binding.ServerId })
             .IsUnique()
+            .HasDatabaseName(CHAT_SERVER_UNIQUE_INDEX)
             .HasFilter("[ServerId] IS NOT NULL");
         builder.HasIndex(binding => new { binding.TelegramChatId, binding.ContainerId })
             .IsUnique()
+            .HasDatabaseName(CHAT_CONTAINER_UNIQUE_INDEX)
             .HasFilter("[ContainerId] IS NOT NULL");
         builder.Property(binding => binding.OutageDeliveredIncidentId);
         builder.Property(binding => binding.RecoveryDeliveredIncidentId);

@@ -77,7 +77,15 @@ public class NotificationAdministrationService(
 
         TelegramChat chat = new(Guid.NewGuid(), telegramChatId, name);
         unitOfWork.TelegramChats.Create(chat);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (PersistenceConflictException exception)
+            when (exception.Kind == PersistenceConflictKind.DuplicateTelegramChatId)
+        {
+            return ServiceResult<TelegramChatDto>.Fail(CreateDuplicateChatError());
+        }
         return ServiceResult<TelegramChatDto>.Ok(MapChat(chat));
     }
 
@@ -111,7 +119,15 @@ public class NotificationAdministrationService(
         }
 
         chat.Update(telegramChatId, name);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (PersistenceConflictException exception)
+            when (exception.Kind == PersistenceConflictKind.DuplicateTelegramChatId)
+        {
+            return ServiceResult<TelegramChatDto>.Fail(CreateDuplicateChatError());
+        }
         return ServiceResult<TelegramChatDto>.Ok(MapChat(chat));
     }
 
@@ -255,7 +271,17 @@ public class NotificationAdministrationService(
         }
 
         unitOfWork.NotificationBindings.Create(binding);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (PersistenceConflictException exception)
+            when (exception.Kind == PersistenceConflictKind.DuplicateNotificationBinding)
+        {
+            return ServiceResult<NotificationBindingDto>.Fail(
+                ServiceErrorType.Conflict,
+                "Такая привязка уже существует.");
+        }
         return ServiceResult<NotificationBindingDto>.Ok(MapBinding(binding));
     }
 
@@ -316,4 +342,12 @@ public class NotificationAdministrationService(
 
     private static NotificationBindingDto MapBinding(NotificationBinding binding) =>
         new(binding.Id, binding.TelegramChatId, binding.ServerId, binding.ContainerId);
+
+    private static ServiceError CreateDuplicateChatError()
+    {
+        return new ServiceError(
+            ServiceErrorType.Conflict,
+            "Telegram chat ID уже добавлен.",
+            "telegramChatId");
+    }
 }

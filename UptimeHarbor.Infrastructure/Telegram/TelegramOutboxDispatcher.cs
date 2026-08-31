@@ -56,6 +56,22 @@ public class TelegramOutboxDispatcher(
         ClaimedNotificationOutboxJob job,
         CancellationToken cancellationToken)
     {
+        await using AsyncServiceScope processingScope = scopeFactory.CreateAsyncScope();
+        NotificationOutboxStore store = processingScope.ServiceProvider
+            .GetRequiredService<NotificationOutboxStore>();
+        await store.ProcessClaimedAsync(
+            job.Id,
+            LEASE_DURATION,
+            MAXIMUM_ATTEMPTS,
+            GetRetryDelay(job.AttemptCount),
+            processCancellationToken => ProcessDeliveriesAsync(job, processCancellationToken),
+            cancellationToken);
+    }
+
+    private async Task<bool> ProcessDeliveriesAsync(
+        ClaimedNotificationOutboxJob job,
+        CancellationToken cancellationToken)
+    {
         bool succeeded;
         try
         {
@@ -95,23 +111,7 @@ public class TelegramOutboxDispatcher(
                 job.Id);
             succeeded = false;
         }
-
-        DateTimeOffset nowUtc = timeProvider.GetUtcNow();
-        await using AsyncServiceScope finalizationScope = scopeFactory.CreateAsyncScope();
-        NotificationOutboxStore store = finalizationScope.ServiceProvider
-            .GetRequiredService<NotificationOutboxStore>();
-        if (succeeded)
-        {
-            await store.CompleteAsync(job.Id, nowUtc, cancellationToken);
-            return;
-        }
-
-        await store.RetryOrFailAsync(
-            job.Id,
-            nowUtc,
-            MAXIMUM_ATTEMPTS,
-            GetRetryDelay(job.AttemptCount),
-            cancellationToken);
+        return succeeded;
     }
 
     private async Task<bool> DeliverAsync(
