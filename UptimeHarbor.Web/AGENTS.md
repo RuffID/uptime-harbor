@@ -7,6 +7,8 @@
 ## Правила
 
 - `Program.cs` содержит только builder, вызовы модульных DI-расширений, middleware и endpoint mapping.
+- `Program.cs` после создания builder загружает обязательный внешний `Config/config.json`, настраивает Serilog через host и только затем вызывает модульные DI-расширения.
+- `appsettings.json` содержит только Serilog; operational/security settings находятся в неотслеживаемом и не публикуемом `Config/config.json`, а безопасная полная структура — в `Config/config.example.json`.
 - HTTP API реализовывать контроллерами; не добавлять `MapGet`, `MapPost` и другие Minimal API handlers.
 - Razor Pages использовать для страниц, контроллеры — для HTTP API, SignalR hub — для push-обновлений.
 - Не обращаться к EF Core или Telegram API напрямую из UI.
@@ -17,8 +19,10 @@
 - Административное API объектов размещено под `/api/admin/objects`; после сохранения публикуется только обезличенный сигнал `ObjectAdministrationChanged`.
 - Administrative object DTO/request передают числовой `Version`; stale update/delete возвращает единый JSON envelope с HTTP `409 Conflict`.
 - Новый клиентский код писать на TypeScript в `wwwroot/ts`, собранный JavaScript подключать из `wwwroot/dist`.
-- Полная TypeScript-цепочка `FindConfigFiles` → `TypeScriptDeleteOutputFromOtherConfigs` → `CompileTypeScriptWithTSConfig` должна выполняться через `PrepareTypeScriptForStaticWebAssets` перед `ResolveProjectStaticWebAssets` и `ResolveCoreStaticWebAssets`, чтобы удаление outputs другой конфигурации не происходило после компиляции и сборка решения сначала восстанавливала `wwwroot/dist`.
-- Инкрементальная TypeScript-сборка отключена, чтобы отсутствующие generated `.js` восстанавливались и в Debug, и в Release.
+- `Microsoft.TypeScript.MSBuild` 7 использует targets `SetTscExecutable` и `RunTscCompile`; `PrepareTypeScriptForStaticWebAssets` выполняет их перед `ResolveProjectStaticWebAssets` и `ResolveCoreStaticWebAssets`, чтобы сборка восстанавливала `wwwroot/dist` до разрешения assets.
+- `CleanTypeScriptOutputs` не включать в этот target: Static Web Assets фиксирует items при MSBuild evaluation, и удаление уже обнаруженных файлов перед resolution ломает сборку.
+- MSBuild-свойства TypeScript должны сохранять контракт `tsconfig.json`: target `ES2022`, source maps отключены.
+- Не использовать удалённые в TypeScript 7 targets `CheckFileSystemCaseSensitive`, `FindConfigFiles`, `TypeScriptDeleteOutputFromOtherConfigs` и `CompileTypeScriptWithTSConfig`.
 - API главной панели размещено под `/api/dashboard`, требует аутентификацию и возвращает только отфильтрованные dashboard DTO без endpoint URL через `JsonResultMapper`; отдельного публичного `/api/objects` нет.
 - Monitoring SignalR-событие содержит только тип и идентификатор объекта и отправляется сервером конкретным разрешённым user-id; клиент перечитывает snapshot после события и reconnect.
 - Клиент объединяет SignalR refresh-события окном 200 мс и отменяет устаревший snapshot-fetch через `AbortController`; reconnect загружает snapshot немедленно.
@@ -28,3 +32,6 @@
 - Административная страница пользователей размещена под `/Admin/Users`; UI работает через `/api/admin/users` без перезагрузки, а операции изменения защищены antiforgery и ролью `Administrator`.
 - Forwarded headers принимаются только из явно настроенной proxy-сети с ограничением `ForwardLimit` до одного прокси; liveness и readiness health endpoints разделены.
 - Readiness health-check проверяет доступность SQL Server через `UptimeHarborDbContext`.
+- Serilog выводит человекочитаемые строки в console и rolling-файлы `Logs/log_*.log` с UTC-временем, уровнем, source context и structured properties; каталог находится вне `wwwroot`, исключён из source/build/publish и монтируется как persistent container volume.
+- Приложение принимает внутренний HTTP за Nginx и не использует `UseHttpsRedirection`; TLS завершается на reverse proxy, а исходная схема передаётся только через доверенные forwarded headers.
+- File sink ограничен 10 MiB на сегмент и 31 файлом; connection string, пароли, Telegram token, cookies, request/response body и полный Telegram URI не логируются ни в один sink.

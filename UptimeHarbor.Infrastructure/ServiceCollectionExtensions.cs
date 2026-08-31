@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using UptimeHarbor.Application.Abstractions.Persistence;
 using UptimeHarbor.Application.Abstractions.UnitOfWork;
 using UptimeHarbor.Infrastructure.Persistence;
@@ -25,11 +26,14 @@ using UptimeHarbor.Application.Notifications;
 using UptimeHarbor.Infrastructure.Telegram;
 using UptimeHarbor.Application.Dashboard;
 using UptimeHarbor.Application.Visibility;
+using UptimeHarbor.Infrastructure.Services.DataBase;
 
 namespace UptimeHarbor.Infrastructure;
 
 public static class ServiceCollectionExtensions
 {
+    private const string LINUX_SQL_SERVER_BACKUP_FOLDER = "/var/opt/mssql/backups";
+
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -84,6 +88,26 @@ public static class ServiceCollectionExtensions
         });
         services.AddScoped<IAppDbContext<UptimeHarborDbContext>, EfDbContextAdapter<UptimeHarborDbContext>>();
         services.AddEfCoreBaseRepositories<UptimeHarborDbContext>();
+
+        services.AddScoped<DataBaseCheckUpService<UptimeHarborDbContext>>();
+        services.AddSingleton<IBackupFilePathBuilder, BackupFilePathBuilder>();
+        services.AddScoped(provider =>
+        {
+            ILogger<BackupService<UptimeHarborDbContext>> logger = provider
+                .GetRequiredService<ILogger<BackupService<UptimeHarborDbContext>>>();
+            IBackupFilePathBuilder backupFilePathBuilder = provider
+                .GetRequiredService<IBackupFilePathBuilder>();
+            string backupFolder = OperatingSystem.IsLinux()
+                ? LINUX_SQL_SERVER_BACKUP_FOLDER
+                : Path.Combine(AppContext.BaseDirectory, "Backups");
+            return new BackupService<UptimeHarborDbContext>(
+                connectionString,
+                backupFolder,
+                logger,
+                backupFilePathBuilder);
+        });
+        services.AddScoped<IBackupService<UptimeHarborDbContext>>(provider =>
+            provider.GetRequiredService<BackupService<UptimeHarborDbContext>>());
 
         services.AddScoped<IMonitoredServerRepository, MonitoredServerRepository>();
         services.AddScoped<IMonitoredContainerRepository, MonitoredContainerRepository>();

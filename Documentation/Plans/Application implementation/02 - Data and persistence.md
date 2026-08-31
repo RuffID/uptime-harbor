@@ -2,7 +2,7 @@
 
 ## Статус
 
-**В работе.** Доменная модель, persistence, scenario Unit of Work, read-only списковые Application-контракты, специализированные materialized dashboard/recipient queries, optimistic concurrency, durable outbox cancellation и Telegram unique constraints проверены metadata/SQLite/isolated classifier tests. Runtime provider переведён на SQL Server; baseline-миграция `20260831015604_InitialSqlServerSchema` создана и не изменялась исправлением. Её применение, SQL Server locking и реальные 2601/2627 остаются ручным release-шагом.
+**В работе.** Доменная модель, persistence, scenario Unit of Work, read-only списковые Application-контракты, специализированные materialized dashboard/recipient queries, optimistic concurrency, durable outbox cancellation и Telegram unique constraints проверены metadata/SQLite/isolated classifier tests. Runtime provider использует SQL Server; baseline `20260831015604_InitialSqlServerSchema` автоматически применяется при startup после backup и до Identity bootstrap. Реальные backup/migration, SQL Server locking и 2601/2627 остаются runtime-проверкой.
 
 ## Цель
 
@@ -65,4 +65,4 @@
 
 ## Результат этапа
 
-Подготовлена модель текущего состояния UptimeHarbor и baseline-миграция SQL Server. Применение baseline и provider-specific runtime-проверка остаются отдельным release-шагом.
+Подготовлена модель текущего состояния UptimeHarbor и baseline-миграция SQL Server. Startup автоматически создаёт backup и применяет pending migrations; provider-specific runtime-проверка остаётся отдельным release-шагом.

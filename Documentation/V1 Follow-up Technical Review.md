@@ -100,7 +100,7 @@ Web-хост, браузер, PostgreSQL, миграции, SQL, `docker compose
 - Реальное восстановление процесса между Telegram `sendMessage` и marker, lease после перезапуска, сетевые ошибки/429 Telegram и отсутствие утечки токена в production logging pipeline.
 - Браузер: 30 быстрых SignalR-событий, фактическое число snapshot-запросов, отмена fetch, reconnect и работа CSP/WebSocket.
 - ASP.NET Core runtime: malformed JSON, отсутствующее тело, неверные типы и formatter pipeline для каждого `[ApiController]`; проверены только factory/serialization helpers.
-- Reverse proxy: trusted `X-Forwarded-*`, HTTPS redirection, `Secure` cookies, host/scheme при реальной Nginx-схеме. Nginx-конфигурации в репозитории нет.
+- Reverse proxy: trusted `X-Forwarded-*`, отсутствие внутреннего HTTPS redirect, внешний redirect на Nginx, `Secure` cookies и host/scheme при реальной Nginx-схеме. Nginx-конфигурации в репозитории нет.
 - Разделение liveness/readiness и PostgreSQL probe под реальным окружением; `/health/ready` проверен только по регистрации кода.
 - Сохранность PostgreSQL и Data Protection keys после фактического пересоздания контейнеров; Compose отсутствует.
 - Полный browser smoke пользовательских сценариев: создание/блокировка/permissions пользователя, администрирование объектов и Telegram, POST logout.

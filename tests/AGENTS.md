@@ -25,6 +25,8 @@
 - Общую administrator policy проверять отдельно и через все три защищённых сервиса с fail-fast зависимостями; materialized dashboard/recipient queries проверять на SQLite без внешней БД и на отсутствие N+1.
 - Telegram transport проверять fake `HttpMessageHandler`; частичную доставку — in-memory repositories/scopes, без сети и БД; frontend — статически по TypeScript/Razor исходникам.
 - Web contract tests должны сериализовать DTO через фактические MVC `JsonOptions`, а не через произвольные `JsonSerializerOptions`.
+- Web configuration contract tests статически проверяют composition root, отсутствие внутреннего HTTPS redirect за reverse proxy, project/package metadata, `.gitignore`, publish metadata, Docker log volume и безопасные JSON-примеры; Serilog-конфигурация с человекочитаемыми console и rolling File sinks строится без запуска Web-host и без записи секретов.
+- Web DI/static tests проверяют регистрацию database backup/check-up services и порядок migration startup до Identity bootstrap без подключения к SQL Server и без выполнения SQL.
 - Model-state tests вызывают фактически зарегистрированную `InvalidModelStateResponseFactory`; TypeScript lifecycle проверяется статически, а реальные browser burst/cancellation сценарии не выдаются за автоматические.
 - Identity lockout проверяется реальным `SignInManager` и EF SQLite in-memory store; login rate-limit и security headers — зарегистрированными Web options/metadata и middleware без запуска Web-host.
 - Optimistic concurrency и durable outbox проверять через два независимых `UptimeHarborDbContext` на SQLite in-memory provider; EF InMemory и metadata-only проверки не заменяют provider behavior.

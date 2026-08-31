@@ -2,8 +2,13 @@
 
 # Этот этап используется при запуске из VS в быстром режиме (по умолчанию для конфигурации отладки)
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
-USER $APP_UID
 WORKDIR /app
+USER root
+RUN mkdir -p /app/Logs \
+    && chown $APP_UID /app/Logs \
+    && chmod 700 /app/Logs
+VOLUME ["/app/Logs"]
+USER $APP_UID
 EXPOSE 8080
 
 

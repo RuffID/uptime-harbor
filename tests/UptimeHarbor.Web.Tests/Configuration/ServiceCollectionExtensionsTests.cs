@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -57,6 +58,52 @@ public class ServiceCollectionExtensionsTests
         Assert.Equal(30, monitoring.TimeoutSeconds);
         Assert.Equal(3, monitoring.FailuresBeforeUnavailable);
         Assert.Equal("test-token", telegram.BotToken);
+    }
+
+    [Theory]
+    [InlineData("Monitoring", "Monitoring:IntervalSeconds must be greater than zero.")]
+    [InlineData("Telegram", "Telegram:BotToken is required.")]
+    public void AddApplicationConfiguration_WhenRequiredSectionIsMissing_ThrowsClearValidationError(
+        string missingSection,
+        string expectedError)
+    {
+        Dictionary<string, string?> settings = CreateValidSettings();
+        foreach (string key in settings.Keys
+                     .Where(key => key.StartsWith($"{missingSection}:", StringComparison.Ordinal))
+                     .ToArray())
+        {
+            settings.Remove(key);
+        }
+
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(settings)
+            .Build();
+        ServiceCollection services = new();
+        services.AddApplicationConfiguration(configuration);
+
+        using ServiceProvider serviceProvider = services.BuildServiceProvider();
+
+        OptionsValidationException exception = Assert.Throws<OptionsValidationException>(() =>
+            ResolveOptionsForKey(serviceProvider, $"{missingSection}:RequiredValue"));
+        Assert.Contains(expectedError, exception.Failures);
+    }
+
+    [Fact]
+    public void AddApplicationConfiguration_WhenForwardedNetworkIsMissing_ThrowsClearError()
+    {
+        IConfiguration configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(CreateValidSettings())
+            .Build();
+        ServiceCollection services = new();
+        services.AddApplicationConfiguration(configuration);
+
+        using ServiceProvider serviceProvider = services.BuildServiceProvider();
+
+        InvalidOperationException exception = Assert.Throws<InvalidOperationException>(() =>
+            _ = serviceProvider.GetRequiredService<IOptions<ForwardedHeadersOptions>>().Value);
+        Assert.Equal(
+            "ForwardedHeaders:KnownNetworks must contain the proxy network.",
+            exception.Message);
     }
 
     private static Dictionary<string, string?> CreateValidSettings()

@@ -66,7 +66,7 @@ Identity store использует тот же scoped `UptimeHarborDbContext`, 
 
 ## Миграции
 
-Миграции не применяются автоматически при старте. Порядок создания и применения описан в [Database migrations.md](Database%20migrations.md).
+Pending migrations применяются автоматически при старте единственного Web-процесса после проверки подключения и успешного SQL Server backup. Миграции завершаются до Identity bootstrap; ошибка останавливает запуск. Порядок создания и применения описан в [Database migrations.md](Database%20migrations.md).
 
 Для design-time scaffolding используется `UptimeHarborDesignTimeDbContextFactory`. Она настраивает провайдер SQL Server без строки подключения: построение модели и генерация миграции не требуют секрета и не открывают соединение с БД.
 

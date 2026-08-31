@@ -52,6 +52,11 @@ dotnet test --project .\tests\UptimeHarbor.Web.Tests\UptimeHarbor.Web.Tests.cspr
 - role и antiforgery metadata административного API объектов;
 - HTTP/JSON mapping всех типов `ServiceError`;
 - полная DI validation Web composition root;
+- DI-регистрацию database check-up/backup services и статический порядок automatic migration до Identity bootstrap;
+- статические контракты Web-конфигурации: обязательный `Config/config.json` до DI, изоляция `appsettings.json` для Serilog, полнота и безопасность `config.example.json`, точное git-ignore правило и запрет копирования обоих Config JSON в runtime/publish artifacts;
+- фактическое построение Serilog logger из `appsettings.json` без запуска Web-host и без записи log events;
+- единый человекочитаемый UTC-шаблон console/rolling File sinks, непубличный относительный path, daily/size rolling, retention, исключение `Logs` из artifacts и защищённый Docker volume;
+- наличие trusted forwarded headers до routing и отсутствие внутреннего HTTPS redirect в Web pipeline за Nginx;
 - HTTP/JSON-контракт server/container через fake `HttpMessageHandler`, включая status, timeout/cancellation во время чтения, network, 64 KiB limit, chunked body, redirect policy и все обязательные поля;
 - application-переходы monitoring engine, независимость server/container и порядок save→publish;
 - параллельность разных объектов, keyed-защита одной цели, изоляция ошибки и cancellation hosted worker.
@@ -75,7 +80,7 @@ dotnet test --project .\tests\UptimeHarbor.Web.Tests\UptimeHarbor.Web.Tests.cspr
 - изолированный классификатор SQL Server 2601/2627 для известных Telegram entities, отказ классифицировать неизвестный номер/тип и проброс неизвестного `DbUpdateException`;
 - отсутствие SignalR/outbox event после provider concurrency conflict и HTTP `409` для administrative conflict.
 
-Web contract tests сериализуют `JsonResult` и administrative DTO через фактические MVC `JsonOptions`. Application проверяет self-disable/self-delete и last-enabled-admin. Runtime-проверка SQL Server migration/concurrency, row-lock ordering dispatcher против administrative cancellation, фактические `SqlException` 2601/2627 вместе с EF entries, restart процесса и Telegram остаётся отдельной ручной проверкой; Docker/Nginx не входят в scope v1.
+Web contract tests сериализуют `JsonResult` и administrative DTO через фактические MVC `JsonOptions`. Application проверяет self-disable/self-delete и last-enabled-admin. Runtime-проверка automatic SQL Server backup/migration, server-side backup permissions, concurrency, row-lock ordering dispatcher против administrative cancellation, фактические `SqlException` 2601/2627 вместе с EF entries, restart процесса и Telegram остаётся отдельной ручной проверкой; Docker/Nginx не входят в scope v1.
 
 ## Изоляция
 
@@ -88,3 +93,5 @@ EF metadata tests не открывают соединение. Provider-level c
 SignalR-тесты используют fake `IHubContext` и не открывают WebSocket. Frontend lifecycle проверяется статически по TypeScript-источнику; реальный Web-хост и браузер в изолированном наборе не запускаются. Поэтому фактический browser-сценарий «30 быстрых событий → ограниченное число snapshot requests», реальная отмена fetch и настоящий MVC input formatter pipeline остаются ручными runtime-проверками и не считаются доказанными статическими тестами.
 
 Web security tests статически проверяют отсутствие CDN в `Index.cshtml`, локальное подключение SignalR с versioning, наличие и SHA-256 asset версии 10.0.11, а также фактическое добавление CSP middleware и отсутствие запрещённых директив/origins. Реальная browser/runtime-проверка SignalR и CSP остаётся ручной и в изолированный набор не включается.
+
+Configuration contract tests не запускают Web-host и поэтому не доказывают runtime-загрузку внешнего `Config/config.json`; отсутствие/ошибка JSON обеспечиваются параметрами обязательного configuration source и остаются частью будущей ручной проверки запуска.

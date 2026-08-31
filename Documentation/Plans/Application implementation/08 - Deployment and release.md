@@ -2,7 +2,7 @@
 
 ## Статус
 
-**Приостановлен.** Deployment-шаблоны, Nginx, Docker Compose и orchestration не входят в требования первой версии и не подготавливаются. Runtime-проверки и фактическая миграция намеренно не выполнялись.
+**Приостановлен.** Обязательный внешний `Config/config.json`, безопасный example, Serilog human-readable console/rolling File sinks, persistent Docker log volume, internal HTTP behind Nginx и automatic database startup с backup/migration реализованы в коде. Deployment-шаблоны, Nginx, Docker Compose и orchestration не входят в требования первой версии. Web-host, runtime-загрузка config, log volume permissions, реальный SQL Server backup/migration и deployment smoke намеренно не выполнялись.
 
 ## Цель
 
@@ -18,14 +18,15 @@
    - health check или совместимый `/health` endpoint.
 
 2. Не добавлять Docker Compose и не включать orchestration в критерии первой версии.
-3. Поддерживать пример production-конфигурации без секретов.
+3. Поддерживать полный `Config/config.example.json` без секретов; обязательный runtime-файл `Config/config.json` предоставляется снаружи и не входит в git, build output или publish.
+   - сохранять человекочитаемые логи в console и rolling-файлах во внешнем `/app/Logs` volume с ограниченными правами, size limit и retention;
 4. Не добавлять deployment-шаблоны, Nginx-конфигурацию и orchestration в состав первой версии.
-5. Описать ручной запуск Web и применение миграций внешними средствами:
+5. Описать запуск Web с автоматическим backup/application pending migrations:
 
    - создание production-конфигурации;
    - запуск SQL Server;
-   - применение миграций;
-   - запуск приложения;
+   - доступный SQL Server backup path и единственный migrating Web instance;
+   - запуск приложения и проверка migration startup;
    - вход bootstrap-администратором;
    - немедленная смена начального пароля.
 

@@ -5,9 +5,14 @@ using UptimeHarbor.Web.Hubs;
 using UptimeHarbor.Web.Pages;
 using UptimeHarbor.Web.Security;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
-using Microsoft.AspNetCore.HttpOverrides;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Configuration.AddJsonFile("Config/config.json", optional: false, reloadOnChange: false);
+
+builder.Host.UseSerilog((_, loggerConfiguration) =>
+    loggerConfiguration.ReadFrom.Configuration(builder.Configuration));
 
 if (builder.Environment.IsDevelopment())
 {
@@ -17,8 +22,6 @@ if (builder.Environment.IsDevelopment())
         options.ValidateOnBuild = true;
     });
 }
-
-builder.Logging.AddUptimeHarborLogging();
 
 builder.Services
     .AddApplication()
@@ -37,7 +40,6 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseForwardedHeaders();
-app.UseHttpsRedirection();
 app.UseRouting();
 app.UseSecurityHeaders();
 app.UseRateLimiter();

@@ -13,6 +13,8 @@
 - Типизированные настройки получать через options; `IConfiguration` использовать только при регистрации.
 - При изменении интеграций, Identity или persistence обновлять этот файл и тематическую документацию `Documentation/Technical`.
 - Identity bootstrap и user store остаются в `Identity`; начальный пароль используется только при создании отсутствующего администратора.
+- При старте `DataBaseCheckUpService<UptimeHarborDbContext>` проверяет SQL Server, создаёт backup при наличии pending migrations и применяет их до Identity bootstrap; ошибка подключения, backup или migration останавливает запуск.
+- Backup и migration не должны логировать connection string, credentials или SQL command; имена pending migrations логировать разрешено.
 - Блокировка пользователя обязана обновлять security stamp, а cookie validator — проверять `IsEnabled` на каждом запросе.
 - Неудачные входы учитываются Identity lockout: пять ошибок дают временную блокировку на пять минут; `IsEnabled` и Identity lockout остаются разными состояниями.
 - Специализированные dashboard и recipient read queries materialize-ят Application read records; список пользователей для SignalR загружается одним query с признаком роли Administrator, permissions — пакетно, без per-user `IsInRoleAsync`.

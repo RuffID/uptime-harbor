@@ -1,0 +1,23 @@
+{
+  "BootstrapAdmin": {
+    "Login": "replace-me",
+    "Password": "replace-me"
+  },
+  "ConnectionStrings": {
+    "SqlServer": "Server=localhost;Database=uptime_harbor;User Id=sa;Password=CHANGE_ME;TrustServerCertificate=True"
+  },
+  "Monitoring": {
+    "IntervalSeconds": 30,
+    "TimeoutSeconds": 30,
+    "FailuresBeforeUnavailable": 3
+  },
+  "Telegram": {
+    "BotToken": "000000000:replace-with-bot-token"
+  },
+  "ForwardedHeaders": {
+    "KnownNetworks": [
+      "172.20.0.0/16"
+    ]
+  },
+  "AllowedHosts": "*"
+}

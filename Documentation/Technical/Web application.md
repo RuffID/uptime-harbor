@@ -8,18 +8,19 @@
 
 1. production exception handler и HSTS вне Development;
 2. обработка `X-Forwarded-*` только от явно настроенной proxy-сети с `ForwardLimit = 1`;
-3. HTTPS redirection;
-4. routing;
-5. security headers/CSP и login rate limiting;
-6. authentication;
-7. authorization;
-8. static assets;
-9. MVC controllers;
-10. Razor Pages;
-11. SignalR hub;
-12. health endpoints `/health/live` (liveness) и `/health/ready` (SQL Server readiness); `/health` оставлен алиасом readiness.
+3. routing;
+4. security headers/CSP и login rate limiting;
+5. authentication;
+6. authorization;
+7. static assets;
+8. MVC controllers;
+9. Razor Pages;
+10. SignalR hub;
+11. health endpoints `/health/live` (liveness) и `/health/ready` (SQL Server readiness); `/health` оставлен алиасом readiness.
 
-До построения pipeline вызывается инфраструктурный bootstrap ролей и начального администратора. Миграции при этом не применяются автоматически.
+TLS завершается на Nginx. Web всегда принимает внутренний HTTP и не вызывает `UseHttpsRedirection`; внешний HTTP → HTTPS redirect и передача доверенного `X-Forwarded-Proto: https` принадлежат Nginx.
+
+До построения pipeline `InitializeInfrastructureAsync` проверяет подключение к SQL Server, при наличии pending migrations создаёт backup и применяет их, после чего выполняет bootstrap ролей и начального администратора. Ошибка или 60-секундный timeout database startup останавливают запуск до построения HTTP pipeline.
 
 ## Типы endpoint
 
@@ -45,7 +46,7 @@
 
 Изменяющие формы должны использовать POST, antiforgery и серверную авторизацию. API-контроллеры должны возвращать явные HTTP-контракты и также проверять роль/доступ.
 
-Административная страница объектов находится в `/Admin/Objects`. PageModel не загружает коллекции: Razor содержит только статические контейнеры и формы, а данные загружает TypeScript-модуль через MVC API. DTO содержит числовой `version`; update/delete возвращает его обратно как expected version. Stale request получает envelope `{ success: false, message }` и HTTP `409 Conflict`, после чего UI может перечитать актуальный список. Интерфейс работает без перезагрузки, создаёт динамические списки через DOM API без `innerHTML`, показывает серверные ошибки рядом с полями и требует подтверждение удаления. TypeScript собирается строгим `Microsoft.TypeScript.MSBuild` из `wwwroot/ts` в `wwwroot/dist`; target `PrepareTypeScriptForStaticWebAssets` перед `ResolveProjectStaticWebAssets` и `ResolveCoreStaticWebAssets` выполняет поиск конфигурации, удаление outputs другой конфигурации и `CompileTypeScriptWithTSConfig`. Поэтому удаление старых outputs всегда предшествует компиляции, а оба этапа разрешения static assets выполняются только после восстановления generated-файлов. Инкрементальный режим отключён, чтобы удалённые generated-файлы всегда восстанавливались.
+Административная страница объектов находится в `/Admin/Objects`. PageModel не загружает коллекции: Razor содержит только статические контейнеры и формы, а данные загружает TypeScript-модуль через MVC API. DTO содержит числовой `version`; update/delete возвращает его обратно как expected version. Stale request получает envelope `{ success: false, message }` и HTTP `409 Conflict`, после чего UI может перечитать актуальный список. Интерфейс работает без перезагрузки, создаёт динамические списки через DOM API без `innerHTML`, показывает серверные ошибки рядом с полями и требует подтверждение удаления. TypeScript собирается строгим `Microsoft.TypeScript.MSBuild` 7.0.1 из `wwwroot/ts` в `wwwroot/dist`; target `PrepareTypeScriptForStaticWebAssets` выполняет новые package targets `SetTscExecutable` и `RunTscCompile` перед `ResolveProjectStaticWebAssets` и `ResolveCoreStaticWebAssets`. Поэтому актуальные outputs восстанавливаются до разрешения static assets. `CleanTypeScriptOutputs` в эту цепочку не входит, поскольку Static Web Assets фиксирует items до выполнения targets. MSBuild сохраняет target `ES2022` и не генерирует source maps, как и `tsconfig.json`. Удалённые в TypeScript 7 targets старой MSBuild-цепочки не используются.
 
 Административная страница уведомлений находится в `/Admin/Notifications` и следует тому же AJAX-only контракту. Она управляет чатами, тестовой отправкой и независимыми server/container bindings; bot token отсутствует в HTML, TypeScript и API payload. Состояния loading, empty, error и saving управляются клиентским модулем, опасные удаления требуют подтверждения.
 

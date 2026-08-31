@@ -15,6 +15,7 @@ using UptimeHarbor.Application.Visibility;
 using UptimeHarbor.Infrastructure;
 using UptimeHarbor.Infrastructure.Identity;
 using UptimeHarbor.Infrastructure.Persistence;
+using UptimeHarbor.Infrastructure.Services.DataBase;
 using UptimeHarbor.Web.Configuration;
 using UptimeHarbor.Web.Pages;
 using Xunit;
@@ -71,6 +72,11 @@ public class ServiceCollectionExtensionsTests
             scope.ServiceProvider.GetRequiredService<IDashboardSnapshotReadQuery>();
         IMonitoringRecipientReadQuery recipientReadQuery =
             scope.ServiceProvider.GetRequiredService<IMonitoringRecipientReadQuery>();
+        DataBaseCheckUpService<UptimeHarborDbContext> databaseCheckUp =
+            scope.ServiceProvider
+                .GetRequiredService<DataBaseCheckUpService<UptimeHarborDbContext>>();
+        IBackupService<UptimeHarborDbContext> backupService = scope.ServiceProvider
+            .GetRequiredService<IBackupService<UptimeHarborDbContext>>();
 
         Assert.NotNull(monitoring.MonitoredServers);
         Assert.NotNull(monitoring.MonitoredContainers);
@@ -81,6 +87,8 @@ public class ServiceCollectionExtensionsTests
         Assert.NotNull(notifications.NotificationBindings);
         Assert.NotNull(dashboardReadQuery);
         Assert.NotNull(recipientReadQuery);
+        Assert.NotNull(databaseCheckUp);
+        Assert.NotNull(backupService);
         Assert.Contains(
             services,
             descriptor => descriptor.ServiceType.FullName?.StartsWith(
