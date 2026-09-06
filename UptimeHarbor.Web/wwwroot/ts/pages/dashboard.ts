@@ -240,18 +240,22 @@ function renderDashboard(snapshot: DashboardSnapshotDto): void {
 
 function createServerCard(server: DashboardServerDto): HTMLElement {
     const article = document.createElement("article");
-    article.classList.add("card", "server-card", "border-secondary-subtle");
+    article.classList.add("card", "border-0", "shadow-sm");
 
     const body = document.createElement("div");
     body.classList.add("card-body", "p-3", "p-md-4");
 
     const header = document.createElement("div");
-    header.classList.add("server-card__header", "mb-3");
+    header.classList.add("d-flex", "flex-wrap", "justify-content-between", "align-items-start", "gap-3", "mb-3");
     const titleBlock = document.createElement("div");
     const title = document.createElement("h2");
-    title.classList.add("h4", "object-name", "mb-1");
+    title.classList.add("h4", "mb-1");
     title.textContent = server.name;
-    titleBlock.append(title, createDescription(server.description));
+    titleBlock.append(title);
+    const description = createDescription(server.description);
+    if (description !== null) {
+        titleBlock.append(description);
+    }
     header.append(titleBlock, createStatusBadge(server.status));
 
     body.append(
@@ -271,7 +275,7 @@ function createServerCard(server: DashboardServerDto): HTMLElement {
         containerTitle.classList.add("h6", "text-uppercase", "text-secondary", "mb-3");
         containerTitle.textContent = "Контейнеры";
         const list = document.createElement("div");
-        list.classList.add("container-list");
+        list.classList.add("d-grid", "gap-2");
         for (const container of server.containers) {
             list.append(createContainerCard(container));
         }
@@ -285,15 +289,19 @@ function createServerCard(server: DashboardServerDto): HTMLElement {
 
 function createContainerCard(container: DashboardContainerDto): HTMLElement {
     const article = document.createElement("article");
-    article.classList.add("container-card");
+    article.classList.add("border", "border-secondary-subtle", "rounded-3", "bg-body-tertiary", "p-3");
 
     const header = document.createElement("div");
-    header.classList.add("server-card__header", "mb-3");
+    header.classList.add("d-flex", "flex-wrap", "justify-content-between", "align-items-start", "gap-3", "mb-3");
     const titleBlock = document.createElement("div");
     const title = document.createElement("h4");
-    title.classList.add("h5", "object-name", "mb-1");
+    title.classList.add("h5", "mb-1");
     title.textContent = container.displayName;
-    titleBlock.append(title, createDescription(container.description));
+    titleBlock.append(title);
+    const description = createDescription(container.description);
+    if (description !== null) {
+        titleBlock.append(description);
+    }
     header.append(titleBlock, createStatusBadge(container.status));
 
     article.append(
@@ -306,10 +314,14 @@ function createContainerCard(container: DashboardContainerDto): HTMLElement {
     return article;
 }
 
-function createDescription(description: string | null): HTMLElement {
+function createDescription(description: string | null): HTMLElement | null {
+    if (description === null) {
+        return null;
+    }
+
     const paragraph = document.createElement("p");
-    paragraph.classList.add("object-description", "text-secondary", "mb-0");
-    paragraph.textContent = description ?? "Описание не задано";
+    paragraph.classList.add("text-body-secondary", "mb-0");
+    paragraph.textContent = description;
     return paragraph;
 }
 
@@ -339,12 +351,12 @@ function createStatusBadge(status: MonitoringStatus): HTMLElement {
 
 function createMetadata(items: ReadonlyArray<readonly [string, string]>): HTMLElement {
     const container = document.createElement("div");
-    container.classList.add("object-metadata");
+    container.classList.add("row", "row-cols-1", "row-cols-sm-3", "g-3", "small");
     for (const [labelText, valueText] of items) {
         const item = document.createElement("div");
-        item.classList.add("metadata-item");
+        item.classList.add("col", "d-flex", "flex-column", "gap-1");
         const label = document.createElement("span");
-        label.classList.add("metadata-label");
+        label.classList.add("text-body-secondary");
         label.textContent = labelText;
         const value = document.createElement("span");
         value.textContent = valueText;
@@ -383,6 +395,17 @@ function renderMessage(kind: "loading" | "empty" | "no-results" | "error", messa
 function setSignalState(stateName: string, message: string): void {
     signalState.dataset.state = stateName;
     signalStateText.textContent = message;
+    signalState.classList.remove("text-bg-success", "text-bg-warning", "text-bg-secondary");
+
+    if (stateName === "connected") {
+        signalState.classList.add("text-bg-success");
+    }
+    else if (stateName === "reconnecting") {
+        signalState.classList.add("text-bg-warning");
+    }
+    else {
+        signalState.classList.add("text-bg-secondary");
+    }
 }
 
 function formatUtc(value: string | null): string {

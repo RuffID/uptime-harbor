@@ -9,52 +9,67 @@
 
 <meta name="request-verification-token" content="@requestVerificationToken" />
 
-<div class="d-flex flex-column gap-4" data-notifications-page>
-    <div>
-        <h1 class="mb-1">Telegram-уведомления</h1>
-        <p class="text-body-secondary mb-0">Чаты и привязки серверов и контейнеров.</p>
+<div class="d-flex flex-column gap-3" data-notifications-page>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <h1 class="h3 mb-0">Telegram-уведомления</h1>
+        <div class="d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-primary" data-action="new-chat">Новый чат</button>
+            <button type="button" class="btn btn-outline-primary" data-action="new-binding">Добавить привязку</button>
+        </div>
     </div>
 
     <div class="alert alert-danger d-none" role="alert" data-page-error></div>
-    <div class="text-body-secondary" data-loading>Загрузка настроек…</div>
+    <div class="card border-0 bg-body-tertiary" data-loading>
+        <div class="card-body py-5 text-center">
+            <div class="spinner-border text-info mb-3" aria-hidden="true"></div>
+            <p class="mb-0">Загрузка…</p>
+        </div>
+    </div>
 
-    <div class="row g-4 d-none" data-content>
-        <section class="col-12 col-lg-6" aria-labelledby="chats-heading">
-            <h2 id="chats-heading" class="h4">Чаты</h2>
-            <div class="list-group mb-3" data-chat-list></div>
-            <p class="text-body-secondary d-none" data-chat-empty>Чаты ещё не добавлены.</p>
+    <section class="d-none" data-content aria-label="Чаты Telegram">
+        <div class="row g-3" data-chat-list></div>
+        <div class="card border-0 shadow-sm d-none" data-chat-empty>
+            <div class="card-body p-5 text-center text-body-secondary">Чатов пока нет.</div>
+        </div>
+    </section>
 
-            <form id="telegramChatForm" class="card" data-chat-form novalidate>
-                <div class="card-body">
-                    <h3 class="h5" data-chat-form-title>Новый чат</h3>
+    <div class="modal fade" id="chatModal" tabindex="-1" aria-labelledby="chatModalTitle" aria-hidden="true" data-chat-modal>
+        <div class="modal-dialog modal-dialog-centered">
+            <form id="telegramChatForm" class="modal-content border-0 shadow" data-chat-form novalidate>
+                <div class="modal-header">
+                    <h2 class="modal-title fs-5" id="chatModalTitle" data-chat-form-title>Новый чат</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger d-none" role="alert" data-chat-general-error></div>
                     <div class="mb-3">
-                        <label class="form-label" for="telegramChatId">Telegram chat ID</label>
+                        <label class="form-label" for="telegramChatId">ID чата Telegram</label>
                         <input class="form-control" id="telegramChatId" name="telegramChatId" type="number" required data-chat-id />
                         <div class="invalid-feedback" data-chat-error="telegramChatId"></div>
                     </div>
-                    <div class="mb-3">
+                    <div>
                         <label class="form-label" for="telegramChatName">Название</label>
                         <input class="form-control" id="telegramChatName" name="name" type="text" maxlength="200" required data-chat-name />
                         <div class="invalid-feedback" data-chat-error="name"></div>
                     </div>
-                    <div class="d-flex flex-wrap gap-2">
-                        <button type="submit" class="btn btn-primary" data-chat-save>Сохранить</button>
-                        <button type="button" class="btn btn-outline-secondary d-none" data-action="cancel-chat">Отмена</button>
-                        <button type="button" class="btn btn-outline-primary d-none" data-action="test-chat">Тест</button>
-                        <button type="button" class="btn btn-outline-danger d-none" data-action="delete-chat">Удалить</button>
-                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary" data-chat-save>Сохранить</button>
                 </div>
             </form>
-        </section>
+        </div>
+    </div>
 
-        <section class="col-12 col-lg-6" aria-labelledby="bindings-heading">
-            <h2 id="bindings-heading" class="h4">Привязки</h2>
-            <div class="list-group mb-3" data-binding-list></div>
-            <p class="text-body-secondary d-none" data-binding-empty>Привязок ещё нет.</p>
-
-            <form id="notificationBindingForm" class="card" data-binding-form novalidate>
-                <div class="card-body">
-                    <h3 class="h5">Добавить привязку</h3>
+    <div class="modal fade" id="bindingModal" tabindex="-1" aria-labelledby="bindingModalTitle" aria-hidden="true" data-binding-modal>
+        <div class="modal-dialog modal-dialog-centered">
+            <form id="notificationBindingForm" class="modal-content border-0 shadow" data-binding-form novalidate>
+                <div class="modal-header">
+                    <h2 class="modal-title fs-5" id="bindingModalTitle">Новая привязка</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger d-none" role="alert" data-binding-general-error></div>
                     <div class="mb-3">
                         <label class="form-label" for="bindingChatId">Чат</label>
                         <select class="form-select" id="bindingChatId" name="chatId" required data-binding-chat></select>
@@ -70,10 +85,13 @@
                         <label class="form-label" for="bindingObjectId">Объект</label>
                         <select class="form-select" id="bindingObjectId" name="objectId" required data-binding-object></select>
                     </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
                     <button type="submit" class="btn btn-primary" data-binding-save>Добавить</button>
                 </div>
             </form>
-        </section>
+        </div>
     </div>
 </div>
 

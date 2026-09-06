@@ -2,45 +2,56 @@
 @model UptimeHarbor.Web.Pages.Admin.ObjectsModel
 @inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
 @{
-    ViewData["Title"] = "Администрирование объектов";
+    ViewData["Title"] = "Объекты мониторинга";
     string requestVerificationToken = Antiforgery.GetAndStoreTokens(ViewContext.HttpContext).RequestToken
         ?? throw new InvalidOperationException("Не удалось создать antiforgery token.");
 }
 
 <meta name="request-verification-token" content="@requestVerificationToken" />
 
-<div class="d-flex flex-column gap-4" data-objects-page>
-    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-        <div>
-            <h1 class="mb-1">Администрирование объектов</h1>
-            <p class="text-body-secondary mb-0">Серверы и независимо проверяемые контейнеры.</p>
-        </div>
-        <button type="button" class="btn btn-primary" data-action="create-server">Добавить сервер</button>
+<div class="d-flex flex-column gap-3" data-objects-page>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <h1 class="h3 mb-0">Объекты мониторинга</h1>
+        <button type="button"
+                class="btn btn-primary"
+                data-bs-toggle="modal"
+                data-bs-target="#createServerModal">
+            Новый сервер
+        </button>
     </div>
 
     <div class="alert alert-danger d-none" role="alert" data-page-error></div>
 
-    <div class="row g-4">
-        <section class="col-12 col-lg-5" aria-labelledby="servers-heading">
-            <h2 id="servers-heading" class="h4">Серверы</h2>
-            <div class="list-group" data-server-list></div>
-            <p class="text-body-secondary d-none" data-server-empty>Серверы ещё не добавлены.</p>
+    <div class="row g-3 align-items-start">
+        <section class="col-12 col-lg-4" aria-labelledby="servers-heading">
+            <div class="card border-0 shadow-sm overflow-hidden">
+                <div class="card-header bg-body-tertiary border-secondary-subtle py-3">
+                    <h2 id="servers-heading" class="h6 mb-0">Серверы</h2>
+                </div>
+                <div class="list-group list-group-flush" data-server-list></div>
+                <p class="text-body-secondary text-center small m-0 p-4 d-none" data-server-empty>Серверов пока нет.</p>
+            </div>
         </section>
 
-        <section class="col-12 col-lg-7" aria-labelledby="details-heading">
-            <h2 id="details-heading" class="h4">Настройки</h2>
-            <p class="text-body-secondary" data-selection-placeholder>Выберите сервер или добавьте новый.</p>
+        <section class="col-12 col-lg-8" aria-label="Настройки объекта">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-4 text-center text-body-secondary" data-selection-placeholder>
+                    Выберите сервер слева.
+                </div>
+            </div>
 
-            <form class="card d-none" data-server-form novalidate>
+            <form class="card border-0 shadow-sm d-none" data-server-form novalidate>
+                <div class="card-header bg-body-tertiary border-secondary-subtle py-3">
+                    <h2 class="h5 mb-0" data-server-form-title>Сервер</h2>
+                </div>
                 <div class="card-body">
-                    <h3 class="h5" data-server-form-title>Сервер</h3>
                     <div class="mb-3">
                         <label class="form-label" for="serverName">Имя</label>
                         <input class="form-control" id="serverName" name="name" type="text" maxlength="256" required data-server-name />
                         <div class="invalid-feedback" data-server-error="name"></div>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label" for="serverEndpointUrl">HTTP/HTTPS endpoint</label>
+                        <label class="form-label" for="serverEndpointUrl">Адрес проверки</label>
                         <input class="form-control" id="serverEndpointUrl" name="endpointUrl" type="url" maxlength="2048" required data-server-endpoint />
                         <div class="invalid-feedback" data-server-error="endpointUrl"></div>
                     </div>
@@ -53,28 +64,33 @@
                         <input class="form-check-input" id="serverMonitoringEnabled" name="isMonitoringEnabled" type="checkbox" data-server-enabled />
                         <label class="form-check-label" for="serverMonitoringEnabled">Мониторинг включён</label>
                     </div>
-                    <button type="submit" class="btn btn-primary">Сохранить сервер</button>
                 </div>
-                <div class="card-footer border-danger d-none" data-server-danger>
-                    <h4 class="h6 text-danger">Опасная зона</h4>
-                    <p class="small mb-2">Будут удалены сервер, его контейнеры, права и привязки уведомлений.</p>
-                    <button type="button" class="btn btn-outline-danger" data-action="delete-server">Удалить сервер</button>
+                <div class="card-footer bg-transparent border-secondary-subtle d-flex flex-wrap justify-content-between gap-2">
+                    <button type="submit" class="btn btn-primary">Сохранить</button>
+                    <div class="d-none" data-server-danger>
+                        <button type="button" class="btn btn-outline-danger" data-action="delete-server">Удалить сервер</button>
+                    </div>
                 </div>
             </form>
 
-            <div class="mt-4 d-none" data-containers-section>
-                <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
-                    <h3 class="h5 mb-0">Контейнеры сервера</h3>
-                    <button type="button" class="btn btn-sm btn-outline-primary" data-action="create-container">Добавить контейнер</button>
+            <div class="card border-0 shadow-sm mt-3 d-none" data-containers-section>
+                <div class="card-header bg-body-tertiary border-secondary-subtle d-flex justify-content-between align-items-center gap-2 py-3">
+                    <h3 class="h6 mb-0">Контейнеры</h3>
+                    <button type="button"
+                            class="btn btn-sm btn-outline-primary"
+                            data-bs-toggle="modal"
+                            data-bs-target="#createContainerModal">
+                        Добавить
+                    </button>
                 </div>
-                <div class="list-group mb-3" data-container-list></div>
-                <p class="text-body-secondary d-none" data-container-empty>У сервера нет контейнеров.</p>
+                <div class="list-group list-group-flush" data-container-list></div>
+                <p class="text-body-secondary text-center small m-0 p-4 d-none" data-container-empty>Контейнеров пока нет.</p>
 
-                <form class="card d-none" data-container-form novalidate>
+                <form class="border-top border-secondary-subtle d-none" data-container-form novalidate>
                     <div class="card-body">
-                        <h4 class="h6" data-container-form-title>Контейнер</h4>
+                        <h4 class="h6 mb-3" data-container-form-title>Контейнер</h4>
                         <div class="mb-3">
-                            <label class="form-label" for="containerEndpointUrl">HTTP/HTTPS endpoint</label>
+                            <label class="form-label" for="containerEndpointUrl">Адрес проверки</label>
                             <input class="form-control" id="containerEndpointUrl" name="endpointUrl" type="url" maxlength="2048" required data-container-endpoint />
                             <div class="invalid-feedback" data-container-error="endpointUrl"></div>
                         </div>
@@ -87,15 +103,85 @@
                             <input class="form-check-input" id="containerMonitoringEnabled" name="isMonitoringEnabled" type="checkbox" data-container-enabled />
                             <label class="form-check-label" for="containerMonitoringEnabled">Мониторинг включён</label>
                         </div>
-                        <button type="submit" class="btn btn-primary">Сохранить контейнер</button>
-                    </div>
-                    <div class="card-footer border-danger d-none" data-container-danger>
-                        <h5 class="h6 text-danger">Опасная зона</h5>
-                        <button type="button" class="btn btn-outline-danger" data-action="delete-container">Удалить контейнер</button>
+                        <div class="d-flex flex-wrap justify-content-between gap-2 pt-2">
+                            <button type="submit" class="btn btn-primary">Сохранить</button>
+                            <div class="d-none" data-container-danger>
+                                <button type="button" class="btn btn-outline-danger" data-action="delete-container">Удалить контейнер</button>
+                            </div>
+                        </div>
                     </div>
                 </form>
             </div>
         </section>
+    </div>
+
+    <div class="modal fade" id="createServerModal" tabindex="-1" aria-labelledby="createServerModalTitle" aria-hidden="true" data-create-server-modal>
+        <div class="modal-dialog modal-dialog-centered">
+            <form class="modal-content border-0 shadow" data-create-server-form novalidate>
+                <div class="modal-header">
+                    <h2 class="modal-title fs-5" id="createServerModalTitle">Новый сервер</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger d-none" role="alert" data-create-server-general-error></div>
+                    <div class="mb-3">
+                        <label class="form-label" for="newServerName">Имя</label>
+                        <input class="form-control" id="newServerName" name="name" type="text" maxlength="256" required data-create-server-name />
+                        <div class="invalid-feedback" data-create-server-error="name"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="newServerEndpointUrl">Адрес проверки</label>
+                        <input class="form-control" id="newServerEndpointUrl" name="endpointUrl" type="url" maxlength="2048" placeholder="https://example.org/health" required data-create-server-endpoint />
+                        <div class="invalid-feedback" data-create-server-error="endpointUrl"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="newServerDescription">Описание</label>
+                        <textarea class="form-control" id="newServerDescription" name="description" maxlength="500" rows="3" data-create-server-description></textarea>
+                        <div class="invalid-feedback" data-create-server-error="description"></div>
+                    </div>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" id="newServerMonitoringEnabled" name="isMonitoringEnabled" type="checkbox" checked data-create-server-enabled />
+                        <label class="form-check-label" for="newServerMonitoringEnabled">Включить мониторинг</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Создать</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal fade" id="createContainerModal" tabindex="-1" aria-labelledby="createContainerModalTitle" aria-hidden="true" data-create-container-modal>
+        <div class="modal-dialog modal-dialog-centered">
+            <form class="modal-content border-0 shadow" data-create-container-form novalidate>
+                <div class="modal-header">
+                    <h2 class="modal-title fs-5" id="createContainerModalTitle">Новый контейнер</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger d-none" role="alert" data-create-container-general-error></div>
+                    <div class="mb-3">
+                        <label class="form-label" for="newContainerEndpointUrl">Адрес проверки</label>
+                        <input class="form-control" id="newContainerEndpointUrl" name="endpointUrl" type="url" maxlength="2048" placeholder="https://example.org/app/health" required data-create-container-endpoint />
+                        <div class="invalid-feedback" data-create-container-error="endpointUrl"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="newContainerDescription">Описание</label>
+                        <textarea class="form-control" id="newContainerDescription" name="description" maxlength="500" rows="3" data-create-container-description></textarea>
+                        <div class="invalid-feedback" data-create-container-error="description"></div>
+                    </div>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" id="newContainerMonitoringEnabled" name="isMonitoringEnabled" type="checkbox" checked data-create-container-enabled />
+                        <label class="form-check-label" for="newContainerMonitoringEnabled">Включить мониторинг</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Создать</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 

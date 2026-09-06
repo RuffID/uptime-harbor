@@ -29,8 +29,10 @@
 - Клиент объединяет SignalR refresh-события окном 200 мс и отменяет устаревший snapshot-fetch через `AbortController`; reconnect загружает snapshot немедленно.
 - Автоматические `[ApiController]` model-state ошибки используют тот же `{ success: false, message, field? }` envelope, что и `JsonResultMapper`.
 - Login имеет отдельную rate-limit policy; Web добавляет `nosniff`, `no-referrer`, запрет framing и применяемую CSP. SignalR browser client поставляется локально в `wwwroot/vendor/signalr/signalr.min.js` (версия 10.0.11, SHA-256 зафиксирован в технической документации).
-- Административное API уведомлений размещено под `/api/admin/notifications`; token не входит в Web-контракты, а mutating actions и тестовая отправка требуют роль `Administrator` и antiforgery.
-- Административная страница пользователей размещена под `/Admin/Users`; UI работает через `/api/admin/users` без перезагрузки, а операции изменения защищены antiforgery и ролью `Administrator`.
+- Административное API уведомлений размещено под `/api/admin/notifications`; token не входит в Web-контракты, а mutating actions и тестовая отправка требуют роль `Administrator` и antiforgery. Создание/редактирование чата и создание привязки выполняются в Bootstrap modal, список группирует привязки внутри карточки соответствующего чата.
+- Административная страница пользователей размещена под `/Admin/Users`; создание пользователя выполняется в Bootstrap modal, UI работает через `/api/admin/users` без перезагрузки, а операции изменения защищены antiforgery и ролью `Administrator`.
+- Навигация для аутентифицированного пользователя показывает его логин непосредственно перед POST-выходом.
+- Создание серверов и контейнеров выполняется в отдельных Bootstrap modal; редактирование выбранных объектов остаётся в основной рабочей области страницы.
 - Forwarded headers принимаются только из явно настроенной proxy-сети с ограничением `ForwardLimit` до одного прокси.
 - Serilog выводит человекочитаемые строки в console и rolling-файлы `Logs/log_*.log` с UTC-временем, уровнем, source context и structured properties; каталог находится вне `wwwroot`, исключён из source/build/publish и монтируется как persistent container volume.
 - Приложение принимает внутренний HTTP за Nginx и не использует `UseHttpsRedirection`; TLS завершается на reverse proxy, а исходная схема передаётся только через доверенные forwarded headers.

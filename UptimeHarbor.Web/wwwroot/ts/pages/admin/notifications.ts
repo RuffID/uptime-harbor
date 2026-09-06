@@ -40,6 +40,15 @@ interface PageState extends NotificationSettings {
     saving: boolean;
 }
 
+interface BootstrapModalInstance {
+    show(): void;
+    hide(): void;
+}
+
+interface BootstrapWindow extends Window {
+    bootstrap?: { Modal: { getOrCreateInstance(element: Element): BootstrapModalInstance } };
+}
+
 const state: PageState = {
     chats: [],
     bindings: [],
@@ -53,16 +62,20 @@ const content = requireElement<HTMLElement>("[data-content]");
 const pageError = requireElement<HTMLElement>("[data-page-error]");
 const chatList = requireElement<HTMLElement>("[data-chat-list]");
 const chatEmpty = requireElement<HTMLElement>("[data-chat-empty]");
-const bindingList = requireElement<HTMLElement>("[data-binding-list]");
-const bindingEmpty = requireElement<HTMLElement>("[data-binding-empty]");
+const page = requireElement<HTMLElement>("[data-notifications-page]");
+const chatModal = requireElement<HTMLElement>("[data-chat-modal]");
 const chatForm = requireElement<HTMLFormElement>("[data-chat-form]");
 const chatFormTitle = requireElement<HTMLElement>("[data-chat-form-title]");
 const chatIdInput = requireElement<HTMLInputElement>("[data-chat-id]");
 const chatNameInput = requireElement<HTMLInputElement>("[data-chat-name]");
+const chatGeneralError = requireElement<HTMLElement>("[data-chat-general-error]");
+const bindingModal = requireElement<HTMLElement>("[data-binding-modal]");
 const bindingForm = requireElement<HTMLFormElement>("[data-binding-form]");
 const bindingChat = requireElement<HTMLSelectElement>("[data-binding-chat]");
 const bindingKind = requireElement<HTMLSelectElement>("[data-binding-kind]");
 const bindingObject = requireElement<HTMLSelectElement>("[data-binding-object]");
+const bindingGeneralError = requireElement<HTMLElement>("[data-binding-general-error]");
+const newBindingButton = requireElement<HTMLButtonElement>('[data-action="new-binding"]');
 
 document.addEventListener("DOMContentLoaded", () => {
     void initNotificationsPage();
@@ -72,7 +85,9 @@ async function initNotificationsPage(): Promise<void> {
     chatForm.addEventListener("submit", event => void saveChat(event));
     bindingForm.addEventListener("submit", event => void saveBinding(event));
     bindingKind.addEventListener("change", renderBindingObjects);
-    requireElement<HTMLElement>("[data-notifications-page]").addEventListener("click", handleClick);
+    chatModal.addEventListener("shown.bs.modal", () => chatIdInput.focus());
+    bindingModal.addEventListener("shown.bs.modal", () => bindingChat.focus());
+    page.addEventListener("click", handleClick);
     await runCommand(loadSettings);
 }
 
@@ -95,10 +110,8 @@ async function loadSettings(): Promise<void> {
 
 function render(): void {
     renderChats();
-    renderBindings();
     renderBindingChats();
     renderBindingObjects();
-    renderChatForm();
     setSaving(state.saving);
 }
 
@@ -106,48 +119,102 @@ function renderChats(): void {
     chatList.replaceChildren();
     chatEmpty.classList.toggle("d-none", state.chats.length !== 0);
     for (const chat of state.chats) {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.classList.add("list-group-item", "list-group-item-action");
-        button.classList.toggle("active", chat.id === state.selectedChatId);
-        button.dataset.action = "select-chat";
-        button.dataset.chatId = chat.id;
-
-        const name = document.createElement("span");
-        name.classList.add("d-block", "fw-semibold");
-        name.textContent = chat.name;
-        const identifier = document.createElement("span");
-        identifier.classList.add("d-block", "small");
-        identifier.textContent = String(chat.telegramChatId);
-        button.append(name, identifier);
-        chatList.append(button);
+        chatList.append(createChatCard(chat));
     }
 }
 
-function renderBindings(): void {
-    bindingList.replaceChildren();
-    bindingEmpty.classList.toggle("d-none", state.bindings.length !== 0);
-    for (const binding of state.bindings) {
-        const row = document.createElement("div");
-        row.classList.add("list-group-item", "d-flex", "justify-content-between", "align-items-center", "gap-2");
-        const chat = requireChat(binding.telegramChatId);
-        const targetId = binding.serverId ?? binding.containerId;
-        if (targetId === null) {
-            throw new Error("Привязка не содержит объект.");
-        }
-        const target = requireTarget(targetId);
+function createChatCard(chat: TelegramChat): HTMLElement {
+    const column = document.createElement("div");
+    column.classList.add("col-12", "col-xl-6");
 
-        const text = document.createElement("span");
-        text.textContent = `${chat.name} → ${kindText(target.kind)}: ${target.displayName}`;
-        const removeButton = document.createElement("button");
-        removeButton.type = "button";
-        removeButton.classList.add("btn", "btn-sm", "btn-outline-danger");
-        removeButton.dataset.action = "delete-binding";
-        removeButton.dataset.bindingId = binding.id;
-        removeButton.textContent = "Удалить";
-        row.append(text, removeButton);
-        bindingList.append(row);
+    const card = document.createElement("article");
+    card.classList.add("card", "border-0", "shadow-sm", "h-100", "overflow-hidden");
+
+    const header = document.createElement("div");
+    header.classList.add("card-body", "d-flex", "flex-wrap", "justify-content-between", "align-items-start", "gap-3");
+
+    const titleBlock = document.createElement("div");
+    const title = document.createElement("h2");
+    title.classList.add("h5", "mb-1");
+    title.textContent = chat.name;
+    const identifier = document.createElement("span");
+    identifier.classList.add("text-body-secondary", "small");
+    identifier.textContent = `ID чата: ${String(chat.telegramChatId)}`;
+    titleBlock.append(title, identifier);
+
+    const actions = document.createElement("div");
+    actions.classList.add("btn-group", "btn-group-sm");
+    actions.setAttribute("role", "group");
+    actions.setAttribute("aria-label", `Действия с чатом ${chat.name}`);
+    actions.append(
+        createChatActionButton("Тест", "test-chat", chat.id, "btn-outline-primary"),
+        createChatActionButton("Изменить", "edit-chat", chat.id, "btn-outline-secondary"),
+        createChatActionButton("Удалить", "delete-chat", chat.id, "btn-outline-danger"));
+    header.append(titleBlock, actions);
+    card.append(header);
+
+    const bindings = state.bindings.filter(binding => binding.telegramChatId === chat.id);
+    if (bindings.length === 0) {
+        const empty = document.createElement("p");
+        empty.classList.add("border-top", "border-secondary-subtle", "text-body-secondary", "small", "mb-0", "p-3");
+        empty.textContent = "Нет привязок";
+        card.append(empty);
     }
+    else {
+        const list = document.createElement("div");
+        list.classList.add("list-group", "list-group-flush", "border-top", "border-secondary-subtle");
+        for (const binding of bindings) {
+            list.append(createBindingRow(binding));
+        }
+        card.append(list);
+    }
+
+    column.append(card);
+    return column;
+}
+
+function createChatActionButton(
+    label: string,
+    action: "test-chat" | "edit-chat" | "delete-chat",
+    chatId: string,
+    colorClass: string
+): HTMLButtonElement {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.classList.add("btn", colorClass);
+    button.dataset.action = action;
+    button.dataset.chatId = chatId;
+    button.textContent = label;
+    return button;
+}
+
+function createBindingRow(binding: NotificationBinding): HTMLElement {
+    const targetId = binding.serverId ?? binding.containerId;
+    if (targetId === null) {
+        throw new Error("Привязка не содержит объект.");
+    }
+    const target = requireTarget(targetId);
+
+    const row = document.createElement("div");
+    row.classList.add("list-group-item", "d-flex", "justify-content-between", "align-items-center", "gap-3", "py-3");
+
+    const description = document.createElement("div");
+    description.classList.add("d-flex", "align-items-center", "gap-2", "flex-wrap");
+    const badge = document.createElement("span");
+    badge.classList.add("badge", "rounded-pill", target.kind === 1 ? "text-bg-info" : "text-bg-secondary");
+    badge.textContent = kindText(target.kind);
+    const name = document.createElement("span");
+    name.textContent = target.displayName;
+    description.append(badge, name);
+
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.classList.add("btn", "btn-sm", "btn-outline-danger");
+    removeButton.dataset.action = "delete-binding";
+    removeButton.dataset.bindingId = binding.id;
+    removeButton.textContent = "Удалить";
+    row.append(description, removeButton);
+    return row;
 }
 
 function renderBindingChats(): void {
@@ -179,15 +246,42 @@ function renderBindingObjects(): void {
     }
 }
 
-function renderChatForm(): void {
+function prepareChatForm(): void {
     const selected = state.selectedChatId === null ? null : requireChat(state.selectedChatId);
     chatFormTitle.textContent = selected === null ? "Новый чат" : "Изменить чат";
     chatIdInput.value = selected === null ? "" : String(selected.telegramChatId);
     chatNameInput.value = selected?.name ?? "";
-    toggleAction("cancel-chat", selected !== null);
-    toggleAction("test-chat", selected !== null);
-    toggleAction("delete-chat", selected !== null);
     clearFormErrors();
+    hideModalError(chatGeneralError);
+}
+
+function openNewChatModal(): void {
+    state.selectedChatId = null;
+    chatForm.reset();
+    prepareChatForm();
+    showModal(chatModal);
+}
+
+function openEditChatModal(chatId: string): void {
+    state.selectedChatId = chatId;
+    prepareChatForm();
+    showModal(chatModal);
+}
+
+function openBindingModal(): void {
+    if (state.chats.length === 0) {
+        throw new Error("Сначала добавьте Telegram-чат.");
+    }
+    if (state.targets.length === 0) {
+        throw new Error("Нет объектов, доступных для привязки.");
+    }
+
+    bindingForm.reset();
+    hideModalError(bindingGeneralError);
+    bindingKind.value = state.targets.some(target => target.kind === 1) ? "1" : "2";
+    renderBindingChats();
+    renderBindingObjects();
+    showModal(bindingModal);
 }
 
 async function saveChat(event: SubmitEvent): Promise<void> {
@@ -204,15 +298,16 @@ async function saveChat(event: SubmitEvent): Promise<void> {
         const method = state.selectedChatId === null ? "POST" : "PUT";
         try {
             const response = await sendJsonRequest<ServiceResultWithData<TelegramChat>>(url, method, payload);
-            const saved = unwrapServiceResult(response);
-            state.selectedChatId = saved.id;
+            unwrapServiceResult(response);
+            hideModal(chatModal);
+            state.selectedChatId = null;
             await loadSettings();
         }
         catch (error: unknown) {
             if (showChatFieldError(error)) {
                 return;
             }
-            throw error;
+            showModalError(chatGeneralError, error, "Не удалось сохранить чат.");
         }
     });
 }
@@ -220,38 +315,44 @@ async function saveChat(event: SubmitEvent): Promise<void> {
 async function saveBinding(event: SubmitEvent): Promise<void> {
     event.preventDefault();
     await runSavingCommand(async () => {
-        if (!bindingChat.value || !bindingObject.value) {
-            throw new Error("Для привязки нужны чат и объект.");
+        hideModalError(bindingGeneralError);
+        try {
+            if (!bindingChat.value || !bindingObject.value) {
+                throw new Error("Для привязки нужны чат и объект.");
+            }
+            const response = await sendJsonRequest<ServiceResultWithData<NotificationBinding>>(
+                "/api/admin/notifications/bindings",
+                "POST",
+                {
+                    chatId: bindingChat.value,
+                    objectKind: readKind(bindingKind.value),
+                    objectId: bindingObject.value
+                });
+            unwrapServiceResult(response);
+            hideModal(bindingModal);
+            await loadSettings();
         }
-        const response = await sendJsonRequest<ServiceResultWithData<NotificationBinding>>(
-            "/api/admin/notifications/bindings",
-            "POST",
-            {
-                chatId: bindingChat.value,
-                objectKind: readKind(bindingKind.value),
-                objectId: bindingObject.value
-            });
-        unwrapServiceResult(response);
-        await loadSettings();
+        catch (error: unknown) {
+            showModalError(bindingGeneralError, error, "Не удалось добавить привязку.");
+        }
     });
 }
 
-async function testChat(): Promise<void> {
+async function testChat(chatId: string): Promise<void> {
     const response = await sendJsonRequest<ServiceResult>(
-        `/api/admin/notifications/chats/${requireSelectedChatId()}/test`,
+        `/api/admin/notifications/chats/${chatId}/test`,
         "POST");
     unwrapServiceSuccess(response);
 }
 
-async function deleteChat(): Promise<void> {
+async function deleteChat(chatId: string): Promise<void> {
     if (!window.confirm("Удалить чат и все его привязки?")) {
         return;
     }
     const response = await sendJsonRequest<ServiceResult>(
-        `/api/admin/notifications/chats/${requireSelectedChatId()}`,
+        `/api/admin/notifications/chats/${chatId}`,
         "DELETE");
     unwrapServiceSuccess(response);
-    state.selectedChatId = null;
     await loadSettings();
 }
 
@@ -276,19 +377,20 @@ function handleClick(event: MouseEvent): void {
     if (!action) {
         return;
     }
-    if (action === "select-chat") {
-        state.selectedChatId = requireData(actionElement, "chatId");
-        render();
+    if (action === "new-chat") {
+        openNewChatModal();
     }
-    else if (action === "cancel-chat") {
-        state.selectedChatId = null;
-        render();
+    else if (action === "new-binding") {
+        void runCommand(async () => openBindingModal());
+    }
+    else if (action === "edit-chat") {
+        openEditChatModal(requireData(actionElement, "chatId"));
     }
     else if (action === "test-chat") {
-        void runSavingCommand(testChat);
+        void runSavingCommand(() => testChat(requireData(actionElement, "chatId")));
     }
     else if (action === "delete-chat") {
-        void runSavingCommand(deleteChat);
+        void runSavingCommand(() => deleteChat(requireData(actionElement, "chatId")));
     }
     else if (action === "delete-binding") {
         void runSavingCommand(() => deleteBinding(requireData(actionElement, "bindingId")));
@@ -329,6 +431,12 @@ function setSaving(saving: boolean): void {
         "[data-notifications-page] button, [data-notifications-page] input, [data-notifications-page] select")) {
         element.disabled = saving;
     }
+    newBindingButton.disabled = saving || state.chats.length === 0 || state.targets.length === 0;
+    newBindingButton.title = state.chats.length === 0
+        ? "Сначала добавьте чат"
+        : state.targets.length === 0
+            ? "Нет объектов для привязки"
+            : "";
 }
 
 function showChatFieldError(error: unknown): boolean {
@@ -354,6 +462,32 @@ function clearFormErrors(): void {
     }
 }
 
+function showModalError(element: HTMLElement, error: unknown, fallbackMessage: string): void {
+    element.textContent = error instanceof Error ? error.message : fallbackMessage;
+    element.classList.remove("d-none");
+}
+
+function hideModalError(element: HTMLElement): void {
+    element.textContent = "";
+    element.classList.add("d-none");
+}
+
+function showModal(element: Element): void {
+    requireBootstrap().Modal.getOrCreateInstance(element).show();
+}
+
+function hideModal(element: Element): void {
+    requireBootstrap().Modal.getOrCreateInstance(element).hide();
+}
+
+function requireBootstrap(): NonNullable<BootstrapWindow["bootstrap"]> {
+    const bootstrapApi = (window as BootstrapWindow).bootstrap;
+    if (!bootstrapApi) {
+        throw new Error("Bootstrap не загружен.");
+    }
+    return bootstrapApi;
+}
+
 function showPageError(error: unknown): void {
     pageError.textContent = error instanceof Error ? error.message : "Неизвестная ошибка.";
     pageError.classList.remove("d-none");
@@ -362,10 +496,6 @@ function showPageError(error: unknown): void {
 function clearPageError(): void {
     pageError.textContent = "";
     pageError.classList.add("d-none");
-}
-
-function toggleAction(action: string, visible: boolean): void {
-    requireElement<HTMLElement>(`[data-action="${action}"]`).classList.toggle("d-none", !visible);
 }
 
 function requireChat(id: string): TelegramChat {
@@ -382,13 +512,6 @@ function requireTarget(id: string): NotificationTarget {
         throw new Error("Объект не найден в состоянии страницы.");
     }
     return target;
-}
-
-function requireSelectedChatId(): string {
-    if (state.selectedChatId === null) {
-        throw new Error("Чат не выбран.");
-    }
-    return state.selectedChatId;
 }
 
 function requireData(element: HTMLElement, name: string): string {

@@ -10,63 +10,84 @@
 <meta name="request-verification-token" content="@requestVerificationToken" />
 <meta name="current-user-id" content="@User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value" />
 
-<div class="d-flex flex-column gap-4" data-users-page>
-    <div>
-        <h1 class="mb-1">Пользователи</h1>
-        <p class="text-body-secondary mb-0">Управление учётными записями и видимостью объектов.</p>
+<div class="d-flex flex-column gap-3" data-users-page>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+        <h1 class="h3 mb-0">Пользователи</h1>
+        <button type="button"
+                class="btn btn-primary"
+                data-bs-toggle="modal"
+                data-bs-target="#createUserModal">
+            Новый пользователь
+        </button>
     </div>
 
     <div class="alert alert-danger d-none" role="alert" data-page-error></div>
     <div class="alert alert-success d-none" role="status" data-page-success></div>
 
-    <div class="row g-4">
+    <div class="row g-3 align-items-start">
         <section class="col-12 col-lg-4" aria-labelledby="users-heading">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-                <h2 id="users-heading" class="h4 mb-0">Учётные записи</h2>
-                <button type="button" class="btn btn-sm btn-primary" data-action="new-user">Добавить</button>
+            <div class="card border-0 shadow-sm overflow-hidden">
+                <div class="card-header bg-body-tertiary border-secondary-subtle py-3">
+                    <h2 id="users-heading" class="h6 mb-0">Учётные записи</h2>
+                </div>
+                <div class="list-group list-group-flush" data-user-list></div>
+                <p class="text-body-secondary text-center small m-0 p-4 d-none" data-user-empty>Пользователей пока нет.</p>
             </div>
-            <div class="list-group" data-user-list></div>
-            <p class="text-body-secondary d-none" data-user-empty>Пользователи ещё не созданы.</p>
         </section>
 
-        <section class="col-12 col-lg-8" aria-labelledby="user-details-heading">
-            <h2 id="user-details-heading" class="h4">Настройки</h2>
-            <p class="text-body-secondary" data-selection-placeholder>Выберите пользователя или создайте нового.</p>
-
-            <form class="card d-none" data-create-form novalidate>
-                <div class="card-body">
-                    <h3 class="h5">Новый пользователь</h3>
-                    <div class="mb-3">
-                        <label class="form-label" for="newUserLogin">Логин</label>
-                        <input class="form-control" id="newUserLogin" name="login" type="text" maxlength="256" required data-create-login />
-                        <div class="invalid-feedback" data-create-error="login"></div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label" for="newUserPassword">Начальный пароль</label>
-                        <input class="form-control" id="newUserPassword" name="initialPassword" type="password" required data-create-password />
-                        <div class="invalid-feedback" data-create-error="initialPassword"></div>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Создать</button>
+        <section class="col-12 col-lg-8" aria-label="Настройки пользователя">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-4 text-center text-body-secondary" data-selection-placeholder>
+                    Выберите пользователя слева.
                 </div>
-            </form>
 
-            <div class="card d-none" data-user-details>
-                <div class="card-body">
-                    <h3 class="h5" data-user-title></h3>
-                    <p class="text-body-secondary" data-user-role></p>
+                <div class="card-body p-4 d-none" data-user-details>
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+                        <h2 class="h4 mb-0" data-user-title></h2>
+                        <span class="badge rounded-pill text-bg-secondary" data-user-role></span>
+                    </div>
                     <div class="form-check form-switch mb-3">
                         <input class="form-check-input" id="userEnabled" name="isEnabled" type="checkbox" data-user-enabled />
                         <label class="form-check-label" for="userEnabled">Учётная запись включена</label>
                     </div>
-                    <h4 class="h6">Видимые серверы и контейнеры</h4>
+                    <hr class="border-secondary-subtle my-4" />
+                    <h3 class="h6 mb-3">Доступ к объектам</h3>
                     <div class="d-flex flex-column gap-2 mb-3" data-visibility-list></div>
-                    <div class="d-flex flex-wrap gap-2">
-                        <button type="button" class="btn btn-primary" data-action="save-visibility">Сохранить видимость</button>
+                    <div class="d-flex flex-wrap justify-content-between gap-2 pt-2">
+                        <button type="button" class="btn btn-primary" data-action="save-visibility">Сохранить</button>
                         <button type="button" class="btn btn-outline-danger" data-action="delete-user">Удалить</button>
                     </div>
                 </div>
             </div>
         </section>
+    </div>
+
+    <div class="modal fade" id="createUserModal" tabindex="-1" aria-labelledby="createUserModalTitle" aria-hidden="true" data-create-modal>
+        <div class="modal-dialog modal-dialog-centered">
+            <form class="modal-content border-0 shadow" data-create-form novalidate>
+                <div class="modal-header">
+                    <h2 class="modal-title fs-5" id="createUserModalTitle">Новый пользователь</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger d-none" role="alert" data-create-general-error></div>
+                    <div class="mb-3">
+                        <label class="form-label" for="newUserLogin">Логин</label>
+                        <input class="form-control" id="newUserLogin" name="login" type="text" maxlength="256" autocomplete="username" required data-create-login />
+                        <div class="invalid-feedback" data-create-error="login"></div>
+                    </div>
+                    <div>
+                        <label class="form-label" for="newUserPassword">Пароль</label>
+                        <input class="form-control" id="newUserPassword" name="initialPassword" type="password" autocomplete="new-password" required data-create-password />
+                        <div class="invalid-feedback" data-create-error="initialPassword"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" data-create-dismiss>Отмена</button>
+                    <button type="submit" class="btn btn-primary">Создать</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 

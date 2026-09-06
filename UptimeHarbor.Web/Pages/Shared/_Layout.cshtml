@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/UptimeHarbor.Web.styles.css" asp-append-version="true" />
 </head>
-<body>
+<body class="min-vh-100 d-flex flex-column">
     <header>
         <nav class="navbar navbar-expand-sm navbar-toggleable-sm bg-body-tertiary border-bottom border-secondary-subtle mb-3">
             <div class="container">
@@ -20,9 +20,6 @@
                     <ul class="navbar-nav flex-grow-1">
                         <li class="nav-item">
                             <a class="nav-link" asp-area="" asp-page="/Index">Панель</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" asp-area="" asp-page="/Privacy">О проекте</a>
                         </li>
                         @if (User.IsInRole(UptimeHarbor.Application.Security.ApplicationRoles.ADMINISTRATOR))
                         {
@@ -39,23 +36,26 @@
                     </ul>
                     @if (User.Identity?.IsAuthenticated == true)
                     {
-                        <form method="post" asp-page="/Account/Logout" class="d-flex">
-                            <button type="submit" class="btn btn-link nav-link">Выйти</button>
-                        </form>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="navbar-text text-body-secondary">@User.Identity.Name</span>
+                            <form method="post" asp-page="/Account/Logout">
+                                <button type="submit" class="btn btn-link nav-link">Выйти</button>
+                            </form>
+                        </div>
                     }
                 </div>
             </div>
         </nav>
     </header>
-    <div class="container">
-        <main role="main" class="pb-3">
+    <div class="container flex-grow-1">
+        <main role="main" class="pb-4">
             @RenderBody()
         </main>
     </div>
 
-    <footer class="border-top footer text-muted">
-        <div class="container">
-            &copy; 2026 - UptimeHarbor - <a asp-area="" asp-page="/Privacy">Privacy</a>
+    <footer class="border-top border-secondary-subtle py-3 text-body-secondary">
+        <div class="container small">
+            &copy; 2026 UptimeHarbor
         </div>
     </footer>
 

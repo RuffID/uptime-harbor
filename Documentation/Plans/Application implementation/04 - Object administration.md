@@ -2,7 +2,7 @@
 
 ## Статус
 
-**В работе.** Административные use case используют единую Application administrator policy, а MVC API и TypeScript UI — `Version`; stale update/delete возвращает HTTP `409`. После commit обезличенный SignalR refresh является best-effort: transport exception журналируется и не превращает сохранённую операцию в HTTP-ошибку, а после access/save failure или conflict publisher не вызывается. SQL Server runtime-проверка зависит от создания и ручного применения baseline-миграции.
+**В работе.** Административные use case используют единую Application administrator policy, а MVC API и TypeScript UI — `Version`; создание серверов и контейнеров вынесено в Bootstrap modal, редактирование остаётся в основной области. Stale update/delete возвращает HTTP `409`. После commit обезличенный SignalR refresh является best-effort: transport exception журналируется и не превращает сохранённую операцию в HTTP-ошибку, а после access/save failure или conflict publisher не вызывается. SQL Server runtime-проверка зависит от создания и ручного применения baseline-миграции.
 
 ## Цель
 
@@ -41,6 +41,7 @@
 
 ## UX-требования
 
+- создание серверов и контейнеров выполняется в модальных окнах;
 - формы показывают ошибки рядом с соответствующими полями;
 - опасные действия визуально отделены от обычных;
 - удаление требует явного подтверждения;

@@ -2,8 +2,6 @@
   <Folder Name="/Documentation/">
     <File Path="Documentation/AGENTS.md" />
     <File Path="Documentation/Technical requirements.md" />
-    <File Path="Documentation/V1 Technical Review Findings.md" />
-    <File Path="Documentation/V1 Follow-up Technical Review.md" />
   </Folder>
   <Folder Name="/Documentation/Technical/">
     <File Path="Documentation/Technical/AGENTS.md" />
@@ -19,6 +17,7 @@
     <File Path="Documentation/Technical/Testing.md" />
     <File Path="Documentation/Technical/Web application.md" />
   </Folder>
+  <Folder Name="/Documentation/Plans/" />
   <Folder Name="/Documentation/Plans/Application implementation/">
     <File Path="Documentation/Plans/Application implementation/AGENTS.md" />
     <File Path="Documentation/Plans/Application implementation/00 - Plan overview.md" />

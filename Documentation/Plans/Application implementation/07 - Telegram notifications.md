@@ -2,7 +2,7 @@
 
 ## Статус
 
-**В работе.** Telegram отделён от monitoring durable outbox/worker; recovery jobs прежнего incident атомарно отменяются при disable/endpoint change, а pre-send gate сериализует sender с административным commit. Конкурентные duplicate chat/binding возвращают безопасный 409. Retry ограничен пятью попытками, transport-семантика остаётся at-least-once. SQLite/fake/classifier tests проходят; остаются SQL Server locking/2601/2627, process-restart и реальная Telegram runtime-проверки после baseline.
+**В работе.** Telegram отделён от monitoring durable outbox/worker; recovery jobs прежнего incident атомарно отменяются при disable/endpoint change, а pre-send gate сериализует sender с административным commit. Административный UI использует modal для чатов и привязок и группирует привязки в карточках чатов. Конкурентные duplicate chat/binding возвращают безопасный 409. Retry ограничен пятью попытками, transport-семантика остаётся at-least-once. SQLite/fake/classifier tests проходят; остаются SQL Server locking/2601/2627, process-restart и реальная Telegram runtime-проверки после baseline.
 
 ## Цель
 
@@ -16,10 +16,11 @@
 
    - Telegram chat ID;
    - понятное название;
+   - создание и изменение через модальное окно;
    - добавление, изменение и удаление;
    - отправка тестового сообщения.
 
-4. Создать привязки server-to-chat и container-to-chat.
+4. Создать привязки server-to-chat и container-to-chat через модальное окно и отображать их внутри карточки соответствующего чата.
 5. При переходе в «Недоступен» сформировать одно уведомление на текущий инцидент.
 6. После восстановления сформировать одно recovery-уведомление только при ранее отправленном outage-уведомлении.
 7. Отправить сообщение во все привязанные чаты независимо.

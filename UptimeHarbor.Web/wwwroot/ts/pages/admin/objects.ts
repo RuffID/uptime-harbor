@@ -43,22 +43,26 @@ interface ServerDeletionImpact {
     version: number;
 }
 
+interface BootstrapModalInstance {
+    hide(): void;
+}
+
+interface BootstrapWindow extends Window {
+    bootstrap?: { Modal: { getOrCreateInstance(element: Element): BootstrapModalInstance } };
+}
+
 interface PageState {
     servers: AdminServer[];
     containers: AdminContainer[];
     selectedServerId: string | null;
     selectedContainerId: string | null;
-    creatingServer: boolean;
-    creatingContainer: boolean;
 }
 
 const state: PageState = {
     servers: [],
     containers: [],
     selectedServerId: null,
-    selectedContainerId: null,
-    creatingServer: false,
-    creatingContainer: false
+    selectedContainerId: null
 };
 
 const page = requireElement<HTMLElement>("[data-objects-page]");
@@ -82,6 +86,19 @@ const containerEndpoint = requireElement<HTMLInputElement>("[data-container-endp
 const containerDescription = requireElement<HTMLTextAreaElement>("[data-container-description]");
 const containerEnabled = requireElement<HTMLInputElement>("[data-container-enabled]");
 const containerDanger = requireElement<HTMLElement>("[data-container-danger]");
+const createServerModal = requireElement<HTMLElement>("[data-create-server-modal]");
+const createServerForm = requireElement<HTMLFormElement>("[data-create-server-form]");
+const createServerName = requireElement<HTMLInputElement>("[data-create-server-name]");
+const createServerEndpoint = requireElement<HTMLInputElement>("[data-create-server-endpoint]");
+const createServerDescription = requireElement<HTMLTextAreaElement>("[data-create-server-description]");
+const createServerEnabled = requireElement<HTMLInputElement>("[data-create-server-enabled]");
+const createServerGeneralError = requireElement<HTMLElement>("[data-create-server-general-error]");
+const createContainerModal = requireElement<HTMLElement>("[data-create-container-modal]");
+const createContainerForm = requireElement<HTMLFormElement>("[data-create-container-form]");
+const createContainerEndpoint = requireElement<HTMLInputElement>("[data-create-container-endpoint]");
+const createContainerDescription = requireElement<HTMLTextAreaElement>("[data-create-container-description]");
+const createContainerEnabled = requireElement<HTMLInputElement>("[data-create-container-enabled]");
+const createContainerGeneralError = requireElement<HTMLElement>("[data-create-container-general-error]");
 
 document.addEventListener("DOMContentLoaded", () => {
     void initObjectsPage();
@@ -93,6 +110,12 @@ async function initObjectsPage(): Promise<void> {
     containerList.addEventListener("click", handleContainerSelection);
     serverForm.addEventListener("submit", event => void saveServer(event));
     containerForm.addEventListener("submit", event => void saveContainer(event));
+    createServerForm.addEventListener("submit", event => void createServer(event));
+    createContainerForm.addEventListener("submit", event => void createContainer(event));
+    createServerModal.addEventListener("show.bs.modal", resetCreateServerForm);
+    createServerModal.addEventListener("shown.bs.modal", () => createServerName.focus());
+    createContainerModal.addEventListener("show.bs.modal", resetCreateContainerForm);
+    createContainerModal.addEventListener("shown.bs.modal", () => createContainerEndpoint.focus());
 
     try {
         await loadServers();
@@ -121,8 +144,6 @@ async function selectServer(serverId: string): Promise<void> {
     const server = requireServer(serverId);
     state.selectedServerId = serverId;
     state.selectedContainerId = null;
-    state.creatingServer = false;
-    state.creatingContainer = false;
     fillServerForm(server);
     renderServers();
 
@@ -130,41 +151,6 @@ async function selectServer(serverId: string): Promise<void> {
         `/api/admin/objects/servers/${serverId}/containers`);
     state.containers = unwrapServiceResult(response);
     renderContainers();
-}
-
-function startCreatingServer(): void {
-    clearPageError();
-    state.selectedServerId = null;
-    state.selectedContainerId = null;
-    state.containers = [];
-    state.creatingServer = true;
-    state.creatingContainer = false;
-    renderServers();
-    selectionPlaceholder.classList.add("d-none");
-    serverForm.classList.remove("d-none");
-    serverDanger.classList.add("d-none");
-    containersSection.classList.add("d-none");
-    serverFormTitle.textContent = "Новый сервер";
-    serverForm.reset();
-    clearFormErrors(serverForm);
-    serverName.focus();
-}
-
-function startCreatingContainer(): void {
-    if (state.selectedServerId === null) {
-        throw new Error("Сначала выберите существующий сервер.");
-    }
-
-    clearPageError();
-    state.selectedContainerId = null;
-    state.creatingContainer = true;
-    renderContainers();
-    containerForm.classList.remove("d-none");
-    containerDanger.classList.add("d-none");
-    containerFormTitle.textContent = "Новый контейнер";
-    containerForm.reset();
-    clearFormErrors(containerForm);
-    containerEndpoint.focus();
 }
 
 async function saveServer(event: SubmitEvent): Promise<void> {
@@ -177,19 +163,41 @@ async function saveServer(event: SubmitEvent): Promise<void> {
     };
 
     try {
-        const url = state.creatingServer
-            ? "/api/admin/objects/servers"
-            : `/api/admin/objects/servers/${requireSelectedServerId()}`;
-        const method = state.creatingServer ? "POST" : "PUT";
-        const payload = state.creatingServer
-            ? settings
-            : { ...settings, version: requireServer(requireSelectedServerId()).version };
-        const response = await sendJsonRequest<ServiceResultWithData<AdminServer>>(url, method, payload);
+        const serverId = requireSelectedServerId();
+        const payload = { ...settings, version: requireServer(serverId).version };
+        const response = await sendJsonRequest<ServiceResultWithData<AdminServer>>(
+            `/api/admin/objects/servers/${serverId}`,
+            "PUT",
+            payload);
         const savedServer = unwrapServiceResult(response);
         await loadServers(savedServer.id);
     }
     catch (error: unknown) {
-        showFormOrPageError(error, serverForm);
+        showFormOrPageError(error, serverForm, "data-server-error");
+    }
+}
+
+async function createServer(event: SubmitEvent): Promise<void> {
+    event.preventDefault();
+    clearFormErrors(createServerForm);
+    hideModalError(createServerGeneralError);
+
+    try {
+        const response = await sendJsonRequest<ServiceResultWithData<AdminServer>>(
+            "/api/admin/objects/servers",
+            "POST",
+            {
+                name: createServerName.value,
+                ...readSettings(createServerEndpoint, createServerDescription, createServerEnabled)
+            });
+        const savedServer = unwrapServiceResult(response);
+        hideModal(createServerModal);
+        await loadServers(savedServer.id);
+    }
+    catch (error: unknown) {
+        if (!showFormFieldError(error, createServerForm, "data-create-server-error")) {
+            showModalError(createServerGeneralError, error, "Не удалось создать сервер.");
+        }
     }
 }
 
@@ -201,20 +209,41 @@ async function saveContainer(event: SubmitEvent): Promise<void> {
 
     try {
         const serverId = requireSelectedServerId();
-        const url = state.creatingContainer
-            ? `/api/admin/objects/servers/${serverId}/containers`
-            : `/api/admin/objects/containers/${requireSelectedContainerId()}`;
-        const method = state.creatingContainer ? "POST" : "PUT";
-        const payload = state.creatingContainer
-            ? settings
-            : { ...settings, version: requireContainer(requireSelectedContainerId()).version };
-        const response = await sendJsonRequest<ServiceResultWithData<AdminContainer>>(url, method, payload);
+        const containerId = requireSelectedContainerId();
+        const payload = { ...settings, version: requireContainer(containerId).version };
+        const response = await sendJsonRequest<ServiceResultWithData<AdminContainer>>(
+            `/api/admin/objects/containers/${containerId}`,
+            "PUT",
+            payload);
         const savedContainer = unwrapServiceResult(response);
         await selectServer(serverId);
         selectContainer(savedContainer.id);
     }
     catch (error: unknown) {
-        showFormOrPageError(error, containerForm);
+        showFormOrPageError(error, containerForm, "data-container-error");
+    }
+}
+
+async function createContainer(event: SubmitEvent): Promise<void> {
+    event.preventDefault();
+    clearFormErrors(createContainerForm);
+    hideModalError(createContainerGeneralError);
+
+    try {
+        const serverId = requireSelectedServerId();
+        const response = await sendJsonRequest<ServiceResultWithData<AdminContainer>>(
+            `/api/admin/objects/servers/${serverId}/containers`,
+            "POST",
+            readSettings(createContainerEndpoint, createContainerDescription, createContainerEnabled));
+        const savedContainer = unwrapServiceResult(response);
+        hideModal(createContainerModal);
+        await selectServer(serverId);
+        selectContainer(savedContainer.id);
+    }
+    catch (error: unknown) {
+        if (!showFormFieldError(error, createContainerForm, "data-create-container-error")) {
+            showModalError(createContainerGeneralError, error, "Не удалось создать контейнер.");
+        }
     }
 }
 
@@ -264,13 +293,7 @@ function handlePageClick(event: MouseEvent): void {
         return;
     }
 
-    if (action === "create-server") {
-        startCreatingServer();
-    }
-    else if (action === "create-container") {
-        startCreatingContainer();
-    }
-    else if (action === "delete-server") {
+    if (action === "delete-server") {
         void runPageCommand(deleteServer);
     }
     else if (action === "delete-container") {
@@ -312,7 +335,6 @@ function selectContainer(containerId: string): void {
     }
 
     state.selectedContainerId = containerId;
-    state.creatingContainer = false;
     fillContainerForm(container);
     renderContainers();
 }
@@ -338,7 +360,7 @@ function renderContainers(): void {
             "containerId"));
     }
 
-    if (state.selectedContainerId === null && !state.creatingContainer) {
+    if (state.selectedContainerId === null) {
         containerForm.classList.add("d-none");
     }
 }
@@ -354,15 +376,19 @@ function createObjectButton(
     button.classList.toggle("active", selected);
     button.dataset[idDataName] = item.id;
 
+    const header = document.createElement("span");
+    header.classList.add("d-flex", "justify-content-between", "align-items-center", "gap-2");
+
     const title = document.createElement("span");
-    title.classList.add("d-block", "fw-semibold");
-    title.textContent = item.lastKnownName ?? "Имя не получено";
+    title.classList.add("fw-semibold", "text-truncate");
+    title.textContent = item.lastKnownName ?? "Контейнер";
 
     const details = document.createElement("span");
-    details.classList.add("d-block", "small");
-    details.textContent = `${shortGuid(item.id)} · ${statusText(item.status)} · ${item.endpointUrl}`;
+    details.classList.add("d-block", "small", "text-body-secondary", "text-truncate", "mt-1");
+    details.textContent = item.endpointUrl;
 
-    button.append(title, details);
+    header.append(title, createStatusBadge(item.status));
+    button.append(header, details);
     return button;
 }
 
@@ -373,16 +399,19 @@ function createServerButton(server: AdminServer, selected: boolean): HTMLButtonE
     button.classList.toggle("active", selected);
     button.dataset.serverId = server.id;
 
+    const header = document.createElement("span");
+    header.classList.add("d-flex", "justify-content-between", "align-items-center", "gap-2");
+
     const title = document.createElement("span");
-    title.classList.add("d-block", "fw-semibold");
+    title.classList.add("fw-semibold", "text-truncate");
     title.textContent = server.name;
 
     const details = document.createElement("span");
-    details.classList.add("d-block", "small");
-    const internalName = server.lastKnownName === null ? "" : ` · ${server.lastKnownName}`;
-    details.textContent = `${shortGuid(server.id)} · ${statusText(server.status)}${internalName} · ${server.endpointUrl}`;
+    details.classList.add("d-block", "small", "text-body-secondary", "text-truncate", "mt-1");
+    details.textContent = server.endpointUrl;
 
-    button.append(title, details);
+    header.append(title, createStatusBadge(server.status));
+    button.append(header, details);
     return button;
 }
 
@@ -402,7 +431,7 @@ function fillServerForm(server: AdminServer): void {
 function fillContainerForm(container: AdminContainer): void {
     containerForm.classList.remove("d-none");
     containerDanger.classList.remove("d-none");
-    containerFormTitle.textContent = container.lastKnownName ?? `Имя не получено · ${shortGuid(container.id)}`;
+    containerFormTitle.textContent = container.lastKnownName ?? "Контейнер";
     containerEndpoint.value = container.endpointUrl;
     containerDescription.value = container.description ?? "";
     containerEnabled.checked = container.isMonitoringEnabled;
@@ -421,18 +450,26 @@ function readSettings(
     };
 }
 
-function showFormOrPageError(error: unknown, form: HTMLFormElement): void {
-    if (error instanceof ApiError && error.field) {
-        const field = form.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[name="${error.field}"]`);
-        const message = form.querySelector<HTMLElement>(`[data-server-error="${error.field}"], [data-container-error="${error.field}"]`);
-        if (field && message) {
-            field.classList.add("is-invalid");
-            message.textContent = error.message;
-            return;
-        }
+function showFormOrPageError(error: unknown, form: HTMLFormElement, errorAttribute: string): void {
+    if (!showFormFieldError(error, form, errorAttribute)) {
+        showPageError(error);
+    }
+}
+
+function showFormFieldError(error: unknown, form: HTMLFormElement, errorAttribute: string): boolean {
+    if (!(error instanceof ApiError) || !error.field) {
+        return false;
     }
 
-    showPageError(error);
+    const field = form.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[name="${error.field}"]`);
+    const message = form.querySelector<HTMLElement>(`[${errorAttribute}="${error.field}"]`);
+    if (!field || !message) {
+        return false;
+    }
+
+    field.classList.add("is-invalid");
+    message.textContent = error.message;
+    return true;
 }
 
 function clearFormErrors(form: HTMLFormElement): void {
@@ -447,8 +484,6 @@ function clearFormErrors(form: HTMLFormElement): void {
 function clearSelection(): void {
     state.selectedServerId = null;
     state.selectedContainerId = null;
-    state.creatingServer = false;
-    state.creatingContainer = false;
     state.containers = [];
     serverForm.classList.add("d-none");
     containersSection.classList.add("d-none");
@@ -495,10 +530,6 @@ function requireElement<TElement extends Element>(selector: string): TElement {
     return element;
 }
 
-function shortGuid(id: string): string {
-    return id.slice(0, 8);
-}
-
 function statusText(status: MonitoringStatus): string {
     if (status === MonitoringStatus.Unknown) {
         return "Неизвестно";
@@ -510,6 +541,60 @@ function statusText(status: MonitoringStatus): string {
         return "Недоступен";
     }
     throw new Error(`Неизвестный статус: ${String(status)}.`);
+}
+
+function createStatusBadge(status: MonitoringStatus): HTMLElement {
+    const badge = document.createElement("span");
+    badge.classList.add("badge", "rounded-pill");
+    badge.textContent = statusText(status);
+
+    if (status === MonitoringStatus.Available) {
+        badge.classList.add("text-bg-success");
+    }
+    else if (status === MonitoringStatus.Unavailable) {
+        badge.classList.add("text-bg-danger");
+    }
+    else if (status === MonitoringStatus.Unknown) {
+        badge.classList.add("text-bg-secondary");
+    }
+    else {
+        throw new Error(`Неизвестный статус: ${String(status)}.`);
+    }
+
+    return badge;
+}
+
+function resetCreateServerForm(): void {
+    clearPageError();
+    createServerForm.reset();
+    clearFormErrors(createServerForm);
+    hideModalError(createServerGeneralError);
+}
+
+function resetCreateContainerForm(): void {
+    clearPageError();
+    createContainerForm.reset();
+    clearFormErrors(createContainerForm);
+    hideModalError(createContainerGeneralError);
+}
+
+function showModalError(element: HTMLElement, error: unknown, fallbackMessage: string): void {
+    element.textContent = error instanceof Error ? error.message : fallbackMessage;
+    element.classList.remove("d-none");
+}
+
+function hideModalError(element: HTMLElement): void {
+    element.textContent = "";
+    element.classList.add("d-none");
+}
+
+function hideModal(element: Element): void {
+    const bootstrapApi = (window as BootstrapWindow).bootstrap;
+    if (!bootstrapApi) {
+        throw new Error("Bootstrap не загружен.");
+    }
+
+    bootstrapApi.Modal.getOrCreateInstance(element).hide();
 }
 
 async function runPageCommand(command: () => Promise<void>): Promise<void> {
