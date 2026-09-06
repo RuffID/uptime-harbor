@@ -34,6 +34,7 @@ public class TelegramUniqueConstraintTests
         {
             setupContext.MonitoredServers.Add(new MonitoredServer(
                 serverId,
+                "Server",
                 "https://server.example/health",
                 null,
                 true));

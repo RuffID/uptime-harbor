@@ -131,7 +131,7 @@ public abstract class MonitoredObject
     {
         EnsureMonitoringEnabled();
         EnsureUtc(checkedAtUtc, nameof(checkedAtUtc));
-        string validatedName = ValidateName(name);
+        string validatedName = ValidateObjectName(name);
         MonitoringStatus previousStatus = Status;
 
         LastKnownName = validatedName;
@@ -206,7 +206,7 @@ public abstract class MonitoredObject
         return value;
     }
 
-    private static string ValidateName(string name)
+    protected static string ValidateObjectName(string name)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
         string value = name.Trim();

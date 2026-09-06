@@ -1,6 +1,7 @@
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using UptimeHarbor.Application.Abstractions.UnitOfWork;
+using UptimeHarbor.Domain.Monitoring;
 using UptimeHarbor.Domain.Notifications;
 
 namespace UptimeHarbor.Infrastructure.Persistence;
@@ -54,6 +55,12 @@ internal static class SqlServerPersistenceConflictClassifier
         }
 
         Type entityType = entityTypes.Single();
+        if (typeof(MonitoredServer).IsAssignableFrom(entityType))
+        {
+            kind = PersistenceConflictKind.DuplicateServerName;
+            return true;
+        }
+
         if (typeof(TelegramChat).IsAssignableFrom(entityType))
         {
             kind = PersistenceConflictKind.DuplicateTelegramChatId;

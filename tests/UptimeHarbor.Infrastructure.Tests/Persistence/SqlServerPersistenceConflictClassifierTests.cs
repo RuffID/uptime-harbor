@@ -14,6 +14,20 @@ public class SqlServerPersistenceConflictClassifierTests
     [Theory]
     [InlineData(SqlServerPersistenceConflictClassifier.DUPLICATE_KEY_ERROR)]
     [InlineData(SqlServerPersistenceConflictClassifier.UNIQUE_CONSTRAINT_ERROR)]
+    public void ExpectedSqlServerNameUniqueViolation_IsClassified(int errorNumber)
+    {
+        bool classified = SqlServerPersistenceConflictClassifier.TryClassify(
+            errorNumber,
+            [typeof(MonitoredServer)],
+            out PersistenceConflictKind kind);
+
+        Assert.True(classified);
+        Assert.Equal(PersistenceConflictKind.DuplicateServerName, kind);
+    }
+
+    [Theory]
+    [InlineData(SqlServerPersistenceConflictClassifier.DUPLICATE_KEY_ERROR)]
+    [InlineData(SqlServerPersistenceConflictClassifier.UNIQUE_CONSTRAINT_ERROR)]
     public void ExpectedSqlServerChatUniqueViolation_IsClassified(int errorNumber)
     {
         bool classified = SqlServerPersistenceConflictClassifier.TryClassify(
@@ -55,7 +69,7 @@ public class SqlServerPersistenceConflictClassifierTests
     {
         bool classified = SqlServerPersistenceConflictClassifier.TryClassify(
             SqlServerPersistenceConflictClassifier.UNIQUE_CONSTRAINT_ERROR,
-            [typeof(MonitoredServer)],
+            [typeof(string)],
             out _);
 
         Assert.False(classified);

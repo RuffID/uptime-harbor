@@ -15,8 +15,7 @@
 7. static assets;
 8. MVC controllers;
 9. Razor Pages;
-10. SignalR hub;
-11. health endpoints `/health/live` (liveness) и `/health/ready` (SQL Server readiness); `/health` оставлен алиасом readiness.
+10. SignalR hub.
 
 TLS завершается на Nginx. Web всегда принимает внутренний HTTP и не вызывает `UseHttpsRedirection`; внешний HTTP → HTTPS redirect и передача доверенного `X-Forwarded-Proto: https` принадлежат Nginx.
 
@@ -28,17 +27,16 @@ TLS завершается на Nginx. Web всегда принимает вн�
 - HTTP API должно реализовываться MVC-контроллерами с attribute routing.
 - Minimal API handlers `MapGet`, `MapPost`, `MapPut`, `MapDelete` и `MapPatch` не используются.
 - SignalR hub сопоставлен по пути `/hubs/monitoring`.
-- Стандартный health-check endpoint сопоставлен по пути `/health`.
 - API snapshot главной панели сопоставлено под `/api/dashboard` и требует аутентификацию.
 - API управления пользователями сопоставлено под `/api/admin/users` и требует роль `Administrator`.
 - API управления серверами и контейнерами сопоставлено под `/api/admin/objects`, требует роль `Administrator`, а все изменяющие методы защищены antiforgery.
 - API управления Telegram-чатами и привязками сопоставлено под `/api/admin/notifications`, требует роль `Administrator`, а все изменяющие методы и тестовая отправка защищены antiforgery.
 
-`MapHealthChecks` и `MapHub` являются специализированными mappings платформы, а не обработчиками бизнес-API.
+`MapHub` является специализированным mapping платформы, а не обработчиком бизнес-API.
 
 ## Presentation DI
 
-`AddWebPresentation` регистрирует controllers, Razor Pages, SignalR и health checks. Новые presentation-зависимости должны добавляться через этот или более узкий extension-метод, а не прямыми lifetime-регистрациями в `Program.cs`.
+`AddWebPresentation` регистрирует controllers, Razor Pages и SignalR. Новые presentation-зависимости должны добавляться через этот или более узкий extension-метод, а не прямыми lifetime-регистрациями в `Program.cs`.
 
 ## Razor Pages
 
@@ -46,15 +44,15 @@ TLS завершается на Nginx. Web всегда принимает вн�
 
 Изменяющие формы должны использовать POST, antiforgery и серверную авторизацию. API-контроллеры должны возвращать явные HTTP-контракты и также проверять роль/доступ.
 
-Административная страница объектов находится в `/Admin/Objects`. PageModel не загружает коллекции: Razor содержит только статические контейнеры и формы, а данные загружает TypeScript-модуль через MVC API. DTO содержит числовой `version`; update/delete возвращает его обратно как expected version. Stale request получает envelope `{ success: false, message }` и HTTP `409 Conflict`, после чего UI может перечитать актуальный список. Интерфейс работает без перезагрузки, создаёт динамические списки через DOM API без `innerHTML`, показывает серверные ошибки рядом с полями и требует подтверждение удаления. TypeScript собирается строгим `Microsoft.TypeScript.MSBuild` 7.0.1 из `wwwroot/ts` в `wwwroot/dist`; target `PrepareTypeScriptForStaticWebAssets` выполняет новые package targets `SetTscExecutable` и `RunTscCompile` перед `ResolveProjectStaticWebAssets` и `ResolveCoreStaticWebAssets`. Поэтому актуальные outputs восстанавливаются до разрешения static assets. `CleanTypeScriptOutputs` в эту цепочку не входит, поскольку Static Web Assets фиксирует items до выполнения targets. MSBuild сохраняет target `ES2022` и не генерирует source maps, как и `tsconfig.json`. Удалённые в TypeScript 7 targets старой MSBuild-цепочки не используются.
+Административная страница объектов находится в `/Admin/Objects`. PageModel не загружает коллекции: Razor содержит только статические контейнеры и формы, а данные загружает TypeScript-модуль через MVC API. Серверная форма передаёт обязательное уникальное имя сервера отдельно от последнего внутреннего имени, полученного при проверке. DTO содержит числовой `version`; update/delete возвращает его обратно как expected version. Stale request получает envelope `{ success: false, message }` и HTTP `409 Conflict`, после чего UI может перечитать актуальный список. Интерфейс работает без перезагрузки, создаёт динамические списки через DOM API без `innerHTML`, показывает серверные ошибки рядом с полями и требует подтверждение удаления. TypeScript собирается строгим `Microsoft.TypeScript.MSBuild` 7.0.1 из `wwwroot/ts` в generated-каталог `wwwroot/dist`, который не хранится в Git; target `PrepareTypeScriptForStaticWebAssets` выполняет новые package targets `SetTscExecutable` и `RunTscCompile` перед `ResolveProjectStaticWebAssets` и `ResolveCoreStaticWebAssets`. Поэтому актуальные outputs восстанавливаются до разрешения static assets. `CleanTypeScriptOutputs` в эту цепочку не входит, поскольку Static Web Assets фиксирует items до выполнения targets. MSBuild сохраняет target `ES2022` и не генерирует source maps, как и `tsconfig.json`. Удалённые в TypeScript 7 targets старой MSBuild-цепочки не используются.
 
 Административная страница уведомлений находится в `/Admin/Notifications` и следует тому же AJAX-only контракту. Она управляет чатами, тестовой отправкой и независимыми server/container bindings; bot token отсутствует в HTML, TypeScript и API payload. Состояния loading, empty, error и saving управляются клиентским модулем, опасные удаления требуют подтверждения.
 
 Административная страница пользователей находится в `/Admin/Users`. TypeScript загружает пользователей, серверы и контейнеры через MVC API, строит permissions через DOM API без `innerHTML`, перехватывает submit и передаёт antiforgery для mutating requests. Формы содержат связанные `id`/`name` и выводят field-specific ошибки.
 
-Главная страница `/` содержит статические контейнеры панели и не загружает коллекции в PageModel. TypeScript получает snapshot через `/api/dashboard`, выполняет server-side поиск по текущей строке, строит вложенные карточки DOM API и показывает отдельные состояния loading, empty, no-results и error. Пачка SignalR refresh-событий объединяется окном 200 мс. Каждый новый snapshot-fetch отменяет прежний через `AbortController`; штатный `AbortError` не отображается пользователю. Reconnect отменяет отложенный refresh и немедленно загружает актуальный snapshot. Тёмный layout использует Bootstrap и адаптивную сетку для desktop/mobile.
+Главная страница `/` содержит статические контейнеры панели и не загружает коллекции в PageModel. TypeScript получает snapshot через `/api/dashboard`, показывает заданное имя сервера и, если оно уже получено, отдельное внутреннее имя, выполняет server-side поиск по обоим именам и описанию, строит вложенные карточки DOM API и показывает отдельные состояния loading, empty, no-results и error. Пачка SignalR refresh-событий объединяется окном 200 мс. Каждый новый snapshot-fetch отменяет прежний через `AbortController`; штатный `AbortError` не отображается пользователю. Reconnect отменяет отложенный refresh и немедленно загружает актуальный snapshot. Тёмный layout использует Bootstrap и адаптивную сетку для desktop/mobile.
 
-Публичный `/api/objects` удалён как неиспользуемый v1 endpoint, раскрывавший endpoint URL. Пользовательские read-контракты dashboard не содержат endpoint и административные поля; `/api/admin/objects` сохраняет endpoint URL для редактирования.
+Публичный `/api/objects` удалён как неиспользуемый v1 endpoint, раскрывавший endpoint URL. Пользовательские read-контракты dashboard не содержат endpoint и административные поля, кроме предназначенных для показа имени и внутреннего имени; `/api/admin/objects` сохраняет имя и endpoint URL для редактирования.
 
 `JsonResultMapper` возвращает единый envelope и при field-specific validation добавляет необязательное поле `field`. Остальные ошибки сохраняют контракт `{ success: false, message: ... }` без дополнительного поля.
 

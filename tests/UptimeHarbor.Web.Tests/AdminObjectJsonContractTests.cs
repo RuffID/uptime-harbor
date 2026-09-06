@@ -25,6 +25,7 @@ public class AdminObjectJsonContractTests
 
         AdminServerDto server = new(
             Guid.NewGuid(),
+            "Production server",
             "https://server.example/health",
             "server",
             true,
@@ -56,6 +57,8 @@ public class AdminObjectJsonContractTests
 
         JsonElement serverPayload = serverJson.RootElement.GetProperty("data")[0];
         JsonElement containerPayload = containerJson.RootElement.GetProperty("data")[0];
+        Assert.Equal("Production server", serverPayload.GetProperty("name").GetString());
+        Assert.Equal("Server", serverPayload.GetProperty("lastKnownName").GetString());
         Assert.Equal(JsonValueKind.Number, serverPayload.GetProperty("status").ValueKind);
         Assert.Equal((int)MonitoringStatus.Available, serverPayload.GetProperty("status").GetInt32());
         Assert.Equal(JsonValueKind.Number, containerPayload.GetProperty("status").ValueKind);

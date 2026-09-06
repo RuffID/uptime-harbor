@@ -6,6 +6,32 @@ namespace UptimeHarbor.Tests.Domain.Monitoring;
 public class MonitoredServerTests
 {
     [Fact]
+    public void Constructor_NormalizesConfiguredName()
+    {
+        MonitoredServer server = new(
+            Guid.NewGuid(),
+            "  Production server  ",
+            "https://example.com/health",
+            null,
+            true);
+
+        Assert.Equal("Production server", server.Name);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Constructor_WhenConfiguredNameIsEmpty_ThrowsArgumentException(string name)
+    {
+        Assert.Throws<ArgumentException>(() => new MonitoredServer(
+            Guid.NewGuid(),
+            name,
+            "https://example.com/health",
+            null,
+            true));
+    }
+
+    [Fact]
     public void Checks_TransitionFromUnknownToAvailableToUnavailableAndBack()
     {
         MonitoredServer server = CreateServer();
@@ -63,8 +89,9 @@ public class MonitoredServerTests
         DateTimeOffset checkedAtUtc = new(2026, 8, 25, 10, 0, 0, TimeSpan.Zero);
         server.RecordSuccessfulCheck("server-01", checkedAtUtc);
 
-        server.UpdateSettings("https://new.example.com/health", "updated", true);
+        server.UpdateSettings("Renamed server", "https://new.example.com/health", "updated", true);
 
+        Assert.Equal("Renamed server", server.Name);
         Assert.Null(server.LastKnownName);
         Assert.Null(server.LastCheckedAtUtc);
         Assert.Null(server.LastSuccessfulCheckAtUtc);
@@ -76,7 +103,7 @@ public class MonitoredServerTests
     {
         MonitoredServer server = CreateServer();
 
-        server.UpdateSettings("https://new.example.com/health", null, true);
+        server.UpdateSettings(server.Name, "https://new.example.com/health", null, true);
         long afterAdministration = server.Version;
         server.RecordSuccessfulCheck(
             "server-01",
@@ -93,13 +120,14 @@ public class MonitoredServerTests
     public void Constructor_WhenEndpointIsInvalid_ThrowsArgumentException(string endpointUrl)
     {
         Assert.Throws<ArgumentException>(() =>
-            new MonitoredServer(Guid.NewGuid(), endpointUrl, null, true));
+            new MonitoredServer(Guid.NewGuid(), "Test server", endpointUrl, null, true));
     }
 
     private static MonitoredServer CreateServer()
     {
         return new MonitoredServer(
             Guid.NewGuid(),
+            "Test server",
             "https://example.com/health",
             "Test server",
             true);

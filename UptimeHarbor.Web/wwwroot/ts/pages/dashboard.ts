@@ -24,7 +24,8 @@ interface DashboardContainerDto {
 
 interface DashboardServerDto {
     id: string;
-    displayName: string;
+    name: string;
+    internalName: string | null;
     description: string | null;
     status: MonitoringStatus;
     lastCheckedAtUtc: string | null;
@@ -249,13 +250,16 @@ function createServerCard(server: DashboardServerDto): HTMLElement {
     const titleBlock = document.createElement("div");
     const title = document.createElement("h2");
     title.classList.add("h4", "object-name", "mb-1");
-    title.textContent = server.displayName;
+    title.textContent = server.name;
     titleBlock.append(title, createDescription(server.description));
     header.append(titleBlock, createStatusBadge(server.status));
 
     body.append(
         header,
         createMetadata([
+            ...(server.internalName === null
+                ? []
+                : [["Внутреннее имя", server.internalName] as const]),
             ["Последняя проверка", formatUtc(server.lastCheckedAtUtc)],
             ["Контейнеры", server.containers.length.toString()]
         ]));

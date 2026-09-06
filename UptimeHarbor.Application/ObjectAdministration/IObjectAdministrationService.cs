@@ -13,6 +13,7 @@ public interface IObjectAdministrationService
         CancellationToken cancellationToken = default);
 
     Task<ServiceResult<AdminServerDto>> CreateServerAsync(
+        string name,
         string endpointUrl,
         string? description,
         bool isMonitoringEnabled,
@@ -20,6 +21,7 @@ public interface IObjectAdministrationService
 
     Task<ServiceResult<AdminServerDto>> UpdateServerAsync(
         Guid serverId,
+        string name,
         string endpointUrl,
         string? description,
         bool isMonitoringEnabled,

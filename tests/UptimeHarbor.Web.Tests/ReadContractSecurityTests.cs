@@ -15,6 +15,8 @@ public class ReadContractSecurityTests
         Assert.Null(typeof(DashboardContainerDto).GetProperty("EndpointUrl"));
         Assert.Null(typeof(DashboardServerDto).GetProperty("IsMonitoringEnabled"));
         Assert.Null(typeof(DashboardContainerDto).GetProperty("IsMonitoringEnabled"));
+        Assert.NotNull(typeof(DashboardServerDto).GetProperty("Name"));
+        Assert.NotNull(typeof(DashboardServerDto).GetProperty("InternalName"));
     }
 
     [Fact]

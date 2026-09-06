@@ -24,11 +24,12 @@ public class AdminObjectsController(IObjectAdministrationService administrationS
     [HttpPost("servers")]
     [ValidateAntiForgeryToken]
     public async Task<JsonResult> CreateServerAsync(
-        ObjectSettingsRequest request,
+        ServerSettingsRequest request,
         CancellationToken cancellationToken)
     {
         Application.Common.ServiceResult<AdminServerDto> result =
             await administrationService.CreateServerAsync(
+                request.Name ?? string.Empty,
                 request.EndpointUrl ?? string.Empty,
                 request.Description,
                 request.IsMonitoringEnabled,
@@ -40,12 +41,13 @@ public class AdminObjectsController(IObjectAdministrationService administrationS
     [ValidateAntiForgeryToken]
     public async Task<JsonResult> UpdateServerAsync(
         Guid serverId,
-        ObjectSettingsRequest request,
+        ServerSettingsRequest request,
         CancellationToken cancellationToken)
     {
         Application.Common.ServiceResult<AdminServerDto> result =
             await administrationService.UpdateServerAsync(
                 serverId,
+                request.Name ?? string.Empty,
                 request.EndpointUrl ?? string.Empty,
                 request.Description,
                 request.IsMonitoringEnabled,

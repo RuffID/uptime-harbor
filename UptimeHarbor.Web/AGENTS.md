@@ -17,21 +17,21 @@
 - Все Razor Pages, кроме явно разрешённых страниц входа и ошибки, требуют аутентификации; административное API требует роль `Administrator`.
 - `ServiceResult` преобразовывать в единый JSON envelope через Web-мэппер, не помещая HTTP-статусы в Application.
 - Административное API объектов размещено под `/api/admin/objects`; после сохранения публикуется только обезличенный сигнал `ObjectAdministrationChanged`.
-- Administrative object DTO/request передают числовой `Version`; stale update/delete возвращает единый JSON envelope с HTTP `409 Conflict`.
+- Server administration request передаёт обязательное имя отдельно от внутреннего имени; object DTO/request передают числовой `Version`, а stale update/delete возвращает единый JSON envelope с HTTP `409 Conflict`.
 - Новый клиентский код писать на TypeScript в `wwwroot/ts`, собранный JavaScript подключать из `wwwroot/dist`.
+- `wwwroot/dist` является generated output TypeScript-сборки, не хранится в Git и восстанавливается штатной сборкой Web-проекта.
 - `Microsoft.TypeScript.MSBuild` 7 использует targets `SetTscExecutable` и `RunTscCompile`; `PrepareTypeScriptForStaticWebAssets` выполняет их перед `ResolveProjectStaticWebAssets` и `ResolveCoreStaticWebAssets`, чтобы сборка восстанавливала `wwwroot/dist` до разрешения assets.
 - `CleanTypeScriptOutputs` не включать в этот target: Static Web Assets фиксирует items при MSBuild evaluation, и удаление уже обнаруженных файлов перед resolution ломает сборку.
 - MSBuild-свойства TypeScript должны сохранять контракт `tsconfig.json`: target `ES2022`, source maps отключены.
 - Не использовать удалённые в TypeScript 7 targets `CheckFileSystemCaseSensitive`, `FindConfigFiles`, `TypeScriptDeleteOutputFromOtherConfigs` и `CompileTypeScriptWithTSConfig`.
-- API главной панели размещено под `/api/dashboard`, требует аутентификацию и возвращает только отфильтрованные dashboard DTO без endpoint URL через `JsonResultMapper`; отдельного публичного `/api/objects` нет.
+- API главной панели размещено под `/api/dashboard`, требует аутентификацию и возвращает только отфильтрованные dashboard DTO без endpoint URL, с раздельными заданным и внутренним именами сервера, через `JsonResultMapper`; отдельного публичного `/api/objects` нет.
 - Monitoring SignalR-событие содержит только тип и идентификатор объекта и отправляется сервером конкретным разрешённым user-id; клиент перечитывает snapshot после события и reconnect.
 - Клиент объединяет SignalR refresh-события окном 200 мс и отменяет устаревший snapshot-fetch через `AbortController`; reconnect загружает snapshot немедленно.
 - Автоматические `[ApiController]` model-state ошибки используют тот же `{ success: false, message, field? }` envelope, что и `JsonResultMapper`.
 - Login имеет отдельную rate-limit policy; Web добавляет `nosniff`, `no-referrer`, запрет framing и применяемую CSP. SignalR browser client поставляется локально в `wwwroot/vendor/signalr/signalr.min.js` (версия 10.0.11, SHA-256 зафиксирован в технической документации).
 - Административное API уведомлений размещено под `/api/admin/notifications`; token не входит в Web-контракты, а mutating actions и тестовая отправка требуют роль `Administrator` и antiforgery.
 - Административная страница пользователей размещена под `/Admin/Users`; UI работает через `/api/admin/users` без перезагрузки, а операции изменения защищены antiforgery и ролью `Administrator`.
-- Forwarded headers принимаются только из явно настроенной proxy-сети с ограничением `ForwardLimit` до одного прокси; liveness и readiness health endpoints разделены.
-- Readiness health-check проверяет доступность SQL Server через `UptimeHarborDbContext`.
+- Forwarded headers принимаются только из явно настроенной proxy-сети с ограничением `ForwardLimit` до одного прокси.
 - Serilog выводит человекочитаемые строки в console и rolling-файлы `Logs/log_*.log` с UTC-временем, уровнем, source context и structured properties; каталог находится вне `wwwroot`, исключён из source/build/publish и монтируется как persistent container volume.
 - Приложение принимает внутренний HTTP за Nginx и не использует `UseHttpsRedirection`; TLS завершается на reverse proxy, а исходная схема передаётся только через доверенные forwarded headers.
 - File sink ограничен 10 MiB на сегмент и 31 файлом; connection string, пароли, Telegram token, cookies, request/response body и полный Telegram URI не логируются ни в один sink.

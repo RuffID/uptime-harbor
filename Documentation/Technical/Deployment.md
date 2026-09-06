@@ -16,11 +16,7 @@ Serilog пишет человекочитаемые логи в console и rolli
 
 TLS завершается на Nginx, а Web всегда принимает внутренний HTTP и не выполняет HTTPS redirect. Nginx должен передавать `X-Forwarded-Proto: https` из сети, указанной в `ForwardedHeaders:KnownNetworks`; внешний HTTP → HTTPS redirect также принадлежит Nginx.
 
-При запуске новой версии Web проверяет SQL Server, создаёт backup при наличии pending migrations и автоматически применяет их до Identity bootstrap и HTTP pipeline. Подробности и требования к server-side backup path находятся в [Database migrations.md](Database%20migrations.md).
-
-## Health и остановка
-
-Web предоставляет `/health/live` для liveness и `/health/ready` для readiness с проверкой SQL Server; `/health` — совместимый алиас readiness. Database startup имеет timeout 60 секунд и fail-fast завершает процесс при ошибке подключения, backup или migration.
+При запуске новой версии Web проверяет SQL Server, создаёт backup при наличии pending migrations и автоматически применяет их до Identity bootstrap и HTTP pipeline. Database startup имеет timeout 60 секунд и fail-fast завершает процесс при ошибке подключения, backup или migration. Подробности и требования к server-side backup path находятся в [Database migrations.md](Database%20migrations.md).
 
 ## Выпуск и откат
 

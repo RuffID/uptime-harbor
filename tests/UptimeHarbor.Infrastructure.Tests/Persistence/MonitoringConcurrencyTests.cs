@@ -177,7 +177,7 @@ public class MonitoringConcurrencyTests
         Guid id = Guid.NewGuid();
         await using UptimeHarborDbContext context = CreateContext(connection);
         context.MonitoredServers.Add(
-            new MonitoredServer(id, "https://server.example/health", null, true));
+            new MonitoredServer(id, "Server", "https://server.example/health", null, true));
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         return id;
     }

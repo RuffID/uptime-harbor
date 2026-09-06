@@ -49,7 +49,7 @@ public class DashboardQuery(
         EnsureUtc(generatedAtUtc, nameof(generatedAtUtc));
 
         List<DashboardServerDto> servers = [];
-        foreach (DashboardServerReadRecord server in accessibleServers.OrderBy(GetDisplayName))
+        foreach (DashboardServerReadRecord server in accessibleServers.OrderBy(server => server.Name))
         {
             bool serverMatches = Matches(server, normalizedSearch);
             IEnumerable<DashboardContainerReadRecord> serverContainers = accessibleContainers
@@ -95,7 +95,8 @@ public class DashboardQuery(
         EnsureUtc(server.LastCheckedAtUtc, nameof(server.LastCheckedAtUtc));
         return new DashboardServerDto(
             server.Id,
-            GetDisplayName(server),
+            server.Name,
+            server.InternalName,
             server.Description,
             server.Status,
             server.LastCheckedAtUtc,
@@ -136,7 +137,8 @@ public class DashboardQuery(
     private static bool Matches(DashboardServerReadRecord server, string? search)
     {
         return search is null
-            || GetDisplayName(server).Contains(search, StringComparison.OrdinalIgnoreCase)
+            || server.Name.Contains(search, StringComparison.OrdinalIgnoreCase)
+            || server.InternalName?.Contains(search, StringComparison.OrdinalIgnoreCase) == true
             || server.Description?.Contains(search, StringComparison.OrdinalIgnoreCase) == true;
     }
 
@@ -146,9 +148,6 @@ public class DashboardQuery(
             || GetDisplayName(container).Contains(search, StringComparison.OrdinalIgnoreCase)
             || container.Description?.Contains(search, StringComparison.OrdinalIgnoreCase) == true;
     }
-
-    private static string GetDisplayName(DashboardServerReadRecord server) =>
-        server.LastKnownName ?? $"{MISSING_NAME} · {server.Id.ToString("N")[..8]}";
 
     private static string GetDisplayName(DashboardContainerReadRecord container) =>
         container.LastKnownName ?? $"{MISSING_NAME} · {container.Id.ToString("N")[..8]}";

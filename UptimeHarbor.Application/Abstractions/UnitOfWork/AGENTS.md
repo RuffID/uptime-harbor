@@ -14,6 +14,6 @@
 - `IObjectAdministrationUnitOfWork` атомарно отменяет незавершённые recovery jobs прежнего incident при disable/endpoint change, не раскрывая EF/outbox entity в Application.
 - Запись результата одной проверки и её notification outbox job использует `IMonitoringUnitOfWork` в одном `SaveChangesAsync`; каждый параллельно проверяемый объект получает отдельный DI scope и собственную scoped-сессию.
 - EF concurrency exception переводится Infrastructure в независимый `PersistenceConcurrencyException`; Application не зависит от EF Core.
-- Известные unique conflicts переводятся Infrastructure в `PersistenceConflictException` с семантическим `PersistenceConflictKind`; неизвестные persistence errors не маскируются.
+- Известные unique conflicts, включая административное имя сервера, переводятся Infrastructure в `PersistenceConflictException` с семантическим `PersistenceConflictKind`; неизвестные persistence errors не маскируются.
 - Администрирование и фиксация успешной доставки одной привязки используют сценарный `INotificationSettingsUnitOfWork`; получатели сохраняются независимо.
 - При изменении границ сценариев обновлять реализации, DI, этот файл и `Documentation/Technical/Persistence.md`.

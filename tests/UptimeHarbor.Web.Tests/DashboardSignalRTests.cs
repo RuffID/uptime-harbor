@@ -114,6 +114,7 @@ public class DashboardSignalRTests
             publisher);
 
         ServiceResult<AdminServerDto> result = await service.CreateServerAsync(
+            "Server",
             "https://server.example/health",
             null,
             true,

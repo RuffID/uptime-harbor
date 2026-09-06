@@ -140,7 +140,7 @@ public class UserManagementServiceTests
     {
         public TestData(bool isAdministrator)
         {
-            Server = new MonitoredServer(Guid.NewGuid(), "https://server/health", null, true);
+            Server = new MonitoredServer(Guid.NewGuid(), "Server", "https://server/health", null, true);
             Container = new MonitoredContainer(
                 Guid.NewGuid(),
                 Server.Id,

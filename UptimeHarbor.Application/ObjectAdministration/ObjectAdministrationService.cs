@@ -53,33 +53,61 @@ public class ObjectAdministrationService(
     }
 
     public async Task<ServiceResult<AdminServerDto>> CreateServerAsync(
+        string name,
         string endpointUrl,
         string? description,
         bool isMonitoringEnabled,
         CancellationToken cancellationToken = default)
     {
-        ServiceError? error = administratorAccessPolicy.GetAccessError() ?? ValidateSettings(endpointUrl, description);
+        ServiceError? error = administratorAccessPolicy.GetAccessError()
+            ?? ValidateServerSettings(name, endpointUrl, description);
         if (error is not null)
         {
             return ServiceResult<AdminServerDto>.Fail(error);
         }
 
-        MonitoredServer server = new(Guid.NewGuid(), endpointUrl, description, isMonitoringEnabled);
+        string normalizedName = name.Trim();
+        IReadOnlyList<MonitoredServer> servers =
+            await unitOfWork.MonitoredServers.GetAllAsync(cancellationToken);
+        if (servers.Any(server => string.Equals(
+            server.Name,
+            normalizedName,
+            StringComparison.OrdinalIgnoreCase)))
+        {
+            return ServiceResult<AdminServerDto>.Fail(CreateDuplicateServerNameError());
+        }
+
+        MonitoredServer server = new(
+            Guid.NewGuid(),
+            normalizedName,
+            endpointUrl,
+            description,
+            isMonitoringEnabled);
         unitOfWork.MonitoredServers.Create(server);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await unitOfWork.SaveChangesAsync(cancellationToken);
+        }
+        catch (PersistenceConflictException exception)
+            when (exception.Kind == PersistenceConflictKind.DuplicateServerName)
+        {
+            return ServiceResult<AdminServerDto>.Fail(CreateDuplicateServerNameError());
+        }
         await changePublisher.PublishObjectsChangedAsync(cancellationToken);
         return ServiceResult<AdminServerDto>.Ok(MapServer(server));
     }
 
     public async Task<ServiceResult<AdminServerDto>> UpdateServerAsync(
         Guid serverId,
+        string name,
         string endpointUrl,
         string? description,
         bool isMonitoringEnabled,
         long expectedVersion,
         CancellationToken cancellationToken = default)
     {
-        ServiceError? error = administratorAccessPolicy.GetAccessError() ?? ValidateSettings(endpointUrl, description);
+        ServiceError? error = administratorAccessPolicy.GetAccessError()
+            ?? ValidateServerSettings(name, endpointUrl, description);
         if (error is not null)
         {
             return ServiceResult<AdminServerDto>.Fail(error);
@@ -96,6 +124,17 @@ public class ObjectAdministrationService(
             return ServiceResult<AdminServerDto>.Fail(CreateConcurrencyError());
         }
 
+        string normalizedName = name.Trim();
+        IReadOnlyList<MonitoredServer> servers =
+            await unitOfWork.MonitoredServers.GetAllAsync(cancellationToken);
+        if (servers.Any(candidate => candidate.Id != server.Id && string.Equals(
+            candidate.Name,
+            normalizedName,
+            StringComparison.OrdinalIgnoreCase)))
+        {
+            return ServiceResult<AdminServerDto>.Fail(CreateDuplicateServerNameError());
+        }
+
         try
         {
             await unitOfWork.ExecuteInTransactionAsync(
@@ -108,7 +147,7 @@ public class ObjectAdministrationService(
                             endpointUrl,
                             server.IsMonitoringEnabled,
                             isMonitoringEnabled);
-                    server.UpdateSettings(endpointUrl, description, isMonitoringEnabled);
+                    server.UpdateSettings(normalizedName, endpointUrl, description, isMonitoringEnabled);
                     if (incidentId is Guid requiredIncidentId
                         && cancellationReason is RecoveryNotificationCancellationReason requiredReason)
                     {
@@ -125,6 +164,11 @@ public class ObjectAdministrationService(
         catch (PersistenceConcurrencyException)
         {
             return ServiceResult<AdminServerDto>.Fail(CreateConcurrencyError());
+        }
+        catch (PersistenceConflictException exception)
+            when (exception.Kind == PersistenceConflictKind.DuplicateServerName)
+        {
+            return ServiceResult<AdminServerDto>.Fail(CreateDuplicateServerNameError());
         }
         await changePublisher.PublishObjectsChangedAsync(cancellationToken);
         return ServiceResult<AdminServerDto>.Ok(MapServer(server));
@@ -403,10 +447,32 @@ public class ObjectAdministrationService(
         return null;
     }
 
+    private static ServiceError? ValidateServerSettings(
+        string name,
+        string endpointUrl,
+        string? description)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return new ServiceError(ServiceErrorType.Validation, "Имя сервера обязательно.", "name");
+        }
+
+        if (name.Trim().Length > ModelConstraints.OBJECT_NAME_MAX_LENGTH)
+        {
+            return new ServiceError(
+                ServiceErrorType.Validation,
+                $"Имя сервера не должно превышать {ModelConstraints.OBJECT_NAME_MAX_LENGTH} символов.",
+                "name");
+        }
+
+        return ValidateSettings(endpointUrl, description);
+    }
+
     private static AdminServerDto MapServer(MonitoredServer server)
     {
         return new AdminServerDto(
             server.Id,
+            server.Name,
             server.EndpointUrl,
             server.Description,
             server.IsMonitoringEnabled,
@@ -435,6 +501,14 @@ public class ObjectAdministrationService(
         return new ServiceError(
             ServiceErrorType.Conflict,
             "Объект был изменён другим процессом. Обновите данные и повторите операцию.");
+    }
+
+    private static ServiceError CreateDuplicateServerNameError()
+    {
+        return new ServiceError(
+            ServiceErrorType.Conflict,
+            "Сервер с таким именем уже существует.",
+            "name");
     }
 
     private static RecoveryNotificationCancellationReason? GetRecoveryCancellationReason(

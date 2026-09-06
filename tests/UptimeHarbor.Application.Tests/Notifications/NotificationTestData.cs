@@ -53,6 +53,7 @@ internal class NotificationTestData
     {
         MonitoredServer server = new(
             Guid.NewGuid(),
+            $"Server {Servers.Items.Count}",
             $"https://server-{Servers.Items.Count}.example/health",
             "Описание сервера",
             true);

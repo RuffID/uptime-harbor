@@ -65,6 +65,7 @@ dotnet test --project .\tests\UptimeHarbor.Web.Tests\UptimeHarbor.Web.Tests.cspr
 - пакетное чтение recipient permissions без per-user вызовов и прежнюю server/container visibility semantics;
 - read-only signatures всех списковых Application repository contracts, отсутствие `IQueryable` в публичных Application-контрактах и materialized dashboard/recipient read models;
 - SQLite-проверку специализированных dashboard/recipient Infrastructure queries, отсутствия endpoint URL в projection и трёх пакетных recipient queries независимо от числа пользователей;
+- SQLite-проверку уникального нормализованного имени сервера и metadata-проверку обязательных полей `Name`/`NormalizedName`;
 - отсутствие endpoint URL в dashboard DTO, сохранение endpoint в admin DTO и отсутствие controller route `/api/objects`;
 - best-effort administrative SignalR publisher: commit остаётся успешным при transport exception, ошибка журналируется, а до commit/conflict publisher не вызывается;
 - фактически зарегистрированную `InvalidModelStateResponseFactory` и MVC JSON options для malformed body, отсутствующего body, неверного типа и field validation без parser details;

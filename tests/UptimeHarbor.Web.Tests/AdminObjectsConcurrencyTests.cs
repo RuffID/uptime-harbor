@@ -18,8 +18,9 @@ public class AdminObjectsConcurrencyTests
 
         JsonResult result = await controller.UpdateServerAsync(
             Guid.NewGuid(),
-            new ObjectSettingsRequest
+            new ServerSettingsRequest
             {
+                Name = "Server",
                 EndpointUrl = "https://server.example/health",
                 IsMonitoringEnabled = true,
                 Version = 3
@@ -33,6 +34,7 @@ public class AdminObjectsConcurrencyTests
     {
         public Task<ServiceResult<AdminServerDto>> UpdateServerAsync(
             Guid serverId,
+            string name,
             string endpointUrl,
             string? description,
             bool isMonitoringEnabled,
@@ -44,7 +46,7 @@ public class AdminObjectsConcurrencyTests
 
         public Task<ServiceResult<IReadOnlyList<AdminServerDto>>> GetServersAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<ServiceResult<IReadOnlyList<AdminContainerDto>>> GetContainersAsync(Guid serverId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<ServiceResult<AdminServerDto>> CreateServerAsync(string endpointUrl, string? description, bool isMonitoringEnabled, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<ServiceResult<AdminServerDto>> CreateServerAsync(string name, string endpointUrl, string? description, bool isMonitoringEnabled, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<ServiceResult<AdminContainerDto>> CreateContainerAsync(Guid serverId, string endpointUrl, string? description, bool isMonitoringEnabled, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<ServiceResult<AdminContainerDto>> UpdateContainerAsync(Guid containerId, string endpointUrl, string? description, bool isMonitoringEnabled, long expectedVersion, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<ServiceResult<ServerDeletionImpactDto>> GetServerDeletionImpactAsync(Guid serverId, CancellationToken cancellationToken = default) => throw new NotSupportedException();

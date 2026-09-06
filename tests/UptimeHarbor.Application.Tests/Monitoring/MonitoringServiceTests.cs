@@ -121,7 +121,7 @@ public class MonitoringServiceTests
         TestData data = new();
         MonitoredServer server = data.AddServer(isMonitoringEnabled: true);
         string oldEndpoint = server.EndpointUrl;
-        server.UpdateSettings("https://new-server.example/health", null, true);
+        server.UpdateSettings(server.Name, "https://new-server.example/health", null, true);
 
         bool recorded = await data.Service.RecordServerResultAsync(
             server.Id,
@@ -192,6 +192,7 @@ public class MonitoringServiceTests
         {
             MonitoredServer server = new(
                 Guid.NewGuid(),
+                $"Server {Servers.Items.Count}",
                 $"https://server-{Servers.Items.Count}.example/health",
                 "Server description",
                 isMonitoringEnabled);

@@ -16,10 +16,11 @@
 - Проверки текущего пользователя получать через `IUserAccessContext`, не добавляя ASP.NET Core dependency.
 - Все административные use case получают единый семантический отказ через `IAdministratorAccessPolicy`; controller authorization не заменяет эту проверку.
 - Администрирование объектов выполнять через `IObjectAdministrationUnitOfWork`, а уведомление после сохранения — через `IObjectAdministrationChangePublisher`.
+- Административное имя сервера проверять на уникальность без учёта регистра; полученное endpoint внутреннее имя не использовать вместо него.
 - Disable/endpoint change через `IObjectAdministrationUnitOfWork` атомарно отменяет recovery jobs прежнего incident; Application не знает EF/outbox entity.
 - Мониторинг координировать через `MonitoringService`: endpoint проверяет независимый контракт, состояние изменяется доменными переходами, событие публикуется только после сохранения.
 - `MonitoringOptions` принадлежит Application как общий типизированный контракт цикла и HTTP-адаптера; привязка конфигурации остаётся в Web composition root.
-- Главная панель загружается через `DashboardQuery` и специализированный materialized `IDashboardSnapshotReadQuery`; endpoint URL не входит в read records, а фильтрация выполняется до формирования dashboard DTO.
+- Главная панель загружается через `DashboardQuery` и специализированный materialized `IDashboardSnapshotReadQuery`; endpoint URL не входит в read records, заданное и внутреннее имена сервера передаются раздельно, а фильтрация выполняется до формирования dashboard DTO.
 - Dashboard и SignalR-получатели используют общую чистую `ObjectVisibilityPolicy`; `IMonitoringRecipientReadQuery` отдельно загружает пользователей, роли и permissions пакетно, публичного `/api/objects` в v1 нет.
 - `IObjectAdministrationChangePublisher` вызывается только после успешного сохранения; Web-реализация обязана изолировать best-effort SignalR transport error.
 - Уведомления используют независимый `INotificationSender`, административный use case и per-binding фиксацию outage/recovery через `INotificationSettingsUnitOfWork`; transport и логирование остаются в Infrastructure.

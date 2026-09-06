@@ -30,6 +30,8 @@ Design-time factory настраивает SQL Server provider без строк
 
 Исправление recovery cancellation использует уже существующие `PayloadJson`, `CompletedAtUtc` и `LockedUntilUtc`; новых колонок и отдельной migration для него не требуется. Явные имена unique indexes Telegram chat/binding совпадают с именами, уже созданными baseline. Файлы `20260831015604_InitialSqlServerSchema` и snapshot этим исправлением не изменялись.
 
+Добавление административного имени сервера изменяет схему после baseline: требуются обязательные колонки `Name` и `NormalizedName` в `monitored_servers`, а также уникальный индекс `ux_monitored_servers_name` по нормализованному значению. Новую миграцию следует создать отдельно с именем `AddMonitoredServerName`; существующую baseline-миграцию и snapshot вручную не редактировать. Если таблица уже содержит серверы, до применения обязательных колонок миграция должна определить явную стратегию заполнения уникальных имён для существующих записей.
+
 Baseline рассчитана на пустую базу SQL Server. Если в прежней PostgreSQL уже есть данные, их перенос выполняется отдельным проверяемым export/transform/import процессом; EF migration не переносит данные между разными СУБД.
 
 ## Обновление production

@@ -357,6 +357,7 @@ public class TelegramOutboxDispatcherTests
         await using UptimeHarborDbContext context = CreateContext(connection);
         MonitoredServer server = new(
             Guid.NewGuid(),
+            "Server",
             "https://server.example/health",
             null,
             true);
@@ -415,7 +416,7 @@ public class TelegramOutboxDispatcherTests
                 }
                 else
                 {
-                    server.UpdateSettings("https://changed.example/health", null, true);
+                    server.UpdateSettings(server.Name, "https://changed.example/health", null, true);
                 }
 
                 await unitOfWork.CancelPendingRecoveryNotificationsAsync(

@@ -4,7 +4,6 @@ using UptimeHarbor.Web.Configuration;
 using UptimeHarbor.Web.Hubs;
 using UptimeHarbor.Web.Pages;
 using UptimeHarbor.Web.Security;
-using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -48,20 +47,8 @@ app.UseAuthorization();
 
 app.MapStaticAssets();
 app.MapControllers();
-app.MapRazorPages()
-   .WithStaticAssets();
+app.MapRazorPages().WithStaticAssets();
+
 app.MapHub<MonitoringHub>("/hubs/monitoring");
-app.MapHealthChecks("/health/live", new HealthCheckOptions
-{
-    Predicate = registration => registration.Tags.Contains("live")
-});
-app.MapHealthChecks("/health/ready", new HealthCheckOptions
-{
-    Predicate = registration => registration.Tags.Contains("ready")
-});
-app.MapHealthChecks("/health", new HealthCheckOptions
-{
-    Predicate = registration => registration.Tags.Contains("ready")
-});
 
 app.Run();

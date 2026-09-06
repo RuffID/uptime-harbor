@@ -33,3 +33,4 @@
 - Telegram retry проверять с управляемым `TimeProvider`; зависания чатов — через `TaskCompletionSource` без внешней сети.
 - Recovery cancellation проверять SQLite interleaving «claim → cancel → pre-send gate» и terminal payload; не выдавать это за доказательство SQL Server row-lock semantics.
 - SQL Server 2601/2627 проверять изолированным классификатором; SQLite unique conflict не считать проверкой номеров или структуры `SqlException`.
+- Уникальность нормализованного имени сервера проверять provider-level тестом SQLite; семантику SQL Server 2601/2627 по-прежнему доказывает только изолированный classifier test.

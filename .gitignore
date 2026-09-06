@@ -363,3 +363,6 @@ MigrationBackup/
 FodyWeavers.xsd
 
 /UptimeHarbor.Web/Config/config.json
+
+# Generated TypeScript output
+/UptimeHarbor.Web/wwwroot/dist/

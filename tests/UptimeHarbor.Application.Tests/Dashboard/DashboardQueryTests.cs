@@ -27,6 +27,11 @@ public class DashboardQueryTests
         Assert.True(result.Success);
         Assert.Equal(2, result.Data!.Servers.Count);
         Assert.Equal(3, result.Data.Servers.SelectMany(server => server.Containers).Count());
+        DashboardServerDto firstServer = Assert.Single(
+            result.Data.Servers,
+            server => server.Id == data.FirstServer.Id);
+        Assert.Equal("Primary server", firstServer.Name);
+        Assert.Equal("Primary", firstServer.InternalName);
     }
 
     [Fact]
@@ -128,7 +133,7 @@ public class DashboardQueryTests
     }
 
     [Fact]
-    public async Task GetSnapshotAsync_MissingNameUsesLabelAndShortGuid()
+    public async Task GetSnapshotAsync_ServerUsesConfiguredNameAndOmitsMissingInternalName()
     {
         TestData data = new();
         data.AllowServer(data.SecondServer);
@@ -137,9 +142,8 @@ public class DashboardQueryTests
             .CreateQuery(isAdministrator: false)
             .GetSnapshotAsync(null, TestContext.Current.CancellationToken)).Data!.Servers);
 
-        Assert.Equal(
-            $"Имя не получено · {data.SecondServer.Id.ToString("N")[..8]}",
-            server.DisplayName);
+        Assert.Equal(data.SecondServer.Name, server.Name);
+        Assert.Null(server.InternalName);
     }
 
     [Fact]
@@ -182,12 +186,14 @@ public class DashboardQueryTests
         {
             FirstServer = new MonitoredServer(
                 Guid.NewGuid(),
+                "Primary server",
                 "https://primary.example/health",
                 "Production server",
                 true);
             FirstServer.RecordSuccessfulCheck("Primary", NOW_UTC.AddMinutes(-5));
             SecondServer = new MonitoredServer(
                 Guid.NewGuid(),
+                "Secondary server",
                 "https://secondary.example/health",
                 "Secondary workload",
                 true);
@@ -273,6 +279,7 @@ public class DashboardQueryTests
             DashboardReadSnapshot snapshot = new(
                 servers.Items.Select(server => new DashboardServerReadRecord(
                     server.Id,
+                    server.Name,
                     server.Description,
                     server.LastKnownName,
                     server.Status,

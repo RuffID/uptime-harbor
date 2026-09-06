@@ -4,7 +4,8 @@ namespace UptimeHarbor.Application.Dashboard.Models;
 
 public record DashboardServerDto(
     Guid Id,
-    string DisplayName,
+    string Name,
+    string? InternalName,
     string? Description,
     MonitoringStatus Status,
     DateTimeOffset? LastCheckedAtUtc,

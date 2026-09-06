@@ -35,7 +35,7 @@
 
 `MonitoringService` после HTTP-проверки заново загружает tracked объект через `IMonitoringUnitOfWork`. Результат игнорируется, если объект за время запроса удалён, выключен или его endpoint изменён. Иначе use case вызывает существующий доменный переход, добавляет outage/recovery payload в durable outbox и одним `SaveChangesAsync` сохраняет состояние и job.
 
-`MonitoringStateChangedEvent` содержит тип и ID объекта, parent server ID контейнера, описание, имя, status, transition, failure counter, времена, успешность и семантическую endpoint-ошибку. `MonitoringEventPublisher` передаёт его внутренним handlers только после успешного сохранения.
+`MonitoringStateChangedEvent` содержит тип и ID объекта, parent server ID контейнера, описание, внутреннее имя из endpoint, status, transition, failure counter, времена, успешность и семантическую endpoint-ошибку. Административное имя сервера проверка не изменяет. `MonitoringEventPublisher` передаёт событие внутренним handlers только после успешного сохранения.
 
 SignalR handler реализован в Web. Он получает из Application список разрешённых включённых пользователей и отправляет им только `objectId` и `objectKind`; скрытые имя, описание, состояние и времена в push payload не попадают. Telegram не является synchronous handler: отдельный Infrastructure worker читает durable outbox. SQL Server остаётся источником истины.
 

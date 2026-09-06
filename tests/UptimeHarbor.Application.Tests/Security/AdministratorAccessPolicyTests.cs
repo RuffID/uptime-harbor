@@ -89,6 +89,7 @@ public class AdministratorAccessPolicyTests
                 "password",
                 TestContext.Current.CancellationToken)).Error!,
             (await objects.CreateServerAsync(
+                "Server",
                 "https://server.example/health",
                 null,
                 true,

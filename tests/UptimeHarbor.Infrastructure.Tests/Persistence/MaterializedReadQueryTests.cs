@@ -30,11 +30,13 @@ public class MaterializedReadQueryTests
         Guid userId = Guid.NewGuid();
         MonitoredServer visibleServer = new(
             Guid.NewGuid(),
+            "Visible server",
             "https://secret-server.example/health",
             "Visible server",
             true);
         MonitoredServer hiddenServer = new(
             Guid.NewGuid(),
+            "Hidden server",
             "https://hidden-server.example/health",
             "Hidden server",
             true);
@@ -93,6 +95,7 @@ public class MaterializedReadQueryTests
         Guid disabledUserId = Guid.NewGuid();
         MonitoredServer server = new(
             Guid.NewGuid(),
+            "Server",
             "https://server.example/health",
             null,
             true);

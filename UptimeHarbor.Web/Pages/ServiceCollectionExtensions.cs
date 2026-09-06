@@ -5,8 +5,6 @@ using UptimeHarbor.Application.ObjectAdministration;
 using UptimeHarbor.Application.Monitoring;
 using UptimeHarbor.Web.Hubs;
 using UptimeHarbor.Web.Security;
-using UptimeHarbor.Web.Health;
-using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
 using UptimeHarbor.Web.Http;
@@ -52,9 +50,6 @@ public static class ServiceCollectionExtensions
                         AutoReplenishment = true
                     }));
         });
-        services.AddHealthChecks()
-            .AddCheck("web", () => HealthCheckResult.Healthy(), tags: ["live"])
-            .AddCheck<SqlServerHealthCheck>("sqlserver", tags: ["ready"]);
         services.AddHttpContextAccessor();
         services.AddScoped<IUserAccessContext, CurrentUserAccessContext>();
         services.AddScoped<IObjectAdministrationChangePublisher, SignalRObjectAdministrationChangePublisher>();

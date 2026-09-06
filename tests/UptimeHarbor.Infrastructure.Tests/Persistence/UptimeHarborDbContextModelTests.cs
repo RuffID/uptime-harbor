@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.AspNetCore.DataProtection.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
+using UptimeHarbor.Domain;
 using UptimeHarbor.Domain.Access;
 using UptimeHarbor.Domain.Monitoring;
 using UptimeHarbor.Domain.Notifications;
@@ -24,6 +25,26 @@ public class UptimeHarborDbContextModelTests
 
         Assert.True(serverVersion.IsConcurrencyToken);
         Assert.True(containerVersion.IsConcurrencyToken);
+    }
+
+    [Fact]
+    public void MonitoredServer_ConfiguresRequiredUniqueName()
+    {
+        using UptimeHarborDbContext context = CreateContext();
+        IEntityType serverType = context.Model.FindEntityType(typeof(MonitoredServer))!;
+        IProperty name = serverType.FindProperty(nameof(MonitoredServer.Name))!;
+        IProperty normalizedName = serverType.FindProperty("NormalizedName")!;
+        IIndex index = Assert.Single(
+            serverType.GetIndexes(),
+            candidate => candidate.Properties.Select(property => property.Name)
+                .SequenceEqual(["NormalizedName"]));
+
+        Assert.False(name.IsNullable);
+        Assert.Equal(ModelConstraints.OBJECT_NAME_MAX_LENGTH, name.GetMaxLength());
+        Assert.False(normalizedName.IsNullable);
+        Assert.Equal(ModelConstraints.OBJECT_NAME_MAX_LENGTH, normalizedName.GetMaxLength());
+        Assert.True(index.IsUnique);
+        Assert.Equal(MonitoredServerConfiguration.NAME_UNIQUE_INDEX, index.GetDatabaseName());
     }
 
     [Fact]

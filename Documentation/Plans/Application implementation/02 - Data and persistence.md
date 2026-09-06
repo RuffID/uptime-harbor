@@ -2,7 +2,7 @@
 
 ## Статус
 
-**В работе.** Доменная модель, persistence, scenario Unit of Work, read-only списковые Application-контракты, специализированные materialized dashboard/recipient queries, optimistic concurrency, durable outbox cancellation и Telegram unique constraints проверены metadata/SQLite/isolated classifier tests. Runtime provider использует SQL Server; baseline `20260831015604_InitialSqlServerSchema` автоматически применяется при startup после backup и до Identity bootstrap. Реальные backup/migration, SQL Server locking и 2601/2627 остаются runtime-проверкой.
+**В работе.** Доменная модель, persistence, scenario Unit of Work, read-only списковые Application-контракты, специализированные materialized dashboard/recipient queries, optimistic concurrency, durable outbox cancellation и unique constraints проверены metadata/SQLite/isolated classifier tests. Runtime provider использует SQL Server; после добавления имени сервера требуется отдельная миграция `AddMonitoredServerName`. Реальные backup/migration, SQL Server locking и 2601/2627 остаются runtime-проверкой.
 
 ## Цель
 
@@ -32,6 +32,8 @@
    - время последней и последней успешной проверки;
    - идентификатор текущего инцидента для согласованной per-binding доставки уведомлений.
 
+   Для сервера дополнительно хранить обязательное уникальное имя, заданное администратором.
+
 4. Для контейнера дополнительно хранить последнее `startedAtUtc` и обязательную связь с сервером.
 5. Реализовать доменные операции переходов статуса, не допуская произвольного изменения связанных полей внешним кодом.
 6. Настроить `DbContext`, ограничения, индексы, длины строк, каскадное удаление и UTC-конвертацию в Infrastructure.
@@ -43,7 +45,7 @@
 ## Основные ограничения данных
 
 - GUID генерируется приложением до сохранения;
-- одинаковые полученные имена разрешены;
+- заданные имена серверов уникальны, одинаковые имена из endpoint разрешены;
 - URL обязателен и должен использовать HTTP или HTTPS;
 - описание имеет заданную максимальную длину;
 - `startedAtUtc` хранится как UTC;
@@ -59,9 +61,9 @@
 - отсутствие recovery-события после ручного отключения;
 - ограничения URL и UTC;
 - каскадное удаление модели;
-- уникальность составных связей разрешений и уведомлений.
+- уникальность имён серверов и составных связей разрешений и уведомлений.
 - атомарная terminal cancellation recovery job при disable/endpoint change;
-- конкурентные duplicate chat/binding и безопасная классификация известных SQL Server unique violations.
+- конкурентные duplicate server name/chat/binding и безопасная классификация известных SQL Server unique violations.
 
 ## Результат этапа
 

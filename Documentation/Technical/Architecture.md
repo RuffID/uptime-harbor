@@ -42,7 +42,7 @@ Test-проекты ссылаются только на проверяемый 
 - `AddApplication` — `TimeProvider.System`, единая administrator access policy, управление пользователями и объектами, dashboard/recipient visibility use case и publisher мониторинга;
 - `AddApplicationConfiguration` — options и их fail-fast валидация;
 - `AddInfrastructure` — база данных, Identity/cookies, bootstrap администратора, репозитории, специализированные materialized read queries, Unit of Work, Data Protection, HTTP-клиенты и monitoring worker;
-- `AddWebPresentation` — контроллеры, Razor Pages, SignalR, publisher административных изменений и health checks.
+- `AddWebPresentation` — контроллеры, Razor Pages, SignalR и publisher административных изменений.
 
 ## Границы моделей
 

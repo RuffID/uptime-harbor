@@ -69,7 +69,7 @@ public class NotificationDeliveryService(
                 cancellationToken);
             parentServerName = server is null
                 ? ShortGuid(serverId)
-                : GetDisplayName(server.LastKnownName, server.Id);
+                : server.Name;
         }
 
         string message = CreateMessage(monitoringEvent, kind.Value, parentServerName);

@@ -16,7 +16,7 @@ interface UserAccount {
     containerIds: string[];
 }
 
-interface Server { id: string; endpointUrl: string; lastKnownName: string | null; }
+interface Server { id: string; name: string; endpointUrl: string; lastKnownName: string | null; }
 interface Container { id: string; serverId: string; endpointUrl: string; lastKnownName: string | null; }
 interface ServerWithContainers extends Server { containers: Container[]; }
 
@@ -98,7 +98,7 @@ function renderVisibility(user: UserAccount): void {
         serverInput.type = "checkbox"; serverInput.id = `server_${server.id}`; serverInput.name = "serverIds"; serverInput.value = server.id;
         serverInput.checked = user.serverIds.includes(server.id); serverInput.dataset.serverId = server.id; serverInput.classList.add("form-check-input");
         const serverLabel = document.createElement("label"); serverLabel.htmlFor = serverInput.id; serverLabel.classList.add("form-check-label", "fw-semibold");
-        serverLabel.textContent = server.lastKnownName ?? server.endpointUrl;
+        serverLabel.textContent = server.name;
         const serverRow = document.createElement("div"); serverRow.classList.add("form-check"); serverRow.append(serverInput, serverLabel); wrapper.append(serverRow);
         const containerList = document.createElement("div"); containerList.classList.add("ms-4");
         for (const container of server.containers) {

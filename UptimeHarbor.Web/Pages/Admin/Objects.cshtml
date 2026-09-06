@@ -35,6 +35,11 @@
                 <div class="card-body">
                     <h3 class="h5" data-server-form-title>Сервер</h3>
                     <div class="mb-3">
+                        <label class="form-label" for="serverName">Имя</label>
+                        <input class="form-control" id="serverName" name="name" type="text" maxlength="256" required data-server-name />
+                        <div class="invalid-feedback" data-server-error="name"></div>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label" for="serverEndpointUrl">HTTP/HTTPS endpoint</label>
                         <input class="form-control" id="serverEndpointUrl" name="endpointUrl" type="url" maxlength="2048" required data-server-endpoint />
                         <div class="invalid-feedback" data-server-error="endpointUrl"></div>

@@ -19,6 +19,7 @@ public class ObjectAdministrationServiceTests
         TestData data = new();
 
         ServiceResult<AdminServerDto> result = await data.Service.CreateServerAsync(
+            "Primary server",
             "https://server.example/health",
             "Основной сервер",
             true,
@@ -26,6 +27,7 @@ public class ObjectAdministrationServiceTests
 
         Assert.True(result.Success);
         Assert.NotEqual(Guid.Empty, result.Data!.Id);
+        Assert.Equal("Primary server", result.Data.Name);
         Assert.Equal(MonitoringStatus.Unknown, result.Data.Status);
         Assert.Single(data.Servers.Items);
         Assert.Equal(1, data.Publisher.PublishCount);
@@ -80,6 +82,7 @@ public class ObjectAdministrationServiceTests
         TestData data = new();
 
         ServiceResult<AdminServerDto> result = await data.Service.CreateServerAsync(
+            "Server",
             endpointUrl,
             null,
             true,
@@ -100,11 +103,13 @@ public class ObjectAdministrationServiceTests
         string excessiveEndpoint = maximumEndpoint + "a";
 
         ServiceResult<AdminServerDto> maximumResult = await data.Service.CreateServerAsync(
+            "Server",
             maximumEndpoint,
             null,
             true,
             TestContext.Current.CancellationToken);
         ServiceResult<AdminServerDto> excessiveResult = await data.Service.CreateServerAsync(
+            "Server",
             excessiveEndpoint,
             null,
             true,
@@ -123,11 +128,13 @@ public class ObjectAdministrationServiceTests
         string excessiveDescription = maximumDescription + "a";
 
         ServiceResult<AdminServerDto> maximumResult = await data.Service.CreateServerAsync(
+            "Server",
             "https://server.example/health",
             maximumDescription,
             true,
             TestContext.Current.CancellationToken);
         ServiceResult<AdminServerDto> excessiveResult = await data.Service.CreateServerAsync(
+            "Second server",
             "https://second-server.example/health",
             excessiveDescription,
             true,
@@ -149,6 +156,7 @@ public class ObjectAdministrationServiceTests
 
         ServiceResult<AdminServerDto> result = await data.Service.UpdateServerAsync(
             server.Id,
+            "Renamed server",
             "https://new-server.example/health",
             "Новое описание",
             true,
@@ -193,6 +201,7 @@ public class ObjectAdministrationServiceTests
 
         await data.Service.UpdateServerAsync(
             server.Id,
+            server.Name,
             server.EndpointUrl,
             server.Description,
             false,
@@ -234,6 +243,7 @@ public class ObjectAdministrationServiceTests
 
         ServiceResult<AdminServerDto> result = await data.Service.UpdateServerAsync(
             server.Id,
+            server.Name,
             server.EndpointUrl,
             server.Description,
             false,
@@ -244,6 +254,44 @@ public class ObjectAdministrationServiceTests
         Assert.Equal(MonitoringStatus.Unknown, server.Status);
         Assert.Equal(0, server.ConsecutiveFailures);
         Assert.Null(server.CurrentIncidentId);
+    }
+
+    [Fact]
+    public async Task CreateServerAsync_WhenNameIsEmpty_ReturnsFieldValidationError()
+    {
+        TestData data = new();
+
+        ServiceResult<AdminServerDto> result = await data.Service.CreateServerAsync(
+            "   ",
+            "https://server.example/health",
+            null,
+            true,
+            TestContext.Current.CancellationToken);
+
+        Assert.False(result.Success);
+        Assert.Equal(ServiceErrorType.Validation, result.Error!.Type);
+        Assert.Equal("name", result.Error.Field);
+        Assert.Empty(data.Servers.Items);
+    }
+
+    [Fact]
+    public async Task CreateServerAsync_WhenNameAlreadyExistsIgnoringCase_ReturnsConflict()
+    {
+        TestData data = new();
+        data.AddServer(isMonitoringEnabled: true);
+
+        ServiceResult<AdminServerDto> result = await data.Service.CreateServerAsync(
+            "  SERVER 0  ",
+            "https://another.example/health",
+            null,
+            true,
+            TestContext.Current.CancellationToken);
+
+        Assert.False(result.Success);
+        Assert.Equal(ServiceErrorType.Conflict, result.Error!.Type);
+        Assert.Equal("name", result.Error.Field);
+        Assert.Single(data.Servers.Items);
+        Assert.Equal(0, data.Publisher.PublishCount);
     }
 
     [Fact]
@@ -258,6 +306,7 @@ public class ObjectAdministrationServiceTests
 
         ServiceResult<AdminServerDto> result = await data.Service.UpdateServerAsync(
             server.Id,
+            server.Name,
             server.EndpointUrl,
             server.Description,
             false,
@@ -367,6 +416,7 @@ public class ObjectAdministrationServiceTests
 
         ServiceResult<AdminServerDto> result = await data.Service.UpdateServerAsync(
             server.Id,
+            server.Name,
             "https://new.example/health",
             null,
             true,
@@ -385,6 +435,7 @@ public class ObjectAdministrationServiceTests
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             data.Service.CreateServerAsync(
+                "Server",
                 "https://server.example/health",
                 null,
                 true,
@@ -413,8 +464,8 @@ public class ObjectAdministrationServiceTests
         {
             "GetServers" => (await data.Service.GetServersAsync(TestContext.Current.CancellationToken)).Error!,
             "GetContainers" => (await data.Service.GetContainersAsync(server.Id, TestContext.Current.CancellationToken)).Error!,
-            "CreateServer" => (await data.Service.CreateServerAsync("https://new.example/health", null, true, TestContext.Current.CancellationToken)).Error!,
-            "UpdateServer" => (await data.Service.UpdateServerAsync(server.Id, server.EndpointUrl, null, true, server.Version, TestContext.Current.CancellationToken)).Error!,
+            "CreateServer" => (await data.Service.CreateServerAsync("New server", "https://new.example/health", null, true, TestContext.Current.CancellationToken)).Error!,
+            "UpdateServer" => (await data.Service.UpdateServerAsync(server.Id, server.Name, server.EndpointUrl, null, true, server.Version, TestContext.Current.CancellationToken)).Error!,
             "CreateContainer" => (await data.Service.CreateContainerAsync(server.Id, "https://new-container.example/health", null, true, TestContext.Current.CancellationToken)).Error!,
             "UpdateContainer" => (await data.Service.UpdateContainerAsync(container.Id, container.EndpointUrl, null, true, container.Version, TestContext.Current.CancellationToken)).Error!,
             "GetDeletionImpact" => (await data.Service.GetServerDeletionImpactAsync(server.Id, TestContext.Current.CancellationToken)).Error!,
@@ -464,6 +515,7 @@ public class ObjectAdministrationServiceTests
         {
             MonitoredServer server = new(
                 Guid.NewGuid(),
+                $"Server {Servers.Items.Count}",
                 $"https://server-{Servers.Items.Count}.example/health",
                 null,
                 isMonitoringEnabled);

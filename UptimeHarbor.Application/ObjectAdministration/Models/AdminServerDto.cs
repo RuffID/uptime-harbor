@@ -4,6 +4,7 @@ namespace UptimeHarbor.Application.ObjectAdministration.Models;
 
 public record AdminServerDto(
     Guid Id,
+    string Name,
     string EndpointUrl,
     string? Description,
     bool IsMonitoringEnabled,

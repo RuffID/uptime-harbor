@@ -134,7 +134,7 @@ public class NotificationDeliveryServiceTests
 
         PendingNotificationDeliveryDto delivery = Assert.Single(deliveries);
         Assert.Equal(containerChat.Id, delivery.Recipient.Id);
-        Assert.Contains("Родительский сервер: server-01", delivery.Message, StringComparison.Ordinal);
+        Assert.Contains("Родительский сервер: Server 0", delivery.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -157,7 +157,7 @@ public class NotificationDeliveryServiceTests
 
         string message = Assert.Single(deliveries).Message;
         Assert.Contains(container.Id.ToString("N")[..8], message, StringComparison.Ordinal);
-        Assert.Contains(server.Id.ToString("N")[..8], message, StringComparison.Ordinal);
+        Assert.Contains(server.Name, message, StringComparison.Ordinal);
         Assert.Contains("2026-08-25T12:00:00.0000000+00:00", message, StringComparison.Ordinal);
         Assert.Contains("Uptime: 02:00:00", message, StringComparison.Ordinal);
     }

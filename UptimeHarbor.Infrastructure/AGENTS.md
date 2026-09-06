@@ -21,4 +21,4 @@
 - HTTP-проверки мониторинга и hosted worker находятся в `Monitoring`; adapter использует `IHttpClientFactory`, а параллельные объекты обрабатываются в отдельных scopes.
 - Telegram transport, durable outbox dispatcher и worker находятся в `Telegram`; token получается только через `TelegramOptions`, стандартное HTTP-логирование клиента отключено, а ошибки чатов изолируются.
 - Telegram dispatcher и worker читают durable outbox независимо от monitoring worker; retry ограничен, а transport-семантика документирована как at-least-once.
-- Dispatcher сериализует pre-send gate с terminal recovery cancellation; SQL Server unique errors Telegram классифицируются в Infrastructure без утечки provider типов в Application.
+- Dispatcher сериализует pre-send gate с terminal recovery cancellation; SQL Server unique errors имени сервера и Telegram классифицируются в Infrastructure без утечки provider типов в Application.

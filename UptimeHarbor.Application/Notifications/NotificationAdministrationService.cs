@@ -39,7 +39,7 @@ public class NotificationAdministrationService(
                 server.Id,
                 MonitoringObjectKind.Server,
                 null,
-                GetDisplayName(server.LastKnownName, server.Id)))
+                server.Name))
             .Concat(containers.Select(container => new NotificationTargetDto(
                 container.Id,
                 MonitoringObjectKind.Container,

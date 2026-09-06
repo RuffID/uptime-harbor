@@ -16,6 +16,7 @@ public class DashboardSnapshotReadQuery(UptimeHarborDbContext dbContext)
             .AsNoTracking()
             .Select(server => new DashboardServerReadRecord(
                 server.Id,
+                server.Name,
                 server.Description,
                 server.LastKnownName,
                 server.Status,

@@ -275,6 +275,16 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("LastSuccessfulCheckAtUtc")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("NormalizedName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -285,6 +295,10 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                         .HasColumnType("bigint");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("NormalizedName")
+                        .IsUnique()
+                        .HasDatabaseName("ux_monitored_servers_name");
 
                     b.ToTable("monitored_servers", null, t =>
                         {
@@ -324,10 +338,12 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("TelegramChatId", "ContainerId")
                         .IsUnique()
+                        .HasDatabaseName("IX_notification_bindings_TelegramChatId_ContainerId")
                         .HasFilter("[ContainerId] IS NOT NULL");
 
                     b.HasIndex("TelegramChatId", "ServerId")
                         .IsUnique()
+                        .HasDatabaseName("IX_notification_bindings_TelegramChatId_ServerId")
                         .HasFilter("[ServerId] IS NOT NULL");
 
                     b.ToTable("notification_bindings", null, t =>
@@ -352,7 +368,8 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("TelegramChatId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasDatabaseName("IX_telegram_chats_TelegramChatId");
 
                     b.ToTable("telegram_chats", (string)null);
                 });

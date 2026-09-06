@@ -21,6 +21,7 @@ interface ObjectSettings {
 
 interface AdminServer extends ObjectSettings {
     id: string;
+    name: string;
     lastKnownName: string | null;
     status: MonitoringStatus;
     consecutiveFailures: number;
@@ -67,6 +68,7 @@ const serverEmpty = requireElement<HTMLElement>("[data-server-empty]");
 const selectionPlaceholder = requireElement<HTMLElement>("[data-selection-placeholder]");
 const serverForm = requireElement<HTMLFormElement>("[data-server-form]");
 const serverFormTitle = requireElement<HTMLElement>("[data-server-form-title]");
+const serverName = requireElement<HTMLInputElement>("[data-server-name]");
 const serverEndpoint = requireElement<HTMLInputElement>("[data-server-endpoint]");
 const serverDescription = requireElement<HTMLTextAreaElement>("[data-server-description]");
 const serverEnabled = requireElement<HTMLInputElement>("[data-server-enabled]");
@@ -145,7 +147,7 @@ function startCreatingServer(): void {
     serverFormTitle.textContent = "Новый сервер";
     serverForm.reset();
     clearFormErrors(serverForm);
-    serverEndpoint.focus();
+    serverName.focus();
 }
 
 function startCreatingContainer(): void {
@@ -169,7 +171,10 @@ async function saveServer(event: SubmitEvent): Promise<void> {
     event.preventDefault();
     clearPageError();
     clearFormErrors(serverForm);
-    const settings = readSettings(serverEndpoint, serverDescription, serverEnabled);
+    const settings = {
+        name: serverName.value,
+        ...readSettings(serverEndpoint, serverDescription, serverEnabled)
+    };
 
     try {
         const url = state.creatingServer
@@ -317,10 +322,7 @@ function renderServers(): void {
     serverEmpty.classList.toggle("d-none", state.servers.length !== 0);
 
     for (const server of state.servers) {
-        serverList.append(createObjectButton(
-            server,
-            server.id === state.selectedServerId,
-            "serverId"));
+        serverList.append(createServerButton(server, server.id === state.selectedServerId));
     }
 }
 
@@ -364,12 +366,33 @@ function createObjectButton(
     return button;
 }
 
+function createServerButton(server: AdminServer, selected: boolean): HTMLButtonElement {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.classList.add("list-group-item", "list-group-item-action");
+    button.classList.toggle("active", selected);
+    button.dataset.serverId = server.id;
+
+    const title = document.createElement("span");
+    title.classList.add("d-block", "fw-semibold");
+    title.textContent = server.name;
+
+    const details = document.createElement("span");
+    details.classList.add("d-block", "small");
+    const internalName = server.lastKnownName === null ? "" : ` · ${server.lastKnownName}`;
+    details.textContent = `${shortGuid(server.id)} · ${statusText(server.status)}${internalName} · ${server.endpointUrl}`;
+
+    button.append(title, details);
+    return button;
+}
+
 function fillServerForm(server: AdminServer): void {
     selectionPlaceholder.classList.add("d-none");
     serverForm.classList.remove("d-none");
     serverDanger.classList.remove("d-none");
     containersSection.classList.remove("d-none");
-    serverFormTitle.textContent = server.lastKnownName ?? `Имя не получено · ${shortGuid(server.id)}`;
+    serverFormTitle.textContent = server.name;
+    serverName.value = server.name;
     serverEndpoint.value = server.endpointUrl;
     serverDescription.value = server.description ?? "";
     serverEnabled.checked = server.isMonitoringEnabled;
