@@ -47,7 +47,7 @@ P0-1 и P0-2 устранены, P0-3 исключён из v1; статусы �
 - `UptimeHarbor.Web/Controllers/AdminUsersController.cs`;
 - `UptimeHarbor.Web/Pages/Shared/_Layout.cshtml`;
 - отсутствующие `UptimeHarbor.Web/Pages/Admin/Users.cshtml` и `UptimeHarbor.Web/wwwroot/ts/pages/admin/users.ts`;
-- `Documentation/Plans/application-implementation-2026-08-04-(in-progress)/03 - Authentication and visibility.md:5`, где этап уже отмечен завершённым.
+- `Documentation/Plans/application-implementation-2026-08-04-(completed)/03 - Authentication and visibility.md:5`, где этап уже отмечен завершённым.
 
 Рекомендуемое решение: добавить AJAX-only административную страницу пользователей на TypeScript с созданием, блокировкой, удалением и атомарной заменой permissions. Контейнеры должны становиться доступными для выбора только вместе с родительским сервером. В layout добавить POST-выход. До реализации перевести этап 3 и общий план в статус `В работе`.
 
@@ -63,7 +63,7 @@ P0-1 и P0-2 устранены, P0-3 исключён из v1; статусы �
 
 Затронутые места:
 
-- `Documentation/Plans/application-implementation-2026-08-04-(in-progress)/08 - Deployment and release.md:5`;
+- `Documentation/Plans/application-implementation-2026-08-04-(completed)/08 - Deployment and release.md:5`;
 - `Documentation/Technical documentation/Deployment.md:7`;
 - `UptimeHarbor.Web/Program.cs:36`;
 - `UptimeHarbor.Web/Program.cs:46`;

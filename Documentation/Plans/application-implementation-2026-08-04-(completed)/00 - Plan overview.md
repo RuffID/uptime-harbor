@@ -2,7 +2,9 @@
 
 ## Статус
 
-**В работе.** Follow-up P1 recovery cancellation и P2 Telegram unique conflicts исправлены в коде и разрешённых SQLite/fake/classifier tests. Web разделяет Serilog-only `appsettings.json` и обязательный внешний `Config/config.json`; persistence использует SQL Server и автоматически создаёт backup/применяет pending migrations до Identity bootstrap. Browser burst/cancellation, CSP/SignalR runtime, настоящий HTTP formatter pipeline, runtime-загрузка config, реальный SQL Server backup/migration, locking/2601/2627, process restart и Telegram runtime остаются ручными. Этап 8 приостановлен: Docker Compose и orchestration не входят в v1.
+**Завершён.** План закрыт 2026-10-18 по прямому указанию пользователя. Исторические статусы этапов и сведения о непроведённых проверках сохранены; закрытие плана не подтверждает прохождение этих проверок.
+
+Историческое состояние реализации и проверок: Follow-up P1 recovery cancellation и P2 Telegram unique conflicts исправлены в коде и разрешённых SQLite/fake/classifier tests. Web разделяет Serilog-only `appsettings.json` и обязательный внешний `Config/config.json`; persistence использует SQL Server и автоматически создаёт backup/применяет pending migrations до Identity bootstrap. Browser burst/cancellation, CSP/SignalR runtime, настоящий HTTP formatter pipeline, runtime-загрузка config, реальный SQL Server backup/migration, locking/2601/2627, process restart и Telegram runtime остаются ручными. Этап 8 приостановлен: Docker Compose и orchestration не входят в v1.
 
 ## Цель
 
