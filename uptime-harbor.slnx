@@ -29,6 +29,22 @@
   <Folder Name="/Documentation/Plans/">
     <File Path="Documentation/Plans/README.md" />
   </Folder>
+  <Folder Name="/Documentation/Plans/multi-node-sync-and-permissions-2026-10-18-(not-started)/">
+    <File Path="Documentation/Plans/multi-node-sync-and-permissions-2026-10-18-(not-started)/main.md" />
+    <File Path="Documentation/Plans/multi-node-sync-and-permissions-2026-10-18-(not-started)/business-requirements.md" />
+    <File Path="Documentation/Plans/multi-node-sync-and-permissions-2026-10-18-(not-started)/technical-design.md" />
+    <File Path="Documentation/Plans/multi-node-sync-and-permissions-2026-10-18-(not-started)/open-questions.md" />
+    <File Path="Documentation/Plans/multi-node-sync-and-permissions-2026-10-18-(not-started)/01-protocol-and-contracts.md" />
+    <File Path="Documentation/Plans/multi-node-sync-and-permissions-2026-10-18-(not-started)/02-domain-and-persistence.md" />
+    <File Path="Documentation/Plans/multi-node-sync-and-permissions-2026-10-18-(not-started)/03-peer-health-and-leadership.md" />
+    <File Path="Documentation/Plans/multi-node-sync-and-permissions-2026-10-18-(not-started)/04-revision-synchronization.md" />
+    <File Path="Documentation/Plans/multi-node-sync-and-permissions-2026-10-18-(not-started)/05-permissions-and-ownership.md" />
+    <File Path="Documentation/Plans/multi-node-sync-and-permissions-2026-10-18-(not-started)/06-monitoring-and-incidents.md" />
+    <File Path="Documentation/Plans/multi-node-sync-and-permissions-2026-10-18-(not-started)/07-leader-notifications.md" />
+    <File Path="Documentation/Plans/multi-node-sync-and-permissions-2026-10-18-(not-started)/08-web-and-administration.md" />
+    <File Path="Documentation/Plans/multi-node-sync-and-permissions-2026-10-18-(not-started)/09-migration-and-operations.md" />
+    <File Path="Documentation/Plans/multi-node-sync-and-permissions-2026-10-18-(not-started)/10-verification-and-acceptance.md" />
+  </Folder>
   <Folder Name="/Documentation/Plans/application-implementation-2026-08-04-(in-progress)/">
     <File Path="Documentation/Plans/application-implementation-2026-08-04-(in-progress)/AGENTS.md" />
     <File Path="Documentation/Plans/application-implementation-2026-08-04-(in-progress)/00 - Plan overview.md" />
