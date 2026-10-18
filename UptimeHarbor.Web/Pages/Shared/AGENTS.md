@@ -8,4 +8,6 @@
 
 Тёмная Bootstrap-тема сохраняется. Навигация, рабочая область и footer используют `container-fluid` с общими горизонтальными отступами, чтобы широкие таблицы использовали доступную ширину окна.
 
+`_Layout.cshtml.css` задаёт общую ширину обёрток `monitoring-status-filter` на главной, «Серверах» и «Контейнерах». Правило использует `main ::deep`, чтобы применяться к разметке страниц внутри layout без inline styles, запрещённых CSP.
+
 Layout однократно подключает `dist/shared/switchAnimations.js` для переключателей с `data-animated-switch`; модуль использует Web Animations API и учитывает reduced motion.

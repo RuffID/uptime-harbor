@@ -17,10 +17,12 @@
             <div class="d-flex flex-wrap gap-2">
                 <label class="visually-hidden" for="containerSearch">Поиск контейнеров</label>
                 <input class="form-control form-control-sm w-auto mw-100" size="32" id="containerSearch" name="containerSearch" type="search" placeholder="Найти контейнер" data-container-search />
-                <label class="visually-hidden" for="containerStatusFilter">Статус контейнера</label>
-                <select class="form-select form-select-sm w-auto" id="containerStatusFilter" name="containerStatus" data-container-status-filter>
-                    <option value="">Все статусы</option><option value="1">Доступен</option><option value="2">Недоступен</option><option value="0">Неизвестно</option>
-                </select>
+                <div class="monitoring-status-filter flex-shrink-0">
+                    <label class="visually-hidden" for="containerStatusFilter">Статус контейнера</label>
+                    <select class="form-select form-select-sm w-auto" id="containerStatusFilter" name="containerStatus" data-container-status-filter>
+                        <option value="">Все статусы</option><option value="1">Доступен</option><option value="2">Недоступен</option><option value="0">Неизвестно</option>
+                    </select>
+                </div>
             </div>
             <button type="button" class="btn btn-sm btn-outline-primary" data-action="new-container">Создать контейнер</button>
         </div>

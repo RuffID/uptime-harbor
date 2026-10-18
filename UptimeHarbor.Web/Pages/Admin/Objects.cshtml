@@ -23,10 +23,12 @@ ViewData["Title"] = "Сервера";
                 <div class="d-flex flex-wrap gap-2">
                     <label class="visually-hidden" for="serverSearch">Поиск серверов</label>
                     <input class="form-control form-control-sm w-auto mw-100" size="32" id="serverSearch" name="serverSearch" type="search" placeholder="Найти сервер" data-server-search />
-                    <label class="visually-hidden" for="serverStatusFilter">Статус сервера</label>
-                    <select class="form-select form-select-sm w-auto" id="serverStatusFilter" name="serverStatus" data-server-status-filter>
-                        <option value="">Все статусы</option><option value="1">Доступен</option><option value="2">Недоступен</option><option value="0">Неизвестно</option>
-                    </select>
+                    <div class="monitoring-status-filter flex-shrink-0">
+                        <label class="visually-hidden" for="serverStatusFilter">Статус сервера</label>
+                        <select class="form-select form-select-sm w-auto" id="serverStatusFilter" name="serverStatus" data-server-status-filter>
+                            <option value="">Все статусы</option><option value="1">Доступен</option><option value="2">Недоступен</option><option value="0">Неизвестно</option>
+                        </select>
+                    </div>
                 </div>
                 <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#createServerModal">Создать сервер</button>
             </div>

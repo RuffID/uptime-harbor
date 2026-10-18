@@ -42,3 +42,7 @@ button.accept-policy {
 .footer {
   white-space: nowrap;
 }
+
+main ::deep .monitoring-status-filter {
+  width: 14rem;
+}
