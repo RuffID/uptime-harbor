@@ -1,5 +1,6 @@
 import { createDataTable, createTableAction, matchesSearch } from "../../shared/dataTable.js";
 import { renderHelpTooltip } from "../../shared/helpTooltip.js";
+import { createSearchableRadioSelect } from "../../shared/searchableRadioSelect.js";
 import {
     ApiError,
     sendJsonRequest,
@@ -19,7 +20,7 @@ interface UserAccount {
 }
 
 interface Server { id: string; name: string; endpointUrl: string; lastKnownName: string | null; }
-interface Container { id: string; serverId: string; endpointUrl: string; lastKnownName: string | null; }
+interface Container { id: string; serverId: string | null; endpointUrl: string; lastKnownName: string | null; }
 interface ServerWithContainers extends Server { containers: Container[]; }
 interface BootstrapModalInstance { show(): void; hide(): void; }
 interface BootstrapWindow extends Window {
@@ -57,6 +58,7 @@ const temporarilyDisabled = new Set<HTMLButtonElement | HTMLInputElement | HTMLS
 document.addEventListener("DOMContentLoaded", () => { void initUsersPage(); });
 
 async function initUsersPage(): Promise<void> {
+    createSearchableRadioSelect(requireElement<HTMLSelectElement>("[data-user-state-filter]"));
     usersTable = createDataTable(userList, "users", "Учётные записи", [
         { key: "login", title: "Логин", width: 240 },
         { key: "role", title: "Роль", width: 220, help: "Администратор управляет настройками; пользователю показываются разрешённые объекты мониторинга." },

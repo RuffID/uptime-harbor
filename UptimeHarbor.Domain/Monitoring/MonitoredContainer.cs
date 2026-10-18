@@ -8,7 +8,7 @@ public class MonitoredContainer : MonitoredObject
 
     public MonitoredContainer(
         Guid id,
-        Guid serverId,
+        Guid? serverId,
         string endpointUrl,
         string? description,
         bool isMonitoringEnabled)
@@ -22,7 +22,23 @@ public class MonitoredContainer : MonitoredObject
         ServerId = serverId;
     }
 
-    public Guid ServerId { get; private set; }
+    public Guid? ServerId { get; private set; }
+
+    public void AssignServer(Guid? serverId)
+    {
+        if (serverId == Guid.Empty)
+        {
+            throw new ArgumentException("Идентификатор сервера не может быть пустым.", nameof(serverId));
+        }
+
+        if (ServerId == serverId)
+        {
+            return;
+        }
+
+        ServerId = serverId;
+        IncrementVersion();
+    }
 
     public DateTimeOffset? StartedAtUtc { get; private set; }
 

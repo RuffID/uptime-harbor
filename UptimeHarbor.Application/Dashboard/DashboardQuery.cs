@@ -44,7 +44,12 @@ public class DashboardQuery(
                 permittedContainerIds))
             .ToList();
 
-        string? normalizedSearch = string.IsNullOrWhiteSpace(search) ? null : search.Trim();
+        string? normalizedSearch = null;
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            normalizedSearch = search.Trim();
+        }
+
         DateTimeOffset generatedAtUtc = timeProvider.GetUtcNow();
         EnsureUtc(generatedAtUtc, nameof(generatedAtUtc));
 
@@ -71,8 +76,14 @@ public class DashboardQuery(
             servers.Add(MapServer(server, matchingContainers, generatedAtUtc));
         }
 
+        List<DashboardContainerDto> unassignedContainers = accessibleContainers
+            .Where(container => container.ServerId is null && Matches(container, normalizedSearch))
+            .OrderBy(GetDisplayName)
+            .Select(container => MapContainer(container, generatedAtUtc))
+            .ToList();
+
         return ServiceResult<DashboardSnapshotDto>.Ok(
-            new DashboardSnapshotDto(generatedAtUtc, servers));
+            new DashboardSnapshotDto(generatedAtUtc, servers, unassignedContainers));
     }
 
     private ServiceError? GetAccessError()

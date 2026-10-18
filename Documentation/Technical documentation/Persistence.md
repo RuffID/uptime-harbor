@@ -16,8 +16,8 @@ Persistence реализован в `UptimeHarbor.Infrastructure` на EF Core �
 - строковое хранение статуса и check constraints допустимых значений;
 - обязательные ключи и `ValueGeneratedNever` для идентификаторов приложения;
 - длины строк, индексы и уникальность связей;
-- явное удаление контейнеров перед сервером в одной транзакции и каскадное удаление зависимых permissions и notification bindings;
-- составные ключи, запрещающие доступ к контейнеру вне назначенного сервера;
+- nullable связь контейнера с сервером с `NoAction`: удаление сервера явно снимает связи и container permissions в одной транзакции, сохраняя контейнеры и их notification bindings;
+- составные ключи permissions, FK container permission → server permission и отдельный FK → container ID; Application и read queries проверяют соответствие scope права текущему серверу;
 - правило notification binding «ровно один target»;
 - хранение времён как UTC в столбцах SQL Server `datetime2`;
 - явный `Version` серверов и контейнеров как concurrency token;
@@ -26,6 +26,8 @@ Persistence реализован в `UptimeHarbor.Infrastructure` на EF Core �
 Для идемпотентности уведомлений объект хранит nullable `CurrentIncidentId`, а каждая привязка — nullable идентификаторы инцидента успешной outage- и recovery-доставки. Глобальный `OutageNotificationSent` удалён из кодовой модели, потому что не описывает частичный успех нескольких чатов.
 
 `UtcDateTimeOffsetConverter` преобразует `DateTimeOffset` в UTC `DateTime` провайдера и восстанавливает нулевое смещение при чтении.
+
+`ObjectAdministrationService` сохраняет настройки сервера и `ContainerLinkUpdate` одним commit. В запросе проверяются версии всех переданных контейнеров и полнота текущих связей; контейнер другого сервера через этот список не захватывается. Изменение/снятие связи удаляет прежние permissions и увеличивает версии контейнера и обоих затронутых серверов. Это защищает stale-редакторы и удаление сервера от конкурентного переноса.
 
 ## EFCoreLibrary
 
@@ -58,7 +60,7 @@ Application определяет общий `IUnitOfWorkScope` только с `
 
 Infrastructure использует одну scoped-сессию `IUptimeHarborDbContextSession`. `UptimeHarborDbUnitOfWork` реализует сохранение и транзакцию, а сценарные классы добавляют только нужные репозитории.
 
-`IObjectAdministrationUnitOfWork` раскрывает только серверы и контейнеры и отдельную предметную операцию отмены recovery. Отключение мониторинга или смена endpoint атомарно фиксирует сброс объекта и отмену незавершённых recovery jobs прежнего incident. Отмена выполняется условным update существующих `PayloadJson`/`CompletedAtUtc`, сохраняет job и явную диагностическую причину и не меняет схему. Повторная отмена безопасна. Удаление сервера выполняется транзакционно после повторной проверки подтверждённого количества контейнеров: контейнеры явно помечаются на удаление перед сервером, а их permissions и notification bindings удаляются каскадными внешними ключами. Связь server → containers использует `NoAction`, чтобы схема SQL Server не содержала запрещённых multiple cascade paths.
+`IObjectAdministrationUnitOfWork` раскрывает серверы и контейнеры, снятие container permissions и отдельную предметную операцию отмены recovery. Отключение мониторинга или смена endpoint атомарно фиксирует сброс объекта и отмену незавершённых recovery jobs прежнего incident. Отмена выполняется условным update существующих `PayloadJson`/`CompletedAtUtc`, сохраняет job и явную диагностическую причину и не меняет схему. Повторная отмена безопасна. Удаление сервера выполняется транзакционно после повторной проверки подтверждённого количества контейнеров: контейнеры отвязываются от сервера, прежние container permissions снимаются, сами контейнеры и их notification bindings сохраняются. Связь server → containers использует `NoAction`, чтобы схема SQL Server не содержала запрещённых multiple cascade paths.
 
 Транзакционный вызов открывает транзакцию, выполняет действие, один раз сохраняет изменения и делает commit. При исключении выполняется rollback, после чего исходное исключение передаётся вызывающему коду; отдельная ошибка rollback сохраняется в `Exception.Data` и не заменяет первопричину.
 
@@ -67,6 +69,9 @@ Identity store использует тот же scoped `UptimeHarborDbContext`, 
 `IMonitoringUnitOfWork` атомарно сохраняет состояние объекта и outage/recovery outbox job. Отдельный dispatcher claim-ит due jobs коротким lease. Непосредственно перед sender он условно захватывает активную строку job в транзакции и удерживает её до terminal/retry update: это сериализует отправку с административной отменой. Подготовка списка Telegram-доставок выполняет no-tracking чтение привязок. После успешного transport-вызова конкретная привязка повторно загружается tracked и сохраняется через отдельный scope `INotificationSettingsUnitOfWork`, поэтому состояние одного получателя не объединяется с результатом другого.
 
 ## Миграции
+
+Для необязательного родителя создана migration `20261018104849_MakeContainerServerOptional`: удаляются составной FK permission → (ServerId, Id) и соответствующий alternate key контейнера, ServerId становится nullable, создаются обычный server index и FK permission → ContainerId. Существующие связи и данные сохраняются; designer и snapshot соответствуют текущей модели. Down требует предварительно связать контейнеры с null ServerId с существующими серверами: сгенерированный default Guid.Empty удалён по прямому разрешению пользователя, автоматического удаления данных нет. Миграция к БД не применялась.
+
 
 Pending migrations применяются автоматически при старте единственного Web-процесса после проверки подключения и успешного SQL Server backup. Миграции завершаются до Identity bootstrap; ошибка останавливает запуск. Порядок создания и применения описан в [Database migrations.md](Database%20migrations.md).
 

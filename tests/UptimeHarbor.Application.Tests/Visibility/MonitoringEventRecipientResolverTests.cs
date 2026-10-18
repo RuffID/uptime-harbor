@@ -14,6 +14,22 @@ namespace UptimeHarbor.Tests.Application.Visibility;
 public class MonitoringEventRecipientResolverTests
 {
     [Fact]
+    public async Task UnassignedContainer_OnlyEnabledAdministratorReceivesEvent()
+    {
+        // Arrange
+        TestData data = new();
+        Guid adminId = data.AddUser(isAdministrator: true);
+        data.AddUser(isAdministrator: false);
+
+        // Act
+        IReadOnlyList<Guid> recipients = await data.Resolver.GetRecipientUserIdsAsync(
+            MonitoringObjectKind.Container, Guid.NewGuid(), null, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(adminId, Assert.Single(recipients));
+    }
+
+    [Fact]
     public async Task GetRecipientUserIdsAsync_AdministratorReceivesAnyObject()
     {
         TestData data = new();

@@ -181,10 +181,14 @@ public class UptimeHarborDbContextModelTests
     }
 
     [Fact]
-    public void Model_RequiresContainerPermissionToMatchItsServerPermissionAndContainerParent()
+    public void Model_AllowsOptionalParentAndKeepsContainerPermissionForeignKeys()
     {
+        // Arrange
         using UptimeHarborDbContext context = CreateContext();
+
+        // Act
         IEntityType permissionType = context.Model.FindEntityType(typeof(ContainerVisibilityPermission))!;
+        IEntityType containerType = context.Model.FindEntityType(typeof(MonitoredContainer))!;
 
         IForeignKey serverPermissionForeignKey = Assert.Single(
             permissionType.GetForeignKeys(),
@@ -193,11 +197,14 @@ public class UptimeHarborDbContextModelTests
             permissionType.GetForeignKeys(),
             foreignKey => foreignKey.PrincipalEntityType.ClrType == typeof(MonitoredContainer));
 
+        // Assert
+        Assert.True(containerType.FindProperty(nameof(MonitoredContainer.ServerId))!.IsNullable);
+        Assert.Single(containerType.GetKeys());
         Assert.Equal(
             [nameof(ContainerVisibilityPermission.UserId), nameof(ContainerVisibilityPermission.ServerId)],
             serverPermissionForeignKey.Properties.Select(property => property.Name));
         Assert.Equal(
-            [nameof(ContainerVisibilityPermission.ServerId), nameof(ContainerVisibilityPermission.ContainerId)],
+            [nameof(ContainerVisibilityPermission.ContainerId)],
             containerForeignKey.Properties.Select(property => property.Name));
     }
 

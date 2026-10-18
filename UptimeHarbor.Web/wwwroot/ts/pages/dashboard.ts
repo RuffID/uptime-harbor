@@ -1,4 +1,5 @@
 import { createDataTable } from "../shared/dataTable.js";
+import { createSearchableRadioSelect } from "../shared/searchableRadioSelect.js";
 import {
     isAbortError,
     sendJsonRequest,
@@ -14,7 +15,7 @@ enum MonitoringStatus {
 
 interface DashboardContainerDto {
     id: string;
-    serverId: string;
+    serverId: string | null;
     displayName: string;
     description: string | null;
     status: MonitoringStatus;
@@ -36,6 +37,7 @@ interface DashboardServerDto {
 interface DashboardSnapshotDto {
     generatedAtUtc: string;
     servers: DashboardServerDto[];
+    unassignedContainers: DashboardContainerDto[];
 }
 
 interface MonitoringObjectChangedMessage {
@@ -76,6 +78,7 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 async function initDashboard(): Promise<void> {
+    createSearchableRadioSelect(statusFilter);
     dashboardTable = createDataTable(content, "monitoring", "Состояние серверов и контейнеров", [
         { key: "name", title: "Объект", width: 220 },
         { key: "kind", title: "Тип", width: 120 },
@@ -258,6 +261,16 @@ function renderDashboard(snapshot: DashboardSnapshotDto): void {
             }
         }
     }
+    for (const container of snapshot.unassignedContainers) {
+        if (matchesStatus(container.status)) {
+            rows.push(dashboardTable.row([
+                container.displayName, "Контейнер", "Без сервера", "—", createStatusBadge(container.status),
+                formatUtc(container.lastCheckedAtUtc), formatUtc(container.startedAtUtc),
+                formatDuration(container.uptimeSeconds), container.description ?? "—"
+            ]));
+        }
+    }
+
     dashboardTable.body.replaceChildren(...rows);
     if (rows.length === 0) {
         const filtered = state.search !== "" || statusFilter.value !== "";

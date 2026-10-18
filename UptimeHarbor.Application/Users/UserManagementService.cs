@@ -201,7 +201,13 @@ public class UserManagementService(
             return ServiceResult.Fail(ServiceErrorType.Validation, "Указан несуществующий контейнер.");
         }
 
-        if (requestedContainers.Any(container => !requestedServerIds.Contains(container.ServerId)))
+        if (requestedContainers.Any(container => container.ServerId is null))
+        {
+            return ServiceResult.Fail(ServiceErrorType.Validation,
+                "Права на контейнер без сервера доступны только администратору.");
+        }
+
+        if (requestedContainers.Any(container => !requestedServerIds.Contains(container.ServerId!.Value)))
         {
             return ServiceResult.Fail(
                 ServiceErrorType.Validation,
@@ -233,7 +239,7 @@ public class UserManagementService(
                 unitOfWork.VisibilityPermissions.CreateRange(
                     requestedContainers
                         .Where(container => !currentContainerIds.Contains(container.Id))
-                        .Select(container => new ContainerVisibilityPermission(userId, container.ServerId, container.Id)));
+                        .Select(container => new ContainerVisibilityPermission(userId, container.ServerId!.Value, container.Id)));
             },
             cancellationToken);
 

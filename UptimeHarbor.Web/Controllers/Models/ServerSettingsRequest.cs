@@ -1,3 +1,5 @@
+using UptimeHarbor.Application.ObjectAdministration.Models;
+
 namespace UptimeHarbor.Web.Controllers.Models;
 
 public class ServerSettingsRequest
@@ -11,4 +13,6 @@ public class ServerSettingsRequest
     public bool IsMonitoringEnabled { get; init; }
 
     public long? Version { get; init; }
+
+    public IReadOnlyList<ContainerLinkUpdate>? ContainerLinks { get; init; }
 }

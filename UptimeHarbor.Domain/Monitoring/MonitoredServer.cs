@@ -44,6 +44,11 @@ public class MonitoredServer : MonitoredObject
         return ApplySuccessfulCheck(name, checkedAtUtc);
     }
 
+    public void RecordContainerLinksChanged()
+    {
+        IncrementVersion();
+    }
+
     private static string NormalizeName(string name)
     {
         return name.ToUpperInvariant();

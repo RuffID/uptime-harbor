@@ -1,5 +1,6 @@
 import { createDataTable, matchesSearch } from "../../shared/dataTable.js";
 import { renderHelpTooltip } from "../../shared/helpTooltip.js";
+import { createSearchableRadioSelect, SearchableRadioSelectController } from "../../shared/searchableRadioSelect.js";
 import {
     ApiError,
     sendJsonRequest,
@@ -80,12 +81,19 @@ const bindingGeneralError = requireElement<HTMLElement>("[data-binding-general-e
 const newBindingButton = requireElement<HTMLButtonElement>('[data-action="new-binding"]');
 const chatSearch = requireElement<HTMLInputElement>("[data-chat-search]");
 let chatsTable: ReturnType<typeof createDataTable>;
+let chatSelect: SearchableRadioSelectController;
+let kindSelect: SearchableRadioSelectController;
+let objectSelect: SearchableRadioSelectController;
+const bindingSave = requireElement<HTMLButtonElement>("[data-binding-save]");
 
 document.addEventListener("DOMContentLoaded", () => {
     void initNotificationsPage();
 });
 
 async function initNotificationsPage(): Promise<void> {
+    chatSelect = createSearchableRadioSelect(bindingChat, { noOptionsText: "Нет чатов." });
+    kindSelect = createSearchableRadioSelect(bindingKind);
+    objectSelect = createSearchableRadioSelect(bindingObject, { noOptionsText: "Нет объектов." });
     chatsTable = createDataTable(chatList, "telegram", "Чаты и привязки Telegram", [
         { key: "chat", title: "Чат", width: 220 },
         { key: "chatId", title: "ID чата", width: 180, help: "Числовой идентификатор чата Telegram, в который отправляются сообщения. Это не имя пользователя и не token бота." },
@@ -101,9 +109,17 @@ async function initNotificationsPage(): Promise<void> {
     chatSearch.addEventListener("input", renderChats);
     chatForm.addEventListener("submit", event => void saveChat(event));
     bindingForm.addEventListener("submit", event => void saveBinding(event));
-    bindingKind.addEventListener("change", renderBindingObjects);
+    bindingKind.addEventListener("change", () => {
+        renderBindingObjects();
+        setSaving(state.saving);
+    });
     chatModal.addEventListener("shown.bs.modal", () => chatIdInput.focus());
-    bindingModal.addEventListener("shown.bs.modal", () => bindingChat.focus());
+    bindingModal.addEventListener("shown.bs.modal", () => requireElement<HTMLButtonElement>("#bindingChatIdButton").focus());
+    bindingModal.addEventListener("hidden.bs.modal", () => {
+        chatSelect.close();
+        kindSelect.close();
+        objectSelect.close();
+    });
     page.addEventListener("click", handleClick);
     await runCommand(loadSettings);
 }
@@ -208,6 +224,7 @@ function renderBindingChats(): void {
     if (state.chats.some(chat => chat.id === currentValue)) {
         bindingChat.value = currentValue;
     }
+    chatSelect.refresh();
 }
 
 function renderBindingObjects(): void {
@@ -223,6 +240,7 @@ function renderBindingObjects(): void {
     if (state.targets.some(target => target.kind === kind && target.id === currentValue)) {
         bindingObject.value = currentValue;
     }
+    objectSelect.refresh();
 }
 
 function prepareChatForm(): void {
@@ -248,18 +266,13 @@ function openEditChatModal(chatId: string): void {
 }
 
 function openBindingModal(): void {
-    if (state.chats.length === 0) {
-        throw new Error("Сначала добавьте Telegram-чат.");
-    }
-    if (state.targets.length === 0) {
-        throw new Error("Нет объектов, доступных для привязки.");
-    }
-
     bindingForm.reset();
     hideModalError(bindingGeneralError);
     bindingKind.value = state.targets.some(target => target.kind === 1) ? "1" : "2";
     renderBindingChats();
     renderBindingObjects();
+    kindSelect.refresh();
+    setSaving(state.saving);
     showModal(bindingModal);
 }
 
@@ -410,12 +423,14 @@ function setSaving(saving: boolean): void {
         "[data-notifications-page] button, [data-notifications-page] input, [data-notifications-page] select")) {
         element.disabled = saving;
     }
-    newBindingButton.disabled = saving || state.chats.length === 0 || state.targets.length === 0;
-    newBindingButton.title = state.chats.length === 0
-        ? "Сначала добавьте чат"
-        : state.targets.length === 0
-            ? "Нет объектов для привязки"
-            : "";
+    newBindingButton.disabled = saving;
+    bindingChat.disabled = saving || state.chats.length === 0;
+    bindingObject.disabled = saving || !state.targets.some(target => String(target.kind) === bindingKind.value);
+    bindingKind.disabled = saving;
+    bindingSave.disabled = saving || bindingChat.disabled || bindingObject.disabled;
+    chatSelect.refresh();
+    kindSelect.refresh();
+    objectSelect.refresh();
 }
 
 function showChatFieldError(error: unknown): boolean {

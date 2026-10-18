@@ -234,7 +234,7 @@ public abstract class MonitoredObject
         CurrentIncidentId = null;
     }
 
-    private void IncrementVersion()
+    protected void IncrementVersion()
     {
         Version = checked(Version + 1);
     }

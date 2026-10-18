@@ -24,7 +24,10 @@
                         @if (User.IsInRole(UptimeHarbor.Application.Security.ApplicationRoles.ADMINISTRATOR))
                         {
                             <li class="nav-item">
-                                <a class="nav-link" asp-area="" asp-page="/Admin/Objects">Объекты</a>
+                                <a class="nav-link" asp-area="" asp-page="/Admin/Objects">Сервера</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" asp-area="" asp-page="/Admin/Containers">Контейнеры</a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link" asp-area="" asp-page="/Admin/Notifications">Telegram</a>

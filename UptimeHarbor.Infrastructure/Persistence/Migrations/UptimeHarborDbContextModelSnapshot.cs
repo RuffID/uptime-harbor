@@ -17,7 +17,7 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.11")
+                .HasAnnotation("ProductVersion", "10.0.13")
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
@@ -157,7 +157,7 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
 
                     b.HasKey("UserId", "ContainerId");
 
-                    b.HasIndex("ServerId", "ContainerId");
+                    b.HasIndex("ContainerId");
 
                     b.HasIndex("UserId", "ServerId");
 
@@ -212,7 +212,7 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("LastSuccessfulCheckAtUtc")
                         .HasColumnType("datetime2");
 
-                    b.Property<Guid>("ServerId")
+                    b.Property<Guid?>("ServerId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime?>("StartedAtUtc")
@@ -229,8 +229,7 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasAlternateKey("ServerId", "Id")
-                        .HasName("ak_monitored_containers_server_id_id");
+                    b.HasIndex("ServerId");
 
                     b.ToTable("monitored_containers", null, t =>
                         {
@@ -558,8 +557,7 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                 {
                     b.HasOne("UptimeHarbor.Domain.Monitoring.MonitoredContainer", null)
                         .WithMany()
-                        .HasForeignKey("ServerId", "ContainerId")
-                        .HasPrincipalKey("ServerId", "Id")
+                        .HasForeignKey("ContainerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -590,8 +588,7 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                     b.HasOne("UptimeHarbor.Domain.Monitoring.MonitoredServer", null)
                         .WithMany()
                         .HasForeignKey("ServerId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.NoAction);
                 });
 
             modelBuilder.Entity("UptimeHarbor.Domain.Notifications.NotificationBinding", b =>

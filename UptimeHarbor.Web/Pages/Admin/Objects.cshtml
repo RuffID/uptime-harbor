@@ -2,7 +2,7 @@
 @model UptimeHarbor.Web.Pages.Admin.ObjectsModel
 @inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
 @{
-    ViewData["Title"] = "Объекты мониторинга";
+ViewData["Title"] = "Сервера";
     string requestVerificationToken = Antiforgery.GetAndStoreTokens(ViewContext.HttpContext).RequestToken
         ?? throw new InvalidOperationException("Не удалось создать antiforgery token.");
 }
@@ -11,7 +11,7 @@
 
 <div class="d-flex flex-column gap-3" data-objects-page>
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
-        <h1 class="h3 mb-0">Объекты мониторинга</h1>
+<h1 class="h3 mb-0">Сервера</h1>
     </div>
 
     <div class="alert alert-danger d-none" role="alert" data-page-error></div>
@@ -40,7 +40,7 @@
         <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content border-0 shadow">
                 <div class="modal-header">
-                    <h2 class="modal-title fs-5" id="editObjectModalTitle">Редактирование объекта мониторинга</h2>
+                    <h2 class="modal-title fs-5" id="editObjectModalTitle">Редактирование сервера</h2>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
                 </div>
                 <div class="modal-body">
@@ -66,6 +66,12 @@
                         <textarea class="form-control" id="serverDescription" name="description" maxlength="500" rows="3" data-server-description></textarea>
                         <div class="invalid-feedback" data-server-error="description"></div>
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="serverContainers">Контейнеры</label>
+                        <select class="form-select" id="serverContainers" name="containerLinks" multiple data-server-containers></select>
+                        <div class="form-text">Можно выбрать свободные контейнеры или убрать текущие связи.</div>
+                        <div class="invalid-feedback" data-server-error="containerLinks"></div>
+                    </div>
                     <div class="form-check form-switch mb-3">
                         <input class="form-check-input" id="serverMonitoringEnabled" name="isMonitoringEnabled" type="checkbox" role="switch" data-animated-switch data-server-enabled />
                         <label class="form-check-label" for="serverMonitoringEnabled">Мониторинг включён</label>
@@ -79,54 +85,6 @@
                 </div>
             </form>
 
-            <div class="card border-0 shadow-sm mt-3 d-none" data-containers-section>
-                <div class="card-header bg-body-tertiary border-secondary-subtle py-3">
-                    <h3 class="h6 mb-2">Контейнеры выбранного сервера</h3>
-                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
-                    <div class="d-flex flex-wrap gap-2">
-                        <label class="visually-hidden" for="containerSearch">Поиск контейнеров</label>
-                        <input class="form-control form-control-sm w-auto mw-100" size="32" id="containerSearch" name="containerSearch" type="search" placeholder="Найти контейнер" data-container-search />
-                        <label class="visually-hidden" for="containerStatusFilter">Статус контейнера</label>
-                        <select class="form-select form-select-sm w-auto" id="containerStatusFilter" name="containerStatus" data-container-status-filter>
-                            <option value="">Все статусы</option><option value="1">Доступен</option><option value="2">Недоступен</option><option value="0">Неизвестно</option>
-                        </select>
-                    </div>
-                    <button type="button"
-                            class="btn btn-sm btn-outline-primary"
-                            data-action="new-container">
-                        Создать контейнер
-                    </button>
-                    </div>
-                </div>
-                <div data-container-list></div>
-                <p class="text-body-secondary text-center small m-0 p-4 d-none" data-container-empty>Контейнеров пока нет.</p>
-
-                <form class="border-top border-secondary-subtle d-none" data-container-form novalidate>
-                    <div class="card-body">
-                        <h4 class="h6 mb-3" data-container-form-title>Контейнер</h4>
-                        <div class="mb-3">
-                            <label class="form-label" for="containerEndpointUrl">Адрес проверки</label>
-                            <input class="form-control" id="containerEndpointUrl" name="endpointUrl" type="url" maxlength="2048" required data-container-endpoint />
-                            <div class="invalid-feedback" data-container-error="endpointUrl"></div>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label" for="containerDescription">Описание</label>
-                            <textarea class="form-control" id="containerDescription" name="description" maxlength="500" rows="3" data-container-description></textarea>
-                            <div class="invalid-feedback" data-container-error="description"></div>
-                        </div>
-                        <div class="form-check form-switch mb-3">
-                            <input class="form-check-input" id="containerMonitoringEnabled" name="isMonitoringEnabled" type="checkbox" role="switch" data-animated-switch data-container-enabled />
-                            <label class="form-check-label" for="containerMonitoringEnabled">Мониторинг включён</label>
-                        </div>
-                        <div class="d-flex flex-wrap justify-content-between gap-2 pt-2">
-                            <button type="submit" class="btn btn-primary">Сохранить</button>
-                            <div class="d-none" data-container-danger>
-                                <button type="button" class="btn btn-outline-danger" data-action="delete-container">Удалить контейнер</button>
-                            </div>
-                        </div>
-                    </div>
-                </form>
-            </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Закрыть</button>
@@ -172,37 +130,6 @@
         </div>
     </div>
 
-    <div class="modal fade" id="createContainerModal" tabindex="-1" aria-labelledby="createContainerModalTitle" aria-hidden="true" data-create-container-modal>
-        <div class="modal-dialog modal-dialog-centered">
-            <form class="modal-content border-0 shadow" data-create-container-form novalidate>
-                <div class="modal-header">
-                    <h2 class="modal-title fs-5" id="createContainerModalTitle">Новый контейнер</h2>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="alert alert-danger d-none" role="alert" data-create-container-general-error></div>
-                    <div class="mb-3">
-                        <label class="form-label" for="newContainerEndpointUrl">Адрес проверки</label>
-                        <input class="form-control" id="newContainerEndpointUrl" name="endpointUrl" type="url" maxlength="2048" placeholder="https://example.org/app/health" required data-create-container-endpoint />
-                        <div class="invalid-feedback" data-create-container-error="endpointUrl"></div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label" for="newContainerDescription">Описание</label>
-                        <textarea class="form-control" id="newContainerDescription" name="description" maxlength="500" rows="3" data-create-container-description></textarea>
-                        <div class="invalid-feedback" data-create-container-error="description"></div>
-                    </div>
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" id="newContainerMonitoringEnabled" name="isMonitoringEnabled" type="checkbox" role="switch" data-animated-switch checked data-create-container-enabled />
-                        <label class="form-check-label" for="newContainerMonitoringEnabled">Включить мониторинг</label>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
-                    <button type="submit" class="btn btn-primary">Создать</button>
-                </div>
-            </form>
-        </div>
-    </div>
 </div>
 
 @section Scripts {

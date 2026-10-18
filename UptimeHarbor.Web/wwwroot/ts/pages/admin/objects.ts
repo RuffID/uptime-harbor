@@ -1,3 +1,5 @@
+import { createSearchableMultiSelect } from "../../shared/searchableMultiSelect.js";
+import { createSearchableRadioSelect } from "../../shared/searchableRadioSelect.js";
 import { createDataTable, createTableAction, matchesSearch, TableColumn } from "../../shared/dataTable.js";
 import {
     ApiError,
@@ -31,7 +33,7 @@ interface AdminServer extends ObjectSettings {
 
 interface AdminContainer extends ObjectSettings {
     id: string;
-    serverId: string;
+    serverId: string | null;
     lastKnownName: string | null;
     status: MonitoringStatus;
     consecutiveFailures: number;
@@ -57,14 +59,12 @@ interface PageState {
     servers: AdminServer[];
     containers: AdminContainer[];
     selectedServerId: string | null;
-    selectedContainerId: string | null;
 }
 
 const state: PageState = {
     servers: [],
     containers: [],
-    selectedServerId: null,
-    selectedContainerId: null
+    selectedServerId: null
 };
 
 const page = requireElement<HTMLElement>("[data-objects-page]");
@@ -80,15 +80,6 @@ const serverEndpoint = requireElement<HTMLInputElement>("[data-server-endpoint]"
 const serverDescription = requireElement<HTMLTextAreaElement>("[data-server-description]");
 const serverEnabled = requireElement<HTMLInputElement>("[data-server-enabled]");
 const serverDanger = requireElement<HTMLElement>("[data-server-danger]");
-const containersSection = requireElement<HTMLElement>("[data-containers-section]");
-const containerList = requireElement<HTMLElement>("[data-container-list]");
-const containerEmpty = requireElement<HTMLElement>("[data-container-empty]");
-const containerForm = requireElement<HTMLFormElement>("[data-container-form]");
-const containerFormTitle = requireElement<HTMLElement>("[data-container-form-title]");
-const containerEndpoint = requireElement<HTMLInputElement>("[data-container-endpoint]");
-const containerDescription = requireElement<HTMLTextAreaElement>("[data-container-description]");
-const containerEnabled = requireElement<HTMLInputElement>("[data-container-enabled]");
-const containerDanger = requireElement<HTMLElement>("[data-container-danger]");
 const createServerModal = requireElement<HTMLElement>("[data-create-server-modal]");
 const createServerForm = requireElement<HTMLFormElement>("[data-create-server-form]");
 const createServerName = requireElement<HTMLInputElement>("[data-create-server-name]");
@@ -96,20 +87,11 @@ const createServerEndpoint = requireElement<HTMLInputElement>("[data-create-serv
 const createServerDescription = requireElement<HTMLTextAreaElement>("[data-create-server-description]");
 const createServerEnabled = requireElement<HTMLInputElement>("[data-create-server-enabled]");
 const createServerGeneralError = requireElement<HTMLElement>("[data-create-server-general-error]");
-const createContainerModal = requireElement<HTMLElement>("[data-create-container-modal]");
-const createContainerForm = requireElement<HTMLFormElement>("[data-create-container-form]");
-const createContainerEndpoint = requireElement<HTMLInputElement>("[data-create-container-endpoint]");
-const createContainerDescription = requireElement<HTMLTextAreaElement>("[data-create-container-description]");
-const createContainerEnabled = requireElement<HTMLInputElement>("[data-create-container-enabled]");
-const createContainerGeneralError = requireElement<HTMLElement>("[data-create-container-general-error]");
 const serverSearch = requireElement<HTMLInputElement>("[data-server-search]");
 const serverStatusFilter = requireElement<HTMLSelectElement>("[data-server-status-filter]");
-const containerSearch = requireElement<HTMLInputElement>("[data-container-search]");
-const containerStatusFilter = requireElement<HTMLSelectElement>("[data-container-status-filter]");
+const serverContainers = requireElement<HTMLSelectElement>("[data-server-containers]");
+const containerSelect = createSearchableMultiSelect(serverContainers, { buttonPlaceholder: "Не выбрано", noOptionsText: "Нет объектов." });
 let serversTable: ReturnType<typeof createDataTable>;
-let containersTable: ReturnType<typeof createDataTable>;
-let openingContainerModal = false;
-let returnToEditor = false;
 
 document.addEventListener("DOMContentLoaded", () => {
     void initObjectsPage();
@@ -129,43 +111,23 @@ async function initObjectsPage(): Promise<void> {
         { key: "internalName", title: "Внутреннее имя", width: 200, help: "Имя, полученное от сервера при проверке; оно не заменяет заданное администратором имя." },
         ...settingsColumns
     ]);
-    containersTable = createDataTable(containerList, "containers", "Контейнеры выбранного сервера", [
-        { key: "name", title: "Контейнер", width: 220 }, ...settingsColumns
-    ]);
     serverSearch.addEventListener("input", renderServers);
+    createSearchableRadioSelect(serverStatusFilter);
     serverStatusFilter.addEventListener("change", renderServers);
-    containerSearch.addEventListener("input", renderContainers);
-    containerStatusFilter.addEventListener("change", renderContainers);
     page.addEventListener("click", handlePageClick);
     serverList.addEventListener("click", handleServerSelection);
-    containerList.addEventListener("click", handleContainerSelection);
     serverForm.addEventListener("submit", event => void saveServer(event));
-    containerForm.addEventListener("submit", event => void saveContainer(event));
     createServerForm.addEventListener("submit", event => void createServer(event));
-    createContainerForm.addEventListener("submit", event => void createContainer(event));
     createServerModal.addEventListener("show.bs.modal", resetCreateServerForm);
     createServerModal.addEventListener("shown.bs.modal", () => createServerName.focus());
-    createContainerModal.addEventListener("show.bs.modal", resetCreateContainerForm);
-    createContainerModal.addEventListener("shown.bs.modal", () => createContainerEndpoint.focus());
     editObjectModal.addEventListener("shown.bs.modal", () => {
-        containersTable.refresh();
         serverName.focus();
     });
     editObjectModal.addEventListener("hidden.bs.modal", () => {
-        if (openingContainerModal) {
-            openingContainerModal = false;
-            showModal(createContainerModal);
-            return;
-        }
+        containerSelect.close();
         const trigger = Array.from(serverList.querySelectorAll<HTMLButtonElement>("button[data-server-id]"))
             .find(button => button.dataset.serverId === state.selectedServerId);
         (trigger ?? serverSearch).focus();
-    });
-    createContainerModal.addEventListener("hidden.bs.modal", () => {
-        if (returnToEditor) {
-            returnToEditor = false;
-            showModal(editObjectModal);
-        }
     });
 
     try {
@@ -194,14 +156,13 @@ async function loadServers(preferredServerId: string | null = null): Promise<voi
 async function selectServer(serverId: string): Promise<void> {
     const server = requireServer(serverId);
     state.selectedServerId = serverId;
-    state.selectedContainerId = null;
     fillServerForm(server);
     renderServers();
 
     const response = await sendJsonRequest<ServiceResultWithData<AdminContainer[]>>(
-        `/api/admin/objects/servers/${serverId}/containers`);
+        "/api/admin/objects/containers");
     state.containers = unwrapServiceResult(response);
-    renderContainers();
+    renderContainerLinks();
 }
 
 async function saveServer(event: SubmitEvent): Promise<void> {
@@ -215,13 +176,25 @@ async function saveServer(event: SubmitEvent): Promise<void> {
 
     try {
         const serverId = requireSelectedServerId();
-        const payload = { ...settings, version: requireServer(serverId).version };
+        const selectedContainerIds = new Set(Array.from(serverContainers.selectedOptions, option => option.value));
+        const payload = {
+            ...settings,
+            version: requireServer(serverId).version,
+            containerLinks: state.containers
+                .filter(container => container.serverId === serverId || selectedContainerIds.has(container.id))
+                .map(container => ({
+                    id: container.id,
+                    version: container.version,
+                    isLinked: selectedContainerIds.has(container.id)
+                }))
+        };
         const response = await sendJsonRequest<ServiceResultWithData<AdminServer>>(
             `/api/admin/objects/servers/${serverId}`,
             "PUT",
             payload);
         const savedServer = unwrapServiceResult(response);
         await loadServers(savedServer.id);
+        hideModal(editObjectModal);
     }
     catch (error: unknown) {
         showFormOrPageError(error, serverForm, "data-server-error");
@@ -252,59 +225,13 @@ async function createServer(event: SubmitEvent): Promise<void> {
     }
 }
 
-async function saveContainer(event: SubmitEvent): Promise<void> {
-    event.preventDefault();
-    clearPageError();
-    clearFormErrors(containerForm);
-    const settings = readSettings(containerEndpoint, containerDescription, containerEnabled);
-
-    try {
-        const serverId = requireSelectedServerId();
-        const containerId = requireSelectedContainerId();
-        const payload = { ...settings, version: requireContainer(containerId).version };
-        const response = await sendJsonRequest<ServiceResultWithData<AdminContainer>>(
-            `/api/admin/objects/containers/${containerId}`,
-            "PUT",
-            payload);
-        const savedContainer = unwrapServiceResult(response);
-        await selectServer(serverId);
-        selectContainer(savedContainer.id);
-    }
-    catch (error: unknown) {
-        showFormOrPageError(error, containerForm, "data-container-error");
-    }
-}
-
-async function createContainer(event: SubmitEvent): Promise<void> {
-    event.preventDefault();
-    clearFormErrors(createContainerForm);
-    hideModalError(createContainerGeneralError);
-
-    try {
-        const serverId = requireSelectedServerId();
-        const response = await sendJsonRequest<ServiceResultWithData<AdminContainer>>(
-            `/api/admin/objects/servers/${serverId}/containers`,
-            "POST",
-            readSettings(createContainerEndpoint, createContainerDescription, createContainerEnabled));
-        const savedContainer = unwrapServiceResult(response);
-        hideModal(createContainerModal);
-        await selectServer(serverId);
-        selectContainer(savedContainer.id);
-    }
-    catch (error: unknown) {
-        if (!showFormFieldError(error, createContainerForm, "data-create-container-error")) {
-            showModalError(createContainerGeneralError, error, "Не удалось создать контейнер.");
-        }
-    }
-}
-
 async function deleteServer(): Promise<void> {
     const serverId = requireSelectedServerId();
     const impactResponse = await sendJsonRequest<ServiceResultWithData<ServerDeletionImpact>>(
         `/api/admin/objects/servers/${serverId}/deletion-impact`);
     const impact = unwrapServiceResult(impactResponse);
     const confirmed = window.confirm(
-        `Удалить сервер и ${impact.containerCount} контейнер(ов)? Права и привязки уведомлений также будут удалены.`);
+        `Удалить сервер? ${impact.containerCount} контейнер(ов) сохранятся без связи с сервером. Права и привязки уведомлений самого сервера будут удалены.`);
     if (!confirmed) {
         return;
     }
@@ -316,20 +243,6 @@ async function deleteServer(): Promise<void> {
     unwrapServiceSuccess(response);
     clearSelection();
     await loadServers();
-}
-
-async function deleteContainer(): Promise<void> {
-    const containerId = requireSelectedContainerId();
-    if (!window.confirm("Удалить выбранный контейнер?")) {
-        return;
-    }
-
-    const response = await sendJsonRequest<ServiceResult>(
-        `/api/admin/objects/containers/${containerId}`,
-        "DELETE",
-        { version: requireContainer(containerId).version });
-    unwrapServiceSuccess(response);
-    await selectServer(requireSelectedServerId());
 }
 
 function handlePageClick(event: MouseEvent): void {
@@ -344,16 +257,8 @@ function handlePageClick(event: MouseEvent): void {
         return;
     }
 
-    if (action === "new-container") {
-        openingContainerModal = true;
-        returnToEditor = true;
-        hideModal(editObjectModal);
-    }
-    else if (action === "delete-server") {
+    if (action === "delete-server") {
         void runPageCommand(deleteServer);
-    }
-    else if (action === "delete-container") {
-        void runPageCommand(deleteContainer);
     }
     else {
         throw new Error(`Неизвестное действие: ${action}.`);
@@ -369,34 +274,10 @@ function handleServerSelection(event: MouseEvent): void {
     const button = target.closest<HTMLButtonElement>("button[data-server-id]");
     if (button?.dataset.serverId) {
         void runPageCommand(async () => {
-            await selectServer(button.dataset.serverId!);
+            await loadServers(button.dataset.serverId!);
             showModal(editObjectModal);
         });
     }
-}
-
-function handleContainerSelection(event: MouseEvent): void {
-    const target = event.target;
-    if (!(target instanceof Element)) {
-        return;
-    }
-
-    const button = target.closest<HTMLButtonElement>("button[data-container-id]");
-    if (button?.dataset.containerId) {
-        selectContainer(button.dataset.containerId);
-    }
-}
-
-function selectContainer(containerId: string): void {
-    const container = state.containers.find(item => item.id === containerId);
-    if (!container) {
-        throw new Error("Выбранный контейнер не найден в состоянии страницы.");
-    }
-
-    state.selectedContainerId = containerId;
-    fillContainerForm(container);
-    renderContainers();
-    containerForm.scrollIntoView({ block: "nearest", behavior: "auto" });
 }
 
 function renderServers(): void {
@@ -409,57 +290,39 @@ function renderServers(): void {
     serversTable.refresh();
 }
 
-function renderContainers(): void {
-    containersSection.classList.remove("d-none");
-    const containers = state.containers.filter(container =>
-        matchesSearch(containerSearch.value, container.lastKnownName, container.endpointUrl, container.description)
-        && (containerStatusFilter.value === "" || String(container.status) === containerStatusFilter.value));
-    containersTable.body.replaceChildren(...containers.map(container => createObjectRow(container, "containerId")));
-    containerEmpty.classList.toggle("d-none", containers.length !== 0);
-    containerEmpty.textContent = state.containers.length === 0 ? "Контейнеров пока нет." : "По выбранным фильтрам контейнеры не найдены.";
-    containersTable.refresh();
-
-    if (state.selectedContainerId === null) {
-        containerForm.classList.add("d-none");
+function renderContainerLinks(): void {
+    serverContainers.replaceChildren();
+    for (const container of state.containers) {
+        if (container.serverId !== null && container.serverId !== state.selectedServerId) continue;
+        const option = document.createElement("option");
+        option.value = container.id;
+        option.textContent = container.lastKnownName ?? container.endpointUrl;
+        option.selected = container.serverId === state.selectedServerId;
+        serverContainers.append(option);
     }
+    serverContainers.disabled = serverContainers.options.length === 0;
+    containerSelect.refresh();
 }
 
-function createObjectRow(
-    item: AdminServer | AdminContainer,
-    idDataName: "serverId" | "containerId"
-): HTMLTableRowElement {
+function createObjectRow(item: AdminServer, idDataName: "serverId"): HTMLTableRowElement {
     const button = createTableAction("Изменить");
     button.dataset[idDataName] = item.id;
-    const values: Array<string | Node> = [
-        item.endpointUrl, createStatusBadge(item.status), item.isMonitoringEnabled ? "Включён" : "Отключён",
-        String(item.consecutiveFailures), item.description ?? "—", button
-    ];
-    if ("name" in item) {
-        return serversTable.row([item.name, item.lastKnownName ?? "Нет данных", ...values], item.id === state.selectedServerId);
-    }
-    return containersTable.row([item.lastKnownName ?? "Контейнер", ...values], item.id === state.selectedContainerId);
+    return serversTable.row([
+        item.name, item.lastKnownName ?? "Нет данных", item.endpointUrl, createStatusBadge(item.status),
+        item.isMonitoringEnabled ? "Включён" : "Отключён", String(item.consecutiveFailures),
+        item.description ?? "—", button
+    ], item.id === state.selectedServerId);
 }
 
 function fillServerForm(server: AdminServer): void {
     serverForm.classList.remove("d-none");
     serverDanger.classList.remove("d-none");
-    containersSection.classList.remove("d-none");
     serverFormTitle.textContent = server.name;
     serverName.value = server.name;
     serverEndpoint.value = server.endpointUrl;
     serverDescription.value = server.description ?? "";
     serverEnabled.checked = server.isMonitoringEnabled;
     clearFormErrors(serverForm);
-}
-
-function fillContainerForm(container: AdminContainer): void {
-    containerForm.classList.remove("d-none");
-    containerDanger.classList.remove("d-none");
-    containerFormTitle.textContent = container.lastKnownName ?? "Контейнер";
-    containerEndpoint.value = container.endpointUrl;
-    containerDescription.value = container.description ?? "";
-    containerEnabled.checked = container.isMonitoringEnabled;
-    clearFormErrors(containerForm);
 }
 
 function readSettings(
@@ -485,7 +348,7 @@ function showFormFieldError(error: unknown, form: HTMLFormElement, errorAttribut
         return false;
     }
 
-    const field = form.querySelector<HTMLInputElement | HTMLTextAreaElement>(`[name="${error.field}"]`);
+    const field = form.querySelector<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(`[name="${error.field}"]`);
     const message = form.querySelector<HTMLElement>(`[${errorAttribute}="${error.field}"]`);
     if (!field || !message) {
         return false;
@@ -493,6 +356,7 @@ function showFormFieldError(error: unknown, form: HTMLFormElement, errorAttribut
 
     field.classList.add("is-invalid");
     message.textContent = error.message;
+    message.classList.add("d-block");
     return true;
 }
 
@@ -502,15 +366,14 @@ function clearFormErrors(form: HTMLFormElement): void {
     }
     for (const message of form.querySelectorAll<HTMLElement>(".invalid-feedback")) {
         message.textContent = "";
+        message.classList.remove("d-block");
     }
 }
 
 function clearSelection(): void {
     state.selectedServerId = null;
-    state.selectedContainerId = null;
     state.containers = [];
     serverForm.classList.add("d-none");
-    containersSection.classList.add("d-none");
     hideModal(editObjectModal);
     renderServers();
 }
@@ -523,27 +386,11 @@ function requireServer(serverId: string): AdminServer {
     return server;
 }
 
-function requireContainer(containerId: string): AdminContainer {
-    const container = state.containers.find(item => item.id === containerId);
-    if (!container) {
-        throw new Error("Контейнер не найден.");
-    }
-
-    return container;
-}
-
 function requireSelectedServerId(): string {
     if (state.selectedServerId === null) {
         throw new Error("Сервер не выбран.");
     }
     return state.selectedServerId;
-}
-
-function requireSelectedContainerId(): string {
-    if (state.selectedContainerId === null) {
-        throw new Error("Контейнер не выбран.");
-    }
-    return state.selectedContainerId;
 }
 
 function requireElement<TElement extends Element>(selector: string): TElement {
@@ -593,13 +440,6 @@ function resetCreateServerForm(): void {
     createServerForm.reset();
     clearFormErrors(createServerForm);
     hideModalError(createServerGeneralError);
-}
-
-function resetCreateContainerForm(): void {
-    clearPageError();
-    createContainerForm.reset();
-    clearFormErrors(createContainerForm);
-    hideModalError(createContainerGeneralError);
 }
 
 function showModalError(element: HTMLElement, error: unknown, fallbackMessage: string): void {

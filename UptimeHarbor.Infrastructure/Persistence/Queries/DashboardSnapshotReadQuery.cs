@@ -47,6 +47,8 @@ public class DashboardSnapshotReadQuery(UptimeHarborDbContext dbContext)
         List<Guid> permittedContainerIds = await dbContext.ContainerVisibilityPermissions
             .AsNoTracking()
             .Where(permission => permission.UserId == userId)
+            .Where(permission => dbContext.MonitoredContainers.Any(container =>
+                container.Id == permission.ContainerId && container.ServerId == permission.ServerId))
             .Select(permission => permission.ContainerId)
             .ToListAsync(cancellationToken);
 

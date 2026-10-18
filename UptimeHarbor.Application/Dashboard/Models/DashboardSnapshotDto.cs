@@ -2,4 +2,5 @@ namespace UptimeHarbor.Application.Dashboard.Models;
 
 public record DashboardSnapshotDto(
     DateTimeOffset GeneratedAtUtc,
-    IReadOnlyList<DashboardServerDto> Servers);
+    IReadOnlyList<DashboardServerDto> Servers,
+    IReadOnlyList<DashboardContainerDto> UnassignedContainers);

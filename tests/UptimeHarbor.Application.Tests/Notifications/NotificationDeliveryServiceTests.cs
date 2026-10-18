@@ -10,6 +10,25 @@ namespace UptimeHarbor.Tests.Application.Notifications;
 public class NotificationDeliveryServiceTests
 {
     [Fact]
+    public async Task UnassignedContainer_PreparesDeliveryWithoutParentServer()
+    {
+        // Arrange
+        NotificationTestData data = new();
+        MonitoredContainer container = new(Guid.NewGuid(), null, "https://api.example/health", null, true);
+        TelegramChat chat = data.AddChat(-1001, "API");
+        data.Bindings.Items.Add(NotificationBinding.ForContainer(Guid.NewGuid(), chat.Id, container.Id));
+
+        // Act
+        IReadOnlyList<PendingNotificationDeliveryDto> deliveries =
+            await data.DeliveryService.GetPendingDeliveriesAsync(
+                CreateEvent(container, Guid.NewGuid(), MonitoringStatus.Unavailable),
+                TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Single(deliveries);
+    }
+
+    [Fact]
     public async Task Outage_DeliversToEveryBoundChatButNotUnboundChat()
     {
         NotificationTestData data = new();

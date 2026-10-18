@@ -266,6 +266,11 @@ public class DashboardSignalRTests
 
     private class FakeObjectAdministrationUnitOfWork : IObjectAdministrationUnitOfWork
     {
+        public Task RemoveContainerPermissionsAsync(Guid containerId, CancellationToken cancellationToken = default)
+        {
+            return Task.CompletedTask;
+        }
+
         public FakeServerRepository Servers { get; } = new();
         public IMonitoredServerRepository MonitoredServers => Servers;
         public IMonitoredContainerRepository MonitoredContainers { get; } = new EmptyContainerRepository();

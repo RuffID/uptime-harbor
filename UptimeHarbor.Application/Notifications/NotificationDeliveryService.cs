@@ -53,23 +53,34 @@ public class NotificationDeliveryService(
                 monitoringEvent.ObjectKind,
                 "Неизвестный тип объекта мониторинга.")
         };
-        IEnumerable<NotificationBinding> pendingBindings = kind == NotificationDeliveryKind.Outage
-            ? bindings.Where(binding => binding.RequiresOutageDelivery(incidentId))
-            : bindings.Where(binding => binding.RequiresRecoveryDelivery(incidentId));
+        IEnumerable<NotificationBinding> pendingBindings;
+        if (kind == NotificationDeliveryKind.Outage)
+        {
+            pendingBindings = bindings.Where(binding => binding.RequiresOutageDelivery(incidentId));
+        }
+        else
+        {
+            pendingBindings = bindings.Where(binding => binding.RequiresRecoveryDelivery(incidentId));
+        }
+
         Dictionary<Guid, TelegramChat> chats = (await unitOfWork.TelegramChats.GetAllAsync(cancellationToken))
             .ToDictionary(chat => chat.Id);
 
         string? parentServerName = null;
-        if (monitoringEvent.ObjectKind == MonitoringObjectKind.Container)
+        if (monitoringEvent.ObjectKind == MonitoringObjectKind.Container
+            && monitoringEvent.ServerId is Guid serverId)
         {
-            Guid serverId = monitoringEvent.ServerId
-                ?? throw new InvalidOperationException("Событие контейнера должно содержать родительский сервер.");
             MonitoredServer? server = await unitOfWork.MonitoredServers.GetItemByIdAsync(
                 serverId,
                 cancellationToken);
-            parentServerName = server is null
-                ? ShortGuid(serverId)
-                : server.Name;
+            if (server is null)
+            {
+                parentServerName = ShortGuid(serverId);
+            }
+            else
+            {
+                parentServerName = server.Name;
+            }
         }
 
         string message = CreateMessage(monitoringEvent, kind.Value, parentServerName);

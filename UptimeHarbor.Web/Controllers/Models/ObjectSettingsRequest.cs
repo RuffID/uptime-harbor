@@ -9,4 +9,6 @@ public class ObjectSettingsRequest
     public bool IsMonitoringEnabled { get; init; }
 
     public long? Version { get; init; }
+
+    public Guid? ServerId { get; init; }
 }

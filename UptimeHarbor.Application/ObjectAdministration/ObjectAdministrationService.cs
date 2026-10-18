@@ -29,7 +29,7 @@ public class ObjectAdministrationService(
     }
 
     public async Task<ServiceResult<IReadOnlyList<AdminContainerDto>>> GetContainersAsync(
-        Guid serverId,
+        Guid? serverId = null,
         CancellationToken cancellationToken = default)
     {
         ServiceError? accessError = administratorAccessPolicy.GetAccessError();
@@ -38,7 +38,14 @@ public class ObjectAdministrationService(
             return ServiceResult<IReadOnlyList<AdminContainerDto>>.Fail(accessError);
         }
 
-        MonitoredServer? server = await unitOfWork.MonitoredServers.GetItemByIdAsync(serverId, cancellationToken);
+        if (serverId is null)
+        {
+            IReadOnlyList<MonitoredContainer> allContainers =
+                await unitOfWork.MonitoredContainers.GetAllAsync(cancellationToken);
+            return ServiceResult<IReadOnlyList<AdminContainerDto>>.Ok(allContainers.Select(MapContainer).ToList());
+        }
+
+        MonitoredServer? server = await unitOfWork.MonitoredServers.GetItemByIdAsync(serverId.Value, cancellationToken);
         if (server is null)
         {
             return ServiceResult<IReadOnlyList<AdminContainerDto>>.Fail(
@@ -47,7 +54,7 @@ public class ObjectAdministrationService(
         }
 
         IReadOnlyList<MonitoredContainer> containers =
-            await unitOfWork.MonitoredContainers.GetByServerIdAsync(serverId, cancellationToken);
+            await unitOfWork.MonitoredContainers.GetByServerIdAsync(serverId.Value, cancellationToken);
         return ServiceResult<IReadOnlyList<AdminContainerDto>>.Ok(
             containers.Select(MapContainer).ToList());
     }
@@ -94,6 +101,7 @@ public class ObjectAdministrationService(
             return ServiceResult<AdminServerDto>.Fail(CreateDuplicateServerNameError());
         }
         await changePublisher.PublishObjectsChangedAsync(cancellationToken);
+
         return ServiceResult<AdminServerDto>.Ok(MapServer(server));
     }
 
@@ -104,7 +112,8 @@ public class ObjectAdministrationService(
         string? description,
         bool isMonitoringEnabled,
         long expectedVersion,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        IReadOnlyList<ContainerLinkUpdate>? containerLinks = null)
     {
         ServiceError? error = administratorAccessPolicy.GetAccessError()
             ?? ValidateServerSettings(name, endpointUrl, description);
@@ -135,11 +144,37 @@ public class ObjectAdministrationService(
             return ServiceResult<AdminServerDto>.Fail(CreateDuplicateServerNameError());
         }
 
+        IReadOnlyList<MonitoredContainer> containers = [];
+        if (containerLinks is not null)
+        {
+            containers = await unitOfWork.MonitoredContainers.GetAllAsync(cancellationToken);
+            ServiceError? linksError = ValidateContainerLinks(serverId, containerLinks, containers);
+            if (linksError is not null)
+            {
+                return ServiceResult<AdminServerDto>.Fail(linksError);
+            }
+        }
+
         try
         {
             await unitOfWork.ExecuteInTransactionAsync(
                 async transactionCancellationToken =>
                 {
+                    if (containerLinks is not null)
+                    {
+                        foreach (ContainerLinkUpdate link in containerLinks)
+                        {
+                            MonitoredContainer container = containers.Single(item => item.Id == link.Id);
+                            Guid? parentId = null;
+                            if (link.IsLinked)
+                            {
+                                parentId = serverId;
+                            }
+
+                            await AssignContainerServerAsync(container, parentId, transactionCancellationToken);
+                        }
+                    }
+
                     Guid? incidentId = server.CurrentIncidentId;
                     RecoveryNotificationCancellationReason? cancellationReason =
                         GetRecoveryCancellationReason(
@@ -175,7 +210,7 @@ public class ObjectAdministrationService(
     }
 
     public async Task<ServiceResult<AdminContainerDto>> CreateContainerAsync(
-        Guid serverId,
+        Guid? serverId,
         string endpointUrl,
         string? description,
         bool isMonitoringEnabled,
@@ -187,24 +222,34 @@ public class ObjectAdministrationService(
             return ServiceResult<AdminContainerDto>.Fail(error);
         }
 
-        MonitoredServer? server = await unitOfWork.MonitoredServers.GetItemByIdAsync(serverId, cancellationToken);
-        if (server is null)
+        ServiceError? serverError = await ValidateServerAsync(serverId, cancellationToken);
+        if (serverError is not null)
         {
-            return ServiceResult<AdminContainerDto>.Fail(
-                ServiceErrorType.Validation,
-                "Родительский сервер не существует.",
-                "serverId");
+            return ServiceResult<AdminContainerDto>.Fail(serverError);
         }
 
         MonitoredContainer container = new(
             Guid.NewGuid(),
-            server.Id,
+            serverId,
             endpointUrl,
             description,
             isMonitoringEnabled);
-        unitOfWork.MonitoredContainers.Create(container);
-        await unitOfWork.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await unitOfWork.ExecuteInTransactionAsync(async transactionCancellationToken =>
+            {
+                unitOfWork.MonitoredContainers.Create(container);
+                await TouchServerAsync(serverId, transactionCancellationToken);
+            }, cancellationToken);
+        }
+        catch (PersistenceConcurrencyException)
+        {
+            return ServiceResult<AdminContainerDto>.Fail(CreateConcurrencyError());
+        }
+
         await changePublisher.PublishObjectsChangedAsync(cancellationToken);
+
         return ServiceResult<AdminContainerDto>.Ok(MapContainer(container));
     }
 
@@ -214,7 +259,8 @@ public class ObjectAdministrationService(
         string? description,
         bool isMonitoringEnabled,
         long expectedVersion,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        ContainerServerAssignment? serverAssignment = null)
     {
         ServiceError? error = administratorAccessPolicy.GetAccessError() ?? ValidateSettings(endpointUrl, description);
         if (error is not null)
@@ -234,14 +280,16 @@ public class ObjectAdministrationService(
             return ServiceResult<AdminContainerDto>.Fail(CreateConcurrencyError());
         }
 
-        MonitoredServer? server =
-            await unitOfWork.MonitoredServers.GetItemByIdAsync(container.ServerId, cancellationToken);
-        if (server is null)
+        Guid? parentId = container.ServerId;
+        if (serverAssignment is not null)
         {
-            return ServiceResult<AdminContainerDto>.Fail(
-                ServiceErrorType.Validation,
-                "Родительский сервер не существует.",
-                "serverId");
+            parentId = serverAssignment.ServerId;
+        }
+
+        ServiceError? serverError = await ValidateServerAsync(parentId, cancellationToken);
+        if (serverError is not null)
+        {
+            return ServiceResult<AdminContainerDto>.Fail(serverError);
         }
 
         try
@@ -249,6 +297,7 @@ public class ObjectAdministrationService(
             await unitOfWork.ExecuteInTransactionAsync(
                 async transactionCancellationToken =>
                 {
+                    await AssignContainerServerAsync(container, parentId, transactionCancellationToken);
                     Guid? incidentId = container.CurrentIncidentId;
                     RecoveryNotificationCancellationReason? cancellationReason =
                         GetRecoveryCancellationReason(
@@ -353,7 +402,12 @@ public class ObjectAdministrationService(
                         return;
                     }
 
-                    unitOfWork.MonitoredContainers.DeleteRange(containers);
+                    foreach (MonitoredContainer container in containers)
+                    {
+                        await unitOfWork.RemoveContainerPermissionsAsync(container.Id, transactionCancellationToken);
+                        container.AssignServer(null);
+                    }
+
                     unitOfWork.MonitoredServers.Delete(server);
                     operationResult = ServiceResult.Ok();
                 },
@@ -408,6 +462,84 @@ public class ObjectAdministrationService(
         }
         await changePublisher.PublishObjectsChangedAsync(cancellationToken);
         return ServiceResult.Ok();
+    }
+
+    private async Task<ServiceError?> ValidateServerAsync(Guid? serverId, CancellationToken cancellationToken)
+    {
+        if (serverId is null)
+        {
+            return null;
+        }
+
+        MonitoredServer? server = await unitOfWork.MonitoredServers.GetItemByIdAsync(serverId.Value, cancellationToken);
+        if (server is null)
+        {
+            return new ServiceError(ServiceErrorType.Validation, "Сервер не существует.", "serverId");
+        }
+
+        return null;
+    }
+
+    private async Task AssignContainerServerAsync(
+        MonitoredContainer container,
+        Guid? serverId,
+        CancellationToken cancellationToken)
+    {
+        if (container.ServerId == serverId)
+        {
+            return;
+        }
+
+        await TouchServerAsync(container.ServerId, cancellationToken);
+        await TouchServerAsync(serverId, cancellationToken);
+        await unitOfWork.RemoveContainerPermissionsAsync(container.Id, cancellationToken);
+        container.AssignServer(serverId);
+    }
+
+    private async Task TouchServerAsync(Guid? serverId, CancellationToken cancellationToken)
+    {
+        if (serverId is null)
+        {
+            return;
+        }
+
+        MonitoredServer server = await unitOfWork.MonitoredServers.GetItemByIdAsync(serverId.Value, cancellationToken)
+            ?? throw new InvalidOperationException("Сервер связи не найден.");
+        server.RecordContainerLinksChanged();
+    }
+
+    private static ServiceError? ValidateContainerLinks(
+        Guid serverId,
+        IReadOnlyList<ContainerLinkUpdate> links,
+        IReadOnlyList<MonitoredContainer> containers)
+    {
+        HashSet<Guid> requestedIds = links.Select(link => link.Id).ToHashSet();
+        if (requestedIds.Count != links.Count)
+        {
+            return new ServiceError(ServiceErrorType.Validation, "Контейнеры не должны повторяться.", "containerLinks");
+        }
+
+        foreach (ContainerLinkUpdate link in links)
+        {
+            MonitoredContainer? container = containers.SingleOrDefault(item => item.Id == link.Id);
+            if (container is null || container.Version != link.Version)
+            {
+                return CreateConcurrencyError();
+            }
+
+            if (container.ServerId is Guid parentId && parentId != serverId)
+            {
+                return new ServiceError(ServiceErrorType.Conflict,
+                    "Контейнер уже связан с другим сервером. Обновите список.", "containerLinks");
+            }
+        }
+
+        if (containers.Any(container => container.ServerId == serverId && !requestedIds.Contains(container.Id)))
+        {
+            return CreateConcurrencyError();
+        }
+
+        return null;
     }
 
     private static ServiceError? ValidateSettings(string endpointUrl, string? description)

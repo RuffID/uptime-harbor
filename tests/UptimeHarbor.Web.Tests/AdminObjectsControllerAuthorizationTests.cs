@@ -22,21 +22,25 @@ public class AdminObjectsControllerAuthorizationTests
     [Fact]
     public void MutatingActions_RequireAntiforgeryValidation()
     {
+        // Arrange
         string[] actionNames =
         [
             nameof(AdminObjectsController.CreateServerAsync),
             nameof(AdminObjectsController.UpdateServerAsync),
             nameof(AdminObjectsController.CreateContainerAsync),
+            nameof(AdminObjectsController.CreateUnassignedContainerAsync),
             nameof(AdminObjectsController.UpdateContainerAsync),
             nameof(AdminObjectsController.DeleteServerAsync),
             nameof(AdminObjectsController.DeleteContainerAsync)
         ];
 
-        foreach (string actionName in actionNames)
+        // Act
+        System.Reflection.MethodInfo[] methods = actionNames.Select(actionName =>
+            Assert.Single(typeof(AdminObjectsController).GetMethods(), candidate => candidate.Name == actionName)).ToArray();
+
+        // Assert
+        foreach (System.Reflection.MethodInfo method in methods)
         {
-            System.Reflection.MethodInfo method = Assert.Single(
-                typeof(AdminObjectsController).GetMethods(),
-                candidate => candidate.Name == actionName);
             Assert.Single(method.GetCustomAttributes(typeof(ValidateAntiForgeryTokenAttribute), inherit: true));
         }
     }

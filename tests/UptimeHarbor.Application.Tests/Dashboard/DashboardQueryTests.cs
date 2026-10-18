@@ -12,6 +12,34 @@ namespace UptimeHarbor.Tests.Application.Dashboard;
 
 public class DashboardQueryTests
 {
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task UnassignedContainer_IsReturnedSeparatelyOnlyForAdministrator(bool isAdministrator)
+    {
+        // Arrange
+        TestData data = new();
+        data.AllowServer(data.FirstServer);
+        data.AllowContainer(data.FirstContainer);
+        data.FirstContainer.AssignServer(null);
+        DashboardQuery query = data.CreateQuery(isAdministrator);
+
+        // Act
+        ServiceResult<DashboardSnapshotDto> result = await query.GetSnapshotAsync(
+            null, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.True(result.Success);
+        if (isAdministrator)
+        {
+            Assert.Equal(data.FirstContainer.Id, Assert.Single(result.Data!.UnassignedContainers).Id);
+        }
+        else
+        {
+            Assert.Empty(result.Data!.UnassignedContainers);
+        }
+    }
+
     private static readonly DateTimeOffset NOW_UTC =
         new(2026, 8, 25, 12, 0, 0, TimeSpan.Zero);
 
@@ -237,11 +265,15 @@ public class DashboardQueryTests
         public void AllowServer(MonitoredServer server) =>
             Permissions.ServerPermissions.Add(new ServerVisibilityPermission(UserId, server.Id));
 
-        public void AllowContainer(MonitoredContainer container) =>
+        public void AllowContainer(MonitoredContainer container)
+        {
+            Guid serverId = container.ServerId
+                ?? throw new InvalidOperationException("Тестовые права требуют сервер.");
             Permissions.ContainerPermissions.Add(new ContainerVisibilityPermission(
                 UserId,
-                container.ServerId,
+                serverId,
                 container.Id));
+        }
 
         public DashboardQuery CreateQuery(bool isAdministrator)
         {

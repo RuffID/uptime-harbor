@@ -49,6 +49,8 @@ public class MonitoringRecipientReadQuery(UptimeHarborDbContext dbContext)
             var containerPermissions = await dbContext.ContainerVisibilityPermissions
                 .AsNoTracking()
                 .Where(permission => ordinaryUserIds.Contains(permission.UserId))
+                .Where(permission => dbContext.MonitoredContainers.Any(container =>
+                    container.Id == permission.ContainerId && container.ServerId == permission.ServerId))
                 .Select(permission => new
                 {
                     permission.UserId,

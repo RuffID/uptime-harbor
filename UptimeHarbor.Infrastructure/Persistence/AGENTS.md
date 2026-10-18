@@ -8,7 +8,7 @@
 
 - Все репозитории и Unit of Work в одном DI scope используют один `UptimeHarborDbContext`.
 - Модель EF настраивать под защищённую доменную модель, не ослабляя её публичный API.
-- Сохранять ограничения, индексы, каскады и UTC-конвертацию согласованными с доменными правилами. Связь server → containers использует `NoAction`, чтобы SQL Server не создавал multiple cascade paths; сценарий удаления сервера явно удаляет загруженные контейнеры в той же транзакции.
+- Сохранять ограничения, индексы, каскады и UTC-конвертацию согласованными с доменными правилами. Связь server → containers использует `NoAction`, чтобы SQL Server не создавал multiple cascade paths; сценарий удаления сервера явно отвязывает загруженные контейнеры и снимает их permissions в той же транзакции, сохраняя контейнеры и их Telegram bindings. `ServerId` nullable; alternate key по паре server/container не используется.
 - Существующие миграции вручную не редактировать; новые создаются отдельной командой после изменения модели.
 - Pending migrations автоматически применяются единственным Web-процессом при старте только после успешного SQL Server backup и до Identity bootstrap; multi-instance migration coordination не реализована.
 - Design-time scaffolding использует `UptimeHarborDesignTimeDbContextFactory` без строки подключения и не открывает соединение с БД.

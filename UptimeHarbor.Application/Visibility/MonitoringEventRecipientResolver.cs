@@ -13,12 +13,6 @@ public class MonitoringEventRecipientResolver(
         Guid? serverId,
         CancellationToken cancellationToken = default)
     {
-        if (objectKind == MonitoringObjectKind.Container && serverId is null)
-        {
-            throw new InvalidOperationException(
-                "Событие контейнера должно содержать идентификатор родительского сервера.");
-        }
-
         if (objectKind is not MonitoringObjectKind.Server and not MonitoringObjectKind.Container)
         {
             throw new ArgumentOutOfRangeException(
@@ -54,7 +48,7 @@ public class MonitoringEventRecipientResolver(
                     permittedServerIds),
                 MonitoringObjectKind.Container => ObjectVisibilityPolicy.CanAccessContainer(
                     false,
-                    serverId!.Value,
+                    serverId,
                     objectId,
                     permittedServerIds,
                     candidate.PermittedContainerIds.ToHashSet()),

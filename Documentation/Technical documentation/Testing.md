@@ -101,6 +101,10 @@ Metadata-тест создаёт SQL Server options и читает EF model б�
 
 Web contract tests сериализуют `JsonResult` и administrative DTO через фактические MVC `JsonOptions`. Application проверяет self-disable/self-delete и last-enabled-admin. Runtime-проверка automatic SQL Server backup/migration, server-side backup permissions, concurrency, row-lock ordering dispatcher против administrative cancellation, фактические `SqlException` 2601/2627 вместе с EF entries, restart процесса и Telegram остаётся отдельной ручной проверкой; Docker/Nginx не входят в scope v1.
 
+## Проверка разделения серверов и контейнеров
+
+Проверены создание контейнера без сервера, привязка/отвязка с обеих страниц, конфликт версии/занятого контейнера, сохранение контейнеров при удалении сервера, очистка прежних permissions и отдельная выдача несвязанных контейнеров только администратору. EF metadata подтверждает nullable ServerId и новые FK без подключения к БД. Проверки DOM-заглушек в `Frontend/searchableSelects.test.mts` проверяют пустые/disabled поля, checkbox/radio и снятие связи через «Без сервера». Браузер, SQL Server, применение migration и доставка Telegram остаются непроверенными.
+
 ## Изоляция
 
 Обычные тесты не обращаются к реальной БД, HTTP endpoint, Docker, PowerShell, процессам или внешним сервисам.

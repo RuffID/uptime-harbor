@@ -149,6 +149,11 @@ public class AdministratorAccessPolicyTests
 
     private class ThrowingObjectAdministrationUnitOfWork : IObjectAdministrationUnitOfWork
     {
+        public Task RemoveContainerPermissionsAsync(Guid containerId, CancellationToken cancellationToken = default)
+        {
+            throw new InvalidOperationException("Unit of work must not be called.");
+        }
+
         public IMonitoredServerRepository MonitoredServers =>
             throw new InvalidOperationException("Repository must not be called.");
         public IMonitoredContainerRepository MonitoredContainers =>

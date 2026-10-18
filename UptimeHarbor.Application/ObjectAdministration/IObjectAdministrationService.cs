@@ -9,7 +9,7 @@ public interface IObjectAdministrationService
         CancellationToken cancellationToken = default);
 
     Task<ServiceResult<IReadOnlyList<AdminContainerDto>>> GetContainersAsync(
-        Guid serverId,
+        Guid? serverId = null,
         CancellationToken cancellationToken = default);
 
     Task<ServiceResult<AdminServerDto>> CreateServerAsync(
@@ -26,10 +26,11 @@ public interface IObjectAdministrationService
         string? description,
         bool isMonitoringEnabled,
         long expectedVersion,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        IReadOnlyList<ContainerLinkUpdate>? containerLinks = null);
 
     Task<ServiceResult<AdminContainerDto>> CreateContainerAsync(
-        Guid serverId,
+        Guid? serverId,
         string endpointUrl,
         string? description,
         bool isMonitoringEnabled,
@@ -41,7 +42,8 @@ public interface IObjectAdministrationService
         string? description,
         bool isMonitoringEnabled,
         long expectedVersion,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        ContainerServerAssignment? serverAssignment = null);
 
     Task<ServiceResult<ServerDeletionImpactDto>> GetServerDeletionImpactAsync(
         Guid serverId,

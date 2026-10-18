@@ -17,8 +17,7 @@ public class ContainerVisibilityPermissionConfiguration : IEntityTypeConfigurati
             .OnDelete(DeleteBehavior.Cascade);
         builder.HasOne<MonitoredContainer>()
             .WithMany()
-            .HasForeignKey(permission => new { permission.ServerId, permission.ContainerId })
-            .HasPrincipalKey(container => new { container.ServerId, container.Id })
+            .HasForeignKey(permission => permission.ContainerId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 }

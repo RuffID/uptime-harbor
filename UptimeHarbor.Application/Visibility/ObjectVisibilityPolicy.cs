@@ -13,7 +13,7 @@ public static class ObjectVisibilityPolicy
 
     public static bool CanAccessContainer(
         bool isAdministrator,
-        Guid serverId,
+        Guid? serverId,
         Guid containerId,
         IReadOnlySet<Guid> permittedServerIds,
         IReadOnlySet<Guid> permittedContainerIds)
@@ -21,7 +21,7 @@ public static class ObjectVisibilityPolicy
         ArgumentNullException.ThrowIfNull(permittedServerIds);
         ArgumentNullException.ThrowIfNull(permittedContainerIds);
         return isAdministrator
-            || permittedServerIds.Contains(serverId)
+            || serverId is Guid parentId && permittedServerIds.Contains(parentId)
             && permittedContainerIds.Contains(containerId);
     }
 }

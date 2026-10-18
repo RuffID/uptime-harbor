@@ -14,6 +14,108 @@ namespace UptimeHarbor.Tests.Application.ObjectAdministration;
 public class ObjectAdministrationServiceTests
 {
     [Fact]
+    public async Task CreateContainerAsync_WithoutServer_CreatesIndependentContainer()
+    {
+        // Arrange
+        TestData data = new();
+
+        // Act
+        ServiceResult<AdminContainerDto> result = await data.Service.CreateContainerAsync(
+            null, "https://api.example/health", null, true, TestContext.Current.CancellationToken);
+        ServiceResult<IReadOnlyList<AdminContainerDto>> all = await data.Service.GetContainersAsync(
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.True(result.Success);
+        Assert.Null(result.Data!.ServerId);
+        Assert.Equal(result.Data.Id, Assert.Single(all.Data!).Id);
+    }
+
+    [Fact]
+    public async Task UpdateContainerAsync_CanDetachAndReassign_ClearsOldPermissions()
+    {
+        // Arrange
+        TestData data = new();
+        MonitoredServer first = data.AddServer(true);
+        MonitoredServer second = data.AddServer(true);
+        MonitoredContainer container = data.AddContainer(first, true);
+        long firstVersion = first.Version;
+
+        // Act
+        ServiceResult<AdminContainerDto> detached = await data.Service.UpdateContainerAsync(
+            container.Id, container.EndpointUrl, null, true, container.Version,
+            TestContext.Current.CancellationToken, new ContainerServerAssignment(null));
+
+        // Assert
+        Assert.True(detached.Success);
+        Assert.Null(container.ServerId);
+        Assert.True(first.Version > firstVersion);
+        Assert.Equal(container.Id, Assert.Single(data.UnitOfWork.ClearedPermissions));
+
+        // Act
+        ServiceResult<AdminContainerDto> assigned = await data.Service.UpdateContainerAsync(
+            container.Id, container.EndpointUrl, null, true, container.Version,
+            TestContext.Current.CancellationToken, new ContainerServerAssignment(second.Id));
+
+        // Assert
+        Assert.True(assigned.Success);
+        Assert.Equal(second.Id, container.ServerId);
+        Assert.True(second.Version > 0);
+    }
+
+    [Fact]
+    public async Task UpdateServerAsync_ContainerSelection_AttachesAndDetachesAtomically()
+    {
+        // Arrange
+        TestData data = new();
+        MonitoredServer server = data.AddServer(true);
+        MonitoredContainer linked = data.AddContainer(server, true);
+        MonitoredContainer free = new(Guid.NewGuid(), null, "https://free.example/health", null, true);
+        data.Containers.Items.Add(free);
+
+        // Act
+        ServiceResult<AdminServerDto> result = await data.Service.UpdateServerAsync(
+            server.Id, server.Name, server.EndpointUrl, null, true, server.Version,
+            TestContext.Current.CancellationToken,
+            [new(linked.Id, linked.Version, false), new(free.Id, free.Version, true)]);
+
+        // Assert
+        Assert.True(result.Success);
+        Assert.Null(linked.ServerId);
+        Assert.Equal(server.Id, free.ServerId);
+        Assert.Equal(1, data.UnitOfWork.SaveCount);
+        Assert.Equal(1, data.Publisher.PublishCount);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task UpdateServerAsync_RejectsStaleOrAlreadyAssignedContainer(bool stale)
+    {
+        // Arrange
+        TestData data = new();
+        MonitoredServer server = data.AddServer(true);
+        MonitoredServer other = data.AddServer(true);
+        MonitoredContainer container = data.AddContainer(other, true);
+        long version = container.Version;
+        if (stale)
+        {
+            container.AssignServer(null);
+        }
+
+        // Act
+        ServiceResult<AdminServerDto> result = await data.Service.UpdateServerAsync(
+            server.Id, server.Name, server.EndpointUrl, null, true, server.Version,
+            TestContext.Current.CancellationToken, [new(container.Id, version, true)]);
+
+        // Assert
+        Assert.False(result.Success);
+        Assert.Equal(ServiceErrorType.Conflict, result.Error!.Type);
+        Assert.Equal(0, data.UnitOfWork.SaveCount);
+        Assert.Equal(0, data.Publisher.PublishCount);
+    }
+
+    [Fact]
     public async Task CreateServerAsync_AssignsGuidAndUnknownStatus()
     {
         TestData data = new();
@@ -373,19 +475,23 @@ public class ObjectAdministrationServiceTests
     [Fact]
     public async Task DeleteServerAsync_WhenConfirmedCountMatches_RemovesServer()
     {
+        // Arrange
         TestData data = new();
         MonitoredServer server = data.AddServer(isMonitoringEnabled: true);
-        data.AddContainer(server, isMonitoringEnabled: true);
+        MonitoredContainer container = data.AddContainer(server, isMonitoringEnabled: true);
 
+        // Act
         ServiceResult result = await data.Service.DeleteServerAsync(
             server.Id,
             expectedContainerCount: 1,
             expectedVersion: server.Version,
             TestContext.Current.CancellationToken);
 
+        // Assert
         Assert.True(result.Success);
         Assert.Empty(data.Servers.Items);
-        Assert.Empty(data.Containers.Items);
+        Assert.Same(container, Assert.Single(data.Containers.Items));
+        Assert.Null(container.ServerId);
         Assert.Equal(1, data.Publisher.PublishCount);
     }
 
@@ -554,6 +660,14 @@ public class ObjectAdministrationServiceTests
         bool throwOnSave)
         : IObjectAdministrationUnitOfWork
     {
+        public Task RemoveContainerPermissionsAsync(Guid containerId, CancellationToken cancellationToken = default)
+        {
+            ClearedPermissions.Add(containerId);
+            return Task.CompletedTask;
+        }
+
+        public List<Guid> ClearedPermissions { get; } = [];
+
         public IMonitoredServerRepository MonitoredServers { get; } = servers;
 
         public IMonitoredContainerRepository MonitoredContainers { get; } = containers;

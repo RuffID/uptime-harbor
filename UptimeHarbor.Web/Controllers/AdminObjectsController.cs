@@ -52,7 +52,8 @@ public class AdminObjectsController(IObjectAdministrationService administrationS
                 request.Description,
                 request.IsMonitoringEnabled,
                 request.Version ?? -1,
-                cancellationToken);
+                cancellationToken,
+                request.ContainerLinks);
         return JsonResultMapper.ToJsonResult(result);
     }
 
@@ -63,6 +64,30 @@ public class AdminObjectsController(IObjectAdministrationService administrationS
     {
         Application.Common.ServiceResult<IReadOnlyList<AdminContainerDto>> result =
             await administrationService.GetContainersAsync(serverId, cancellationToken);
+        return JsonResultMapper.ToJsonResult(result);
+    }
+
+    [HttpGet("containers")]
+    public async Task<JsonResult> GetAllContainersAsync(CancellationToken cancellationToken)
+    {
+        Application.Common.ServiceResult<IReadOnlyList<AdminContainerDto>> result =
+            await administrationService.GetContainersAsync(cancellationToken: cancellationToken);
+        return JsonResultMapper.ToJsonResult(result);
+    }
+
+    [HttpPost("containers")]
+    [ValidateAntiForgeryToken]
+    public async Task<JsonResult> CreateUnassignedContainerAsync(
+        ObjectSettingsRequest request,
+        CancellationToken cancellationToken)
+    {
+        Application.Common.ServiceResult<AdminContainerDto> result =
+            await administrationService.CreateContainerAsync(
+                request.ServerId,
+                request.EndpointUrl ?? string.Empty,
+                request.Description,
+                request.IsMonitoringEnabled,
+                cancellationToken);
         return JsonResultMapper.ToJsonResult(result);
     }
 
@@ -97,7 +122,8 @@ public class AdminObjectsController(IObjectAdministrationService administrationS
                 request.Description,
                 request.IsMonitoringEnabled,
                 request.Version ?? -1,
-                cancellationToken);
+                cancellationToken,
+                new ContainerServerAssignment(request.ServerId));
         return JsonResultMapper.ToJsonResult(result);
     }
 

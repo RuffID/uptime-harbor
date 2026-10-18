@@ -4,7 +4,7 @@ namespace UptimeHarbor.Application.Dashboard.Models;
 
 public record DashboardContainerReadRecord(
     Guid Id,
-    Guid ServerId,
+    Guid? ServerId,
     string? Description,
     string? LastKnownName,
     MonitoringStatus Status,

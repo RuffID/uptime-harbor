@@ -24,8 +24,7 @@ public class MonitoredContainerConfiguration : MonitoredObjectConfiguration<Moni
                     "ck_monitored_containers_consecutive_failures",
                     "[ConsecutiveFailures] >= 0");
             });
-        builder.HasAlternateKey(entity => new { entity.ServerId, entity.Id })
-            .HasName("ak_monitored_containers_server_id_id");
+        builder.Property(entity => entity.ServerId).IsRequired(false);
         builder.HasOne<MonitoredServer>()
             .WithMany()
             .HasForeignKey(entity => entity.ServerId)

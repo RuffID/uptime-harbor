@@ -39,16 +39,42 @@ public class AdminObjectsConcurrencyTests
             string? description,
             bool isMonitoringEnabled,
             long expectedVersion,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult(ServiceResult<AdminServerDto>.Fail(
+            CancellationToken cancellationToken = default,
+            IReadOnlyList<ContainerLinkUpdate>? containerLinks = null)
+        {
+            return Task.FromResult(ServiceResult<AdminServerDto>.Fail(
                 ServiceErrorType.Conflict,
                 "Объект был изменён другим процессом."));
+        }
 
         public Task<ServiceResult<IReadOnlyList<AdminServerDto>>> GetServersAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<ServiceResult<IReadOnlyList<AdminContainerDto>>> GetContainersAsync(Guid serverId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<ServiceResult<IReadOnlyList<AdminContainerDto>>> GetContainersAsync(
+            Guid? serverId = null,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
         public Task<ServiceResult<AdminServerDto>> CreateServerAsync(string name, string endpointUrl, string? description, bool isMonitoringEnabled, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<ServiceResult<AdminContainerDto>> CreateContainerAsync(Guid serverId, string endpointUrl, string? description, bool isMonitoringEnabled, CancellationToken cancellationToken = default) => throw new NotSupportedException();
-        public Task<ServiceResult<AdminContainerDto>> UpdateContainerAsync(Guid containerId, string endpointUrl, string? description, bool isMonitoringEnabled, long expectedVersion, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<ServiceResult<AdminContainerDto>> CreateContainerAsync(
+            Guid? serverId,
+            string endpointUrl,
+            string? description,
+            bool isMonitoringEnabled,
+            CancellationToken cancellationToken = default)
+        {
+            throw new NotSupportedException();
+        }
+        public Task<ServiceResult<AdminContainerDto>> UpdateContainerAsync(
+            Guid containerId,
+            string endpointUrl,
+            string? description,
+            bool isMonitoringEnabled,
+            long expectedVersion,
+            CancellationToken cancellationToken = default,
+            ContainerServerAssignment? serverAssignment = null)
+        {
+            throw new NotSupportedException();
+        }
         public Task<ServiceResult<ServerDeletionImpactDto>> GetServerDeletionImpactAsync(Guid serverId, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<ServiceResult> DeleteServerAsync(Guid serverId, int expectedContainerCount, long expectedVersion, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<ServiceResult> DeleteContainerAsync(Guid containerId, long expectedVersion, CancellationToken cancellationToken = default) => throw new NotSupportedException();
