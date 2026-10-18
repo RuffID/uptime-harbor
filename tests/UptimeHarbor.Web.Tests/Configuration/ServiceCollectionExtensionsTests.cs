@@ -57,7 +57,7 @@ public class ServiceCollectionExtensionsTests
         Assert.Equal(30, monitoring.IntervalSeconds);
         Assert.Equal(30, monitoring.TimeoutSeconds);
         Assert.Equal(3, monitoring.FailuresBeforeUnavailable);
-        Assert.Equal("test-token", telegram.BotToken);
+        Assert.Equal("123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi", telegram.BotToken);
     }
 
     [Theory]
@@ -115,8 +115,31 @@ public class ServiceCollectionExtensionsTests
             ["Monitoring:IntervalSeconds"] = "30",
             ["Monitoring:TimeoutSeconds"] = "30",
             ["Monitoring:FailuresBeforeUnavailable"] = "3",
-            ["Telegram:BotToken"] = "test-token"
+            ["Telegram:BotToken"] = "123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi"
         };
+    }
+
+    [Theory]
+    [InlineData("000000000:replace-with-bot-token")]
+    [InlineData("123456789")]
+    [InlineData("wrong-token")]
+    public void AddApplicationConfiguration_RejectsTelegramPlaceholderWithoutExposingIt(string token)
+    {
+        // Arrange
+        Dictionary<string, string?> settings = CreateValidSettings();
+        settings["Telegram:BotToken"] = token;
+        IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(settings).Build();
+        ServiceCollection services = new();
+        services.AddApplicationConfiguration(configuration);
+        using ServiceProvider provider = services.BuildServiceProvider();
+
+        // Act
+        OptionsValidationException exception = Assert.Throws<OptionsValidationException>(() =>
+            _ = provider.GetRequiredService<IOptions<TelegramOptions>>().Value);
+
+        // Assert
+        Assert.Contains("Telegram:BotToken", exception.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(token, exception.Message, StringComparison.Ordinal);
     }
 
     private static void ResolveOptionsForKey(IServiceProvider serviceProvider, string key)

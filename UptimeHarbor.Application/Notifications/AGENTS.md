@@ -7,6 +7,7 @@
 ## Правила
 
 - Не использовать Telegram SDK, `HttpClient`, EF Core, MVC, Razor Pages или logging transport.
+- Ожидаемые ошибки sender передавать через `NotificationDeliveryException` с `NotificationDeliveryFailure`; тестовая отправка возвращает безопасный `UserMessage` с причиной и действием. Произвольный `Exception.Message` не раскрывать.
 - Проверять administrator access через единый `IAdministratorAccessPolicy` внутри каждого административного use case до чтения, сохранения и тестовой отправки.
 - Outage выбирать только для привязок без успешного маркера текущего incident ID; recovery — только после успешного outage той же привязки.
 - Формировать DTO и текст сообщения из сохранённого `MonitoringStateChangedEvent`; UTC и uptime получать через `TimeProvider`.

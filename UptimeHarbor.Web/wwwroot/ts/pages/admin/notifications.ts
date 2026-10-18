@@ -1,3 +1,5 @@
+import { createDataTable, matchesSearch } from "../../shared/dataTable.js";
+import { renderHelpTooltip } from "../../shared/helpTooltip.js";
 import {
     ApiError,
     sendJsonRequest,
@@ -76,12 +78,27 @@ const bindingKind = requireElement<HTMLSelectElement>("[data-binding-kind]");
 const bindingObject = requireElement<HTMLSelectElement>("[data-binding-object]");
 const bindingGeneralError = requireElement<HTMLElement>("[data-binding-general-error]");
 const newBindingButton = requireElement<HTMLButtonElement>('[data-action="new-binding"]');
+const chatSearch = requireElement<HTMLInputElement>("[data-chat-search]");
+let chatsTable: ReturnType<typeof createDataTable>;
 
 document.addEventListener("DOMContentLoaded", () => {
     void initNotificationsPage();
 });
 
 async function initNotificationsPage(): Promise<void> {
+    chatsTable = createDataTable(chatList, "telegram", "Чаты и привязки Telegram", [
+        { key: "chat", title: "Чат", width: 220 },
+        { key: "chatId", title: "ID чата", width: 180, help: "Числовой идентификатор чата Telegram, в который отправляются сообщения. Это не имя пользователя и не token бота." },
+        { key: "kind", title: "Тип объекта", width: 160 },
+        { key: "object", title: "Объект", width: 240, help: "Объект мониторинга, уведомления которого направляются в этот чат. Для каждой привязки показана отдельная строка." },
+        { key: "bindingActions", title: "Привязка", width: 180 },
+        { key: "chatActions", title: "Действия с чатом", width: 370, help: "«Отправить тест» отправляет реальное тестовое сообщение в Telegram. Удаление чата удаляет и все его привязки." }
+    ]);
+    renderHelpTooltip(requireElement<HTMLElement>("[data-binding-help]"), {
+        title: "Привязки уведомлений",
+        text: "Привязка направляет уведомления выбранного объекта в указанный чат. Сначала создайте чат и объект мониторинга. Удаление привязки не удаляет чат и объект."
+    });
+    chatSearch.addEventListener("input", renderChats);
     chatForm.addEventListener("submit", event => void saveChat(event));
     bindingForm.addEventListener("submit", event => void saveBinding(event));
     bindingKind.addEventListener("change", renderBindingObjects);
@@ -116,61 +133,44 @@ function render(): void {
 }
 
 function renderChats(): void {
-    chatList.replaceChildren();
-    chatEmpty.classList.toggle("d-none", state.chats.length !== 0);
+    const rows: HTMLTableRowElement[] = [];
     for (const chat of state.chats) {
-        chatList.append(createChatCard(chat));
+        const bindings = state.bindings.filter(binding => binding.telegramChatId === chat.id);
+        const chatMatches = matchesSearch(chatSearch.value, chat.name, String(chat.telegramChatId));
+        if (bindings.length === 0 && chatMatches) rows.push(createChatRow(chat, null));
+        for (const binding of bindings) {
+            const target = bindingTarget(binding);
+            if (chatMatches || matchesSearch(chatSearch.value, target.displayName, kindText(target.kind))) {
+                rows.push(createChatRow(chat, binding));
+            }
+        }
     }
+    chatsTable.body.replaceChildren(...rows);
+    chatEmpty.classList.toggle("d-none", rows.length !== 0);
+    chatEmpty.textContent = state.chats.length === 0 ? "Чатов пока нет." : "По выбранному фильтру чаты и объекты не найдены.";
+    chatsTable.refresh();
 }
 
-function createChatCard(chat: TelegramChat): HTMLElement {
-    const column = document.createElement("div");
-    column.classList.add("col-12", "col-xl-6");
-
-    const card = document.createElement("article");
-    card.classList.add("card", "border-0", "shadow-sm", "h-100", "overflow-hidden");
-
-    const header = document.createElement("div");
-    header.classList.add("card-body", "d-flex", "flex-wrap", "justify-content-between", "align-items-start", "gap-3");
-
-    const titleBlock = document.createElement("div");
-    const title = document.createElement("h2");
-    title.classList.add("h5", "mb-1");
-    title.textContent = chat.name;
-    const identifier = document.createElement("span");
-    identifier.classList.add("text-body-secondary", "small");
-    identifier.textContent = `ID чата: ${String(chat.telegramChatId)}`;
-    titleBlock.append(title, identifier);
-
+function createChatRow(chat: TelegramChat, binding: NotificationBinding | null): HTMLTableRowElement {
     const actions = document.createElement("div");
-    actions.classList.add("btn-group", "btn-group-sm");
+    actions.classList.add("d-flex", "flex-wrap", "gap-1");
     actions.setAttribute("role", "group");
     actions.setAttribute("aria-label", `Действия с чатом ${chat.name}`);
     actions.append(
-        createChatActionButton("Тест", "test-chat", chat.id, "btn-outline-primary"),
+        createChatActionButton("Отправить тест", "test-chat", chat.id, "btn-outline-secondary"),
         createChatActionButton("Изменить", "edit-chat", chat.id, "btn-outline-secondary"),
         createChatActionButton("Удалить", "delete-chat", chat.id, "btn-outline-danger"));
-    header.append(titleBlock, actions);
-    card.append(header);
-
-    const bindings = state.bindings.filter(binding => binding.telegramChatId === chat.id);
-    if (bindings.length === 0) {
-        const empty = document.createElement("p");
-        empty.classList.add("border-top", "border-secondary-subtle", "text-body-secondary", "small", "mb-0", "p-3");
-        empty.textContent = "Нет привязок";
-        card.append(empty);
+    if (binding === null) {
+        return chatsTable.row([chat.name, String(chat.telegramChatId), "", "", "", actions]);
     }
-    else {
-        const list = document.createElement("div");
-        list.classList.add("list-group", "list-group-flush", "border-top", "border-secondary-subtle");
-        for (const binding of bindings) {
-            list.append(createBindingRow(binding));
-        }
-        card.append(list);
-    }
-
-    column.append(card);
-    return column;
+    const target = bindingTarget(binding);
+    const removeButton = document.createElement("button");
+    removeButton.type = "button";
+    removeButton.classList.add("btn", "btn-sm", "btn-outline-danger");
+    removeButton.dataset.action = "delete-binding";
+    removeButton.dataset.bindingId = binding.id;
+    removeButton.textContent = "Убрать привязку";
+    return chatsTable.row([chat.name, String(chat.telegramChatId), kindText(target.kind), target.displayName, removeButton, actions]);
 }
 
 function createChatActionButton(
@@ -181,40 +181,19 @@ function createChatActionButton(
 ): HTMLButtonElement {
     const button = document.createElement("button");
     button.type = "button";
-    button.classList.add("btn", colorClass);
+    button.classList.add("btn", "btn-sm", colorClass);
     button.dataset.action = action;
     button.dataset.chatId = chatId;
     button.textContent = label;
     return button;
 }
 
-function createBindingRow(binding: NotificationBinding): HTMLElement {
+function bindingTarget(binding: NotificationBinding): NotificationTarget {
     const targetId = binding.serverId ?? binding.containerId;
     if (targetId === null) {
         throw new Error("Привязка не содержит объект.");
     }
-    const target = requireTarget(targetId);
-
-    const row = document.createElement("div");
-    row.classList.add("list-group-item", "d-flex", "justify-content-between", "align-items-center", "gap-3", "py-3");
-
-    const description = document.createElement("div");
-    description.classList.add("d-flex", "align-items-center", "gap-2", "flex-wrap");
-    const badge = document.createElement("span");
-    badge.classList.add("badge", "rounded-pill", target.kind === 1 ? "text-bg-info" : "text-bg-secondary");
-    badge.textContent = kindText(target.kind);
-    const name = document.createElement("span");
-    name.textContent = target.displayName;
-    description.append(badge, name);
-
-    const removeButton = document.createElement("button");
-    removeButton.type = "button";
-    removeButton.classList.add("btn", "btn-sm", "btn-outline-danger");
-    removeButton.dataset.action = "delete-binding";
-    removeButton.dataset.bindingId = binding.id;
-    removeButton.textContent = "Удалить";
-    row.append(description, removeButton);
-    return row;
+    return requireTarget(targetId);
 }
 
 function renderBindingChats(): void {

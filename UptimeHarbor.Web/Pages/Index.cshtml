@@ -8,16 +8,16 @@
     <header class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
         <h1 class="h3 mb-0">Панель мониторинга</h1>
         <div class="badge rounded-pill text-bg-secondary px-3 py-2" data-signal-state role="status" aria-live="polite">
-            <span data-signal-state-text>Подключение…</span>
+            <span data-signal-state-text>Подключаем автообновление…</span>
         </div>
     </header>
 
-    <div class="card border-0 shadow-sm mb-3">
-        <div class="card-body p-3">
-            <label class="visually-hidden" for="dashboardSearch">Поиск</label>
-            <div class="input-group input-group-lg">
-                <span class="input-group-text bg-body-tertiary border-secondary-subtle" aria-hidden="true">⌕</span>
-                <input class="form-control"
+    <div class="d-flex flex-wrap align-items-end justify-content-between gap-2 mb-3">
+        <div class="d-flex flex-wrap align-items-end gap-2">
+            <div>
+                <label class="visually-hidden" for="dashboardSearch">Поиск</label>
+                <input class="form-control form-control-sm w-auto mw-100"
+                       size="36"
                        id="dashboardSearch"
                        name="dashboardSearch"
                        type="search"
@@ -25,7 +25,17 @@
                        placeholder="Найти сервер или контейнер"
                        data-dashboard-search />
             </div>
+            <div>
+                <label class="visually-hidden" for="dashboardStatus">Статус</label>
+                <select class="form-select form-select-sm" id="dashboardStatus" name="status" data-dashboard-status>
+                    <option value="">Все статусы</option>
+                    <option value="1">Доступен</option>
+                    <option value="2">Недоступен</option>
+                    <option value="0">Неизвестно</option>
+                </select>
+            </div>
         </div>
+        <button class="btn btn-sm btn-outline-secondary" type="button" data-dashboard-refresh>Обновить</button>
     </div>
 
     <div class="card border-0 bg-body-tertiary" data-dashboard-state role="status" aria-live="polite">
@@ -35,7 +45,7 @@
         </div>
     </div>
 
-    <div class="d-grid gap-3" data-dashboard-content hidden></div>
+    <div data-dashboard-content hidden></div>
 </section>
 
 @section Scripts {

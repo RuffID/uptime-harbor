@@ -48,6 +48,7 @@ Metadata-тест создаёт SQL Server options и читает EF model б�
 - `UptimeHarbor.Application.Tests` — use case, политики, DTO и Application DI;
 - `UptimeHarbor.Infrastructure.Tests` — persistence metadata и SQLite provider behavior, Identity bootstrap, monitoring/outbox workers и внешние адаптеры на fake transport;
 - `UptimeHarbor.Web.Tests` — Web DI/configuration, authorization/antiforgery metadata, JSON mapping, SignalR и статические frontend-инварианты.
+- `tests/Frontend/*.test.mts` — изолированные исполняемые проверки TypeScript через `node --experimental-strip-types --test tests/Frontend/*.test.mts`, без приложения и браузера.
 
 Совокупный набор проверяет:
 
@@ -90,6 +91,8 @@ Metadata-тест создаёт SQL Server options и читает EF model б�
 - per-binding состояние outage/recovery, частичный успех, повторная обработка только неуспешных получателей, независимые server/container bindings, fallback имени, parent server, UTC и uptime через fake `TimeProvider`;
 - административные Telegram use case, роль и antiforgery metadata MVC API, AJAX/DOM-инварианты frontend;
 - Telegram HTTP adapter через fake `HttpMessageHandler`, безопасные исключения и изоляция ошибки одного чата;
+- формат Telegram token, отказ до HTTP при заглушке, корректный относительный Bot API URI и классификацию HTTP/JSON ошибок; Application проверяет безопасные сообщения тестовой отправки без утечки исходного текста исключения;
+- геометрию ресайза через DOM-заглушку: номинальные ширины отличаются от фактических, pointerdown и повторный drag не меняют геометрию, дельта меняет только выбранную колонку, отмена восстанавливает ширину, клавиатура и минимальная ширина соблюдаются;
 - durable outbox до/после нового DbContext, параллельное начало доставки чатов, независимость monitoring cycle и лимит пяти retry через управляемый `TimeProvider`;
 - provider-level SQLite-сценарии recovery: outage marker → recovery queued → disable/endpoint change → terminal cancellation без sender, обычная recovery-доставка и безопасный pre-send skip уже claimed job;
 - конкурентные duplicate chat/binding на двух SQLite `DbContext`, Application mapping независимого persistence conflict и безопасный HTTP 409 envelope без SQL/provider details;
@@ -111,3 +114,5 @@ SignalR-тесты используют fake `IHubContext` и не открыв�
 Web security tests статически проверяют отсутствие CDN в `Index.cshtml`, локальное подключение SignalR с versioning, наличие и SHA-256 asset версии 10.0.11, а также фактическое добавление CSP middleware и отсутствие запрещённых директив/origins. Реальная browser/runtime-проверка SignalR и CSP остаётся ручной и в изолированный набор не включается.
 
 Configuration contract tests не запускают Web-host и поэтому не доказывают runtime-загрузку внешнего `Config/config.json`; отсутствие/ошибка JSON обеспечиваются параметрами обязательного configuration source и остаются частью будущей ручной проверки запуска.
+
+Проверка доработок modal редактора объектов, полей поиска, переключателей и Telegram: Web и затронутые test-проекты собраны без предупреждений/ошибок; 15 transport-тестов, 16 Application notification administration tests, 41 выбранный Web-тест и 3 frontend-теста ресайза прошли. Изолированные проверки не подтверждают внешний вид/фокус в настоящем браузере и реальную доставку Telegram; приложение, БД и внешняя сеть не запускались.

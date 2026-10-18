@@ -12,10 +12,6 @@
 <div class="d-flex flex-column gap-3" data-notifications-page>
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
         <h1 class="h3 mb-0">Telegram-уведомления</h1>
-        <div class="d-flex flex-wrap gap-2">
-            <button type="button" class="btn btn-primary" data-action="new-chat">Новый чат</button>
-            <button type="button" class="btn btn-outline-primary" data-action="new-binding">Добавить привязку</button>
-        </div>
     </div>
 
     <div class="alert alert-danger d-none" role="alert" data-page-error></div>
@@ -27,7 +23,18 @@
     </div>
 
     <section class="d-none" data-content aria-label="Чаты Telegram">
-        <div class="row g-3" data-chat-list></div>
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+            <div class="d-flex flex-wrap gap-2">
+                <label class="visually-hidden" for="chatSearch">Поиск чатов и привязок</label>
+                <input class="form-control form-control-sm w-auto mw-100" size="32" id="chatSearch" name="chatSearch" type="search" placeholder="Найти чат или объект" data-chat-search />
+            </div>
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <button type="button" class="btn btn-sm btn-outline-primary" data-action="new-chat">Создать чат</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-action="new-binding">Добавить привязку</button>
+                <span data-binding-help></span>
+            </div>
+        </div>
+        <div data-chat-list></div>
         <div class="card border-0 shadow-sm d-none" data-chat-empty>
             <div class="card-body p-5 text-center text-body-secondary">Чатов пока нет.</div>
         </div>

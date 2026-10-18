@@ -8,6 +8,7 @@
 - `UptimeHarbor.Application.Tests` — Application use case, политики и DI-регистрации;
 - `UptimeHarbor.Infrastructure.Tests` — Identity bootstrap, HTTP/Telegram-адаптеры, worker и EF model metadata;
 - `UptimeHarbor.Web.Tests` — Web composition root, configuration, authorization/antiforgery metadata, SignalR, JSON mapping и статические frontend-проверки.
+- `Frontend` — исполняемые TypeScript-проверки общих компонентов с DOM-заглушками через Node strip-types, без браузера.
 
 Общие настройки test stack находятся в `Directory.Build.props`. Каждый test-проект содержит только ссылки на проверяемый слой и его необходимые зависимости.
 
@@ -24,6 +25,7 @@
 - Dashboard query проверять на серверную видимость, поиск, UTC и uptime с фиксированным `TimeProvider`; SignalR — через fake hub context без запуска Web-хоста.
 - Общую administrator policy проверять отдельно и через все три защищённых сервиса с fail-fast зависимостями; materialized dashboard/recipient queries проверять на SQLite без внешней БД и на отсутствие N+1.
 - Telegram transport проверять fake `HttpMessageHandler`; частичную доставку — in-memory repositories/scopes, без сети и БД; frontend — статически по TypeScript/Razor исходникам.
+- Геометрию ресайза проверять дополнительно в `Frontend/tableColumnResizing.test.mts`: отсутствие скачка при нажатии/повторном drag, точная дельта одной колонки, отмена, минимум и клавиатура. Заглушка не заменяет browser acceptance.
 - Web contract tests должны сериализовать DTO через фактические MVC `JsonOptions`, а не через произвольные `JsonSerializerOptions`.
 - Web configuration contract tests статически проверяют composition root, отсутствие внутреннего HTTPS redirect за reverse proxy, project/package metadata, `.gitignore`, publish metadata, Docker log volume и безопасные JSON-примеры; Serilog-конфигурация с человекочитаемыми console и rolling File sinks строится без запуска Web-host и без записи секретов.
 - Web DI/static tests проверяют регистрацию database backup/check-up services и порядок migration startup до Identity bootstrap без подключения к SQL Server и без выполнения SQL.

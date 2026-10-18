@@ -1,3 +1,4 @@
+import { createDataTable, createTableAction, matchesSearch, TableColumn } from "../../shared/dataTable.js";
 import {
     ApiError,
     sendJsonRequest,
@@ -44,6 +45,7 @@ interface ServerDeletionImpact {
 }
 
 interface BootstrapModalInstance {
+    show(): void;
     hide(): void;
 }
 
@@ -69,7 +71,8 @@ const page = requireElement<HTMLElement>("[data-objects-page]");
 const pageError = requireElement<HTMLElement>("[data-page-error]");
 const serverList = requireElement<HTMLElement>("[data-server-list]");
 const serverEmpty = requireElement<HTMLElement>("[data-server-empty]");
-const selectionPlaceholder = requireElement<HTMLElement>("[data-selection-placeholder]");
+const editObjectModal = requireElement<HTMLElement>("[data-edit-object-modal]");
+const editObjectError = requireElement<HTMLElement>("[data-edit-object-error]");
 const serverForm = requireElement<HTMLFormElement>("[data-server-form]");
 const serverFormTitle = requireElement<HTMLElement>("[data-server-form-title]");
 const serverName = requireElement<HTMLInputElement>("[data-server-name]");
@@ -99,12 +102,40 @@ const createContainerEndpoint = requireElement<HTMLInputElement>("[data-create-c
 const createContainerDescription = requireElement<HTMLTextAreaElement>("[data-create-container-description]");
 const createContainerEnabled = requireElement<HTMLInputElement>("[data-create-container-enabled]");
 const createContainerGeneralError = requireElement<HTMLElement>("[data-create-container-general-error]");
+const serverSearch = requireElement<HTMLInputElement>("[data-server-search]");
+const serverStatusFilter = requireElement<HTMLSelectElement>("[data-server-status-filter]");
+const containerSearch = requireElement<HTMLInputElement>("[data-container-search]");
+const containerStatusFilter = requireElement<HTMLSelectElement>("[data-container-status-filter]");
+let serversTable: ReturnType<typeof createDataTable>;
+let containersTable: ReturnType<typeof createDataTable>;
+let openingContainerModal = false;
+let returnToEditor = false;
 
 document.addEventListener("DOMContentLoaded", () => {
     void initObjectsPage();
 });
 
 async function initObjectsPage(): Promise<void> {
+    const settingsColumns: TableColumn[] = [
+        { key: "endpoint", title: "Адрес проверки", width: 280, help: "HTTP endpoint, который опрашивает мониторинг. Этот адрес виден только администраторам." },
+        { key: "status", title: "Статус", width: 150, help: "Последний результат мониторинга. «Неизвестно» — результат ещё не получен." },
+        { key: "enabled", title: "Мониторинг", width: 160, help: "Показывает, включены ли автоматические проверки объекта." },
+        { key: "failures", title: "Сбои подряд", width: 160, help: "Число последовательных неуспешных проверок объекта." },
+        { key: "description", title: "Описание", width: 240 },
+        { key: "actions", title: "Действия", width: 140 }
+    ];
+    serversTable = createDataTable(serverList, "servers", "Серверы", [
+        { key: "name", title: "Сервер", width: 220 },
+        { key: "internalName", title: "Внутреннее имя", width: 200, help: "Имя, полученное от сервера при проверке; оно не заменяет заданное администратором имя." },
+        ...settingsColumns
+    ]);
+    containersTable = createDataTable(containerList, "containers", "Контейнеры выбранного сервера", [
+        { key: "name", title: "Контейнер", width: 220 }, ...settingsColumns
+    ]);
+    serverSearch.addEventListener("input", renderServers);
+    serverStatusFilter.addEventListener("change", renderServers);
+    containerSearch.addEventListener("input", renderContainers);
+    containerStatusFilter.addEventListener("change", renderContainers);
     page.addEventListener("click", handlePageClick);
     serverList.addEventListener("click", handleServerSelection);
     containerList.addEventListener("click", handleContainerSelection);
@@ -116,6 +147,26 @@ async function initObjectsPage(): Promise<void> {
     createServerModal.addEventListener("shown.bs.modal", () => createServerName.focus());
     createContainerModal.addEventListener("show.bs.modal", resetCreateContainerForm);
     createContainerModal.addEventListener("shown.bs.modal", () => createContainerEndpoint.focus());
+    editObjectModal.addEventListener("shown.bs.modal", () => {
+        containersTable.refresh();
+        serverName.focus();
+    });
+    editObjectModal.addEventListener("hidden.bs.modal", () => {
+        if (openingContainerModal) {
+            openingContainerModal = false;
+            showModal(createContainerModal);
+            return;
+        }
+        const trigger = Array.from(serverList.querySelectorAll<HTMLButtonElement>("button[data-server-id]"))
+            .find(button => button.dataset.serverId === state.selectedServerId);
+        (trigger ?? serverSearch).focus();
+    });
+    createContainerModal.addEventListener("hidden.bs.modal", () => {
+        if (returnToEditor) {
+            returnToEditor = false;
+            showModal(editObjectModal);
+        }
+    });
 
     try {
         await loadServers();
@@ -293,7 +344,12 @@ function handlePageClick(event: MouseEvent): void {
         return;
     }
 
-    if (action === "delete-server") {
+    if (action === "new-container") {
+        openingContainerModal = true;
+        returnToEditor = true;
+        hideModal(editObjectModal);
+    }
+    else if (action === "delete-server") {
         void runPageCommand(deleteServer);
     }
     else if (action === "delete-container") {
@@ -312,7 +368,10 @@ function handleServerSelection(event: MouseEvent): void {
 
     const button = target.closest<HTMLButtonElement>("button[data-server-id]");
     if (button?.dataset.serverId) {
-        void runPageCommand(() => selectServer(button.dataset.serverId!));
+        void runPageCommand(async () => {
+            await selectServer(button.dataset.serverId!);
+            showModal(editObjectModal);
+        });
     }
 }
 
@@ -337,86 +396,51 @@ function selectContainer(containerId: string): void {
     state.selectedContainerId = containerId;
     fillContainerForm(container);
     renderContainers();
+    containerForm.scrollIntoView({ block: "nearest", behavior: "auto" });
 }
 
 function renderServers(): void {
-    serverList.replaceChildren();
-    serverEmpty.classList.toggle("d-none", state.servers.length !== 0);
-
-    for (const server of state.servers) {
-        serverList.append(createServerButton(server, server.id === state.selectedServerId));
-    }
+    const servers = state.servers.filter(server =>
+        matchesSearch(serverSearch.value, server.name, server.lastKnownName, server.endpointUrl, server.description)
+        && (serverStatusFilter.value === "" || String(server.status) === serverStatusFilter.value));
+    serversTable.body.replaceChildren(...servers.map(server => createObjectRow(server, "serverId")));
+    serverEmpty.classList.toggle("d-none", servers.length !== 0);
+    serverEmpty.textContent = state.servers.length === 0 ? "Серверов пока нет." : "По выбранным фильтрам серверы не найдены.";
+    serversTable.refresh();
 }
 
 function renderContainers(): void {
-    containerList.replaceChildren();
-    containerEmpty.classList.toggle("d-none", state.containers.length !== 0);
     containersSection.classList.remove("d-none");
-
-    for (const container of state.containers) {
-        containerList.append(createObjectButton(
-            container,
-            container.id === state.selectedContainerId,
-            "containerId"));
-    }
+    const containers = state.containers.filter(container =>
+        matchesSearch(containerSearch.value, container.lastKnownName, container.endpointUrl, container.description)
+        && (containerStatusFilter.value === "" || String(container.status) === containerStatusFilter.value));
+    containersTable.body.replaceChildren(...containers.map(container => createObjectRow(container, "containerId")));
+    containerEmpty.classList.toggle("d-none", containers.length !== 0);
+    containerEmpty.textContent = state.containers.length === 0 ? "Контейнеров пока нет." : "По выбранным фильтрам контейнеры не найдены.";
+    containersTable.refresh();
 
     if (state.selectedContainerId === null) {
         containerForm.classList.add("d-none");
     }
 }
 
-function createObjectButton(
+function createObjectRow(
     item: AdminServer | AdminContainer,
-    selected: boolean,
     idDataName: "serverId" | "containerId"
-): HTMLButtonElement {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.classList.add("list-group-item", "list-group-item-action");
-    button.classList.toggle("active", selected);
+): HTMLTableRowElement {
+    const button = createTableAction("Изменить");
     button.dataset[idDataName] = item.id;
-
-    const header = document.createElement("span");
-    header.classList.add("d-flex", "justify-content-between", "align-items-center", "gap-2");
-
-    const title = document.createElement("span");
-    title.classList.add("fw-semibold", "text-truncate");
-    title.textContent = item.lastKnownName ?? "Контейнер";
-
-    const details = document.createElement("span");
-    details.classList.add("d-block", "small", "text-body-secondary", "text-truncate", "mt-1");
-    details.textContent = item.endpointUrl;
-
-    header.append(title, createStatusBadge(item.status));
-    button.append(header, details);
-    return button;
-}
-
-function createServerButton(server: AdminServer, selected: boolean): HTMLButtonElement {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.classList.add("list-group-item", "list-group-item-action");
-    button.classList.toggle("active", selected);
-    button.dataset.serverId = server.id;
-
-    const header = document.createElement("span");
-    header.classList.add("d-flex", "justify-content-between", "align-items-center", "gap-2");
-
-    const title = document.createElement("span");
-    title.classList.add("fw-semibold", "text-truncate");
-    title.textContent = server.name;
-
-    const details = document.createElement("span");
-    details.classList.add("d-block", "small", "text-body-secondary", "text-truncate", "mt-1");
-    details.textContent = server.endpointUrl;
-
-    header.append(title, createStatusBadge(server.status));
-    button.append(header, details);
-    return button;
+    const values: Array<string | Node> = [
+        item.endpointUrl, createStatusBadge(item.status), item.isMonitoringEnabled ? "Включён" : "Отключён",
+        String(item.consecutiveFailures), item.description ?? "—", button
+    ];
+    if ("name" in item) {
+        return serversTable.row([item.name, item.lastKnownName ?? "Нет данных", ...values], item.id === state.selectedServerId);
+    }
+    return containersTable.row([item.lastKnownName ?? "Контейнер", ...values], item.id === state.selectedContainerId);
 }
 
 function fillServerForm(server: AdminServer): void {
-    selectionPlaceholder.classList.add("d-none");
     serverForm.classList.remove("d-none");
     serverDanger.classList.remove("d-none");
     containersSection.classList.remove("d-none");
@@ -487,7 +511,7 @@ function clearSelection(): void {
     state.containers = [];
     serverForm.classList.add("d-none");
     containersSection.classList.add("d-none");
-    selectionPlaceholder.classList.remove("d-none");
+    hideModal(editObjectModal);
     renderServers();
 }
 
@@ -597,6 +621,12 @@ function hideModal(element: Element): void {
     bootstrapApi.Modal.getOrCreateInstance(element).hide();
 }
 
+function showModal(element: Element): void {
+    const bootstrapApi = (window as BootstrapWindow).bootstrap;
+    if (!bootstrapApi) throw new Error("Bootstrap не загружен.");
+    bootstrapApi.Modal.getOrCreateInstance(element).show();
+}
+
 async function runPageCommand(command: () => Promise<void>): Promise<void> {
     clearPageError();
     try {
@@ -608,11 +638,13 @@ async function runPageCommand(command: () => Promise<void>): Promise<void> {
 }
 
 function showPageError(error: unknown): void {
-    pageError.textContent = error instanceof Error ? error.message : "Неизвестная ошибка.";
-    pageError.classList.remove("d-none");
+    const target = editObjectModal.classList.contains("show") ? editObjectError : pageError;
+    target.textContent = error instanceof Error ? error.message : "Неизвестная ошибка.";
+    target.classList.remove("d-none");
 }
 
 function clearPageError(): void {
     pageError.textContent = "";
     pageError.classList.add("d-none");
+    hideModalError(editObjectError);
 }

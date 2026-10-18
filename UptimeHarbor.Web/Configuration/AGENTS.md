@@ -16,3 +16,4 @@
 - Изменения sinks синхронизировать с Docker log volume, `.gitignore`, publish exclusion, тестами и документацией; секреты не логировать.
 - Общий для worker и HTTP-адаптера тип `MonitoringOptions` размещать в Application, но привязывать и валидировать только здесь.
 - `TelegramOptions` размещать рядом с Infrastructure adapter, но привязывать и валидировать только Web composition root.
+- При старте отклонять пустой, некорректный и примерный `Telegram:BotToken` через `HasValidBotToken`, не раскрывая значение. Это проверка формата; действительность токена проверяется Telegram при отправке.

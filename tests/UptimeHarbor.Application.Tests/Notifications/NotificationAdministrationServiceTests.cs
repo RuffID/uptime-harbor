@@ -1,6 +1,7 @@
 using UptimeHarbor.Application.Abstractions.UnitOfWork;
 using UptimeHarbor.Application.Common;
 using UptimeHarbor.Application.Monitoring;
+using UptimeHarbor.Application.Notifications;
 using UptimeHarbor.Application.Notifications.Models;
 using UptimeHarbor.Domain.Monitoring;
 using UptimeHarbor.Domain.Notifications;
@@ -51,6 +52,42 @@ public class NotificationAdministrationServiceTests
         Assert.True(result.Success);
         Assert.Single(data.Sender.Sent);
         Assert.Equal(chat.Id, data.Sender.Sent[0].Recipient.Id);
+    }
+
+    [Theory]
+    [InlineData(NotificationDeliveryFailure.InvalidConfiguration)]
+    [InlineData(NotificationDeliveryFailure.ChatNotFound)]
+    [InlineData(NotificationDeliveryFailure.Forbidden)]
+    public async Task TestMessage_ReturnsSafeActionableDeliveryError(NotificationDeliveryFailure failure)
+    {
+        // Arrange
+        NotificationTestData data = new();
+        TelegramChat chat = data.AddChat(-100123, "Операторы");
+        data.Sender.Failure = new NotificationDeliveryException(failure);
+
+        // Act
+        ServiceResult result = await data.AdministrationService.SendTestMessageAsync(chat.Id, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.False(result.Success);
+        Assert.Equal(ServiceErrorType.Conflict, result.Error!.Type);
+        Assert.Equal(data.Sender.Failure.UserMessage, result.Error.Message);
+    }
+
+    [Fact]
+    public async Task TestMessage_DoesNotExposeUnclassifiedExceptionMessage()
+    {
+        // Arrange
+        NotificationTestData data = new();
+        TelegramChat chat = data.AddChat(-100123, "Операторы");
+        data.Sender.Failure = new NotificationDeliveryException("secret token and response body");
+
+        // Act
+        ServiceResult result = await data.AdministrationService.SendTestMessageAsync(chat.Id, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.False(result.Success);
+        Assert.DoesNotContain("secret", result.Error!.Message, StringComparison.Ordinal);
     }
 
     [Fact]

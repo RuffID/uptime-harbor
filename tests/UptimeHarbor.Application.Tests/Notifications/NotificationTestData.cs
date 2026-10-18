@@ -108,16 +108,23 @@ internal class NotificationTestData
     {
         public List<(NotificationRecipient Recipient, string Message)> Sent { get; } = [];
         public HashSet<Guid> FailedRecipientIds { get; } = [];
+        public NotificationDeliveryException? Failure { get; set; }
 
         public Task SendAsync(
             NotificationRecipient recipient,
             string message,
             CancellationToken cancellationToken = default)
         {
+            if (Failure is not null)
+            {
+                throw Failure;
+            }
+
             if (FailedRecipientIds.Contains(recipient.Id))
             {
                 throw new NotificationDeliveryException("test failure");
             }
+
             Sent.Add((recipient, message));
             return Task.CompletedTask;
         }

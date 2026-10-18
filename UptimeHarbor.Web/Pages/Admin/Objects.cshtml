@@ -12,33 +12,39 @@
 <div class="d-flex flex-column gap-3" data-objects-page>
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
         <h1 class="h3 mb-0">Объекты мониторинга</h1>
-        <button type="button"
-                class="btn btn-primary"
-                data-bs-toggle="modal"
-                data-bs-target="#createServerModal">
-            Новый сервер
-        </button>
     </div>
 
     <div class="alert alert-danger d-none" role="alert" data-page-error></div>
 
     <div class="row g-3 align-items-start">
-        <section class="col-12 col-lg-4" aria-labelledby="servers-heading">
-            <div class="card border-0 shadow-sm overflow-hidden">
-                <div class="card-header bg-body-tertiary border-secondary-subtle py-3">
-                    <h2 id="servers-heading" class="h6 mb-0">Серверы</h2>
+        <section class="col-12" aria-labelledby="servers-heading">
+            <h2 id="servers-heading" class="h6 mb-2">Серверы</h2>
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                <div class="d-flex flex-wrap gap-2">
+                    <label class="visually-hidden" for="serverSearch">Поиск серверов</label>
+                    <input class="form-control form-control-sm w-auto mw-100" size="32" id="serverSearch" name="serverSearch" type="search" placeholder="Найти сервер" data-server-search />
+                    <label class="visually-hidden" for="serverStatusFilter">Статус сервера</label>
+                    <select class="form-select form-select-sm w-auto" id="serverStatusFilter" name="serverStatus" data-server-status-filter>
+                        <option value="">Все статусы</option><option value="1">Доступен</option><option value="2">Недоступен</option><option value="0">Неизвестно</option>
+                    </select>
                 </div>
-                <div class="list-group list-group-flush" data-server-list></div>
-                <p class="text-body-secondary text-center small m-0 p-4 d-none" data-server-empty>Серверов пока нет.</p>
+                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#createServerModal">Создать сервер</button>
             </div>
+            <div data-server-list></div>
+            <p class="text-body-secondary text-center small m-0 p-4 d-none" data-server-empty>Серверов пока нет.</p>
         </section>
 
-        <section class="col-12 col-lg-8" aria-label="Настройки объекта">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body p-4 text-center text-body-secondary" data-selection-placeholder>
-                    Выберите сервер слева.
+    </div>
+
+    <div class="modal fade" id="editObjectModal" tabindex="-1" aria-labelledby="editObjectModalTitle" aria-hidden="true" data-edit-object-modal>
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header">
+                    <h2 class="modal-title fs-5" id="editObjectModalTitle">Редактирование объекта мониторинга</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
                 </div>
-            </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger d-none" role="alert" data-edit-object-error></div>
 
             <form class="card border-0 shadow-sm d-none" data-server-form novalidate>
                 <div class="card-header bg-body-tertiary border-secondary-subtle py-3">
@@ -61,7 +67,7 @@
                         <div class="invalid-feedback" data-server-error="description"></div>
                     </div>
                     <div class="form-check form-switch mb-3">
-                        <input class="form-check-input" id="serverMonitoringEnabled" name="isMonitoringEnabled" type="checkbox" data-server-enabled />
+                        <input class="form-check-input" id="serverMonitoringEnabled" name="isMonitoringEnabled" type="checkbox" role="switch" data-animated-switch data-server-enabled />
                         <label class="form-check-label" for="serverMonitoringEnabled">Мониторинг включён</label>
                     </div>
                 </div>
@@ -74,16 +80,25 @@
             </form>
 
             <div class="card border-0 shadow-sm mt-3 d-none" data-containers-section>
-                <div class="card-header bg-body-tertiary border-secondary-subtle d-flex justify-content-between align-items-center gap-2 py-3">
-                    <h3 class="h6 mb-0">Контейнеры</h3>
+                <div class="card-header bg-body-tertiary border-secondary-subtle py-3">
+                    <h3 class="h6 mb-2">Контейнеры выбранного сервера</h3>
+                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div class="d-flex flex-wrap gap-2">
+                        <label class="visually-hidden" for="containerSearch">Поиск контейнеров</label>
+                        <input class="form-control form-control-sm w-auto mw-100" size="32" id="containerSearch" name="containerSearch" type="search" placeholder="Найти контейнер" data-container-search />
+                        <label class="visually-hidden" for="containerStatusFilter">Статус контейнера</label>
+                        <select class="form-select form-select-sm w-auto" id="containerStatusFilter" name="containerStatus" data-container-status-filter>
+                            <option value="">Все статусы</option><option value="1">Доступен</option><option value="2">Недоступен</option><option value="0">Неизвестно</option>
+                        </select>
+                    </div>
                     <button type="button"
                             class="btn btn-sm btn-outline-primary"
-                            data-bs-toggle="modal"
-                            data-bs-target="#createContainerModal">
-                        Добавить
+                            data-action="new-container">
+                        Создать контейнер
                     </button>
+                    </div>
                 </div>
-                <div class="list-group list-group-flush" data-container-list></div>
+                <div data-container-list></div>
                 <p class="text-body-secondary text-center small m-0 p-4 d-none" data-container-empty>Контейнеров пока нет.</p>
 
                 <form class="border-top border-secondary-subtle d-none" data-container-form novalidate>
@@ -100,7 +115,7 @@
                             <div class="invalid-feedback" data-container-error="description"></div>
                         </div>
                         <div class="form-check form-switch mb-3">
-                            <input class="form-check-input" id="containerMonitoringEnabled" name="isMonitoringEnabled" type="checkbox" data-container-enabled />
+                            <input class="form-check-input" id="containerMonitoringEnabled" name="isMonitoringEnabled" type="checkbox" role="switch" data-animated-switch data-container-enabled />
                             <label class="form-check-label" for="containerMonitoringEnabled">Мониторинг включён</label>
                         </div>
                         <div class="d-flex flex-wrap justify-content-between gap-2 pt-2">
@@ -112,7 +127,12 @@
                     </div>
                 </form>
             </div>
-        </section>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Закрыть</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="modal fade" id="createServerModal" tabindex="-1" aria-labelledby="createServerModalTitle" aria-hidden="true" data-create-server-modal>
@@ -140,7 +160,7 @@
                         <div class="invalid-feedback" data-create-server-error="description"></div>
                     </div>
                     <div class="form-check form-switch">
-                        <input class="form-check-input" id="newServerMonitoringEnabled" name="isMonitoringEnabled" type="checkbox" checked data-create-server-enabled />
+                        <input class="form-check-input" id="newServerMonitoringEnabled" name="isMonitoringEnabled" type="checkbox" role="switch" data-animated-switch checked data-create-server-enabled />
                         <label class="form-check-label" for="newServerMonitoringEnabled">Включить мониторинг</label>
                     </div>
                 </div>
@@ -172,7 +192,7 @@
                         <div class="invalid-feedback" data-create-container-error="description"></div>
                     </div>
                     <div class="form-check form-switch">
-                        <input class="form-check-input" id="newContainerMonitoringEnabled" name="isMonitoringEnabled" type="checkbox" checked data-create-container-enabled />
+                        <input class="form-check-input" id="newContainerMonitoringEnabled" name="isMonitoringEnabled" type="checkbox" role="switch" data-animated-switch checked data-create-container-enabled />
                         <label class="form-check-label" for="newContainerMonitoringEnabled">Включить мониторинг</label>
                     </div>
                 </div>

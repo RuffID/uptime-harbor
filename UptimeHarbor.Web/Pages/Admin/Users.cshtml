@@ -13,53 +13,58 @@
 <div class="d-flex flex-column gap-3" data-users-page>
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
         <h1 class="h3 mb-0">Пользователи</h1>
-        <button type="button"
-                class="btn btn-primary"
-                data-bs-toggle="modal"
-                data-bs-target="#createUserModal">
-            Новый пользователь
-        </button>
     </div>
 
     <div class="alert alert-danger d-none" role="alert" data-page-error></div>
     <div class="alert alert-success d-none" role="status" data-page-success></div>
 
     <div class="row g-3 align-items-start">
-        <section class="col-12 col-lg-4" aria-labelledby="users-heading">
-            <div class="card border-0 shadow-sm overflow-hidden">
-                <div class="card-header bg-body-tertiary border-secondary-subtle py-3">
-                    <h2 id="users-heading" class="h6 mb-0">Учётные записи</h2>
+        <section class="col-12" aria-labelledby="users-heading">
+            <h2 id="users-heading" class="h6 mb-2">Учётные записи</h2>
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                <div class="d-flex flex-wrap gap-2">
+                    <label class="visually-hidden" for="userSearch">Поиск пользователей</label>
+                    <input class="form-control form-control-sm w-auto mw-100" size="32" id="userSearch" name="userSearch" type="search" placeholder="Найти по логину" data-user-search />
+                    <label class="visually-hidden" for="userStateFilter">Состояние учётной записи</label>
+                    <select class="form-select form-select-sm w-auto" id="userStateFilter" name="userState" data-user-state-filter>
+                        <option value="">Все состояния</option><option value="enabled">Включены</option><option value="disabled">Отключены</option>
+                    </select>
                 </div>
-                <div class="list-group list-group-flush" data-user-list></div>
-                <p class="text-body-secondary text-center small m-0 p-4 d-none" data-user-empty>Пользователей пока нет.</p>
+                <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#createUserModal">Создать пользователя</button>
             </div>
+            <div data-user-list></div>
+            <p class="text-body-secondary text-center small m-0 p-4 d-none" data-user-empty>Пользователей пока нет.</p>
         </section>
 
-        <section class="col-12 col-lg-8" aria-label="Настройки пользователя">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body p-4 text-center text-body-secondary" data-selection-placeholder>
-                    Выберите пользователя слева.
-                </div>
+    </div>
 
-                <div class="card-body p-4 d-none" data-user-details>
-                    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
-                        <h2 class="h4 mb-0" data-user-title></h2>
-                        <span class="badge rounded-pill text-bg-secondary" data-user-role></span>
-                    </div>
+    <div class="modal fade" id="editUserModal" tabindex="-1" aria-labelledby="editUserModalTitle" aria-hidden="true" data-edit-modal>
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <form id="editUserForm" class="modal-content border-0 shadow" data-edit-form novalidate>
+                <div class="modal-header">
+                    <h2 class="modal-title fs-5" id="editUserModalTitle" tabindex="-1" data-user-title>Изменить пользователя</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-danger d-none" role="alert" data-edit-error></div>
+                    <span class="badge rounded-pill text-bg-secondary mb-3" data-user-role></span>
                     <div class="form-check form-switch mb-3">
-                        <input class="form-check-input" id="userEnabled" name="isEnabled" type="checkbox" data-user-enabled />
+                        <input class="form-check-input" id="userEnabled" name="isEnabled" type="checkbox" role="switch" data-animated-switch data-user-enabled />
                         <label class="form-check-label" for="userEnabled">Учётная запись включена</label>
                     </div>
                     <hr class="border-secondary-subtle my-4" />
-                    <h3 class="h6 mb-3">Доступ к объектам</h3>
+                    <h3 class="h6 mb-3">Доступ к объектам <span data-visibility-help></span></h3>
                     <div class="d-flex flex-column gap-2 mb-3" data-visibility-list></div>
-                    <div class="d-flex flex-wrap justify-content-between gap-2 pt-2">
-                        <button type="button" class="btn btn-primary" data-action="save-visibility">Сохранить</button>
-                        <button type="button" class="btn btn-outline-danger" data-action="delete-user">Удалить</button>
+                </div>
+                <div class="modal-footer justify-content-between">
+                    <button type="button" class="btn btn-outline-danger" data-action="delete-user">Удалить</button>
+                    <div class="d-flex gap-2 ms-auto">
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
+                        <button type="submit" class="btn btn-primary">Сохранить</button>
                     </div>
                 </div>
-            </div>
-        </section>
+            </form>
+        </div>
     </div>
 
     <div class="modal fade" id="createUserModal" tabindex="-1" aria-labelledby="createUserModalTitle" aria-hidden="true" data-create-modal>

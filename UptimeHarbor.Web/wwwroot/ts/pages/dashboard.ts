@@ -1,3 +1,4 @@
+import { createDataTable } from "../shared/dataTable.js";
 import {
     isAbortError,
     sendJsonRequest,
@@ -67,16 +68,34 @@ const stateContainer = requireElement<HTMLElement>("[data-dashboard-state]");
 const searchInput = requireElement<HTMLInputElement>("[data-dashboard-search]");
 const signalState = requireElement<HTMLElement>("[data-signal-state]");
 const signalStateText = requireElement<HTMLElement>("[data-signal-state-text]");
+const statusFilter = requireElement<HTMLSelectElement>("[data-dashboard-status]");
+let dashboardTable: ReturnType<typeof createDataTable>;
 
 document.addEventListener("DOMContentLoaded", () => {
     void initDashboard();
 });
 
 async function initDashboard(): Promise<void> {
+    dashboardTable = createDataTable(content, "monitoring", "Состояние серверов и контейнеров", [
+        { key: "name", title: "Объект", width: 220 },
+        { key: "kind", title: "Тип", width: 120 },
+        { key: "server", title: "Сервер", width: 200 },
+        { key: "internalName", title: "Внутреннее имя", help: "Имя сервера, полученное при проверке. Заданное администратором имя показывается в колонке «Объект»." },
+        { key: "status", title: "Статус", width: 160, help: "Результат мониторинга. «Неизвестно» означает, что актуального результата проверки ещё нет." },
+        { key: "checked", title: "Последняя проверка", width: 220, help: "Время последней проверки в UTC." },
+        { key: "started", title: "Запущен", width: 220, help: "Время запуска, полученное от контейнера. Для сервера это значение не предоставляется." },
+        { key: "uptime", title: "Текущий uptime", width: 180, help: "Продолжительность работы контейнера с последнего запуска. Это не процент доступности за период." },
+        { key: "description", title: "Описание", width: 260 }
+    ]);
+    statusFilter.addEventListener("change", () => {
+        if (state.snapshot !== null) renderDashboard(state.snapshot);
+    });
+    requireElement<HTMLButtonElement>("[data-dashboard-refresh]")
+        .addEventListener("click", () => void loadSnapshot(true));
     bindSearch();
     await loadSnapshot(true);
     if (typeof signalR === "undefined") {
-        setSignalState("disconnected", "Обновления временно недоступны");
+        setSignalState("disconnected", "Автообновление недоступно — нажмите «Обновить»");
         return;
     }
 
@@ -112,15 +131,15 @@ function configureSignalR(hubConnection: signalR.HubConnection): void {
         scheduleSnapshotRefresh();
     });
     hubConnection.onreconnecting(() => {
-        setSignalState("reconnecting", "Связь потеряна, переподключаемся…");
+        setSignalState("reconnecting", "Восстанавливаем автообновление…");
     });
     hubConnection.onreconnected(() => {
-        setSignalState("connected", "Обновления подключены");
+        setSignalState("connected", "Данные обновляются автоматически");
         cancelScheduledSnapshotRefresh();
         void loadSnapshot(false);
     });
     hubConnection.onclose(() => {
-        setSignalState("disconnected", "Обновления временно недоступны");
+        setSignalState("disconnected", "Автообновление недоступно — нажмите «Обновить»");
         scheduleSignalRStart();
     });
 }
@@ -157,10 +176,10 @@ async function startSignalR(): Promise<void> {
 
     try {
         await connection.start();
-        setSignalState("connected", "Обновления подключены");
+        setSignalState("connected", "Данные обновляются автоматически");
     }
     catch {
-        setSignalState("disconnected", "Обновления временно недоступны");
+        setSignalState("disconnected", "Автообновление недоступно — нажмите «Обновить»");
         scheduleSignalRStart();
     }
 }
@@ -220,114 +239,44 @@ async function loadSnapshot(showLoading: boolean): Promise<void> {
 }
 
 function renderDashboard(snapshot: DashboardSnapshotDto): void {
-    content.replaceChildren();
-    if (snapshot.servers.length === 0) {
+    const rows: HTMLTableRowElement[] = [];
+    const matchesStatus = (status: MonitoringStatus): boolean => statusFilter.value === "" || String(status) === statusFilter.value;
+    for (const server of snapshot.servers) {
+        if (matchesStatus(server.status)) {
+            rows.push(dashboardTable.row([
+                server.name, "Сервер", "—", server.internalName ?? "Нет данных", createStatusBadge(server.status),
+                formatUtc(server.lastCheckedAtUtc), "—", "—", server.description ?? "—"
+            ]));
+        }
+        for (const container of server.containers) {
+            if (matchesStatus(container.status)) {
+                rows.push(dashboardTable.row([
+                    container.displayName, "Контейнер", server.name, "—", createStatusBadge(container.status),
+                    formatUtc(container.lastCheckedAtUtc), formatUtc(container.startedAtUtc),
+                    formatDuration(container.uptimeSeconds), container.description ?? "—"
+                ]));
+            }
+        }
+    }
+    dashboardTable.body.replaceChildren(...rows);
+    if (rows.length === 0) {
+        const filtered = state.search !== "" || statusFilter.value !== "";
         renderMessage(
-            state.search ? "no-results" : "empty",
-            state.search
-                ? "По вашему запросу ничего не найдено."
+            filtered ? "no-results" : "empty",
+            filtered
+                ? "По выбранным фильтрам ничего не найдено."
                 : "Доступных объектов мониторинга пока нет.");
         return;
     }
 
-    for (const server of snapshot.servers) {
-        content.append(createServerCard(server));
-    }
-
     stateContainer.hidden = true;
     content.hidden = false;
-}
-
-function createServerCard(server: DashboardServerDto): HTMLElement {
-    const article = document.createElement("article");
-    article.classList.add("card", "border-0", "shadow-sm");
-
-    const body = document.createElement("div");
-    body.classList.add("card-body", "p-3", "p-md-4");
-
-    const header = document.createElement("div");
-    header.classList.add("d-flex", "flex-wrap", "justify-content-between", "align-items-start", "gap-3", "mb-3");
-    const titleBlock = document.createElement("div");
-    const title = document.createElement("h2");
-    title.classList.add("h4", "mb-1");
-    title.textContent = server.name;
-    titleBlock.append(title);
-    const description = createDescription(server.description);
-    if (description !== null) {
-        titleBlock.append(description);
-    }
-    header.append(titleBlock, createStatusBadge(server.status));
-
-    body.append(
-        header,
-        createMetadata([
-            ...(server.internalName === null
-                ? []
-                : [["Внутреннее имя", server.internalName] as const]),
-            ["Последняя проверка", formatUtc(server.lastCheckedAtUtc)],
-            ["Контейнеры", server.containers.length.toString()]
-        ]));
-
-    if (server.containers.length > 0) {
-        const divider = document.createElement("hr");
-        divider.classList.add("my-4", "border-secondary-subtle");
-        const containerTitle = document.createElement("h3");
-        containerTitle.classList.add("h6", "text-uppercase", "text-secondary", "mb-3");
-        containerTitle.textContent = "Контейнеры";
-        const list = document.createElement("div");
-        list.classList.add("d-grid", "gap-2");
-        for (const container of server.containers) {
-            list.append(createContainerCard(container));
-        }
-
-        body.append(divider, containerTitle, list);
-    }
-
-    article.append(body);
-    return article;
-}
-
-function createContainerCard(container: DashboardContainerDto): HTMLElement {
-    const article = document.createElement("article");
-    article.classList.add("border", "border-secondary-subtle", "rounded-3", "bg-body-tertiary", "p-3");
-
-    const header = document.createElement("div");
-    header.classList.add("d-flex", "flex-wrap", "justify-content-between", "align-items-start", "gap-3", "mb-3");
-    const titleBlock = document.createElement("div");
-    const title = document.createElement("h4");
-    title.classList.add("h5", "mb-1");
-    title.textContent = container.displayName;
-    titleBlock.append(title);
-    const description = createDescription(container.description);
-    if (description !== null) {
-        titleBlock.append(description);
-    }
-    header.append(titleBlock, createStatusBadge(container.status));
-
-    article.append(
-        header,
-        createMetadata([
-            ["Последняя проверка", formatUtc(container.lastCheckedAtUtc)],
-            ["Запущен", formatUtc(container.startedAtUtc)],
-            ["Текущий uptime", formatDuration(container.uptimeSeconds)]
-        ]));
-    return article;
-}
-
-function createDescription(description: string | null): HTMLElement | null {
-    if (description === null) {
-        return null;
-    }
-
-    const paragraph = document.createElement("p");
-    paragraph.classList.add("text-body-secondary", "mb-0");
-    paragraph.textContent = description;
-    return paragraph;
+    dashboardTable.refresh();
 }
 
 function createStatusBadge(status: MonitoringStatus): HTMLElement {
     const badge = document.createElement("span");
-    badge.classList.add("badge", "rounded-pill", "px-3", "py-2");
+    badge.classList.add("badge");
 
     switch (status) {
         case MonitoringStatus.Available:
@@ -347,24 +296,6 @@ function createStatusBadge(status: MonitoringStatus): HTMLElement {
     }
 
     return badge;
-}
-
-function createMetadata(items: ReadonlyArray<readonly [string, string]>): HTMLElement {
-    const container = document.createElement("div");
-    container.classList.add("row", "row-cols-1", "row-cols-sm-3", "g-3", "small");
-    for (const [labelText, valueText] of items) {
-        const item = document.createElement("div");
-        item.classList.add("col", "d-flex", "flex-column", "gap-1");
-        const label = document.createElement("span");
-        label.classList.add("text-body-secondary");
-        label.textContent = labelText;
-        const value = document.createElement("span");
-        value.textContent = valueText;
-        item.append(label, value);
-        container.append(item);
-    }
-
-    return container;
 }
 
 function renderMessage(kind: "loading" | "empty" | "no-results" | "error", message: string): void {

@@ -1,5 +1,7 @@
 using System.Globalization;
 using System.Net.Http.Json;
+using System.Net;
+using System.Text.Json;
 using Microsoft.Extensions.Options;
 using UptimeHarbor.Application.Notifications;
 using UptimeHarbor.Application.Notifications.Models;
@@ -18,6 +20,7 @@ public class TelegramHttpNotificationSender(
     {
         ArgumentNullException.ThrowIfNull(recipient);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
+
         if (!long.TryParse(
                 recipient.Address,
                 NumberStyles.Integer,
@@ -29,14 +32,14 @@ public class TelegramHttpNotificationSender(
         }
 
         string botToken = options.Value.BotToken;
-        if (string.IsNullOrWhiteSpace(botToken))
+        if (!options.Value.HasValidBotToken())
         {
-            throw new InvalidOperationException("Telegram bot token не настроен.");
+            throw new NotificationDeliveryException(NotificationDeliveryFailure.InvalidConfiguration);
         }
 
         using HttpRequestMessage request = new(
             HttpMethod.Post,
-            $"bot{botToken}/sendMessage")
+            $"./bot{botToken}/sendMessage")
         {
             Content = JsonContent.Create(new
             {
@@ -51,22 +54,84 @@ public class TelegramHttpNotificationSender(
                 request,
                 HttpCompletionOption.ResponseHeadersRead,
                 cancellationToken);
-            if (!response.IsSuccessStatusCode)
+            if (!response.IsSuccessStatusCode && response.StatusCode != HttpStatusCode.BadRequest)
             {
-                throw new NotificationDeliveryException("Сервис уведомлений отклонил сообщение.");
+                throw new NotificationDeliveryException(ClassifyFailure((int)response.StatusCode, null));
             }
+
+            using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            using JsonDocument body = await JsonDocument.ParseAsync(stream, cancellationToken: cancellationToken);
+            JsonElement root = body.RootElement;
+            if (root.ValueKind != JsonValueKind.Object
+                || !root.TryGetProperty("ok", out JsonElement ok)
+                || ok.ValueKind is not JsonValueKind.True and not JsonValueKind.False)
+            {
+                throw new NotificationDeliveryException(NotificationDeliveryFailure.InvalidResponse);
+            }
+
+            if (response.IsSuccessStatusCode && ok.GetBoolean())
+            {
+                return;
+            }
+
+            int status = (int)response.StatusCode;
+            if (root.TryGetProperty("error_code", out JsonElement code)
+                && code.ValueKind == JsonValueKind.Number
+                && code.TryGetInt32(out int errorCode))
+            {
+                status = errorCode;
+            }
+
+            string? description = null;
+            if (root.TryGetProperty("description", out JsonElement detail)
+                && detail.ValueKind == JsonValueKind.String)
+            {
+                description = detail.GetString();
+            }
+
+            throw new NotificationDeliveryException(ClassifyFailure(status, description));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             throw;
         }
-        catch (NotificationDeliveryException)
+        catch (OperationCanceledException)
         {
-            throw;
+            throw new NotificationDeliveryException(NotificationDeliveryFailure.Timeout);
         }
-        catch (Exception)
+        catch (HttpRequestException)
         {
-            throw new NotificationDeliveryException("Не удалось доставить уведомление.");
+            throw new NotificationDeliveryException(NotificationDeliveryFailure.Network);
+        }
+        catch (IOException)
+        {
+            throw new NotificationDeliveryException(NotificationDeliveryFailure.Network);
+        }
+        catch (JsonException)
+        {
+            throw new NotificationDeliveryException(NotificationDeliveryFailure.InvalidResponse);
+        }
+    }
+
+    private static NotificationDeliveryFailure ClassifyFailure(int status, string? description)
+    {
+        switch (status)
+        {
+            case 401:
+            case 404:
+                return NotificationDeliveryFailure.InvalidToken;
+            case 400 when description?.Contains("chat not found", StringComparison.OrdinalIgnoreCase) == true:
+                return NotificationDeliveryFailure.ChatNotFound;
+            case 400:
+                return NotificationDeliveryFailure.InvalidChat;
+            case 403:
+                return NotificationDeliveryFailure.Forbidden;
+            case 429:
+                return NotificationDeliveryFailure.RateLimited;
+            case >= 500:
+                return NotificationDeliveryFailure.Unavailable;
+            default:
+                return NotificationDeliveryFailure.Unknown;
         }
     }
 }

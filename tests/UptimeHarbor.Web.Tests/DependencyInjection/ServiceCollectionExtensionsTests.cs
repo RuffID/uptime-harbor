@@ -171,7 +171,7 @@ public class ServiceCollectionExtensionsTests
                 ["Monitoring:IntervalSeconds"] = "30",
                 ["Monitoring:TimeoutSeconds"] = "30",
                 ["Monitoring:FailuresBeforeUnavailable"] = "3",
-                ["Telegram:BotToken"] = "test-token"
+                ["Telegram:BotToken"] = "123456789:ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghi"
             })
             .Build();
     }

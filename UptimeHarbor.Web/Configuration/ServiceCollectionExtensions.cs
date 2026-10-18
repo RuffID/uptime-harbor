@@ -35,6 +35,9 @@ public static class ServiceCollectionExtensions
             .Validate(
                 options => !string.IsNullOrWhiteSpace(options.BotToken),
                 $"{TelegramOptions.SECTION_NAME}:BotToken is required.")
+            .Validate(
+                options => options.HasValidBotToken(),
+                "Telegram:BotToken в Config/config.json должен содержать token от BotFather, а не заглушку или ID чата.")
             .ValidateOnStart();
 
         services.Configure<ForwardedHeadersOptions>(options =>

@@ -177,11 +177,11 @@ public class NotificationAdministrationService(
                 "UptimeHarbor: тестовое уведомление.",
                 cancellationToken);
         }
-        catch (NotificationDeliveryException)
+        catch (NotificationDeliveryException exception)
         {
             return ServiceResult.Fail(
                 ServiceErrorType.Conflict,
-                "Telegram не принял тестовое сообщение.");
+                exception.UserMessage);
         }
 
         return ServiceResult.Ok();
