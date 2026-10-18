@@ -13,4 +13,4 @@
 - Ожидаемые HTTP, network, timeout и validation-ошибки возвращать как результат проверки; неожиданные исключения изолировать на границе объекта и логировать.
 - Не выполнять retry внутри цикла и корректно передавать cancellation при остановке.
 - Автоматические redirect отключать; любой `3xx` считать HTTP-ошибкой. Тело ответа ограничивать 64 KiB по `Content-Length` и фактически прочитанным байтам.
-- При изменении цикла или transport-контракта обновлять тесты и `Documentation/Technical/Monitoring.md`.
+- При изменении цикла или transport-контракта обновлять тесты и `Documentation/Technical documentation/Monitoring.md`.

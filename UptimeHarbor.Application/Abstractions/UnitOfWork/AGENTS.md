@@ -16,4 +16,4 @@
 - EF concurrency exception переводится Infrastructure в независимый `PersistenceConcurrencyException`; Application не зависит от EF Core.
 - Известные unique conflicts, включая административное имя сервера, переводятся Infrastructure в `PersistenceConflictException` с семантическим `PersistenceConflictKind`; неизвестные persistence errors не маскируются.
 - Администрирование и фиксация успешной доставки одной привязки используют сценарный `INotificationSettingsUnitOfWork`; получатели сохраняются независимо.
-- При изменении границ сценариев обновлять реализации, DI, этот файл и `Documentation/Technical/Persistence.md`.
+- При изменении границ сценариев обновлять реализации, DI, этот файл и `Documentation/Technical documentation/Persistence.md`.

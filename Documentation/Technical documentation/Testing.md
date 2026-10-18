@@ -27,6 +27,21 @@ dotnet test --project .\tests\UptimeHarbor.Web.Tests\UptimeHarbor.Web.Tests.cspr
 
 Перед тестами затронутые production- и test-проекты собираются отдельно. Compile-check выполняется без запуска Web-хоста и с отдельным `BaseOutputPath` в `artifacts/compile-check`.
 
+Статические Web-тесты ищут исходники на пять уровней выше `AppContext.BaseDirectory`. Для них отдельный output должен сохранять эту глубину, например `artifacts/compile-check/web-tests/Debug/net10.0`. Общий `artifacts/compile-check/Debug/net10.0` подходит для компиляции, но для Web source tests приводит к ошибкам поиска файлов. Корректировать нужно путь проверочного output, не создавать копии исходников за пределами решения.
+
+## Выбор проверок при запрете БД
+
+Полный Infrastructure-набор открывает SQLite in-memory и исполняет SQL. При запрете подключения к БД он не запускается целиком. Допустимый набор metadata/fake проверок выбирается повторяемым аргументом `--filter-class` после `--` в команде Microsoft Testing Platform:
+
+- `UptimeHarbor.Tests.Infrastructure.Identity.InitialAdministratorBootstrapperTests`;
+- `UptimeHarbor.Tests.Infrastructure.Monitoring.HttpMonitoringEndpointCheckerTests`;
+- `UptimeHarbor.Tests.Infrastructure.Monitoring.MonitoringCycleRunnerTests`;
+- `UptimeHarbor.Tests.Infrastructure.Persistence.UptimeHarborDbContextModelTests`;
+- `UptimeHarbor.Tests.Infrastructure.Persistence.SqlServerPersistenceConflictClassifierTests`;
+- `UptimeHarbor.Tests.Infrastructure.Telegram.TelegramHttpNotificationSenderTests`.
+
+Metadata-тест создаёт SQL Server options и читает EF model без открытия соединения. Sign-in, materialized reads, concurrency, unique constraints и Telegram outbox provider tests в этот выбор не входят; их нельзя считать пройденными или пропущенными runner, если они исключены фильтром. Результат обновления локальных DLL и точная граница последней проверки приведены в [Libraries.md](Libraries.md).
+
 ## Структура и состав наборов
 
 - `UptimeHarbor.Domain.Tests` — доменные переходы и фабрики;

@@ -29,7 +29,7 @@ Persistence реализован в `UptimeHarbor.Infrastructure` на EF Core �
 
 ## EFCoreLibrary
 
-Локальная `libs/EFCoreLibrary.dll` подключена только к Infrastructure. Через `AddEfCoreBaseRepositories<UptimeHarborDbContext>()` регистрируются базовые create/delete/predicate/query repositories.
+Локальная `libs/EFCoreLibrary.dll` подключена только к Infrastructure. `AddEfCoreContext<UptimeHarborDbContext, UptimeHarborDbContext>()` регистрирует scoped adapter; `AddEfCoreBaseRepositories<UptimeHarborDbContext>()` — базовые create/delete/predicate/query repositories. Реализации внедряют `IContext*Repository<TEntity, UptimeHarborDbContext>`; один и тот же тип используется как EF-контекст и ключ adapter. Версии зависимостей, источники DLL и порядок обновления описаны в [Libraries.md](Libraries.md).
 
 Предметные репозитории адаптируют их к Application-контрактам. Для поиска по ID используется predicate repository, поэтому Domain не реализует библиотечный `IEntity<TId>`.
 

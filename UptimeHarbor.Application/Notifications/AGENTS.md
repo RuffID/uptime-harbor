@@ -14,4 +14,4 @@
 - Повторная outbox-обработка должна выбирать только привязки без соответствующего successful marker; внешний Telegram transport имеет at-least-once, а не exactly-once семантику.
 - Административные duplicate chat/binding после persistence race преобразовывать из независимого `PersistenceConflictException` в безопасный `ServiceResult.Conflict` без provider details.
 - Recovery job, отменённая при disable/endpoint change, не должна доходить до подготовки получателей или sender; отмена хранится в Infrastructure outbox.
-- При изменении контракта обновлять тесты и `Documentation/Technical/Notifications.md`.
+- При изменении контракта обновлять тесты и `Documentation/Technical documentation/Notifications.md`.

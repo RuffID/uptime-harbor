@@ -18,7 +18,7 @@
 - Домен тестировать через публичный API сущностей, не ослабляя инварианты ради теста.
 - Persistence model проверять через metadata без открытия соединения.
 - Запускать каждый проект через `dotnet test --project .\tests\<project>\<project>.csproj`.
-- При изменении структуры или типа тестов обновлять этот файл и `Documentation/Technical/Testing.md`.
+- При изменении структуры или типа тестов обновлять этот файл и `Documentation/Technical documentation/Testing.md`.
 - HTTP-проверки тестировать через управляемый fake `HttpMessageHandler`; timeout и текущее время контролировать через options и `TimeProvider` без внешних endpoint.
 - Параллельность worker проверять через управляемые `TaskCompletionSource`, не используя реальные задержки, кроме изолированной проверки timeout.
 - Dashboard query проверять на серверную видимость, поиск, UTC и uptime с фиксированным `TimeProvider`; SignalR — через fake hub context без запуска Web-хоста.
@@ -33,4 +33,5 @@
 - Telegram retry проверять с управляемым `TimeProvider`; зависания чатов — через `TaskCompletionSource` без внешней сети.
 - Recovery cancellation проверять SQLite interleaving «claim → cancel → pre-send gate» и terminal payload; не выдавать это за доказательство SQL Server row-lock semantics.
 - SQL Server 2601/2627 проверять изолированным классификатором; SQLite unique conflict не считать проверкой номеров или структуры `SqlException`.
+- При запрете БД не запускать полный Infrastructure-набор; выбирать metadata/fake классы по `Documentation/Technical documentation/Testing.md`. Статические Web-тесты требуют пяти уровней от output до корня репозитория, например `artifacts/compile-check/web-tests/Debug/net10.0`.
 - Уникальность нормализованного имени сервера проверять provider-level тестом SQLite; семантику SQL Server 2601/2627 по-прежнему доказывает только изолированный classifier test.

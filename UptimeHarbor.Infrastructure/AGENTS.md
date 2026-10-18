@@ -4,6 +4,8 @@
 
 Проект реализует persistence, Identity и внешние адаптеры. Он зависит от Application и Domain; `EFCoreLibrary` и `HttpClientLibrary` используются только здесь.
 
+Локальная поставка DLL рассчитана на `net10.0` и зависимости `10.0.12`; состав и обновление описаны в `Documentation/Technical documentation/Libraries.md`. EF adapter регистрируется через `AddEfCoreContext<UptimeHarborDbContext, UptimeHarborDbContext>()`; репозитории используют `IContext*Repository` с тем же ключом контекста.
+
 ## Правила
 
 - Реализовывать чистые Application-контракты, не протаскивая инфраструктурные типы наружу.
@@ -11,7 +13,7 @@
 - Регистрировать зависимости модулем `AddInfrastructure`, а не напрямую в `Program.cs`.
 - Для production persistence использовать провайдер EF Core SQL Server и строку подключения `ConnectionStrings:SqlServer`.
 - Типизированные настройки получать через options; `IConfiguration` использовать только при регистрации.
-- При изменении интеграций, Identity или persistence обновлять этот файл и тематическую документацию `Documentation/Technical`.
+- При изменении интеграций, Identity или persistence обновлять этот файл и тематическую документацию `Documentation/Technical documentation`.
 - Identity bootstrap и user store остаются в `Identity`; начальный пароль используется только при создании отсутствующего администратора.
 - При старте `DataBaseCheckUpService<UptimeHarborDbContext>` проверяет SQL Server, создаёт backup при наличии pending migrations и применяет их до Identity bootstrap; ошибка подключения, backup или migration останавливает запуск.
 - Backup и migration не должны логировать connection string, credentials или SQL command; имена pending migrations логировать разрешено.

@@ -89,9 +89,9 @@ Web-хост, браузер, PostgreSQL, миграции, SQL, `docker compose
 
 ## Расхождения кода и документации
 
-- `Documentation/Technical/Notifications.md:13,23-25` описывает per-binding markers, но не описывает отмену уже поставленной recovery job при disable; фактический код такой отмены не имеет.
-- `Documentation/Technical/Testing.md` перечисляет malformed-body, browser lifecycle и SQLite/provider проверки, но формулировки не всегда отделяют прямой вызов factory/static source checks от реального MVC/browser runtime. Это создаёт завышенное впечатление доказанности.
-- `Documentation/Technical/Deployment.md:5,21-25` корректно фиксирует отсутствие Compose/Nginx как границу v1, но `docker compose` проверки неприменимы, потому что файл отсутствует; это должно оставаться явно непроверенным deployment-контуром.
+- `Documentation/Technical documentation/Notifications.md:13,23-25` описывает per-binding markers, но не описывает отмену уже поставленной recovery job при disable; фактический код такой отмены не имеет.
+- `Documentation/Technical documentation/Testing.md` перечисляет malformed-body, browser lifecycle и SQLite/provider проверки, но формулировки не всегда отделяют прямой вызов factory/static source checks от реального MVC/browser runtime. Это создаёт завышенное впечатление доказанности.
+- `Documentation/Technical documentation/Deployment.md:5,21-25` корректно фиксирует отсутствие Compose/Nginx как границу v1, но `docker compose` проверки неприменимы, потому что файл отсутствует; это должно оставаться явно непроверенным deployment-контуром.
 - Планы этапов 02–07 используют статус «В работе», что соответствует невыполненным runtime-проверкам; общий план также «В работе». Этап 08 «Приостановлен» согласован с требованиями v1.
 
 ## Непроверенные runtime-риски

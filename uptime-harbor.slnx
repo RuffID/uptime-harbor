@@ -1,34 +1,45 @@
 <Solution>
   <Folder Name="/Documentation/">
     <File Path="Documentation/AGENTS.md" />
-    <File Path="Documentation/Technical requirements.md" />
+    <File Path="Documentation/README.md" />
   </Folder>
-  <Folder Name="/Documentation/Technical/">
-    <File Path="Documentation/Technical/AGENTS.md" />
-    <File Path="Documentation/Technical/Architecture.md" />
-    <File Path="Documentation/Technical/Authentication and visibility.md" />
-    <File Path="Documentation/Technical/Configuration.md" />
-    <File Path="Documentation/Technical/Database migrations.md" />
-    <File Path="Documentation/Technical/Deployment.md" />
-    <File Path="Documentation/Technical/Domain model.md" />
-    <File Path="Documentation/Technical/Monitoring.md" />
-    <File Path="Documentation/Technical/Notifications.md" />
-    <File Path="Documentation/Technical/Persistence.md" />
-    <File Path="Documentation/Technical/Testing.md" />
-    <File Path="Documentation/Technical/Web application.md" />
+  <Folder Name="/Documentation/Business logic/">
+    <File Path="Documentation/Business logic/AGENTS.md" />
+    <File Path="Documentation/Business logic/README.md" />
+    <File Path="Documentation/Business logic/Business requirements.md" />
   </Folder>
-  <Folder Name="/Documentation/Plans/" />
-  <Folder Name="/Documentation/Plans/Application implementation/">
-    <File Path="Documentation/Plans/Application implementation/AGENTS.md" />
-    <File Path="Documentation/Plans/Application implementation/00 - Plan overview.md" />
-    <File Path="Documentation/Plans/Application implementation/01 - Project foundation.md" />
-    <File Path="Documentation/Plans/Application implementation/02 - Data and persistence.md" />
-    <File Path="Documentation/Plans/Application implementation/03 - Authentication and visibility.md" />
-    <File Path="Documentation/Plans/Application implementation/04 - Object administration.md" />
-    <File Path="Documentation/Plans/Application implementation/05 - Monitoring engine.md" />
-    <File Path="Documentation/Plans/Application implementation/06 - Dashboard and SignalR.md" />
-    <File Path="Documentation/Plans/Application implementation/07 - Telegram notifications.md" />
-    <File Path="Documentation/Plans/Application implementation/08 - Deployment and release.md" />
+  <Folder Name="/Documentation/Technical documentation/">
+    <File Path="Documentation/Technical documentation/AGENTS.md" />
+    <File Path="Documentation/Technical documentation/README.md" />
+    <File Path="Documentation/Technical documentation/Architecture.md" />
+    <File Path="Documentation/Technical documentation/Authentication and visibility.md" />
+    <File Path="Documentation/Technical documentation/Configuration.md" />
+    <File Path="Documentation/Technical documentation/Database migrations.md" />
+    <File Path="Documentation/Technical documentation/Deployment.md" />
+    <File Path="Documentation/Technical documentation/Domain model.md" />
+    <File Path="Documentation/Technical documentation/Libraries.md" />
+    <File Path="Documentation/Technical documentation/Monitoring.md" />
+    <File Path="Documentation/Technical documentation/Notifications.md" />
+    <File Path="Documentation/Technical documentation/Persistence.md" />
+    <File Path="Documentation/Technical documentation/Testing.md" />
+    <File Path="Documentation/Technical documentation/Web application.md" />
+    <File Path="Documentation/Technical documentation/V1 Technical Review Findings.md" />
+    <File Path="Documentation/Technical documentation/V1 Follow-up Technical Review.md" />
+  </Folder>
+  <Folder Name="/Documentation/Plans/">
+    <File Path="Documentation/Plans/README.md" />
+  </Folder>
+  <Folder Name="/Documentation/Plans/application-implementation-2026-08-04-(in-progress)/">
+    <File Path="Documentation/Plans/application-implementation-2026-08-04-(in-progress)/AGENTS.md" />
+    <File Path="Documentation/Plans/application-implementation-2026-08-04-(in-progress)/00 - Plan overview.md" />
+    <File Path="Documentation/Plans/application-implementation-2026-08-04-(in-progress)/01 - Project foundation.md" />
+    <File Path="Documentation/Plans/application-implementation-2026-08-04-(in-progress)/02 - Data and persistence.md" />
+    <File Path="Documentation/Plans/application-implementation-2026-08-04-(in-progress)/03 - Authentication and visibility.md" />
+    <File Path="Documentation/Plans/application-implementation-2026-08-04-(in-progress)/04 - Object administration.md" />
+    <File Path="Documentation/Plans/application-implementation-2026-08-04-(in-progress)/05 - Monitoring engine.md" />
+    <File Path="Documentation/Plans/application-implementation-2026-08-04-(in-progress)/06 - Dashboard and SignalR.md" />
+    <File Path="Documentation/Plans/application-implementation-2026-08-04-(in-progress)/07 - Telegram notifications.md" />
+    <File Path="Documentation/Plans/application-implementation-2026-08-04-(in-progress)/08 - Deployment and release.md" />
   </Folder>
   <Project Path="UptimeHarbor.Domain/UptimeHarbor.Domain.csproj" />
   <Project Path="UptimeHarbor.Application/UptimeHarbor.Application.csproj" />

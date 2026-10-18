@@ -5,9 +5,9 @@ using UptimeHarbor.Domain.Notifications;
 namespace UptimeHarbor.Infrastructure.Persistence.Repositories;
 
 public class TelegramChatRepository(
-    IGetItemByPredicateRepository<TelegramChat, UptimeHarborDbContext> getRepository,
-    ICreateItemRepository<TelegramChat, UptimeHarborDbContext> createRepository,
-    IDeleteItemRepository<TelegramChat, UptimeHarborDbContext> deleteRepository)
+    IContextGetItemByPredicateRepository<TelegramChat, UptimeHarborDbContext> getRepository,
+    IContextCreateItemRepository<TelegramChat, UptimeHarborDbContext> createRepository,
+    IContextDeleteItemRepository<TelegramChat, UptimeHarborDbContext> deleteRepository)
     : ITelegramChatRepository
 {
     public Task<TelegramChat?> GetItemByIdAsync(

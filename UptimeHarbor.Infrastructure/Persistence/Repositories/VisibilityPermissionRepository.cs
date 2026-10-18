@@ -5,12 +5,12 @@ using UptimeHarbor.Domain.Access;
 namespace UptimeHarbor.Infrastructure.Persistence.Repositories;
 
 public class VisibilityPermissionRepository(
-    IGetItemByPredicateRepository<ServerVisibilityPermission, UptimeHarborDbContext> serverGetRepository,
-    IGetItemByPredicateRepository<ContainerVisibilityPermission, UptimeHarborDbContext> containerGetRepository,
-    ICreateItemRepository<ServerVisibilityPermission, UptimeHarborDbContext> serverCreateRepository,
-    ICreateItemRepository<ContainerVisibilityPermission, UptimeHarborDbContext> containerCreateRepository,
-    IDeleteItemRepository<ServerVisibilityPermission, UptimeHarborDbContext> serverDeleteRepository,
-    IDeleteItemRepository<ContainerVisibilityPermission, UptimeHarborDbContext> containerDeleteRepository)
+    IContextGetItemByPredicateRepository<ServerVisibilityPermission, UptimeHarborDbContext> serverGetRepository,
+    IContextGetItemByPredicateRepository<ContainerVisibilityPermission, UptimeHarborDbContext> containerGetRepository,
+    IContextCreateItemRepository<ServerVisibilityPermission, UptimeHarborDbContext> serverCreateRepository,
+    IContextCreateItemRepository<ContainerVisibilityPermission, UptimeHarborDbContext> containerCreateRepository,
+    IContextDeleteItemRepository<ServerVisibilityPermission, UptimeHarborDbContext> serverDeleteRepository,
+    IContextDeleteItemRepository<ContainerVisibilityPermission, UptimeHarborDbContext> containerDeleteRepository)
     : IVisibilityPermissionRepository
 {
     public async Task<IReadOnlyList<ServerVisibilityPermission>> GetServerPermissionsAsync(

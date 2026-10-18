@@ -1,5 +1,3 @@
-using EFCoreLibrary.Abstractions.Database;
-using EFCoreLibrary.EfCore;
 using EFCoreLibrary.Extensions;
 using HttpClientLibrary.Abstractions;
 using HttpClientLibrary.Clients;
@@ -86,7 +84,7 @@ public static class ServiceCollectionExtensions
             options.SlidingExpiration = true;
             options.Events.OnValidatePrincipal = ValidateEnabledUserAsync;
         });
-        services.AddScoped<IAppDbContext<UptimeHarborDbContext>, EfDbContextAdapter<UptimeHarborDbContext>>();
+        services.AddEfCoreContext<UptimeHarborDbContext, UptimeHarborDbContext>();
         services.AddEfCoreBaseRepositories<UptimeHarborDbContext>();
 
         services.AddScoped<DataBaseCheckUpService<UptimeHarborDbContext>>();

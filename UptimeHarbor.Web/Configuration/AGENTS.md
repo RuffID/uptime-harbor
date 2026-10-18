@@ -10,7 +10,7 @@
 - Обязательные значения валидировать при старте без fallback-значений, скрывающих ошибку.
 - Не передавать `IConfiguration` прикладным сервисам и контроллерам.
 - Не логировать пароли, токены и строку подключения.
-- При изменении operational/security settings обновлять `Config/config.example.json`, локальный `Config/config.json`, тесты, этот файл и `Documentation/Technical/Configuration.md`; `appsettings.json` изменять только для Serilog.
+- При изменении operational/security settings обновлять `Config/config.example.json`, локальный `Config/config.json`, тесты, этот файл и `Documentation/Technical documentation/Configuration.md`; `appsettings.json` изменять только для Serilog.
 - `Config/config.json` обязателен при старте, не отслеживается и не копируется в build/publish; `Config/config.example.json` содержит только безопасные placeholders и никогда не загружается приложением.
 - Serilog использует один человекочитаемый шаблон с UTC-временем, уровнем, source context и structured properties для console и File sink `Logs/log_*.log`; retention, size limit и непубличное расположение File sink обязательны.
 - Изменения sinks синхронизировать с Docker log volume, `.gitignore`, publish exclusion, тестами и документацией; секреты не логировать.

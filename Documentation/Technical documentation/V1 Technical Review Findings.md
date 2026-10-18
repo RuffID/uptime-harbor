@@ -4,7 +4,7 @@
 
 ## Область проверки
 
-Проверка выполнена относительно `Technical requirements.md` и текущей технической документации. В область проверки вошли Domain, Application, Infrastructure, Web, TypeScript-клиент, persistence, monitoring worker, Telegram-доставка, тесты и deployment-материалы.
+Проверка выполнена относительно `Documentation/Business logic/Business requirements.md` и текущей технической документации. В область проверки вошли Domain, Application, Infrastructure, Web, TypeScript-клиент, persistence, monitoring worker, Telegram-доставка, тесты и deployment-материалы.
 
 Разрешённые Release-сборки и изолированные тесты повторно выполнены после P3-рефакторинга: Domain 16, Application 91, Infrastructure 61 и Web 51 тест прошли. Docker, Web-host, browser automation, PostgreSQL, SQL, миграции, npm, LibMan и проектные скрипты не запускались. Provider-level проверки выполнены только на SQLite in-memory.
 
@@ -47,7 +47,7 @@ P0-1 и P0-2 устранены, P0-3 исключён из v1; статусы �
 - `UptimeHarbor.Web/Controllers/AdminUsersController.cs`;
 - `UptimeHarbor.Web/Pages/Shared/_Layout.cshtml`;
 - отсутствующие `UptimeHarbor.Web/Pages/Admin/Users.cshtml` и `UptimeHarbor.Web/wwwroot/ts/pages/admin/users.ts`;
-- `Documentation/Plans/Application implementation/03 - Authentication and visibility.md:5`, где этап уже отмечен завершённым.
+- `Documentation/Plans/application-implementation-2026-08-04-(in-progress)/03 - Authentication and visibility.md:5`, где этап уже отмечен завершённым.
 
 Рекомендуемое решение: добавить AJAX-only административную страницу пользователей на TypeScript с созданием, блокировкой, удалением и атомарной заменой permissions. Контейнеры должны становиться доступными для выбора только вместе с родительским сервером. В layout добавить POST-выход. До реализации перевести этап 3 и общий план в статус `В работе`.
 
@@ -55,7 +55,7 @@ P0-1 и P0-2 устранены, P0-3 исключён из v1; статусы �
 
 ### P0-3. Deployment/release-контур не завершён
 
-**Статус исправления: исключено из объёма v1.** Требования `Technical requirements.md` не включают deployment orchestration; добавленные ранее `compose.yaml` и каталог `deploy` удалены. История замечания и рекомендации сохранены для возможного последующего этапа.
+**Статус исправления: исключено из объёма v1.** Требования `Documentation/Business logic/Business requirements.md` не включают deployment orchestration; добавленные ранее `compose.yaml` и каталог `deploy` удалены. История замечания и рекомендации сохранены для возможного последующего этапа.
 
 Этап 8 отмечен как `Приостановлен`: Docker Compose и orchestration намеренно исключены из первой версии. Отсутствие Compose не является дефектом ТЗ v1; этот абзац сохраняет исходное содержание замечания для истории ревью.
 
@@ -63,8 +63,8 @@ P0-1 и P0-2 устранены, P0-3 исключён из v1; статусы �
 
 Затронутые места:
 
-- `Documentation/Plans/Application implementation/08 - Deployment and release.md:5`;
-- `Documentation/Technical/Deployment.md:7`;
+- `Documentation/Plans/application-implementation-2026-08-04-(in-progress)/08 - Deployment and release.md:5`;
+- `Documentation/Technical documentation/Deployment.md:7`;
 - `UptimeHarbor.Web/Program.cs:36`;
 - `UptimeHarbor.Web/Program.cs:46`;
 - `UptimeHarbor.Web/Pages/ServiceCollectionExtensions.cs:23`.
@@ -128,13 +128,13 @@ Keyed coordination защищает только две monitoring-провер�
 
 ### P1-4. Гарантия «одно Telegram-сообщение» технически не выполняется
 
-**Статус исправления: устранено согласованием контракта.** `Technical requirements.md`, техническая документация и тестовые ожидания теперь фиксируют at-least-once. Durable outbox исключает потерю локального job, но не скрывает окно после принятия `sendMessage` и до локального marker; редкий дубликат явно допускается. Exactly-once больше не заявляется.
+**Статус исправления: устранено согласованием контракта.** `Documentation/Business logic/Business requirements.md`, техническая документация и тестовые ожидания теперь фиксируют at-least-once. Durable outbox исключает потерю локального job, но не скрывает окно после принятия `sendMessage` и до локального marker; редкий дубликат явно допускается. Exactly-once больше не заявляется.
 
 Текущий поток сначала вызывает Telegram, затем в другом scope сохраняет marker успешной доставки. При падении процесса или БД после `sendMessage`, но до `MarkDeliverySuccessfulAsync`, следующий цикл отправит то же сообщение повторно. Обратный порядок привёл бы к потере сообщения. Telegram Bot API не предоставляет idempotency key для `sendMessage`, поэтому строгий exactly-once контракт таким способом недостижим.
 
 Затронутое место: `UptimeHarbor.Infrastructure/Telegram/TelegramMonitoringEventHandler.cs:45-54`.
 
-Рекомендуемое решение: принять и явно задокументировать at-least-once семантику с редкими дубликатами либо изменить внешний transport/посредника на поддерживающий идемпотентность. Durable outbox существенно уменьшит окно сбоев и исключит потерю задания, но сам по себе не докажет exactly-once Telegram-доставку. Формулировку `Technical requirements.md` и тесты нужно привести к реально обеспечиваемой гарантии.
+Рекомендуемое решение: принять и явно задокументировать at-least-once семантику с редкими дубликатами либо изменить внешний transport/посредника на поддерживающий идемпотентность. Durable outbox существенно уменьшит окно сбоев и исключит потерю задания, но сам по себе не докажет exactly-once Telegram-доставку. Формулировку `Documentation/Business logic/Business requirements.md` и тесты нужно привести к реально обеспечиваемой гарантии.
 
 ### P1-5. Monitoring HTTP adapter не ограничивает размер ответа и следует redirect по умолчанию
 

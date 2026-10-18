@@ -5,9 +5,9 @@ using UptimeHarbor.Domain.Monitoring;
 namespace UptimeHarbor.Infrastructure.Persistence.Repositories;
 
 public class MonitoredContainerRepository(
-    IGetItemByPredicateRepository<MonitoredContainer, UptimeHarborDbContext> getRepository,
-    ICreateItemRepository<MonitoredContainer, UptimeHarborDbContext> createRepository,
-    IDeleteItemRepository<MonitoredContainer, UptimeHarborDbContext> deleteRepository)
+    IContextGetItemByPredicateRepository<MonitoredContainer, UptimeHarborDbContext> getRepository,
+    IContextCreateItemRepository<MonitoredContainer, UptimeHarborDbContext> createRepository,
+    IContextDeleteItemRepository<MonitoredContainer, UptimeHarborDbContext> deleteRepository)
     : IMonitoredContainerRepository
 {
     public async Task<IReadOnlyList<MonitoredContainer>> GetAllAsync(

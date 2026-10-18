@@ -17,4 +17,4 @@
 - Переход `BecameUnavailable` создаёт новый `CurrentIncidentId`; recovery сохраняет его до следующего инцидента, а ручное отключение или смена endpoint очищают.
 - Каждое административное изменение или записанный результат проверки увеличивает явный `Version`, используемый persistence как optimistic concurrency token.
 
-При изменении переходов, полей или порогов обновлять этот файл, доменные тесты и `Documentation/Technical/Domain model.md`.
+При изменении переходов, полей или порогов обновлять этот файл, доменные тесты и `Documentation/Technical documentation/Domain model.md`.

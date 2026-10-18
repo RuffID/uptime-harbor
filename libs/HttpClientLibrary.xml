@@ -1,0 +1,314 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>HttpClientLibrary</name>
+    </assembly>
+    <members>
+        <member name="T:HttpClientLibrary.Abstractions.IHttpApiClient">
+            <summary>Определяет операции типизированного HTTP API-клиента.</summary>
+        </member>
+        <member name="M:HttpClientLibrary.Abstractions.IHttpApiClient.SendAsync``1(HttpClientLibrary.Models.HttpRequestOptions,System.Threading.CancellationToken)">
+            <summary>Отправляет запрос и возвращает десериализованное тело успешного ответа.</summary>
+            
+        </member>
+        <member name="M:HttpClientLibrary.Abstractions.IHttpApiClient.SendWithResponseAsync``1(HttpClientLibrary.Models.HttpRequestOptions,System.Threading.CancellationToken)">
+            <summary>Отправляет запрос и возвращает статус, заголовки и десериализованное тело.</summary>
+        </member>
+        <member name="M:HttpClientLibrary.Abstractions.IHttpApiClient.SendStreamAsync(HttpClientLibrary.Models.HttpRequestOptions,System.Threading.CancellationToken)">
+            <summary>Отправляет запрос и возвращает поток тела, которым должен управлять вызывающий код.</summary>
+        </member>
+        <member name="M:HttpClientLibrary.Abstractions.IHttpApiClient.GetAsync``1(System.String,System.Collections.Generic.IDictionary{System.String,System.String},System.Threading.CancellationToken)">
+            <summary>Отправляет GET-запрос и возвращает десериализованное тело.</summary>
+        </member>
+        <member name="M:HttpClientLibrary.Abstractions.IHttpApiClient.PostAsync``2(System.String,``0,System.String,System.Collections.Generic.IDictionary{System.String,System.String},System.Threading.CancellationToken)">
+            <summary>Отправляет POST-запрос и возвращает десериализованное тело.</summary>
+        </member>
+        <member name="M:HttpClientLibrary.Abstractions.IHttpApiClient.PutAsync``2(System.String,``0,System.String,System.Collections.Generic.IDictionary{System.String,System.String},System.Threading.CancellationToken)">
+            <summary>Отправляет PUT-запрос и возвращает десериализованное тело.</summary>
+        </member>
+        <member name="M:HttpClientLibrary.Abstractions.IHttpApiClient.PatchAsync``2(System.String,``0,System.String,System.Collections.Generic.IDictionary{System.String,System.String},System.Threading.CancellationToken)">
+            <summary>Отправляет PATCH-запрос и возвращает десериализованное тело.</summary>
+        </member>
+        <member name="M:HttpClientLibrary.Abstractions.IHttpApiClient.DeleteAsync``1(System.String,System.Collections.Generic.IDictionary{System.String,System.String},System.Threading.CancellationToken)">
+            <summary>Отправляет DELETE-запрос и возвращает десериализованное тело.</summary>
+        </member>
+        <member name="M:HttpClientLibrary.Abstractions.IHttpApiClient.DeleteAsync``2(System.String,``0,System.String,System.Collections.Generic.IDictionary{System.String,System.String},System.Threading.CancellationToken)">
+            <summary>Отправляет DELETE-запрос с телом и возвращает десериализованный ответ.</summary>
+        </member>
+        <member name="M:HttpClientLibrary.Abstractions.IHttpApiClient.PostAsync(System.String,System.Object,System.String,System.Collections.Generic.IDictionary{System.String,System.String},System.Threading.CancellationToken)">
+            <summary>Отправляет POST-запрос без чтения успешного ответа.</summary>
+        </member>
+        <member name="M:HttpClientLibrary.Abstractions.IHttpApiClient.DeleteAsync(System.String,System.Collections.Generic.IDictionary{System.String,System.String},System.Threading.CancellationToken)">
+            <summary>Отправляет DELETE-запрос без чтения успешного ответа.</summary>
+        </member>
+        <member name="M:HttpClientLibrary.Abstractions.IHttpApiClient.PatchAsync(System.String,System.Object,System.String,System.Collections.Generic.IDictionary{System.String,System.String},System.Threading.CancellationToken)">
+            <summary>Отправляет PATCH-запрос без чтения успешного ответа.</summary>
+        </member>
+        <member name="M:HttpClientLibrary.Abstractions.IHttpApiClient.PutAsync(System.String,System.Object,System.String,System.Collections.Generic.IDictionary{System.String,System.String},System.Threading.CancellationToken)">
+            <summary>Отправляет PUT-запрос без чтения успешного ответа.</summary>
+        </member>
+        <member name="T:HttpClientLibrary.Clients.HttpApiClient">
+            <inheritdoc/>
+            <remarks>Использует HttpClient приложения и безопасные структурированные события ILogger.</remarks>
+        </member>
+        <member name="M:HttpClientLibrary.Clients.HttpApiClient.#ctor(System.Net.Http.HttpClient,Microsoft.Extensions.Logging.ILogger{HttpClientLibrary.Clients.HttpApiClient},System.Text.Json.JsonSerializerOptions)">
+            <summary>Создаёт HTTP API-клиент.</summary>
+            <param name="http">Настроенный экземпляр HTTP-клиента.</param>
+            <param name="logger">Журнал диагностических сообщений.</param>
+            <param name="serializerOptions">Необязательные настройки JSON-сериализации.</param>
+        </member>
+        <member name="M:HttpClientLibrary.Clients.HttpApiClient.#ctor(System.Net.Http.HttpClient,Microsoft.Extensions.Logging.ILogger{HttpClientLibrary.Clients.HttpApiClient},System.Text.Json.JsonSerializerOptions,HttpClientLibrary.Models.HttpClientLoggingOptions)">
+            <summary>Создаёт клиент с явным режимом диагностики HTTP-ошибок.</summary>
+        </member>
+        <member name="M:HttpClientLibrary.Clients.HttpApiClient.#ctor(System.Net.Http.HttpClient,Microsoft.Extensions.Logging.ILogger{HttpClientLibrary.Clients.HttpApiClient},System.Text.Json.JsonSerializerOptions,HttpClientLibrary.Models.HttpClientLoggingOptions,HttpClientLibrary.Models.HttpErrorResponseOptions)">
+            <summary>Создаёт клиент с явными настройками диагностики и ограничения тела HTTP-ошибки.</summary>
+        </member>
+        <member name="M:HttpClientLibrary.Clients.HttpApiClient.GetAsync``1(System.String,System.Collections.Generic.IDictionary{System.String,System.String},System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="M:HttpClientLibrary.Clients.HttpApiClient.SendWithResponseAsync``1(HttpClientLibrary.Models.HttpRequestOptions,System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="M:HttpClientLibrary.Clients.HttpApiClient.SendStreamAsync(HttpClientLibrary.Models.HttpRequestOptions,System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="M:HttpClientLibrary.Clients.HttpApiClient.PostAsync``2(System.String,``0,System.String,System.Collections.Generic.IDictionary{System.String,System.String},System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="M:HttpClientLibrary.Clients.HttpApiClient.PutAsync``2(System.String,``0,System.String,System.Collections.Generic.IDictionary{System.String,System.String},System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="M:HttpClientLibrary.Clients.HttpApiClient.PatchAsync``2(System.String,``0,System.String,System.Collections.Generic.IDictionary{System.String,System.String},System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="M:HttpClientLibrary.Clients.HttpApiClient.DeleteAsync``1(System.String,System.Collections.Generic.IDictionary{System.String,System.String},System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="M:HttpClientLibrary.Clients.HttpApiClient.DeleteAsync``2(System.String,``0,System.String,System.Collections.Generic.IDictionary{System.String,System.String},System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="M:HttpClientLibrary.Clients.HttpApiClient.PostAsync(System.String,System.Object,System.String,System.Collections.Generic.IDictionary{System.String,System.String},System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="M:HttpClientLibrary.Clients.HttpApiClient.PutAsync(System.String,System.Object,System.String,System.Collections.Generic.IDictionary{System.String,System.String},System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="M:HttpClientLibrary.Clients.HttpApiClient.PatchAsync(System.String,System.Object,System.String,System.Collections.Generic.IDictionary{System.String,System.String},System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="M:HttpClientLibrary.Clients.HttpApiClient.DeleteAsync(System.String,System.Collections.Generic.IDictionary{System.String,System.String},System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="M:HttpClientLibrary.Clients.HttpApiClient.SendAsync``1(HttpClientLibrary.Models.HttpRequestOptions,System.Threading.CancellationToken)">
+            <inheritdoc />
+        </member>
+        <member name="T:HttpClientLibrary.Clients.HttpCleanupErrors">
+            <summary>Сохраняет secondary cleanup без замены первичного исключения.</summary>
+        </member>
+        <member name="M:HttpClientLibrary.Clients.HttpCleanupErrors.Attach(System.Exception,System.Exception)">
+            <summary>Добавляет наблюдённую ошибку в новый неизменяемый снимок списка.</summary>
+        </member>
+        <member name="M:HttpClientLibrary.Clients.HttpCleanupErrors.Dispose(System.IDisposable,System.Exception)">
+            <summary>Пытается освободить ресурс; standalone failure распространяется без изменения.</summary>
+        </member>
+        <member name="M:HttpClientLibrary.Clients.HttpCleanupErrors.DisposeAsync(System.IAsyncDisposable,System.Exception)">
+            <summary>Пытается асинхронно освободить ресурс, сохраняя уже распространяемый primary.</summary>
+        </member>
+        <member name="M:HttpClientLibrary.Clients.HttpCleanupErrors.MarkOrigin(System.Exception)">
+            <summary>Пустой secondary список отмечает standalone cleanup origin без нового primary.</summary>
+        </member>
+        <member name="T:HttpClientLibrary.Clients.HttpResponseDiagnostics">
+            <summary>Пишет только разрешённые метаданные и явно включённую структуру JSON.</summary>
+        </member>
+        <member name="M:HttpClientLibrary.Clients.HttpResponseDiagnostics.#ctor(Microsoft.Extensions.Logging.ILogger,HttpClientLibrary.Models.HttpErrorContentLogMode)">
+            <summary>Пишет только разрешённые метаданные и явно включённую структуру JSON.</summary>
+        </member>
+        <member name="M:HttpClientLibrary.Clients.HttpResponseDiagnostics.Begin(HttpClientLibrary.Models.HttpRequestOptions,System.String)">
+            <summary>Фиксирует безопасные поля отдельного запроса до отправки.</summary>
+        </member>
+        <member name="M:HttpClientLibrary.Clients.HttpResponseDiagnostics.ResponseReceived(HttpClientLibrary.Clients.HttpResponseDiagnostics.Observation,System.Net.Http.HttpResponseMessage)">
+            <summary>Отмечает получение заголовков, не утверждая завершение обработки тела.</summary>
+        </member>
+        <member name="M:HttpClientLibrary.Clients.HttpResponseDiagnostics.ErrorContent(HttpClientLibrary.Clients.HttpResponseDiagnostics.Observation,HttpClientLibrary.Models.HttpErrorResponseDetails)">
+            <summary>Записывает лишь структуру полного JSON; произвольные имена и значения исключены.</summary>
+        </member>
+        <member name="M:HttpClientLibrary.Clients.HttpResponseDiagnostics.Count(System.Text.Json.JsonElement,System.Int32@,System.Int32@,System.Int32@,System.Int32@)">
+            <summary>Считает узлы, не читая имена свойств и значения скаляров.</summary>
+        </member>
+        <member name="T:HttpClientLibrary.Clients.HttpResponseDiagnostics.Observation">
+            <summary>Хранит только закрытые метаданные наблюдения.</summary>
+        </member>
+        <member name="M:HttpClientLibrary.Clients.HttpResponseDiagnostics.Observation.#ctor(System.Guid,System.Nullable{System.Guid},System.String,System.String,System.Int64)">
+            <summary>Хранит только закрытые метаданные наблюдения.</summary>
+        </member>
+        <member name="M:HttpClientLibrary.Clients.HttpResponseMetadataReader.ReadErrorAsync(System.Net.Http.HttpResponseMessage,System.Threading.CancellationToken)">
+            <summary>Читает ограниченное тело ошибки и сохраняет независимые заголовки.</summary>
+        </member>
+        <member name="M:HttpClientLibrary.Clients.HttpResponseMetadataReader.CopyHeaders(System.Net.Http.Headers.HttpHeaders,System.Collections.Generic.Dictionary{System.String,System.Collections.Generic.IReadOnlyList{System.String}})">
+            <summary>Сохраняет значения обеих областей, включая совпадающие имена заголовков.</summary>
+        </member>
+        <member name="T:HttpClientLibrary.Exceptions.HttpRequestFailedException">
+            <summary>Представляет HTTP-ответ с кодом, не относящимся к успешным.</summary>
+        </member>
+        <member name="M:HttpClientLibrary.Exceptions.HttpRequestFailedException.#ctor(System.Uri,System.Net.HttpStatusCode,System.String,System.String)">
+            <summary>Создаёт HTTP-ошибку с прежним контрактом аргументов.</summary>
+        </member>
+        <member name="M:HttpClientLibrary.Exceptions.HttpRequestFailedException.#ctor(System.Uri,System.Net.HttpStatusCode,System.String,System.String,HttpClientLibrary.Models.HttpErrorResponseDetails)">
+            <summary>Создаёт HTTP-ошибку с транспортным снимком; Message содержит только статус.</summary>
+        </member>
+        <member name="P:HttpClientLibrary.Exceptions.HttpRequestFailedException.Url">
+            <summary>Получает фактический адрес запроса.</summary>
+        </member>
+        <member name="P:HttpClientLibrary.Exceptions.HttpRequestFailedException.StatusCode">
+            <summary>Получает статус HTTP-ответа.</summary>
+        </member>
+        <member name="P:HttpClientLibrary.Exceptions.HttpRequestFailedException.Reason">
+            <summary>Получает описание статуса от сервера.</summary>
+        </member>
+        <member name="P:HttpClientLibrary.Exceptions.HttpRequestFailedException.ResponseSnippet">
+            <summary>Получает ограниченный текстовый фрагмент ошибочного ответа.</summary>
+        </member>
+        <member name="P:HttpClientLibrary.Exceptions.HttpRequestFailedException.ErrorResponse">
+            <summary>Получает транспортные данные либо null для прежнего конструктора; не логировать.</summary>
+        </member>
+        <member name="T:HttpClientLibrary.Models.HttpClientLoggingOptions">
+            <summary>Настраивает безопасную диагностику HTTP; настройки фиксируются конструктором клиента.</summary>
+        </member>
+        <member name="P:HttpClientLibrary.Models.HttpClientLoggingOptions.ErrorContentMode">
+            <summary>Получает режим диагностики ошибки; по умолчанию содержимое исключено.</summary>
+        </member>
+        <member name="T:HttpClientLibrary.Models.HttpErrorBodyState">
+            <summary>Описывает полноту и доступность тела HTTP-ошибки.</summary>
+        </member>
+        <member name="F:HttpClientLibrary.Models.HttpErrorBodyState.Empty">
+            <summary>Тело пусто.</summary>
+        </member>
+        <member name="F:HttpClientLibrary.Models.HttpErrorBodyState.Complete">
+            <summary>Тело полностью прочитано и декодировано.</summary>
+        </member>
+        <member name="F:HttpClientLibrary.Models.HttpErrorBodyState.Truncated">
+            <summary>Тело превышает предел; текст содержит лишь корректно декодируемый prefix.</summary>
+        </member>
+        <member name="F:HttpClientLibrary.Models.HttpErrorBodyState.UnsupportedContent">
+            <summary>Тип содержимого или объявленная кодировка не поддерживается.</summary>
+        </member>
+        <member name="F:HttpClientLibrary.Models.HttpErrorBodyState.InvalidEncoding">
+            <summary>Байты не являются корректным UTF-8.</summary>
+        </member>
+        <member name="T:HttpClientLibrary.Models.HttpErrorContentLogMode">
+            <summary>Определяет разрешённую диагностику содержимого HTTP-ошибки.</summary>
+        </member>
+        <member name="F:HttpClientLibrary.Models.HttpErrorContentLogMode.None">
+            <summary>Не записывать сведения о содержимом.</summary>
+        </member>
+        <member name="F:HttpClientLibrary.Models.HttpErrorContentLogMode.JsonStructure">
+            <summary>Записывать только структуру JSON без исходных имён и значений.</summary>
+        </member>
+        <member name="T:HttpClientLibrary.Models.HttpErrorResponseDetails">
+            <summary>Сохраняет транспортные данные HTTP-ошибки, не предназначенные для логирования.</summary>
+            <remarks>Заголовки и текст могут содержать секреты. Complete не означает валидность JSON.</remarks>
+        </member>
+        <member name="M:HttpClientLibrary.Models.HttpErrorResponseDetails.#ctor(System.Collections.Generic.IReadOnlyDictionary{System.String,System.Collections.Generic.IReadOnlyList{System.String}},System.String,HttpClientLibrary.Models.HttpErrorBodyState)">
+            <summary>Создаёт снимок заголовков и ограниченного тела.</summary>
+        </member>
+        <member name="P:HttpClientLibrary.Models.HttpErrorResponseDetails.Headers">
+            <summary>Получает независимый снимок response/content headers без учёта регистра.</summary>
+        </member>
+        <member name="P:HttpClientLibrary.Models.HttpErrorResponseDetails.BodyText">
+            <summary>Получает полный текст или обрезанный preview либо null; секреты не редактируются.</summary>
+        </member>
+        <member name="P:HttpClientLibrary.Models.HttpErrorResponseDetails.BodyState">
+            <summary>Получает состояние чтения тела.</summary>
+        </member>
+        <member name="T:HttpClientLibrary.Models.HttpErrorResponseOptions">
+            <summary>Ограничивает чтение тела неуспешного HTTP-ответа.</summary>
+        </member>
+        <member name="P:HttpClientLibrary.Models.HttpErrorResponseOptions.MaxBodyBytes">
+            <summary>Получает положительный предел тела в байтах; один дополнительный байт проверяет усечение.</summary>
+        </member>
+        <member name="T:HttpClientLibrary.Models.HttpRequestOptions">
+            <summary>
+            Описывает параметры исходящего HTTP-запроса.
+            </summary>
+        </member>
+        <member name="P:HttpClientLibrary.Models.HttpRequestOptions.Method">
+            <summary>Получает HTTP-метод запроса.</summary>
+        </member>
+        <member name="P:HttpClientLibrary.Models.HttpRequestOptions.Url">
+            <summary>Получает абсолютный URL или относительный URL для <see cref="P:System.Net.Http.HttpClient.BaseAddress"/>.</summary>
+        </member>
+        <member name="P:HttpClientLibrary.Models.HttpRequestOptions.Headers">
+            <summary>Получает заголовки запроса и его содержимого.</summary>
+        </member>
+        <member name="P:HttpClientLibrary.Models.HttpRequestOptions.CorrelationId">
+            <summary>Получает необязательный непустой GUID корреляции; он не передаётся серверу.</summary>
+        </member>
+        <member name="P:HttpClientLibrary.Models.HttpRequestOptions.Body">
+            <summary>Получает строку или объект, сериализуемый в тело запроса.</summary>
+            <remarks>Нельзя использовать одновременно с <see cref="P:HttpClientLibrary.Models.HttpRequestOptions.ContentFactory"/>.</remarks>
+        </member>
+        <member name="P:HttpClientLibrary.Models.HttpRequestOptions.BodyContentType">
+            <summary>Получает MIME-тип значения <see cref="P:HttpClientLibrary.Models.HttpRequestOptions.Body"/>.</summary>
+        </member>
+        <member name="P:HttpClientLibrary.Models.HttpRequestOptions.ContentFactory">
+            <summary>Получает фабрику содержимого запроса.</summary>
+            <remarks>
+            Фабрика должна возвращать новый экземпляр при каждом вызове. После создания владение
+            экземпляром <see cref="T:System.Net.Http.HttpContent"/> переходит HTTP-клиенту. Нельзя использовать
+            одновременно с <see cref="P:HttpClientLibrary.Models.HttpRequestOptions.Body"/>.
+            </remarks>
+        </member>
+        <member name="T:HttpClientLibrary.Models.HttpResponseResult`1">
+            <summary>Представляет успешный HTTP-ответ вместе со статусом и заголовками.</summary>
+            <typeparam name="T">Тип десериализованного тела ответа.</typeparam>
+        </member>
+        <member name="M:HttpClientLibrary.Models.HttpResponseResult`1.#ctor(System.Net.HttpStatusCode,System.Collections.Generic.IReadOnlyDictionary{System.String,System.String[]},`0)">
+            <summary>Представляет успешный HTTP-ответ вместе со статусом и заголовками.</summary>
+            <typeparam name="T">Тип десериализованного тела ответа.</typeparam>
+        </member>
+        <member name="P:HttpClientLibrary.Models.HttpResponseResult`1.StatusCode">
+            <summary>Получает статус HTTP-ответа.</summary>
+        </member>
+        <member name="P:HttpClientLibrary.Models.HttpResponseResult`1.Headers">
+            <summary>Получает заголовки ответа и его содержимого без учёта регистра имён.</summary>
+        </member>
+        <member name="P:HttpClientLibrary.Models.HttpResponseResult`1.Body">
+            <summary>Получает десериализованное тело или <see langword="null"/> для ответа без содержимого.</summary>
+        </member>
+        <member name="T:HttpClientLibrary.Models.HttpStreamResponseResult">
+            <summary>Представляет успешный HTTP-ответ с потоковым телом.</summary>
+            <remarks>
+            Первая попытка освобождает Body и пытается освободить response даже при ошибке Body.
+            Повторные sync/async вызовы ничего не делают, включая повтор после отказа; это не подтверждение освобождения.
+            Исходный cleanup exception сохраняется; Data["HttpClientLibrary.CleanupExceptions"] содержит
+            неизменяемый список secondary ошибок. Наличие списка отмечает disposal origin, пустой список означает отсутствие secondary.
+            Исключения и Data не являются безопасным содержимым журнала или UI.
+            </remarks>
+        </member>
+        <member name="M:HttpClientLibrary.Models.HttpStreamResponseResult.#ctor(System.Net.HttpStatusCode,System.Collections.Generic.IReadOnlyDictionary{System.String,System.String[]},System.IO.Stream,System.Net.Http.HttpResponseMessage)">
+            <summary>Представляет успешный HTTP-ответ с потоковым телом.</summary>
+            <remarks>
+            Первая попытка освобождает Body и пытается освободить response даже при ошибке Body.
+            Повторные sync/async вызовы ничего не делают, включая повтор после отказа; это не подтверждение освобождения.
+            Исходный cleanup exception сохраняется; Data["HttpClientLibrary.CleanupExceptions"] содержит
+            неизменяемый список secondary ошибок. Наличие списка отмечает disposal origin, пустой список означает отсутствие secondary.
+            Исключения и Data не являются безопасным содержимым журнала или UI.
+            </remarks>
+        </member>
+        <member name="P:HttpClientLibrary.Models.HttpStreamResponseResult.StatusCode">
+            <summary>Получает статус HTTP-ответа.</summary>
+        </member>
+        <member name="P:HttpClientLibrary.Models.HttpStreamResponseResult.Headers">
+            <summary>Получает заголовки ответа и его содержимого без учёта регистра имён.</summary>
+        </member>
+        <member name="P:HttpClientLibrary.Models.HttpStreamResponseResult.Body">
+            <summary>Получает поток тела ответа.</summary>
+        </member>
+        <member name="M:HttpClientLibrary.Models.HttpStreamResponseResult.Dispose">
+            <summary>Освобождает поток и HTTP-ответ.</summary>
+        </member>
+        <member name="M:HttpClientLibrary.Models.HttpStreamResponseResult.DisposeAsync">
+            <summary>Асинхронно освобождает поток и HTTP-ответ.</summary>
+        </member>
+    </members>
+</doc>

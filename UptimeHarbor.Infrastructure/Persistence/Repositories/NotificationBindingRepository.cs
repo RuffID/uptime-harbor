@@ -5,9 +5,9 @@ using UptimeHarbor.Domain.Notifications;
 namespace UptimeHarbor.Infrastructure.Persistence.Repositories;
 
 public class NotificationBindingRepository(
-    IGetItemByPredicateRepository<NotificationBinding, UptimeHarborDbContext> getRepository,
-    ICreateItemRepository<NotificationBinding, UptimeHarborDbContext> createRepository,
-    IDeleteItemRepository<NotificationBinding, UptimeHarborDbContext> deleteRepository)
+    IContextGetItemByPredicateRepository<NotificationBinding, UptimeHarborDbContext> getRepository,
+    IContextCreateItemRepository<NotificationBinding, UptimeHarborDbContext> createRepository,
+    IContextDeleteItemRepository<NotificationBinding, UptimeHarborDbContext> deleteRepository)
     : INotificationBindingRepository
 {
     public Task<NotificationBinding?> GetItemByIdAsync(

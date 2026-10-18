@@ -13,7 +13,7 @@
 - Pending migrations автоматически применяются единственным Web-процессом при старте только после успешного SQL Server backup и до Identity bootstrap; multi-instance migration coordination не реализована.
 - Design-time scaffolding использует `UptimeHarborDesignTimeDbContextFactory` без строки подключения и не открывает соединение с БД.
 - EF-конфигурации и миграции должны быть совместимы с Microsoft SQL Server; PostgreSQL-специфичные типы и SQL не использовать.
-- При изменении схемы или транзакционных границ обновлять этот файл, `Documentation/Technical/Persistence.md` и документ миграций.
+- При изменении схемы или транзакционных границ обновлять этот файл, `Documentation/Technical documentation/Persistence.md` и документ миграций.
 - Цикл загружает включённые цели no-tracking, а результат каждого объекта повторно загружается tracked и сохраняется через отдельный scoped `IMonitoringUnitOfWork`.
 - Специализированные read queries для dashboard и SignalR recipients проецируют только Application read records и полностью materialize-ят их внутри Infrastructure; endpoint URL не входит в dashboard projection.
 - Per-binding outage/recovery marker сохраняется отдельным scoped `INotificationSettingsUnitOfWork` после успешной transport-доставки; схема входит в SQL Server baseline `20260831015604_InitialSqlServerSchema`.
