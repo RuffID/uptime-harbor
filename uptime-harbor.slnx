@@ -108,18 +108,6 @@
     <File Path="Documentation/Plans/multi-node-sync-and-permissions-2026-10-18-(not-started)/10-verification-and-acceptance/10.5-telegram-and-failover-delivery.md" />
     <File Path="Documentation/Plans/multi-node-sync-and-permissions-2026-10-18-(not-started)/10-verification-and-acceptance/10.6-migration-restore-and-final-review.md" />
   </Folder>
-  <Folder Name="/Documentation/Plans/application-implementation-2026-08-04-(completed)/">
-    <File Path="Documentation/Plans/application-implementation-2026-08-04-(completed)/AGENTS.md" />
-    <File Path="Documentation/Plans/application-implementation-2026-08-04-(completed)/00 - Plan overview.md" />
-    <File Path="Documentation/Plans/application-implementation-2026-08-04-(completed)/01 - Project foundation.md" />
-    <File Path="Documentation/Plans/application-implementation-2026-08-04-(completed)/02 - Data and persistence.md" />
-    <File Path="Documentation/Plans/application-implementation-2026-08-04-(completed)/03 - Authentication and visibility.md" />
-    <File Path="Documentation/Plans/application-implementation-2026-08-04-(completed)/04 - Object administration.md" />
-    <File Path="Documentation/Plans/application-implementation-2026-08-04-(completed)/05 - Monitoring engine.md" />
-    <File Path="Documentation/Plans/application-implementation-2026-08-04-(completed)/06 - Dashboard and SignalR.md" />
-    <File Path="Documentation/Plans/application-implementation-2026-08-04-(completed)/07 - Telegram notifications.md" />
-    <File Path="Documentation/Plans/application-implementation-2026-08-04-(completed)/08 - Deployment and release.md" />
-  </Folder>
   <Project Path="UptimeHarbor.Domain/UptimeHarbor.Domain.csproj" />
   <Project Path="UptimeHarbor.Application/UptimeHarbor.Application.csproj" />
   <Project Path="UptimeHarbor.Infrastructure/UptimeHarbor.Infrastructure.csproj" />

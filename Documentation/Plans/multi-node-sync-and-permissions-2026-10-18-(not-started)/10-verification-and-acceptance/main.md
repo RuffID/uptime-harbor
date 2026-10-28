@@ -4,7 +4,7 @@
 
 ## Цель
 
-Подтвердить согласованное поведение прав, ревизий, выборов и доставки при реальных отказах, отдельно от изолированной проверки кода.
+Подтвердить общие аккаунты с единственной ролью, ревизии, выборы и доставку при реальных отказах отдельно от изолированных проверок.
 
 ## Зависимости и границы
 
@@ -23,9 +23,9 @@
 | 10.1 | Сведены результаты разрешённых compile-check и изолированных тестов всех затронутых слоёв. | not-started | 01, 02, 03, 04, 05, 06, 07, 08, 09 | [Изолированная регрессия и compile-check](10.1-isolated-regression.md) |
 | 10.2 | Подтверждены транзакционные свойства реального провайдера и совместимость схемы. | not-started | 10.1 | [SQL Server, проекции и атомарность](10.2-sql-server-and-atomicity.md) |
 | 10.3 | Проверены реальные выборы, partition, восстановление и peer trust. | not-started | 10.2 | [Межузловой HTTP и отказы процессов](10.3-peer-http-and-failures.md) |
-| 10.4 | Подтверждены ACL, Pending/conflict и диагностика на реальном UI разных узлов. | not-started | 10.2 | [Браузер и пользовательские сценарии](10.4-browser-and-access-flows.md) |
+| 10.4 | Подтверждены общий вход, полный административный доступ, Pending/conflict и диагностика на разных узлах. | not-started | 10.2 | [Браузер, общие пользователи и административные сценарии](10.4-browser-and-access-flows.md) |
 | 10.5 | Проверены реальные chat permissions, retry и восстановление принятой доставки. | not-started | 10.3, 10.4 | [Telegram и доставка при смене главного](10.5-telegram-and-failover-delivery.md) |
-| 10.6 | Проверены процедуры ввода/восстановления и сведена вся обязательная матрица. | not-started | 10.2, 10.3, 10.4, 10.5 | [Миграция, восстановление и итоговая приёмка](10.6-migration-restore-and-final-review.md) |
+| 10.6 | Проверены процедуры ввода/восстановления и сведена вся обязательная матрица. | not-started | 10.2, 10.3, 10.4, 10.5 | [Первый запуск, восстановление и итоговая приёмка](10.6-migration-restore-and-final-review.md) |
 
 Работы распределены по документам подэтапов. Каждый подэтап включает обновление затронутых локальных `AGENTS.md` и фактической технической документации; проверки и статус фиксируются только по выполненному объёму. Сводный статус этапа учитывает все его подэтапы и общие критерии ниже.
 
@@ -37,7 +37,7 @@
 
 ## Границы ответственности подэтапов
 
-10.1 — итоговая изолированная регрессия, 10.2 — SQL Server, 10.3 — процессы/peer HTTP/сеть, 10.4 — браузер, 10.5 — Telegram, 10.6 — миграция/restore и общая сверка. Категория закрывается только собственным подтверждением; UI-проверка не заменяет SQL/Telegram, а подготовка runbook не заменяет restore.
+10.1 — итоговая изолированная регрессия, 10.2 — SQL Server, 10.3 — процессы/peer HTTP/сеть, 10.4 — браузер, 10.5 — Telegram, 10.6 — первый запуск/restore и общая сверка. Категория закрывается только собственным подтверждением; UI-проверка не заменяет SQL/Telegram, а подготовка runbook не заменяет restore.
 
 ## Проверки
 
@@ -62,24 +62,46 @@
 | Результат одного observer пропал или устарел | Неполное покрытие отмечено; отсутствие результата не выдано за полный отказ цели | Изолированный + HTTP | [10.1](10.1-isolated-regression.md), [10.3](10.3-peer-http-and-failures.md) |
 | Partial повторяется, затем все направления восстановились | Нет сообщения на каждом цикле; одно событие подтверждённого перехода и связанное восстановление | Изолированный + Telegram | [10.1](10.1-isolated-regression.md), [10.5](10.5-telegram-and-failover-delivery.md) |
 | Ошибка одного Telegram-чата | Остальные доставляются, нет бесконечных выборов | Fake sender + Telegram | [10.1](10.1-isolated-regression.md), [10.5](10.5-telegram-and-failover-delivery.md) |
+| Исправление непринятой заявки А → Б на А → В | После подтверждённой замены применяется только В; поздний повтор Б и рестарт не возвращают старый вариант | Изолированный + browser/HTTP/SQL Server | [10.1](10.1-isolated-regression.md), [10.2](10.2-sql-server-and-atomicity.md), [10.3](10.3-peer-http-and-failures.md), [10.4](10.4-browser-and-access-flows.md) |
+| Отмена непринятой заявки | Подтверждённая отмена сохраняет действующую настройку; retry/restart не приводит к применению отменённого варианта | Изолированный + browser/HTTP/SQL Server | [10.1](10.1-isolated-regression.md), [10.2](10.2-sql-server-and-atomicity.md), [10.3](10.3-peer-http-and-failures.md), [10.4](10.4-browser-and-access-flows.md) |
+| Принятие опередило замену/отмену, ответ потерян | Показан принятый результат без ложной отмены; возврат или исправление — новая правка с проверкой активного администратора/версии | Изолированный + browser/HTTP/SQL Server | [10.1](10.1-isolated-regression.md), [10.2](10.2-sql-server-and-atomicity.md), [10.3](10.3-peer-http-and-failures.md), [10.4](10.4-browser-and-access-flows.md) |
 | Создание/редактирование на ведомом offline | Pending сохраняется; старые настройки действуют до принятия | Изолированный + browser/HTTP | [10.1](10.1-isolated-regression.md), [10.3](10.3-peer-http-and-failures.md), [10.4](10.4-browser-and-access-flows.md) |
-| Две правки одной версии | Видимый конфликт с обоими вариантами, без silent overwrite | Изолированный + browser/SQL Server | [10.1](10.1-isolated-regression.md), [10.2](10.2-sql-server-and-atomicity.md), [10.4](10.4-browser-and-access-flows.md) |
+| Две правки одной версии | Первая принятая настройка продолжает действовать без отката к базе; оба варианта сохранены до нового согласованного решения | Изолированный + browser/SQL Server | [10.1](10.1-isolated-regression.md), [10.2](10.2-sql-server-and-atomicity.md), [10.4](10.4-browser-and-access-flows.md) |
 | Replay/пропуск пакета/crash при apply | Идемпотентность, догон, атомарность данных и курсора | Изолированный + SQL Server/process | [10.1](10.1-isolated-regression.md), [10.2](10.2-sql-server-and-atomicity.md), [10.3](10.3-peer-http-and-failures.md) |
 | Удаление и возвращение старой реплики | Нет воскрешения; зависимости/доставки обработаны | Изолированный + SQL Server/HTTP | [10.1](10.1-isolated-regression.md), [10.2](10.2-sql-server-and-atomicity.md), [10.3](10.3-peer-http-and-failures.md), [10.5](10.5-telegram-and-failover-delivery.md) |
-| Новый/отставший узел после compaction | Snapshot общих данных и replay без замены Identity/секретов | Изолированный + SQL Server/HTTP | [10.1](10.1-isolated-regression.md), [10.2](10.2-sql-server-and-atomicity.md), [10.3](10.3-peer-http-and-failures.md), [10.6](10.6-migration-restore-and-final-review.md) |
-| Пустая сетка и пустой join | Контролируемый bootstrap, принятые общие данные приходят синхронизацией, права явно назначены | Изолированный + SQL Server/HTTP | [10.1](10.1-isolated-regression.md), [10.2](10.2-sql-server-and-atomicity.md), [10.3](10.3-peer-http-and-failures.md), [10.6](10.6-migration-restore-and-final-review.md) |
-| Непустой join | Обычное присоединение не перетирает данные; есть отдельный предварительный разбор и согласованный импорт | Изолированный + SQL Server/browser | [10.1](10.1-isolated-regression.md), [10.2](10.2-sql-server-and-atomicity.md), [10.4](10.4-browser-and-access-flows.md), [10.6](10.6-migration-restore-and-final-review.md) |
-| Администратор без прав | Нет доступа к сущности через UI/API/SignalR/поиск/selector | Изолированный + browser/HTTP | [10.1](10.1-isolated-regression.md), [10.3](10.3-peer-http-and-failures.md), [10.4](10.4-browser-and-access-flows.md) |
-| Контейнер без видимого сервера | Контейнер виден, сведения родителя не раскрыты | Изолированный + browser/HTTP | [10.1](10.1-isolated-regression.md), [10.3](10.3-peer-http-and-failures.md), [10.4](10.4-browser-and-access-flows.md) |
-| Назначение прав пользователю другого узла | Правильный NodeId/UserId, без переноса учётных данных | Изолированный + browser/HTTP | [10.1](10.1-isolated-regression.md), [10.3](10.3-peer-http-and-failures.md), [10.4](10.4-browser-and-access-flows.md) |
-| Self-revoke и два конкурентных владельца | Собственные права не уменьшаются, ноль владельцев невозможен | Изолированный + SQL Server/HTTP | [10.1](10.1-isolated-regression.md), [10.2](10.2-sql-server-and-atomicity.md), [10.3](10.3-peer-http-and-failures.md) |
-| Удаление/отключение последнего владельца | Операция не оставляет бесхозные сущности | Изолированный + Identity/SQL Server | [10.1](10.1-isolated-regression.md), [10.2](10.2-sql-server-and-atomicity.md) |
-| Отзыв прав на отключённом узле | До догона старые права; после применения новые, без блокировки входа из-за partition | Изолированный + browser/HTTP | [10.1](10.1-isolated-regression.md), [10.3](10.3-peer-http-and-failures.md), [10.4](10.4-browser-and-access-flows.md) |
-| Скрытый пользователю Telegram-чат | Доставка по привязке продолжается независимо от ACL UI | Изолированный + Telegram | [10.1](10.1-isolated-regression.md), [10.5](10.5-telegram-and-failover-delivery.md) |
+| Новый/отставший узел после compaction | Snapshot/replay включает общие аккаунты, защищённые данные входа и роль; сессии и локальные секреты не копируются | Изолированный + SQL Server/HTTP | [10.1](10.1-isolated-regression.md), [10.2](10.2-sql-server-and-atomicity.md), [10.3](10.3-peer-http-and-failures.md), [10.6](10.6-migration-restore-and-final-review.md) |
+| Пустая сетка и пустой join | Первый bootstrap создаёт одного общего администратора; новый узел получает принятые аккаунты и остальные данные синхронизацией | Изолированный + SQL Server/HTTP | [10.1](10.1-isolated-regression.md), [10.2](10.2-sql-server-and-atomicity.md), [10.3](10.3-peer-http-and-failures.md), [10.6](10.6-migration-restore-and-final-review.md) |
+| Непустой join | Несвязанные непустые общие данные отклоняются без перезаписи и автоматического merge; импорт прежних установок исключён | Изолированный + SQL Server/HTTP | [10.1](10.1-isolated-regression.md), [10.2](10.2-sql-server-and-atomicity.md), [10.3](10.3-peer-http-and-failures.md), [10.6](10.6-migration-restore-and-final-review.md) |
+| Создание сервера, контейнера или чата | Любой активный администратор может создавать объект, который доступен всем администраторам; анонимный/отключённый получает отказ | Изолированный + browser/HTTP/SQL Server | [10.1](10.1-isolated-regression.md), [10.2](10.2-sql-server-and-atomicity.md), [10.3](10.3-peer-http-and-failures.md), [10.4](10.4-browser-and-access-flows.md) |
+| Membership, trust и общая диагностика | Любой активный администратор управляет membership/trust и видит всю диагностику; дополнительного назначения нет, majority обязателен | Изолированный + browser/HTTP | [10.1](10.1-isolated-regression.md), [10.3](10.3-peer-http-and-failures.md), [10.4](10.4-browser-and-access-flows.md) |
+| Цели назначены два из трёх observers | Только назначенные узлы проверяют цель; неназначенный не создаёт partial, пропавший назначенный отражается как неполное покрытие; изменение набора требует изменения цели | Изолированный + browser/HTTP/SQL Server | [10.1](10.1-isolated-regression.md), [10.2](10.2-sql-server-and-atomicity.md), [10.3](10.3-peer-http-and-failures.md), [10.4](10.4-browser-and-access-flows.md) |
+| Два успешных ответа с разными name/startedAtUtc | Значения и время работы показаны по узлам в карточке и использующих их сообщениях; нет искусственного общего значения и ложного отказа | Изолированный + browser/HTTP/Telegram | [10.1](10.1-isolated-regression.md), [10.3](10.3-peer-http-and-failures.md), [10.4](10.4-browser-and-access-flows.md), [10.5](10.5-telegram-and-failover-delivery.md) |
+| Разные чаты инцидентов узлов А/Б | Отдельные назначения переживают смену главного, изменяются любым активным администратором | Изолированный + browser/HTTP/Telegram | [10.1](10.1-isolated-regression.md), [10.3](10.3-peer-http-and-failures.md), [10.4](10.4-browser-and-access-flows.md), [10.5](10.5-telegram-and-failover-delivery.md) |
+| Полный доступ всех активных администраторов | Все активные администраторы видят и изменяют все объекты через UI/API/SignalR/поиск/selectors | Изолированный + browser/HTTP | [10.1](10.1-isolated-regression.md), [10.3](10.3-peer-http-and-failures.md), [10.4](10.4-browser-and-access-flows.md) |
+| Перенос и отвязка контейнера | Администратор видит контейнер и оба сервера; перенос/отвязка разрешены без дополнительных прав | Изолированный + browser/HTTP | [10.1](10.1-isolated-regression.md), [10.3](10.3-peer-http-and-failures.md), [10.4](10.4-browser-and-access-flows.md) |
+| Отключение/смена пароля при изоляции узла | До догона вход по прежнему принятому состоянию аккаунта; после применения отключения или смены данных входа прежние данные/сессии не работают | Изолированный + browser/HTTP | [10.1](10.1-isolated-regression.md), [10.3](10.3-peer-http-and-failures.md), [10.4](10.4-browser-and-access-flows.md) |
+| Фоновая отправка без открытой сессии | Фоновые уведомления идут по привязкам без пользовательской сессии; test-send требует активного администратора | Изолированный + Telegram | [10.1](10.1-isolated-regression.md), [10.5](10.5-telegram-and-failover-delivery.md) |
 | Crash после принятия Telegram | Intent не потерян; редкий дубликат допустим, известный успех штатно не повторяется | Fake sender + Telegram/process | [10.1](10.1-isolated-regression.md), [10.3](10.3-peer-http-and-failures.md), [10.5](10.5-telegram-and-failover-delivery.md) |
 | Принятые outage/recovery и смена главного | Тот же incident, per-chat markers, recovery только после outage | Изолированный + Telegram/SQL Server | [10.1](10.1-isolated-regression.md), [10.2](10.2-sql-server-and-atomicity.md), [10.3](10.3-peer-http-and-failures.md), [10.5](10.5-telegram-and-failover-delivery.md) |
-| Миграция/restore/clone NodeId | Владельцы назначены явно, нет второго голоса/отправителя | Изолированный + SQL Server/process | [10.1](10.1-isolated-regression.md), [10.2](10.2-sql-server-and-atomicity.md), [10.3](10.3-peer-http-and-failures.md), [10.6](10.6-migration-restore-and-final-review.md) |
+| Схема первого запуска/restore/clone NodeId | Общие администраторы действуют сразу; restore не создаёт второго голоса/отправителя и не возвращает старые пароли | Изолированный + SQL Server/process | [10.1](10.1-isolated-regression.md), [10.2](10.2-sql-server-and-atomicity.md), [10.3](10.3-peer-http-and-failures.md), [10.6](10.6-migration-restore-and-final-review.md) |
 | Обновление разных версий | Несовместимый протокол не участвует в согласовании ошибочно | Изолированный + peer HTTP | [10.1](10.1-isolated-regression.md), [10.3](10.3-peer-http-and-failures.md) |
+
+| Завершённые аварии накопились без главного, включая давние | Сводка без возрастного отсечения, полная история сохранена, принятые intents связаны со сводкой; открытая авария сообщается отдельно | Изолированный + Telegram/SQL Server | [10.1](10.1-isolated-regression.md), [10.2](10.2-sql-server-and-atomicity.md), [10.5](10.5-telegram-and-failover-delivery.md) |
+| Чат получил проблему до отсутствия главного | После восстановления доставки приходит обычный recovery того же инцидента | Изолированный + Telegram | [10.1](10.1-isolated-regression.md), [10.5](10.5-telegram-and-failover-delivery.md) |
+| Привязка чата к уже открытой аварии | Сразу планируется текущая проблема, известный успех не дублируется при повторной привязке | Изолированный + browser/Telegram | [10.1](10.1-isolated-regression.md), [10.4](10.4-browser-and-access-flows.md), [10.5](10.5-telegram-and-failover-delivery.md) |
+| Снятие привязки до отправки или после успешной проблемы | Не начатый outage отменён; уведомлённому чату приходит один recovery, затем отправки прекращаются | Изолированный + SQL Server/Telegram | [10.1](10.1-isolated-regression.md), [10.2](10.2-sql-server-and-atomicity.md), [10.5](10.5-telegram-and-failover-delivery.md) |
+| Unbind одновременно с in-flight outage и сменой главного | Подтверждённый поздний успех учитывается для одного recovery; удалённые цель/чат не получают новых отправок | Изолированный + Telegram/process | [10.1](10.1-isolated-regression.md), [10.3](10.3-peer-http-and-failures.md), [10.5](10.5-telegram-and-failover-delivery.md) |
+| Тест Telegram с ведомого и отключение аккаунта до отправки | Любой активный администратор отправляет тест через главного; применённое отключение аккаунта до отправки запрещает вызов, gate обязателен | Изолированный + browser/Telegram | [10.1](10.1-isolated-regression.md), [10.4](10.4-browser-and-access-flows.md), [10.5](10.5-telegram-and-failover-delivery.md) |
+| Pending из старого backup | Сначала сверка OperationId и результатов, принятые/отменённые/заменённые не повторяются; прочие непринятые ждут подтверждения и активного администратора/base revision | Изолированный + SQL Server/browser | [10.1](10.1-isolated-regression.md), [10.2](10.2-sql-server-and-atomicity.md), [10.4](10.4-browser-and-access-flows.md), [10.6](10.6-migration-restore-and-final-review.md) |
+| Первый одиночный запуск и оставшийся узел трёхузловой сетки | Новая сетка сразу использует общих администраторов и большинство 1; прежний состав не уменьшается автоматически | Изолированный + HTTP/SQL Server | [10.1](10.1-isolated-regression.md), [10.2](10.2-sql-server-and-atomicity.md), [10.3](10.3-peer-http-and-failures.md), [10.6](10.6-migration-restore-and-final-review.md) |
+
+| Общий вход на двух узлах | Один UserId, те же данные входа и роль Administrator; сессии локальны | Изолированный + SQL Server/browser/peer HTTP по сценарию | [10.1](10.1-isolated-regression.md), [10.2](10.2-sql-server-and-atomicity.md), [10.4](10.4-browser-and-access-flows.md) |
+| Создание и изменение аккаунта на ведомом | После commit изменения и роль поступают на остальные узлы; Pending не допускает входа | Изолированный + SQL Server/browser/peer HTTP по сценарию | [10.1](10.1-isolated-regression.md), [10.2](10.2-sql-server-and-atomicity.md), [10.3](10.3-peer-http-and-failures.md), [10.4](10.4-browser-and-access-flows.md) |
+| Два конкурентных создания одинакового login | Только одна активная запись, второй вариант получает конфликт/отказ без молчаливого объединения | Изолированный + SQL Server/browser/peer HTTP по сценарию | [10.1](10.1-isolated-regression.md), [10.2](10.2-sql-server-and-atomicity.md), [10.4](10.4-browser-and-access-flows.md) |
+| Два конкурентных отключения последних администраторов | Принятое состояние сохраняет хотя бы одного активного администратора; self-disable/self-delete запрещены | Изолированный + SQL Server/browser/peer HTTP по сценарию | [10.1](10.1-isolated-regression.md), [10.2](10.2-sql-server-and-atomicity.md), [10.4](10.4-browser-and-access-flows.md) |
+| Применённая смена пароля, отключение или удаление аккаунта | Прежние данные входа и сессии не дают защищённого доступа/SignalR после apply | Изолированный + SQL Server/browser/peer HTTP по сценарию | [10.1](10.1-isolated-regression.md), [10.2](10.2-sql-server-and-atomicity.md), [10.4](10.4-browser-and-access-flows.md) |
+| Join/rejoin и удаление узла создания аккаунта | Пользователи и роль общие, учётные записи не удаляются вместе с узлом, старые пароли и tombstones не воскрешаются | Изолированный + SQL Server/browser/peer HTTP по сценарию | [10.1](10.1-isolated-regression.md), [10.2](10.2-sql-server-and-atomicity.md), [10.3](10.3-peer-http-and-failures.md), [10.6](10.6-migration-restore-and-final-review.md) |
+| DTO, конфликты, журналирование и диагностика аккаунта | Нет открытого пароля, PasswordHash, security stamp или токенов в UI/SignalR/ошибках/логах; peer snapshot защищён | Изолированный + SQL Server/browser/peer HTTP по сценарию | [10.1](10.1-isolated-regression.md), [10.2](10.2-sql-server-and-atomicity.md), [10.4](10.4-browser-and-access-flows.md) |
 
 ### Раздельный учёт проверки
 
@@ -90,7 +112,7 @@
 | Изолированные Domain/Application/Infrastructure/Web tests | Не выполнялись |
 | Изолированные frontend tests | Не выполнялись |
 | Provider-level tests, включая SQLite | Не выполнялись |
-| Реальные SQL Server и миграция/backup/restore | Не выполнялись |
+| Реальные SQL Server и схема первого запуска/backup/restore | Не выполнялись |
 | Межузловой HTTP и отказы процессов/сети | Не выполнялись |
 | Браузер и пользовательские сценарии | Не выполнялись |
 | Настоящие Telegram-чаты и failover-доставка | Не выполнялись |
@@ -99,7 +121,7 @@
 ## Критерии приёмки
 
 - [ ] Для каждой строки матрицы есть подтверждённый результат на указанном применимом уровне, либо явно остающаяся незавершённая приёмка.
-- [ ] Не нарушаются majority/gate, владелец, no-self-revoke, независимый ACL контейнера и отсутствие admin bypass.
+- [ ] Сохраняются majority/gate, общие аккаунты с единственной ролью, уникальные имена входа и последний активный администратор; секретные поля не раскрываются.
 - [ ] Журнал и принятые доставки переживают отказ одного узла без штатного повторения известных успехов и без потери intent.
 - [ ] Реальные интеграционные результаты не подменяются SQLite/fake/static проверками.
 - [ ] Все обязательные этапы и результаты синхронизированы с `main.md`; `completed` не ставится при непроведённых обязательных проверках.

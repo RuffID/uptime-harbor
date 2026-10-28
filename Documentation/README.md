@@ -14,8 +14,8 @@
 
 ## Планы и история
 
-- [Plans/README.md](Plans/README.md) — активные планы, правила оформления и навигация по запечатанному плану реализации.
-- [Несколько узлов, ревизии и права на сущности](Plans/multi-node-sync-and-permissions-2026-10-18-%28not-started%29/main.md) — согласованная будущая доработка; реализация не начата.
+- [Plans/README.md](Plans/README.md) — активные планы и правила их оформления.
+- [Несколько узлов, синхронизация и общие администраторы](Plans/multi-node-sync-and-permissions-2026-10-18-%28not-started%29/main.md) — согласованная будущая доработка; реализация не начата.
 - [Первичное техническое ревью v1](Technical%20documentation/V1%20Technical%20Review%20Findings.md).
 - [Повторное техническое ревью v1](Technical%20documentation/V1%20Follow-up%20Technical%20Review.md).
 
