@@ -1,6 +1,7 @@
 # Изолированные проверки cluster hosting
 
 - Monitoring revision boundary проверяет совпадение storage generation с authenticated peer до dispatch; composition tests должны разрешать новые worker/pump/coordinator без host/WAL/HTTP, сохраняя закрытые gates.
+- В итоговом Web graph разрешается DeliverySenderConsensus; самостоятельный Infrastructure module сохраняет UnavailableSenderConsensus. Проверять отсутствие DI цикла writer/runtime/gate и сохранение закрытых readiness dependencies.
 
 - Вызывать middleware и DI напрямую, без host/start, слушающих портов и реальных запросов.
 - Persistent configuration DotNext проверять в отдельном временном каталоге. Не запускать Raft-узлы и не называть store/API tests проверкой выборов или crash recovery.

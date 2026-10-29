@@ -13,8 +13,10 @@ namespace UptimeHarbor.Tests.Web.Cluster;
 
 public class RevisionBoundaryTests
 {
-    [Fact]
-    public async Task ObservationStorageMustMatchAuthenticatedPeerBeforeDispatch()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task InternalStorageMustMatchAuthenticatedPeerBeforeDispatch(bool delivery)
     {
         // Arrange
         Guid clusterId = Guid.NewGuid();
@@ -24,6 +26,16 @@ public class RevisionBoundaryTests
         MonitoringObservation observation = new(Guid.NewGuid(), targetId, nodeId, storage, Guid.NewGuid(), 1, 1,
             DateTimeOffset.UnixEpoch, 1, true, null, "app", null, true);
         RevisionCommand command = MonitoringCommands.Record(new(clusterId, 1), nodeId, storage, [observation]);
+        if (delivery)
+        {
+            Guid round = Guid.NewGuid();
+            command = DeliveryCommands.Create(new(clusterId, 1), nodeId, storage, "RenewSender", nodeId, round,
+                DateTimeOffset.UnixEpoch, new DeliveryCommand
+                {
+                    RoundId = round, Authority = new(clusterId, 1, 1, 1, nodeId, Guid.NewGuid())
+                });
+        }
+
         DefaultHttpContext context = new();
         context.Request.Body = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(new[] { command }));
         context.Items[typeof(PeerEnvelope)] = new PeerEnvelope(clusterId, 1, nodeId, Guid.NewGuid(), Guid.NewGuid(),

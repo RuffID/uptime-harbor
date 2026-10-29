@@ -23,14 +23,17 @@ internal static class MonitoringSnapshotRows
                 ApplicationUser user = new(account.UserId, account.Login);
                 user.ApplySharedAccount(account);
                 entity = user;
-                entities.Add(new ApplicationRole(account.RoleId, SharedAccount.ADMINISTRATOR));
+                if (!entities.OfType<ApplicationRole>().Any(role => role.Id == account.RoleId))
+                {
+                    entities.Add(new ApplicationRole(account.RoleId, SharedAccount.ADMINISTRATOR));
+                }
                 entities.Add(new IdentityUserRole<Guid> { UserId = account.UserId, RoleId = account.RoleId });
             }
 
             entities.Add(entity);
         }
 
-        entities.AddRange(MonitoringProjection.Changes(new(image.ClusterId, image.Generation), image, deliveryIdentityOnly: true));
+        entities.AddRange(MonitoringProjection.Changes(new(image.ClusterId, image.Generation), image));
         if (deliveries is not null)
         {
             foreach (object delivery in deliveries)

@@ -16,4 +16,5 @@ public record MonitoringImage
     public ImmutableDictionary<Guid, MonitoringIntent> Intents { get; init; } = ImmutableDictionary<Guid, MonitoringIntent>.Empty;
     public ImmutableDictionary<Guid, MonitoringSummary> Summaries { get; init; } = ImmutableDictionary<Guid, MonitoringSummary>.Empty;
     public ImmutableDictionary<Guid, MonitoringDeliveryEvidence> ConfirmedDeliveries { get; init; } = ImmutableDictionary<Guid, MonitoringDeliveryEvidence>.Empty;
+    public ImmutableDictionary<Guid, AcceptedDeliveryAttempt> Attempts { get; init; } = ImmutableDictionary<Guid, AcceptedDeliveryAttempt>.Empty;
 }

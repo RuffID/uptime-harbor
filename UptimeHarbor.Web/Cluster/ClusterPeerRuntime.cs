@@ -15,7 +15,7 @@ namespace UptimeHarbor.Web.Cluster;
 public class ClusterPeerRuntime(IServiceProvider services, IOptions<ClusterOptions> configured,
     ClusterStateMachine machine, ClusterRuntimeState state, NodeReadiness readiness,
     SenderAuthorityGate gate, LeaderFailureWindow failureWindow, TimeProvider timeProvider,
-    IPeerTrustSource trust, ILogger<ClusterPeerRuntime> logger) : BackgroundService
+    IPeerTrustSource trust, ILogger<ClusterPeerRuntime> logger, ClusterRaftHandle handle) : BackgroundService
 {
     private readonly SemaphoreSlim lifecycle = new(1, 1);
     private ServiceProvider? nodeServices;
@@ -169,6 +169,7 @@ public class ClusterPeerRuntime(IServiceProvider services, IOptions<ClusterOptio
             machine.ConfirmReplay(replayConfirmed);
             await ((IHostedService)candidate).StartAsync(cancellationToken);
             raft = candidate;
+            handle.Current = candidate;
             protocol = DotNextNodeServices.CreateProtocol(nodeServices);
             readiness.Report("Storage", true, "Ready", TimeSpan.FromSeconds(10));
             rpcOpen = true;
@@ -289,6 +290,7 @@ public class ClusterPeerRuntime(IServiceProvider services, IOptions<ClusterOptio
 
     private async ValueTask DisposeNodeAsync()
     {
+        handle.Current = null;
         raft = null;
         protocol = null;
         if (nodeServices is not null)

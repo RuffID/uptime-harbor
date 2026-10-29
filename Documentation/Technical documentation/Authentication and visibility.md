@@ -1,5 +1,11 @@
 # Аутентификация и видимость
 
+## Авторизация доставки (07)
+
+RenewSender/BeginDelivery/AbandonDelivery имеют закрытый DeliveryCoordinator source, admitted NodeId/storage generation и подтверждённого локального leader/term/epoch. RecordDelivery имеет DeliveryTransport source и проверяет отправителя исходной попытки; поздний результат не требует сохранения прежней пользовательской сессии. Peer envelope storage generation проверяется до dispatch.
+
+ClusterTestDelivery сохраняет пользовательскую заявку через PendingCommandService. Активный принятый Administrator проверяется при подаче, на позиции принятия и перед sender; отключение/удаление до вызова запрещает transport. Background intents не зависят от cookie или видимости чата. Account/session/RecoveryVersion и latched apply fault не изменены. [Доставка](Notifications.md#принятая-доставка-этапа-07).
+
 ## Внутренняя авторизация monitoring (06)
 
 RecordObservations требует admitted NodeId/storage generation, совпадающих с аутентифицированным peer envelope. EvaluateAvailability/PlanBacklogDelivery допускаются только текущим локальным leader с настоящим term/leadership/catch-up proof. Эти команды имеют ActorUserId=Empty/ActorRevision=0 и закрытый SystemSource; пользовательская команда не может использовать monitoring payload или system source.

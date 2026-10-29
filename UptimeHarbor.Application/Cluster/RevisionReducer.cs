@@ -46,6 +46,11 @@ public class RevisionReducer
             return Change(state, command, digest);
         }
 
+        if (DeliveryCommands.IsSystem(command))
+        {
+            return DeliveryReducer.Apply(state, command);
+        }
+
         if (MonitoringCommandValidation.IsSystem(command))
         {
             return MonitoringReducer.Apply(state, command);
@@ -60,6 +65,11 @@ public class RevisionReducer
         if (command.Action is "Cancel" or "Replace")
         {
             return Control(state, command, digest);
+        }
+
+        if (command.Action == "TestDelivery")
+        {
+            return DeliveryReducer.PlanTest(state, command);
         }
 
         return Change(state, command, digest);

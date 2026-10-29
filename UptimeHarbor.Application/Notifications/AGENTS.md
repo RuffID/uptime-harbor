@@ -6,6 +6,8 @@
 
 ## Правила
 
+- Enabled test-send передавать через IAcceptedTestDelivery в durable Pending, после accepted Administrator policy. Повторная авторизация выполняется reducer и перед transport; фоновые accepted intents не требуют пользовательской сессии. Legacy sender не использовать для обхода cluster gate.
+
 - Не использовать Telegram SDK, `HttpClient`, EF Core, MVC, Razor Pages или logging transport.
 - Ожидаемые ошибки sender передавать через `NotificationDeliveryException` с `NotificationDeliveryFailure`; тестовая отправка возвращает безопасный `UserMessage` с причиной и действием. Произвольный `Exception.Message` не раскрывать.
 - Проверять administrator access через единый `IAdministratorAccessPolicy` внутри каждого административного use case до чтения, сохранения и тестовой отправки.

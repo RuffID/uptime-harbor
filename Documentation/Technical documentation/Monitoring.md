@@ -1,5 +1,11 @@
 # Движок мониторинга
 
+## Доставка принятой истории (07)
+
+История этапа 06 является источником очереди DeliveryQueue. Реальные BeginDelivery/RecordDelivery/AbandonDelivery обновляют attempts, intents и accepted evidence тем же reducer/apply; прежний guard DeliveryAttemptProjectionRequired не обходится синтетическими попытками. Late outage success после unbind сохраняет право на один recovery, а superseded/deleted target блокирует новые вызовы. Состав сводки и исходные события сохраняются после success/replay.
+
+Dispatcher не запускает endpoint checks и не меняет расчёт availability/coverage. Сообщения различают partial/full/recovered и восстановление наблюдения, сохраняя metadata по observer. Общий gate остаётся закрытым при неизвестной dependency; подробности — [Notifications.md](Notifications.md#принятая-доставка-этапа-07).
+
 ## Распределённый путь этапа 06
 
 Старое наблюдение допускается в historical-only evidence только по реально принятой версии конфигурации, где источник был назначенным observer. Неизвестное поколение или выдуманное прежнее назначение отвергаются. Unbind/delete отзывает неотправленную summary part без изменения её принятого состава, остальные источники возвращаются для нового плана.
@@ -20,7 +26,7 @@
 
 Incident/event/intents и cursor/receipt входят в один существующий projection write set. Coverage имеет собственные события и получателей. Стабильные IDs, порядок и dedup сохраняются при replay; аудит пишет только подтверждённые новые переходы с системным source и безопасными IDs. Получатели recovery требуют принятого доказательства настоящей успешной попытки; Planned intent не является доставкой.
 
-До состава backlog требуется восстановленная история и независимое DeliveryStateConfirmed. Завершённые неуведомлённые аварии входят в durable summaries без отсечения по возрасту; открытые и обычный recovery ранее уведомлённых чатов сохраняются отдельно. Исходные events/intents остаются, источники сводки получают SuppressedBySummary. Поздняя порция backlog в том же term создаёт новый состав. Производитель attempts, dispatcher и внешняя отправка остаются 07.
+До состава backlog требуется восстановленная история и независимое DeliveryStateConfirmed. Завершённые неуведомлённые аварии входят в durable summaries без отсечения по возрасту; открытые и обычный recovery ранее уведомлённых чатов сохраняются отдельно. Исходные events/intents остаются, источники сводки получают SuppressedBySummary. Поздняя порция backlog в том же term создаёт новый состав. Производитель attempts и dispatcher подключены в 07; реальные внешние отправки не проверялись.
 
 `MonitoringDiagnostics` возвращает только index, число streams/незавершённых historical assemblies, время/возраст и safe reason. Полное покрытие не объявляется при недогоне или отсутствующих целях. DTO включён только в защищённый peer health; UI 08 не реализован. Часовой догон при трёх узлах/около 30 приложений остаётся целью самостоятельного наблюдения, без обязательной нагрузки. Результаты и пределы — [Testing.md](Testing.md#проверка-этапа-06).
 
@@ -75,4 +81,4 @@ SignalR handler реализован в Web. Он получает из Applicat
 
 Однопроцессная первая версия использует keyed in-memory coordination. Дополнительно `MonitoredServer.Version` и `MonitoredContainer.Version` являются optimistic concurrency token. Если административное изменение фиксируется после повторной проверки объекта, stale monitoring write получает `DbUpdateConcurrencyException`, переводится в `PersistenceConcurrencyException`, очищает tracking и не публикует SignalR-событие или Telegram job. Stale административный request возвращает `409 Conflict`.
 
-Распределённые checks реализованы отдельно от этого Disabled-пути; sender/claim/attempt lifecycle остаётся этапом 07.
+Распределённые checks реализованы отдельно от этого Disabled-пути; sender/attempt lifecycle подключён в 07 за общим gate.

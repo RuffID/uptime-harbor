@@ -95,7 +95,7 @@ public class ClusterCompositionTests
         Assert.NotNull(coordinator);
         Assert.IsType<RevisionClusterRecovery>(provider.GetRequiredService<IClusterRecovery>());
         Assert.IsType<UnavailableRecoveryAdmission>(provider.GetRequiredService<IRecoveryAdmission>());
-        Assert.IsType<UnavailableSenderConsensus>(provider.GetRequiredService<ISenderConsensus>());
+        Assert.IsType<DeliverySenderConsensus>(provider.GetRequiredService<ISenderConsensus>());
     }
 
     private class UnknownUser : IUserAccessContext

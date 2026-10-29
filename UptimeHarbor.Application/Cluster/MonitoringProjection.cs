@@ -7,7 +7,7 @@ namespace UptimeHarbor.Application.Cluster;
 /// <summary>Преобразование accepted monitoring image в существующие проекции одной apply-транзакции.</summary>
 public static class MonitoringProjection
 {
-    public static IReadOnlyList<ProjectionRecord> Changes(RevisionImage before, RevisionImage after, bool deliveryIdentityOnly = false)
+    public static IReadOnlyList<ProjectionRecord> Changes(RevisionImage before, RevisionImage after)
     {
         List<ProjectionRecord> records = [];
         ClusterIdentity cluster = new(after.ClusterId, after.Generation);
@@ -70,14 +70,7 @@ public static class MonitoringProjection
         {
             if (before.Monitoring.Intents.GetValueOrDefault(intent.Id) != intent)
             {
-                if (deliveryIdentityOnly && intent.State == DeliveryState.Succeeded)
-                {
-                    records.Add(Intent(cluster, intent with { State = DeliveryState.Planned }));
-                }
-                else
-                {
-                    records.Add(Intent(cluster, intent));
-                }
+                records.Add(DeliveryProjection.Intent(after, intent));
                 if (intent.Kind == DeliveryKind.Recovery)
                 {
                     MonitoringIntent problem = after.Monitoring.Intents.Values.Where(item => item.IncidentId == intent.IncidentId
@@ -87,6 +80,11 @@ public static class MonitoringProjection
                     RecoveryEntitlement entitlement = new(entitlementId, new JournalPosition(cluster, intent.Index, intent.Term),
                         intent.IncidentId!.Value, intent.ChatId, problem.Id);
                     entitlement.AssignRecovery(intent.Id);
+                    if (intent.State == DeliveryState.Succeeded)
+                    {
+                        entitlement.Consume(intent.CompletedAtUtc!.Value);
+                    }
+
                     records.Add(entitlement);
                 }
             }
@@ -111,6 +109,7 @@ public static class MonitoringProjection
         }
 
         AddAssignments(before, after, records);
+        records.AddRange(DeliveryProjection.AttemptChanges(before, after));
         return records;
     }
 

@@ -4,7 +4,7 @@
 
 ## Активные планы
 
-- [Несколько узлов, синхронизация и общие администраторы](multi-node-sync-and-permissions-2026-10-18-%28in-progress%29/main.md) — `in-progress`: завершены 01–06; 07–10 не начаты. Реализованы accepted accounts/session pipeline и monitoring capture/availability/coverage/incidents/events/intents, replay и durable состав offline summaries. Admission/trust/activation/delivery остаются закрытыми; dispatcher/sender, UI и controlled enable — будущие 07–09. Схема не применялась; реальные узлы, SQL Server, отправки и внешняя приёмка не запускались. Изолированные тесты не доказывают crash/fsync, живую сеть или часовую цель догона.
+- [Несколько узлов, синхронизация и общие администраторы](multi-node-sync-and-permissions-2026-10-18-%28in-progress%29/main.md) — `in-progress`: завершены 01–07; 08–10 не начаты, 09.2/09.3 cancelled. Реализованы accepted account/session/monitoring pipeline, восстановленная Telegram queue, реальные attempts/results, единый gate и per-chat retry/recovery. Admission/trust/activation/delivery proof остаются закрытыми, default Disabled сохранён; UI и controlled enable — будущие 08/09. Схема не применялась, реальные SQL/peers/endpoints/Telegram/browser не запускались; изолированные тесты не подтверждают SQL locking, crash/fsync или часовую цель догона. После 07.4 работа остановлена.
 
 ## Новые самостоятельные планы
 

@@ -2,7 +2,9 @@
 
 - AddClusterWeb собирает monitoring worker/pump/coordinator с revision transport/dispatcher; Infrastructure регистрирует scoped capture рядом с его UoW. Проверять и самостоятельные DI modules, и итоговый граф без запуска host.
 - Monitoring payload storage generation должен совпадать с authenticated peer envelope до dispatch всего batch. Health отдаёт только safe MonitoringProgress; UI/SignalR payload не расширять внутренним image.
-- ClusterMonitoringWorker ничего не делает в Disabled; enabled проверки не обходят CanWork/recovery/activation. Реальный attempt producer/sender остаётся 07.
+- ClusterMonitoringWorker и ClusterDeliveryWorker ничего не делают в Disabled; enabled проверки не обходят readiness/recovery/activation. Delivery worker восстанавливает очередь перед renewal и обновляет authority независимо от in-flight transport.
+- ClusterRaftHandle отделяет ссылку writer на текущий native Raft от runtime, который закрывает sender gate. Сохранять отсутствие DI цикла runtime → gate → journal → runtime; handle не является доказательством readiness/authority.
+- Delivery payload storage generation проверять против authenticated envelope до dispatch; internal results не получают фиктивного Administrator.
 
 - Peer listener имеет отдельный порт и canonical host; middleware стоит до forwarded headers, cookie authentication и DotNext. Пользовательские endpoints на этом listener запрещены.
 - Nginx certificate headers принимать только на изолированном listener от точного allowlist IP; проверять client CA, SAN и accepted fingerprint на каждом запросе. Требуются CRL, запрет прямого ingress и выключенный early data.

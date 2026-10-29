@@ -1,10 +1,16 @@
 # Доменная модель
 
+## Реальная история доставки (07)
+
+DeliveryIntent.RestoreAttempts восстанавливает состояние из непрерывной истории настоящих DeliveryAttempt с номерами 1–5: AttemptCount и ActiveAttemptId выводятся из неё. Success, retry deadline, terminal completion и summary suppression должны соответствовать истории. Application DeliveryProjection использует этот контракт вместо фиктивных BeginAttempt для счётчика.
+
+AcceptedDeliveryAttempt хранит исходную authority и последний принятый результат; поздний success может завершить более старую попытку. RecoveryEntitlement связывает recovery с подтверждённым problem intent и потребляется при успехе recovery. Хранимые поля схемы не расширялись. [Доставка](Notifications.md#принятая-доставка-этапа-07).
+
 ## Accepted monitoring (06)
 
 `ObserverResult`/frontier, `TargetObservationState`, `SharedIncident`/`IncidentEvent`, `DeliveryIntent`, `DeliverySummary`/`SummarySource` и `RecoveryEntitlement` существующей Domain/Cluster используются production reducer. Локальные sequence/capture отделены от принятых фактов. Application MonitoringImage содержит неизменяемые facts и provenance, оценки live/history, metadata по observer, incidents/events/intents, состав сводок и подтверждённые delivery evidence.
 
-Локальная ошибка/threshold observer не равна общему outage. Availability и coverage — разные состояния и истории; missing не закрывает аварию. IncidentKind.Node связан с NodeId и отдельными чатами, без подмены объектом server. Принятая успешная попытка — обязательное основание recovery entitlement; её producer относится к 07. Подробные алгоритмы — [Monitoring.md](Monitoring.md#распределённый-путь-этапа-06).
+Локальная ошибка/threshold observer не равна общему outage. Availability и coverage — разные состояния и истории; missing не закрывает аварию. IncidentKind.Node связан с NodeId и отдельными чатами, без подмены объектом server. Принятая успешная попытка — обязательное основание recovery entitlement; её production producer подключён в 07. Подробные алгоритмы — [Monitoring.md](Monitoring.md#распределённый-путь-этапа-06).
 
 ## Объекты мониторинга
 

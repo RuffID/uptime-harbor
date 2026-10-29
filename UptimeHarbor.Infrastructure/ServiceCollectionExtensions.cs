@@ -46,6 +46,7 @@ public static class ServiceCollectionExtensions
         if (clusterOptions.Enabled)
         {
             services.AddScoped<IAdministratorAccessPolicy, AcceptedAdministratorAccessPolicy>();
+            services.AddScoped<IAcceptedTestDelivery, ClusterTestDelivery>();
         }
 
         string? connectionString = configuration.GetConnectionString("SqlServer");
@@ -188,6 +189,8 @@ public static class ServiceCollectionExtensions
             client.BaseAddress = new Uri("https://api.telegram.org/");
             client.Timeout = TimeSpan.FromSeconds(30);
         }).RemoveAllLoggers();
+        services.AddScoped<UptimeHarbor.Application.Cluster.IAcceptedTelegramTransport>(provider =>
+            provider.GetRequiredService<TelegramHttpNotificationSender>());
         services.AddScoped<INotificationSender, ClusterNotificationSender>();
         services.AddScoped<NotificationOutboxStore>();
         services.AddSingleton<TelegramOutboxDispatcher>();

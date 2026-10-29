@@ -12,7 +12,9 @@ public static class MonitoringBacklog
         foreach (MonitoringSummary summary in image.Monitoring.Summaries.Values.OrderBy(item => item.Id))
         {
             MonitoringIntent delivery = image.Monitoring.Intents[summary.IntentId];
-            if (delivery.State is not (DeliveryState.Planned or DeliveryState.RetryDue)
+            bool cancelledBeforeTransport = delivery.State == DeliveryState.Cancelled
+                && image.Monitoring.Attempts.Values.Any(item => item.IntentId == delivery.Id && item.Outcome == AttemptOutcome.CancelledBeforeTransport);
+            if (delivery.State is not (DeliveryState.Planned or DeliveryState.RetryDue) && !cancelledBeforeTransport
                 || !summary.SourceIntentIds.Any(id => revoked(image.Monitoring.Intents[id])))
             {
                 continue;
@@ -21,7 +23,7 @@ public static class MonitoringBacklog
             // Принятый состав неизменяем: отзывается вся часть, остальные источники получают новый план.
             MonitoringImage next = image.Monitoring with { Intents = image.Monitoring.Intents.SetItem(delivery.Id, delivery with
             {
-                State = DeliveryState.Cancelled, CompletedAtUtc = atUtc, Index = image.Index, Term = image.Term
+                State = DeliveryState.Cancelled, CompletedAtUtc = atUtc, NextAttemptAtUtc = null, Index = image.Index, Term = image.Term
             }) };
             foreach (Guid id in summary.SourceIntentIds)
             {
@@ -118,7 +120,7 @@ public static class MonitoringBacklog
         {
             next = next with { Intents = next.Intents.SetItem(source.Id, source with
             {
-                State = DeliveryState.SuppressedBySummary, SummaryId = id, Index = image.Index, Term = image.Term
+                State = DeliveryState.SuppressedBySummary, SummaryId = id, NextAttemptAtUtc = null, Index = image.Index, Term = image.Term
             }) };
         }
 

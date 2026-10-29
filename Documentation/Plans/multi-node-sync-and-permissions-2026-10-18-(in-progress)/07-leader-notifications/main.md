@@ -1,6 +1,6 @@
 # Этап 07. Telegram только от подтверждённого главного
 
-Статус: not-started
+Статус: completed
 
 ## Цель
 
@@ -12,16 +12,16 @@
 
 ## Затрагиваемые части проекта
 
-`Application/Notifications`, `Application/Monitoring`, `Infrastructure/Telegram/TelegramOutboxWorker.cs`, `TelegramOutboxDispatcher.cs`, `NotificationOutboxStore.cs`, `TelegramHttpNotificationSender.cs`, outbox persistence и binding markers; тесты доставки, Web test-send API, `Notifications.md` и локальные `AGENTS.md`.
+`Application/Cluster` (DeliveryQueue/Reducer/Projection/Eligibility/Message), `Infrastructure/Cluster` (AcceptedDeliveryDispatcher/DeliverySenderConsensus/ClusterTestDelivery), `Infrastructure/Telegram/TelegramHttpNotificationSender`, Web sender lifecycle/test-send/peer boundary, существующие сценарные UoW и snapshot/recovery; изолированные tests, актуальные Notifications/Monitoring/Testing и ближайшие AGENTS.md.
 
 ## Подэтапы
 
 | Подэтап | Результат | Статус | Зависимости | Документ |
 | --- | --- | --- | --- | --- |
-| 07.1 | Очередь восстанавливается из принятой истории с устойчивыми per-chat delivery keys. | not-started | 05, 06 | [План доставки и восстановление очереди](07.1-delivery-plan-and-recovery.md) |
-| 07.2 | Первичная, повторная, recovery и тестовая отправки используют единый подтверждённый главный путь. | not-started | 07.1 | [Gate для всех путей отправки](07.2-gate-and-all-send-paths.md) |
-| 07.3 | Intent и результат реплицируются, retry сохраняет независимость чатов и связь восстановления. | not-started | 07.2 | [Результаты, retry и partial/recovery](07.3-results-retries-and-recovery.md) |
-| 07.4 | Удаления, reset и смена главного не запускают новые устаревшие попытки. | not-started | 07.3 | [Отмены и гонки отправки](07.4-cancellation-and-failover-races.md) |
+| 07.1 | Очередь восстанавливается из принятой истории с устойчивыми per-chat delivery keys. | completed | 05, 06 | [План доставки и восстановление очереди](07.1-delivery-plan-and-recovery.md) |
+| 07.2 | Первичная, повторная, recovery и тестовая отправки используют единый подтверждённый главный путь. | completed | 07.1 | [Gate для всех путей отправки](07.2-gate-and-all-send-paths.md) |
+| 07.3 | Intent и результат реплицируются, retry сохраняет независимость чатов и связь восстановления. | completed | 07.2 | [Результаты, retry и partial/recovery](07.3-results-retries-and-recovery.md) |
+| 07.4 | Удаления, reset и смена главного не запускают новые устаревшие попытки. | completed | 07.3 | [Отмены и гонки отправки](07.4-cancellation-and-failover-races.md) |
 
 Работы распределены по документам подэтапов. Каждый подэтап включает обновление затронутых локальных `AGENTS.md` и фактической технической документации; проверки и статус фиксируются только по выполненному объёму. Сводный статус этапа учитывает все его подэтапы и общие критерии ниже.
 
@@ -37,13 +37,13 @@
 
 ## Критерии приёмки
 
-- [ ] Никакой пользовательский или background-путь не обходит gate главного.
-- [ ] Подтверждённый результат не повторяется штатно; неопределённое окно описано и допускает повтор.
-- [ ] Согласованный intent переживает отказ главного; новый главный продолжает недоставленные сообщения.
-- [ ] Чужая видимость чата не влияет на доставку; ошибка одного чата не останавливает остальные.
-- [ ] Удаления и administrative reset сохраняют terminal cancellation и не вызывают recovery от старой конфигурации.
+- [x] Никакой пользовательский или background-путь не обходит gate главного.
+- [x] Подтверждённый результат не повторяется штатно; неопределённое окно описано и допускает повтор.
+- [x] Согласованный intent переживает отказ главного; новый главный продолжает недоставленные сообщения.
+- [x] Чужая видимость чата не влияет на доставку; ошибка одного чата не останавливает остальные.
+- [x] Удаления и administrative reset сохраняют terminal cancellation и не вызывают recovery от старой конфигурации.
 
-- [ ] Чаты инцидентов узла берутся из принятого назначения этому NodeId; различающиеся endpoint-данные в сообщениях сохраняют узел-источник без искусственного общего uptime.
+- [x] Чаты инцидентов узла берутся из принятого назначения этому NodeId; различающиеся endpoint-данные в сообщениях сохраняют узел-источник без искусственного общего uptime.
 
 ## Связанные вопросы
 
@@ -56,4 +56,8 @@
 
 ## Результат выполнения
 
-Реализация не начата. Telegram, outbox workers и provider-level проверки не запускались.
+2026-10-29 завершены 07.1–07.4: восстановленная accepted очередь, настоящие renewal/attempt/result решения существующего журнала, единый sender gate всех путей, follower test-send через durable Pending, per-chat retry/exhaustion, поздний success и финальный recovery после unbind. Projection/snapshot/recovery хранят полную реальную историю attempts/results без синтетических подтверждений. Legacy Disabled-путь сохранён; новая schema migration не требуется.
+
+Четыре production-проекта собраны отдельно последовательно без предупреждений/ошибок. Domain — 36, Application — 200, выбранные Infrastructure — 165, Web — 55: всего 456 успешных тестов без пропусков. [Команды, сценарии и ограничения](../../../Technical%20documentation/Testing.md#проверка-этапа-07). Минимальный порядок 10 использован внутри 07; этап 10 отдельно не начинался.
+
+Общий план остаётся in-progress; 01–07 — completed, 08–10 — not-started, 09.2/09.3 — cancelled. UI, provisioning/fencing/controlled enable не реализованы; admission/trust/activation/delivery и общие gates не открывались, default Disabled сохранён. БД/SQL, включая SQLite, hosting, Docker, реальные peers/endpoints/Telegram, deployment и Git не запускались. SQL locking/atomicity, crash/fsync, exactly-once, browser acceptance и часовой догон не подтверждены. После 07.4 работа остановлена.

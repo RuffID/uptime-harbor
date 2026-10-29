@@ -87,11 +87,18 @@ public static class MonitoringRecipients
 
     public static DeliveryAttempt AcceptedAttempt(RevisionImage image, MonitoringDeliveryEvidence evidence)
     {
-        JournalPosition position = new(new ClusterIdentity(image.ClusterId, image.Generation), evidence.AcceptedIndex, evidence.AcceptedTerm);
-        DeliveryAttempt attempt = new(evidence.AttemptId, position, evidence.IntentId, evidence.AttemptNumber,
-            evidence.SenderNodeId, evidence.SenderEpoch, evidence.StartedAtUtc);
-        attempt.RecordResult(AttemptOutcome.Succeeded, evidence.SucceededAtUtc, evidence.TelegramMessageId, null);
-        return attempt;
+        AcceptedDeliveryAttempt attempt = image.Monitoring.Attempts.GetValueOrDefault(evidence.AttemptId)
+            ?? throw new InvalidDataException("DeliveryAttemptHistoryMissing");
+        if (attempt.IntentId != evidence.IntentId || attempt.Number != evidence.AttemptNumber
+            || attempt.Outcome != AttemptOutcome.Succeeded || attempt.Index != evidence.AcceptedIndex
+            || attempt.Term != evidence.AcceptedTerm || attempt.Authority.LeaderNodeId != evidence.SenderNodeId
+            || attempt.Authority.SenderEpoch != evidence.SenderEpoch || attempt.StartedAtUtc != evidence.StartedAtUtc
+            || attempt.CompletedAtUtc != evidence.SucceededAtUtc || attempt.TelegramMessageId != evidence.TelegramMessageId)
+        {
+            throw new InvalidDataException("DeliveryEvidenceMismatch");
+        }
+
+        return DeliveryProjection.Attempt(image, attempt);
     }
 
     public static RevisionImage Add(RevisionImage image, MonitoringIncident incident, MonitoringEvent acceptedEvent,
@@ -134,7 +141,7 @@ public static class MonitoringRecipients
             {
                 MonitoringIntent cancelled = intent with
                 {
-                    State = DeliveryState.Cancelled, CompletedAtUtc = atUtc, Index = image.Index, Term = image.Term
+                    State = DeliveryState.Cancelled, CompletedAtUtc = atUtc, NextAttemptAtUtc = null, Index = image.Index, Term = image.Term
                 };
                 image = image with { Monitoring = image.Monitoring with { Intents = image.Monitoring.Intents.SetItem(intent.Id, cancelled) } };
             }

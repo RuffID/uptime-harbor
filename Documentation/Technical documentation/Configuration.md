@@ -1,5 +1,11 @@
 # Конфигурация и запуск
 
+## Настройки доставки этапа 07
+
+Новых operational settings и секретов не добавлено. BotToken остаётся локальным TelegramOptions; transport использует существующий HTTP timeout 30 секунд. Retry ограничен пятью attempts и учитывает безопасный retry_after. Authority renewal выполняется примерно раз в 5 секунд при сроке 10 секунд и drain 12 секунд.
+
+Cluster:Mode по умолчанию Disabled. Наличие sender-компонентов не подтверждает admission, trust, activation, manual enable, sender epoch или delivery readiness; эти зависимости остаются закрытыми до controlled enable 09. Файлы Config/config.json и его секреты не читались/не изменялись. [Контракт](Notifications.md#принятая-доставка-этапа-07).
+
 ## Настройки принятого мониторинга (06)
 
 Назначенные ObserverNodes, FailureThreshold (1–100), IntervalSeconds (5–3600), TimeoutSeconds (1–60), CheckGeneration и ConfigRevision относятся к принятой конфигурации server/container. Это не локальные appsettings overrides. Их изменение проходит общий Administrator pipeline; смена endpoint/enable/observers/порога/периодов требует нового поколения. По умолчанию — 3 ошибки, 60/10 секунд; пустой назначенный набор не запускает проверки.

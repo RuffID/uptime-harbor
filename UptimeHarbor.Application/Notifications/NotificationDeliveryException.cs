@@ -7,13 +7,15 @@ public class NotificationDeliveryException : Exception
     {
     }
 
-    public NotificationDeliveryException(NotificationDeliveryFailure failure)
+    public NotificationDeliveryException(NotificationDeliveryFailure failure, int? retryAfterSeconds = null)
         : base(GetUserMessage(failure))
     {
         Failure = failure;
+        RetryAfterSeconds = retryAfterSeconds;
     }
 
     public NotificationDeliveryFailure Failure { get; }
+    public int? RetryAfterSeconds { get; }
 
     public string UserMessage
     {

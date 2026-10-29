@@ -93,8 +93,9 @@ public static class RevisionCodec
 
     private static void ValidateLeaf(RevisionCommand command)
     {
-        bool system = MonitoringCommandValidation.IsSystem(command);
-        if (command.Schema != 1 || !system && command.Action is not ("Upsert" or "Delete" or "Cancel" or "Replace" or "BootstrapAccount")
+        bool delivery = DeliveryCommands.IsSystem(command);
+        bool system = MonitoringCommandValidation.IsSystem(command) || delivery;
+        if (command.Schema != 1 || !system && command.Action is not ("Upsert" or "Delete" or "Cancel" or "Replace" or "BootstrapAccount" or "TestDelivery")
             || !Enum.IsDefined(command.EntityKind))
         {
             throw new InvalidDataException("UnsupportedCommand");
@@ -109,19 +110,31 @@ public static class RevisionCodec
         StorageGuards.Utc(command.CreatedAtUtc);
         if (system)
         {
+            if (delivery)
+            {
+                DeliveryCommands.Validate(command);
+                return;
+            }
+
             MonitoringCommandValidation.Validate(command);
             return;
         }
 
         StorageGuards.Id(command.ActorUserId, nameof(command.ActorUserId));
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(command.ActorRevision);
-        if (command.SystemSource is not null || command.Monitoring is not null)
+        if (command.SystemSource is not null || command.Monitoring is not null || command.Delivery is not null)
         {
             throw new InvalidDataException("UnexpectedSystemSource");
         }
         if ((command.Action is "Upsert" or "BootstrapAccount") != (command.Value is not null))
         {
             throw new InvalidDataException("InvalidCommandValue");
+        }
+
+        if (command.Action == "TestDelivery" && (command.EntityKind != DeletedEntityKind.Chat || command.BaseRevision != 0
+            || command.ResolvesConflictId.HasValue || command.AccountAction is not null))
+        {
+            throw new InvalidDataException("InvalidTestDelivery");
         }
 
         if (command.Action == "BootstrapAccount"

@@ -1,5 +1,11 @@
 # Persistence и транзакции
 
+## Attempt/result apply (07)
+
+DeliveryProjection формирует настоящие DeliveryAttempt и восстанавливает DeliveryIntent из всей принятой истории. MonitoringProjection добавляет их и RecoveryEntitlement в тот же projection write set с receipt/cursor; публикация образа происходит после commit. Known success монотонен, повтор результата/replay не создаёт новый attempt или success-аудит.
+
+Внешний HTTP и общий commit не атомарны. CapturedDeliveryResult сохраняется отдельным локальным IDeliveryResultUnitOfWork, затем передаётся в existing revision transport; ошибка после capture не теряет accepted intent. Capture не заменяет общий result. Новых таблиц, SQL WAL и global UoW нет. Fake storage проверки не подтверждают SQL transaction semantics/locking. [Хранение](Shared%20cluster%20storage.md#delivery-ledger-этапа-07).
+
 ## Monitoring capture и apply (06)
 
 `ObservationCaptureService` использует существующий сценарный ObservationCaptureUnitOfWork: sequence reservation и CapturedObservation сохраняются одной транзакцией. Singleton gate сериализует локальные scopes; per-target endpoint scopes не разделяют DbContext. Capture retry сверяет ID/payload и не выделяет новый sequence. Bounded repository queries читают stream/result pages без tracking.

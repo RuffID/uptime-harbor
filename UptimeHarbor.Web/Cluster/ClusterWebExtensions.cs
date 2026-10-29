@@ -8,6 +8,7 @@ public static class ClusterWebExtensions
 {
     public static IServiceCollection AddClusterWeb(this IServiceCollection services)
     {
+        services.AddSingleton<ClusterRaftHandle>();
         services.AddSingleton<ClusterPeerRuntime>();
         services.AddHostedService(provider => provider.GetRequiredService<ClusterPeerRuntime>());
         services.AddHostedService<ClusterHealthWorker>();
@@ -15,6 +16,9 @@ public static class ClusterWebExtensions
         services.AddSingleton<IMembershipProtocol, DotNextMembershipProtocol>();
         services.AddSingleton<IConsensusWriter, ClusterConsensusWriter>();
         services.AddSingleton<RevisionDispatcher>();
+        services.AddSingleton<ISenderConsensus, DeliverySenderConsensus>();
+        services.AddSingleton<AcceptedDeliveryDispatcher>();
+        services.AddHostedService<ClusterDeliveryWorker>();
         services.AddScoped<ClusterAccountBootstrapper>();
         services.AddSingleton<IRevisionTransport, ClusterRevisionTransport>();
         services.AddSingleton<PendingReplicationPump>();

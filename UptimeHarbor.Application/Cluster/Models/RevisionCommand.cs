@@ -24,6 +24,7 @@ public record RevisionCommand
     public string? AccountAction { get; init; }
     public string? SystemSource { get; init; }
     public MonitoringCommand? Monitoring { get; init; }
+    public DeliveryCommand? Delivery { get; init; }
 
     public override string ToString()
     {

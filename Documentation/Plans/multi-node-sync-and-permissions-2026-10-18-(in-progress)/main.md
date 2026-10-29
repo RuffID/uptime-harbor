@@ -32,7 +32,7 @@
 
 Подтверждающие исходники: [ObjectVisibilityPolicy](../../../UptimeHarbor.Application/Visibility/ObjectVisibilityPolicy.cs), [MonitoringService](../../../UptimeHarbor.Application/Monitoring/MonitoringService.cs), [MonitoringCycleRunner](../../../UptimeHarbor.Infrastructure/Monitoring/MonitoringCycleRunner.cs), [NotificationOutboxStore](../../../UptimeHarbor.Infrastructure/Telegram/NotificationOutboxStore.cs), [NotificationAdministrationService](../../../UptimeHarbor.Application/Notifications/NotificationAdministrationService.cs), [MonitoredObject](../../../UptimeHarbor.Domain/Monitoring/MonitoredObject.cs), [Program.cs](../../../UptimeHarbor.Web/Program.cs).
 
-Текущее описание: [мониторинг](../../Technical%20documentation/Monitoring.md), [уведомления](../../Technical%20documentation/Notifications.md), [аутентификация и видимость](../../Technical%20documentation/Authentication%20and%20visibility.md), [бизнес-требования v1](../../Business%20logic/Business%20requirements.md). Технические документы актуализированы по изменениям 02–06; неподключённое поведение остаётся в плане.
+Текущее описание: [мониторинг](../../Technical%20documentation/Monitoring.md), [уведомления](../../Technical%20documentation/Notifications.md), [аутентификация и видимость](../../Technical%20documentation/Authentication%20and%20visibility.md), [бизнес-требования v1](../../Business%20logic/Business%20requirements.md). Технические документы актуализированы по изменениям 02–07; неподключённое поведение остаётся в плане.
 
 ## Границы
 
@@ -58,7 +58,7 @@
 | 04 | Доставка изменений, конфликты, tombstones и восстановление | completed | 02, 03, 05.1 | [Синхронизация ревизий](04-revision-synchronization/main.md) |
 | 05 | Общие пользователи и единственная роль администратора | completed | 02 для 05.1; 04 для 05.2–05.4 | [Пользователи и общий вход](05-permissions-and-ownership/main.md) |
 | 06 | Взаимный мониторинг и согласованные инциденты | completed | 03, 04 | [Мониторинг и инциденты](06-monitoring-and-incidents/main.md) |
-| 07 | Отправка главным и восстановление состояния Telegram-доставки | not-started | 05, 06 | [Telegram](07-leader-notifications/main.md) |
+| 07 | Отправка главным и восстановление состояния Telegram-доставки | completed | 05, 06 | [Telegram](07-leader-notifications/main.md) |
 | 08 | Управление через любой узел, общие аккаунты, Pending и конфликты | not-started | 05, 07 | [Web и интерфейс](08-web-and-administration/main.md) |
 | 09 | Первый запуск новой модели, восстановление и эксплуатация | not-started | 02–08 | [Ввод и восстановление](09-migration-and-operations/main.md) |
 | 10 | Минимальные изолированные проверки и самостоятельная приёмка пользователем | not-started | 01–09 | [Приёмка](10-verification-and-acceptance/main.md) |
@@ -126,10 +126,10 @@
 
 | Подэтап | Результат | Статус | Зависимости | Документ |
 | --- | --- | --- | --- | --- |
-| 07.1 | Очередь восстанавливается из принятой истории с устойчивыми per-chat delivery keys. | not-started | 05, 06 | [План доставки и восстановление очереди](07-leader-notifications/07.1-delivery-plan-and-recovery.md) |
-| 07.2 | Первичная, повторная, recovery и тестовая отправки используют единый подтверждённый главный путь. | not-started | 07.1 | [Gate для всех путей отправки](07-leader-notifications/07.2-gate-and-all-send-paths.md) |
-| 07.3 | Intent и результат реплицируются, retry сохраняет независимость чатов и связь восстановления. | not-started | 07.2 | [Результаты, retry и partial/recovery](07-leader-notifications/07.3-results-retries-and-recovery.md) |
-| 07.4 | Удаления, reset и смена главного не запускают новые устаревшие попытки. | not-started | 07.3 | [Отмены и гонки отправки](07-leader-notifications/07.4-cancellation-and-failover-races.md) |
+| 07.1 | Очередь восстанавливается из принятой истории с устойчивыми per-chat delivery keys. | completed | 05, 06 | [План доставки и восстановление очереди](07-leader-notifications/07.1-delivery-plan-and-recovery.md) |
+| 07.2 | Первичная, повторная, recovery и тестовая отправки используют единый подтверждённый главный путь. | completed | 07.1 | [Gate для всех путей отправки](07-leader-notifications/07.2-gate-and-all-send-paths.md) |
+| 07.3 | Intent и результат реплицируются, retry сохраняет независимость чатов и связь восстановления. | completed | 07.2 | [Результаты, retry и partial/recovery](07-leader-notifications/07.3-results-retries-and-recovery.md) |
+| 07.4 | Удаления, reset и смена главного не запускают новые устаревшие попытки. | completed | 07.3 | [Отмены и гонки отправки](07-leader-notifications/07.4-cancellation-and-failover-races.md) |
 
 ### 08. Интерфейс и управление с любого узла
 
@@ -219,4 +219,6 @@
 
 2026-10-29 завершены [06.1–06.4](06-monitoring-and-incidents/main.md): durable наблюдения/назначения, availability и coverage, accepted incidents/events/intents, восстановление истории и состав offline summaries. Domain 36, Application 185, выбранные Infrastructure 127, Web 51 успешно; четыре production builds без предупреждений/ошибок. [Проверки и ограничения](../../Technical%20documentation/Testing.md#проверка-этапа-06).
 
-Дата создания 2026-10-18 и папка `multi-node-sync-and-permissions-2026-10-18-(in-progress)` сохранены. Общий план — in-progress; 01–06 — completed; 07–10 — not-started, 09.2/09.3 — cancelled. Sender/attempt producer, UI и controlled enable не реализованы; browser/worker/sender и admission/trust/activation/delivery по умолчанию закрыты. SQL/provider tests, приложение/hosting, Docker, реальные peers/monitoring/Telegram/deployment и Git не запускались. Миграции 02/04 не применялись; новой migration в 06 нет. Часовой догон, SQL atomicity, crash/fsync и внешняя приёмка не подтверждены. После 06.4 работа остановлена; порядок минимальных проверок 10 использован внутри 06 без самостоятельного начала 10.
+2026-10-29 завершены [07.1–07.4](07-leader-notifications/main.md): восстановленная очередь, единый gate, реальные attempts/results и per-chat retry/recovery, follower test-send, отмены и поздний success. Четыре production builds без предупреждений/ошибок; Domain 36, Application 200, выбранные Infrastructure 165, Web 55 — всего 456 успешных тестов без пропусков. [Проверки и ограничения](../../Technical%20documentation/Testing.md#проверка-этапа-07).
+
+Дата создания 2026-10-18 и папка `multi-node-sync-and-permissions-2026-10-18-(in-progress)` сохранены. Общий план — in-progress; 01–07 — completed; 08–10 — not-started, 09.2/09.3 — cancelled. UI и controlled enable не реализованы; общие gates и admission/trust/activation/delivery proof закрыты, default Disabled сохранён. SQL/provider tests, приложение/hosting, Docker, реальные peers/monitoring/Telegram/deployment и Git не запускались. Миграции 02/04 не применялись; новой migration в 07 нет. Часовой догон, SQL atomicity, crash/fsync и внешняя приёмка не подтверждены. После 07.4 работа остановлена; порядок минимальных проверок 10 использован внутри 07 без самостоятельного начала 10.

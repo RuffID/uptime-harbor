@@ -1,10 +1,16 @@
 # Web-приложение
 
+## Сборка sender-компонентов (07)
+
+AddClusterWeb подключает DeliverySenderConsensus, AcceptedDeliveryDispatcher и ClusterDeliveryWorker к существующим RevisionDispatcher/IRevisionTransport. ClusterRaftHandle отделяет writer от runtime lifecycle и устраняет DI цикл с SenderAuthorityGate. Конструкторы/DI validation не запускают host, WAL или HTTP.
+
+Peer revision boundary проверяет storage generation также для delivery payload. Enabled test-send передаётся через ClusterTestDelivery в durable Pending и возвращает общий JSON envelope с HTTP 202; ответ не подтверждает фактическую доставку. Disabled сохраняет прежний синхронный ответ. Авторизация повторяется перед отправкой; общий browser gate не открыт. UI статуса очереди относится к 08 и не менялся. [Доставка](Notifications.md#принятая-доставка-этапа-07).
+
 ## Сборка monitoring компонентов (06)
 
 AddClusterWeb регистрирует ObservationReplicationPump/MonitoringCoordinator рядом с RevisionDispatcher и IRevisionTransport; Infrastructure регистрирует cycle/peer capture, а scoped ObservationCaptureService — рядом с его persistence UoW. ClusterMonitoringWorker завершает работу без действий в Disabled; enabled требует действительных readiness/recovery/activation proof.
 
-Peer batch до dispatch сверяет storage generation monitoring payload с аутентифицированным envelope. Пользовательская Administrator authorization отделена от внутреннего monitoring source; browser routes не получили обход gate. Peer health возвращает только безопасный MonitoringProgress. Новый dashboard/SignalR UI, sender/attempt lifecycle и controlled enable не реализованы (07–09). Регрессия DI разрешает граф без старта host/WAL/HTTP; это не browser acceptance.
+Peer batch до dispatch сверяет storage generation monitoring payload с аутентифицированным envelope. Пользовательская Administrator authorization отделена от внутреннего monitoring source; browser routes не получили обход gate. Peer health возвращает только безопасный MonitoringProgress. Sender/attempt lifecycle подключён в 07; новый dashboard/SignalR UI и controlled enable остаются 08/09. Регрессия DI разрешает граф без старта host/WAL/HTTP; это не browser acceptance.
 
 ## Граница 05.1 и этапа 04
 

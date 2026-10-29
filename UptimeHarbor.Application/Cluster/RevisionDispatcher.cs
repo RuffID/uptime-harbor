@@ -3,7 +3,7 @@ using UptimeHarbor.Application.Cluster.Models;
 namespace UptimeHarbor.Application.Cluster;
 
 public class RevisionDispatcher(IConsensusWriter consensus, RevisionStateStore accepted, IClusterStateView? view = null,
-    IMonitoringAudit? monitoringAudit = null, TimeProvider? time = null)
+    IMonitoringAudit? monitoringAudit = null, TimeProvider? time = null, IDeliveryAudit? deliveryAudit = null)
 {
     private readonly SemaphoreSlim serial = new(1, 1);
 
@@ -34,6 +34,31 @@ public class RevisionDispatcher(IConsensusWriter consensus, RevisionStateStore a
         if (command.ClusterId != image.ClusterId || command.ClusterGeneration != image.Generation)
         {
             throw new InvalidDataException("ClusterMismatch");
+        }
+
+        if (DeliveryCommands.IsSystem(command))
+        {
+            DeliveryCommand delivery = command.Delivery!;
+            if (!image.Monitoring.Nodes.TryGetValue(trustedOriginNodeId, out Guid storage)
+                || storage != delivery.StorageGeneration)
+            {
+                throw new UnauthorizedAccessException("SenderNotAdmitted");
+            }
+
+            if (command.SystemSource == "DeliveryCoordinator")
+            {
+                ConsensusStatus? status = view?.Consensus;
+                SenderAuthorityKey? key = delivery.Authority;
+                bool coordinator = status is not null && status.IsLeader && status.NodeId == trustedOriginNodeId
+                    && status.Term == key?.Term && status.MembershipVersion == key.MembershipVersion
+                    && view!.Accepted.SenderEpoch == key.SenderEpoch && view.Accepted.CaughtUp
+                    && view.Accepted.DeliveryStateConfirmed && view.Accepted.Activated && view.Accepted.ManuallyEnabled
+                    && !status.LeadershipToken.IsCancellationRequested && !status.ConsensusToken.IsCancellationRequested;
+                if (!coordinator)
+                {
+                    throw new UnauthorizedAccessException("SenderNotConfirmed");
+                }
+            }
         }
 
         if (MonitoringCommandValidation.IsSystem(command))
@@ -86,6 +111,14 @@ public class RevisionDispatcher(IConsensusWriter consensus, RevisionStateStore a
         {
             MonitoringIncident incident = image.Monitoring.Incidents[acceptedEvent.IncidentId];
             monitoringAudit?.Transition(command.OriginNodeId, incident.Id, acceptedEvent.Id, incident.TargetId, result.Index);
+        }
+
+        foreach (AcceptedDeliveryAttempt attempt in image.Monitoring.Attempts.Values.Where(item => item.Index == result.Index
+            && before.Monitoring.Attempts.GetValueOrDefault(item.Id) != item))
+        {
+            MonitoringIntent intent = image.Monitoring.Intents[attempt.IntentId];
+            deliveryAudit?.Accepted(attempt.Authority.LeaderNodeId, intent.IncidentId, intent.Id, attempt.Id,
+                attempt.Term, attempt.Outcome.ToString(), attempt.FailureKind?.Split('/')[0]);
         }
 
         return result;

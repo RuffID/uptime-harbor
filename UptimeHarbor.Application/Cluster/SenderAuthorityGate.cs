@@ -171,6 +171,15 @@ public class SenderAuthorityGate(IClusterStateView state, NodeReadiness readines
         return true;
     }
 
+    public bool CanStartTransport(SenderAuthorityKey key)
+    {
+        lock (sync)
+        {
+            Tick();
+            return authorityKey == key && HasAuthority();
+        }
+    }
+
     private bool HasAuthority()
     {
         return authorityKey is not null && authorityKey == ReadKey() && ConditionsHold()

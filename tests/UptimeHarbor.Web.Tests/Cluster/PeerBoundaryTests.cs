@@ -119,6 +119,6 @@ public class PeerBoundaryTests
         UnavailableClusterRecovery recovery = new();
         return new(services, Microsoft.Extensions.Options.Options.Create(options), new ClusterStateMachine(recovery, readiness),
             new ClusterRuntimeState(recovery), readiness, gate, new LeaderFailureWindow(TimeProvider.System),
-            TimeProvider.System, new UnavailablePeerTrustSource(), NullLogger<ClusterPeerRuntime>.Instance);
+            TimeProvider.System, new UnavailablePeerTrustSource(), NullLogger<ClusterPeerRuntime>.Instance, new ClusterRaftHandle());
     }
 }

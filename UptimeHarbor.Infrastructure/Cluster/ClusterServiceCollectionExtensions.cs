@@ -28,6 +28,7 @@ public static class ClusterServiceCollectionExtensions
         services.TryAddSingleton<IClusterRecovery>(provider => provider.GetRequiredService<RevisionClusterRecovery>());
         services.TryAddSingleton<IRevisionAudit, RevisionAudit>();
         services.TryAddSingleton<IMonitoringAudit, MonitoringAudit>();
+        services.TryAddSingleton<IDeliveryAudit, DeliveryAudit>();
         services.TryAddSingleton<IPeerTrustSource, UnavailablePeerTrustSource>();
         services.TryAddSingleton<ISenderConsensus, UnavailableSenderConsensus>();
         services.TryAddSingleton<IClusterAdministrationState, UnavailableClusterAdministrationState>();

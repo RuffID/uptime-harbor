@@ -23,7 +23,7 @@ public static class MonitoringCommandValidation
         }
 
         if (command.SystemSource != source || command.ActorUserId != Guid.Empty || command.ActorRevision != 0
-            || command.Value is not null || command.Target is not null || command.Replacement is not null
+            || command.Value is not null || command.Delivery is not null || command.Target is not null || command.Replacement is not null
             || command.AccountAction is not null || command.ResolvesConflictId.HasValue
             || payload.StorageGeneration == Guid.Empty || command.EntityKind is not (DeletedEntityKind.Server
                 or DeletedEntityKind.Container or DeletedEntityKind.Node))

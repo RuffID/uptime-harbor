@@ -10,7 +10,7 @@
 
 - Отделять текущее реализованное состояние от целевого решения следующих этапов.
 - `Shared cluster storage.md` владеет моделью и SQL storage общих данных; наличие схемы не означает работающие consensus, replication, общий вход или sender.
-- `Cluster runtime.md` владеет peer/mTLS, DotNext WAL/lifecycle, очередью, snapshot/replay, readiness и sender authority. Реализованные reducer/accounts/sign-in/session lifecycle отделять от будущих activation/delivery; результаты изолированных API/store тестов не выдавать за выборы/crash recovery.
+- `Cluster runtime.md` владеет peer/mTLS, DotNext WAL/lifecycle, очередью, snapshot/replay, readiness и sender authority. `Notifications.md` описывает accepted delivery ledger/dispatcher рядом с legacy Disabled-путём. Реализованные компоненты отделять от закрытых admission/trust/activation/delivery proof; результаты изолированных API/store тестов не выдавать за выборы/crash recovery.
 - Приводить имена проектов, типов и контрактов только там, где они помогают сопровождению.
 - Не копировать планы реализации и бизнес-требования целиком.
 - Один файл должен отвечать за одну техническую область: архитектуру, домен, persistence, Web, конфигурацию, тестирование или развёртывание.

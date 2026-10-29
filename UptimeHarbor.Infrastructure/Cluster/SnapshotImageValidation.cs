@@ -17,10 +17,11 @@ public static class SnapshotImageValidation
     public static void Validate(UptimeHarborDbContext context, RevisionImage image)
     {
         SnapshotSchema.Validate(context, image.ProjectionRows);
+        DeliveryQueue.Validate(image);
         JournalPosition position = new(new ClusterIdentity(image.ClusterId, image.Generation), image.Index, image.Term);
         Dictionary<Type, HashSet<Guid>> expected = [];
         RevisionImage empty = new(image.ClusterId, image.Generation);
-        IReadOnlyList<ProjectionRecord> monitoringRecords = MonitoringProjection.Changes(empty, image, deliveryIdentityOnly: true);
+        IReadOnlyList<ProjectionRecord> monitoringRecords = MonitoringProjection.Changes(empty, image);
         foreach (ProjectionRecord record in monitoringRecords)
         {
             Type recordType = record.GetType();
@@ -30,13 +31,6 @@ public static class SnapshotImageValidation
             {
                 // Term служебного update assignments не является ревизией конфигурации цели.
                 fields = fields.Where(field => field != "Term").ToArray();
-            }
-
-            if (record is DeliveryIntent intent && image.Monitoring.Intents[intent.Id].State == DeliveryState.Succeeded)
-            {
-                MonitoringSnapshotDelivery.Validate(image, intent.Id);
-                string[] stateFields = ["State", "AttemptCount", "ActiveAttemptId", "NextAttemptAtUtc", "CompletedAtUtc", "SummaryId"];
-                fields = fields.Except(stateFields).ToArray();
             }
 
             Compare(context, image, record, fields);
@@ -103,7 +97,7 @@ public static class SnapshotImageValidation
         Type[] configurationTypes = [typeof(ApplicationUser), typeof(MonitoredServer), typeof(MonitoredContainer),
             typeof(TelegramChat), typeof(NotificationBinding), typeof(ObserverAssignment), typeof(NodeChatRoute),
             typeof(ObserverResult), typeof(ObservationFrontier), typeof(TargetObservationState), typeof(SharedIncident),
-            typeof(IncidentEvent), typeof(DeliveryIntent), typeof(DeliverySummary), typeof(SummarySource)];
+            typeof(IncidentEvent), typeof(DeliveryIntent), typeof(DeliveryAttempt), typeof(RecoveryEntitlement), typeof(DeliverySummary), typeof(SummarySource)];
         foreach (Type type in configurationTypes)
         {
             HashSet<Guid> ids = expected.GetValueOrDefault(type) ?? [];

@@ -1,16 +1,22 @@
 # Хранение общих данных сетки
 
+## Delivery ledger этапа 07
+
+MonitoringImage включает реальные Attempts, ActorUserId тестовой доставки и NextAttemptAtUtc intent. Projection write set сохраняет DeliveryIntent/DeliveryAttempt/RecoveryEntitlement вместе с decision/receipt/cursor. Snapshot и recovery проверяют полную историю попыток, exact sets и поля projections; evidence требует соответствующего успешного accepted attempt. Authority из snapshot не восстанавливает локальное разрешение sender.
+
+local_delivery_results сохраняет настоящий transport result до его принятия, через существующий сценарный UoW. При restart dispatcher повторяет передачу capture в тот же журнал; accepted success не отправляется повторно. FailureKind имеет закрытую категорию и необязательный RateLimited/<seconds>, без открытого ответа Telegram. Новая migration не нужна. [Поведение и неопределённое окно](Notifications.md#принятая-доставка-этапа-07).
+
 ## Проекции monitoring этапа 06
 
 Схема 02 уже содержит capture cursors/results, observer assignments, frontiers/state, incidents/events/intents, delivery attempts/entitlements и summaries/sources. 06 подключает их к существующему RevisionWriteSetFactory/RevisionApplyEngine, без новой migration, SQL WAL или второго consensus. Raw observation неизменяем; accepted index/term/counters/historical-only находятся отдельно в MonitoringImage.
 
-Snapshot переносит MonitoringImage и whitelist projection rows. Проверка snapshot сопоставляет их IDs/поля, включая настоящий accepted attempt для delivery evidence; Planned intent не подтверждает отправку. Recovery сверяет monitoring/configuration rows и admitted NodeId/storage generation с ClusterMember наряду с аккаунтами/cursor до открытия reader. Отсутствующая membership/delivery dependency остаётся отказом. Регистрация реестра узлов — доверенный lifecycle 09, producer attempts — 07.
+Snapshot переносит MonitoringImage и whitelist projection rows. Проверка snapshot сопоставляет их IDs/поля, включая настоящий accepted attempt для delivery evidence; Planned intent не подтверждает отправку. Recovery сверяет monitoring/configuration rows и admitted NodeId/storage generation с ClusterMember наряду с аккаунтами/cursor до открытия reader. Отсутствующая membership/delivery dependency остаётся отказом. Регистрация реестра узлов — доверенный lifecycle 09, producer attempts подключён в 07.
 
 Captures сохраняются после ACK, события и источники сводок не удаляются по возрасту. Изолированные capture/apply/replay tests не подтверждают SQL transaction semantics или многопроцессный locking. Детали — [Monitoring.md](Monitoring.md#распределённый-путь-этапа-06) и [Testing.md](Testing.md#проверка-этапа-06).
 
 ## Реализованная граница
 
-Этап 02 добавил независимую модель в `UptimeHarbor.Domain/Cluster`, storage-контракты Application, EF mappings, сценарные UoW и migration `20261029053354_AddSharedClusterStorage`. Этап 03 добавил [DotNext adapter, peer endpoints и lifecycle](Cluster%20runtime.md). Этап 04 подключил production reducer/replay, установку общего snapshot и durable очередь; ранний 05.1 — чтение accepted account и единую Administrator policy. 05.2–05.4 подключили accepted sign-in/session lifecycle и account commands; 06 подключил capture, observations, общие incidents/events/intents и durable состав сводок; sender остаётся этапом 07. Без подтверждения независимого recovery-контракта WAL и Raft не стартуют.
+Этап 02 добавил независимую модель в `UptimeHarbor.Domain/Cluster`, storage-контракты Application, EF mappings, сценарные UoW и migration `20261029053354_AddSharedClusterStorage`. Этап 03 добавил [DotNext adapter, peer endpoints и lifecycle](Cluster%20runtime.md). Этап 04 подключил production reducer/replay, установку общего snapshot и durable очередь; ранний 05.1 — чтение accepted account и единую Administrator policy. 05.2–05.4 подключили accepted sign-in/session lifecycle и account commands; 06 подключил capture, observations, общие incidents/events/intents и durable состав сводок; sender подключён в 07 за закрытыми readiness dependencies. Без подтверждения независимого recovery-контракта WAL и Raft не стартуют.
 
 Источник истины принятых общих данных — Raft log и опубликованный snapshot. SQL хранит восстанавливаемую проекцию. `applied_journal_receipts` содержит только ID записи, позицию и digest, без payload для replay; это не SQL WAL. Term/vote/log и membership сохраняются DotNext в отдельном provisioned `Cluster:StoragePath`, вне SQL. Reducer/snapshot/replay реализованы в 04; migration `20261029075201_AllowUniquenessConflictRevisions` снимает неверное сравнение competing revision с base другой сущности. К БД не применялась.
 

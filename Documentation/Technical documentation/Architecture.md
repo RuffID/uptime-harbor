@@ -1,10 +1,16 @@
 # Архитектура решения
 
+## Поток принятой Telegram-доставки (07)
+
+Accepted incident/event/intent → восстановленная DeliveryQueue → SenderAuthorityGate → принятый BeginDelivery → внешний Telegram transport → локальный result UoW → существующий revision transport → RecordDelivery/reducer → общий projection commit → accepted result. RenewSender использует тот же DotNext consensus/WAL. Отдельной репликации или расширения legacy outbox нет.
+
+Application владеет eligibility/retry/message/projection, Infrastructure — dispatcher/transport/capture и internal provenance, Web — lifecycle и сборкой graph. Test-send с follower проходит durable Pending и повторную accepted Administrator authorization. Независимые readiness dependencies остаются закрытыми; UI/controlled enable 08/09 не реализованы. [Детали](Notifications.md#принятая-доставка-этапа-07).
+
 ## Поток распределённого мониторинга (06)
 
 Endpoint/peer fact → локальный capture/sequence UoW → bounded revision transport → существующий RevisionReducer → monitoring write set → RevisionApplyEngine/SQL projection commit → accepted image. Raft log + snapshot сохраняют единственную принятую историю. Application рассчитывает доступность/coverage, incidents/events/intents и состав backlog без I/O; Infrastructure проверяет endpoint и хранит capture; Web собирает worker/pump/coordinator с transport/dispatcher.
 
-System monitoring commands имеют отдельную внутреннюю provenance, не фиктивного Administrator. Неизвестные recovery/activation/delivery порты не открываются. Sender/attempt producer, новый UI и controlled enable остаются 07–09. См. [Monitoring.md](Monitoring.md#распределённый-путь-этапа-06).
+System monitoring commands имеют отдельную внутреннюю provenance, не фиктивного Administrator. Неизвестные recovery/activation/delivery порты не открываются. Sender/attempt producer подключён в 07; новый UI и controlled enable остаются 08/09. См. [Monitoring.md](Monitoring.md#распределённый-путь-этапа-06).
 
 ## Текущее состояние
 
@@ -56,7 +62,7 @@ Test-проекты ссылаются только на проверяемый 
 
 Identity-типы находятся в Infrastructure, потому что наследование от ASP.NET Core Identity является технической деталью хранения и аутентификации.
 
-Этап 02 добавил `Domain/Cluster`, storage-контракты и узкие UoW: SQL — восстанавливаемая проекция Raft log + snapshot. Общий аккаунт, роль Administrator и cursor сохраняются одним projection UoW; локальные Pending/capture/results отделены. Этап 03 подключил DotNext 6.10.0, отдельный peer-периметр, recovery/readiness и sender authority. Этап 04 реализовал Pending/controls/results, `RevisionReducer`/`RevisionApplyEngine`, `RevisionClusterRecovery`, bounded replication и streaming snapshot. Ранний 05.1 реализовал `IAcceptedAccountReader` и `AcceptedAdministratorAccessPolicy`. Admission/trust/activation и renewal/attempt decisions остаются закрытыми до будущего lifecycle/delivery; общий вход/сессии и account commands реализованы в 05.2–05.4; monitoring capture/сведение/incidents подключены в 06 за readiness gates; delivery worker остаётся 07. В enabled-режиме прежние workers, sender, UI и startup DB/bootstrap не выполняются. Схема — [Shared cluster storage.md](Shared%20cluster%20storage.md), порядок старта и протокол — [Cluster runtime.md](Cluster%20runtime.md).
+Этап 02 добавил `Domain/Cluster`, storage-контракты и узкие UoW: SQL — восстанавливаемая проекция Raft log + snapshot. Общий аккаунт, роль Administrator и cursor сохраняются одним projection UoW; локальные Pending/capture/results отделены. Этап 03 подключил DotNext 6.10.0, отдельный peer-периметр, recovery/readiness и sender authority. Этап 04 реализовал Pending/controls/results, `RevisionReducer`/`RevisionApplyEngine`, `RevisionClusterRecovery`, bounded replication и streaming snapshot. Ранний 05.1 реализовал `IAcceptedAccountReader` и `AcceptedAdministratorAccessPolicy`. Admission/trust/activation/delivery proof остаются закрытыми до controlled enable; renewal/attempt decisions подключены в 07; общий вход/сессии и account commands реализованы в 05.2–05.4; monitoring capture/сведение/incidents подключены в 06 за readiness gates; delivery worker подключён в 07 за теми же gates. В enabled-режиме прежние workers, sender, UI и startup DB/bootstrap не выполняются. Схема — [Shared cluster storage.md](Shared%20cluster%20storage.md), порядок старта и протокол — [Cluster runtime.md](Cluster%20runtime.md).
 
 Application получает сведения о текущем пользователе через независимый `IUserAccessContext`, а операции Identity — через `IUserAccountStore`. `IAdministratorAccessPolicy` единообразно возвращает semantic `Unauthorized`/`Forbidden` для `UserManagementService`, `ObjectAdministrationService` и `NotificationAdministrationService`; каждый use case вызывает policy до I/O. В cluster mode policy читает принятый аккаунт по UserId, а не claims активности/роли. Reducer повторяет проверку на позиции принятия, membership — после drain, test-send — после чтения чата перед sender. Ожидаемые ошибки сценариев описываются `ServiceResult` и переводятся в HTTP-статусы только в Web.
 

@@ -13,7 +13,7 @@
 | Локальные DLL, зависимости и обновление | [Libraries.md](Libraries.md) |
 | Миграции и startup backup | [Database migrations.md](Database%20migrations.md) |
 | Endpoint-проверки и monitoring worker | [Monitoring.md](Monitoring.md) |
-| Telegram и durable outbox | [Notifications.md](Notifications.md) |
+| Telegram, accepted delivery ledger и локальный outbox | [Notifications.md](Notifications.md) |
 | Razor Pages, API, TypeScript и SignalR | [Web application.md](Web%20application.md) |
 | Внешняя конфигурация и секреты | [Configuration.md](Configuration.md) |
 | Сборки, тесты и пределы доказательств | [Testing.md](Testing.md) |

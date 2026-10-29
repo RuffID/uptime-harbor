@@ -1,5 +1,8 @@
 # Cluster infrastructure
 
+- AcceptedDeliveryDispatcher восстанавливает очередь из accepted image, затем использует SenderAuthorityGate и принятый BeginDelivery перед transport. Локальный outbox/claim не даёт права отправки. Все initial/retry/recovery/summary/test проходят этот путь; неизвестный proof остаётся закрытым.
+- Результат транспорта сохранять локальным DeliveryResultUnitOfWork и передавать существующим revision transport, независимо от отменённого leadership token. Неопределённая попытка допускает bounded retry и поздний success; SQL capture не является accepted success. Ошибка отдельного чата не запускает resign.
+
 - Monitoring pump передаёт bounded durable captures существующим revision transport, ACK читает только из accepted frontier. Coordinator обрабатывает historical watermark до live с ротацией/бюджетом; backlog planning требует независимо подтверждённой delivery history.
 - PeerObservationCapture сохраняет аутентифицированный NodeId и только известную причину; timeout не означает remote DB fault. Snapshot/recovery сверяют monitoring rows и admitted NodeId/storage generation с ClusterMember до открытия доступа.
 - Pump/coordinator, требующие Web transport/dispatcher, регистрируются в AddClusterWeb; scoped capture — вместе с persistence UoW. Не добавлять отсутствующие зависимости в самостоятельный AddClusterInfrastructure.

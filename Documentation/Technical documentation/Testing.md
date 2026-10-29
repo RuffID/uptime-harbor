@@ -1,5 +1,45 @@
 # Тестирование
 
+## Проверка этапа 07
+
+Статическая проверка: 94 новых/изменённых файла проверены строгим UTF-8 decoder; нет U+FFFD, последовательностей из четырёх знаков вопроса и обнаруженных признаков mojibake. Исходные LF/CRLF и BOM сохранены без массовой нормализации; новые/изменённые C# файлы меньше 20000 байт. Проверены Markdown-документы (81) и файловые ссылки (782), битых ссылок/отсутствующих solution items/не включённых документов нет. 29 документов завершённых этапов 01–06 и 19 документов 08–10 побайтово совпадают с исходным снимком задачи. Новых документов нет; solution items не менялись.
+
+2026-10-29 выполнены 07.1–07.4 в согласованном минимальном порядке этапа 10; самостоятельный 10 не начинался. Четыре production-проекта собраны отдельно последовательно в Debug без restore: 0 предупреждений/ошибок. Web compile-check выполнил существующий TypeScript target без host. Сборки и test builds общих проектов не выполнялись параллельно.
+
+| Набор | Успешно | Ошибки | Пропуски |
+| --- | --- | --- | --- |
+| Domain, весь изолированный проект | 36 | 0 | 0 |
+| Application, весь изолированный проект | 200 | 0 | 0 |
+| Infrastructure, только перечисленные классы | 165 | 0 | 0 |
+| Web, только перечисленные классы | 55 | 0 | 0 |
+
+Всего 456 успешных тестов; результаты 399 тестов этапа 06 ниже сохранены как история, в этот итог не суммируются. Полный Infrastructure-набор и provider tests не запускались.
+
+Фактические финальные команды из корня репозитория:
+
+```powershell
+dotnet build .\UptimeHarbor.Domain\UptimeHarbor.Domain.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\domain\
+dotnet build .\UptimeHarbor.Application\UptimeHarbor.Application.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\application\
+dotnet build .\UptimeHarbor.Infrastructure\UptimeHarbor.Infrastructure.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\infrastructure\
+dotnet build .\UptimeHarbor.Web\UptimeHarbor.Web.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\web\
+dotnet test --project .\tests\UptimeHarbor.Domain.Tests\UptimeHarbor.Domain.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\domain-tests\
+dotnet test --project .\tests\UptimeHarbor.Application.Tests\UptimeHarbor.Application.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\application-tests\
+dotnet test --project .\tests\UptimeHarbor.Infrastructure.Tests\UptimeHarbor.Infrastructure.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\infrastructure-tests\ -- --filter-class UptimeHarbor.Tests.Infrastructure.Identity.AcceptedSignInTests --filter-class UptimeHarbor.Tests.Infrastructure.Identity.AcceptedCookieTests --filter-class UptimeHarbor.Tests.Infrastructure.Identity.AccountBootstrapTests --filter-class UptimeHarbor.Tests.Infrastructure.Cluster.* --filter-class UptimeHarbor.Tests.Infrastructure.Persistence.ProjectionTransactionTests --filter-class UptimeHarbor.Tests.Infrastructure.Persistence.SharedStorageModelTests --filter-class UptimeHarbor.Tests.Infrastructure.Persistence.SharedStorageMigrationTests --filter-class UptimeHarbor.Tests.Infrastructure.Persistence.SharedStorageRegistrationTests --filter-class UptimeHarbor.Tests.Infrastructure.Monitoring.HttpMonitoringEndpointCheckerTests --filter-class UptimeHarbor.Tests.Infrastructure.Monitoring.MonitoringCycleRunnerTests --filter-class UptimeHarbor.Tests.Infrastructure.Telegram.TelegramHttpNotificationSenderTests
+dotnet test --project .\tests\UptimeHarbor.Web.Tests\UptimeHarbor.Web.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\web-tests\ -- --filter-class UptimeHarbor.Tests.Web.Cluster.* --filter-class UptimeHarbor.Tests.Web.DependencyInjection.* --filter-class UptimeHarbor.Tests.Web.AdminUsersControllerAuthorizationTests --filter-class UptimeHarbor.Tests.Web.AdminNotificationsControllerAuthorizationTests --filter-class UptimeHarbor.Tests.Web.ReadContractSecurityTests --filter-class UptimeHarbor.Tests.Web.WebPerimeterSecurityTests --filter-class UptimeHarbor.Tests.Web.DashboardSignalRTests
+```
+
+DeliveryLedgerTests/Monitoring tests вызывают production reducer/projection: непрерывные реальные attempts, stable keys и binding generation/rebind, NodeId routes, известный success/replay, retry_after и terminal exhaustion, ambiguous старую попытку после failover и поздний success, отмены delete/disable/endpoint/reset, recovery entitlement только уведомлённым чатам, summary composition и сохранность исходных событий. RecoveryMessage-проверка различает partial/full и metadata по узлам. Configuration reset проверяется как принятая смена CheckGeneration с параметрами; отдельного UI reset этапа 08 не добавлено.
+
+AcceptedDeliveryTests вызывает production dispatcher, gate, DeliverySenderConsensus, RevisionDispatcher и reducer с изолированными storage/time/Telegram doubles. Проверены восстановление очереди без локального outbox/сессии, потеря majority до transport, term после claim, process pause, unknown recovery/delivery/authority dependencies, повторная авторизация теста после disable, независимость медленного/запрещённого чата, timeout без фиктивного success, внешний success до принятия результата, потерянный ответ локального commit/accepted result, повторная передача capture после restart без повторного transport/success-аудита и настоящий in-flight outage success после unbind/recovered с одним заключительным recovery.
+
+ClusterTestDeliveryTests проходит follower durable Pending → production pump → изолированный transport → leader RevisionDispatcher/reducer → sender. Проверяются доверенный actor/origin, отсутствие отправки на follower и повторная авторизация при отключении до принятия. TelegramHttpNotificationSenderTests использует fake HttpMessageHandler: message_id обязателен для accepted success, retry_after сохраняется без response text/секретов. Это не реальный Telegram вызов.
+
+MonitoringRecoveryTests дополняет настоящий локальный DotNext snapshot/WAL тест commands BeginDelivery/RecordDelivery, duplicate result и reopen/replay: один attempt/evidence, известный success не становится due, полная projection сверяется metadata-only context с закрытым connection. Snapshot/recovery не восстанавливает локальное authority и не открывает delivery readiness. Тест подготовки metadata исправлен для единственной общей роли нескольких аккаунтов, без обхода snapshot uniqueness guard. Composition tests разрешают реальный Web graph, включая sender consensus/worker, без DI цикла и без host/WAL/HTTP. Регрессии production pipeline 04–06, авторизации, session epoch/RecoveryVersion и latched apply fault включены указанными наборами.
+
+Новая migration не требуется; исторические migrations/designer/model snapshot не изменены, обе подготовленные migrations к БД не применялись. Default Disabled сохранён, admission/trust/activation/delivery proof и общие gates не открывались. UI 08, provisioning/fencing/controlled enable 09 и самостоятельный 10 не начаты.
+
+Не запускались БД/SQL, включая SQLite, приложение/hosting, Docker, реальные peers/monitoring endpoints/Telegram, deployment или Git. Fake storage не доказывает SQL transaction semantics/locking; локальный WAL reopen не доказывает power-loss/crash-fsync или живой consensus/сеть; fake sender не доказывает exactly-once; статические/DI tests не являются browser acceptance. Полный стенд, нагрузка и тест для каждой строки матрицы не проводились. Часовая цель догона трёх узлов/около 30 приложений остаётся целью отдельного наблюдения.
+
 ## Проверка этапа 06
 
 Финальная статическая проверка: 101 новый/изменённый файл проверен строгим UTF-8 decoder, без U+FFFD и обнаруженных признаков mojibake; сохранены исходные LF/CRLF, массовой нормализации нет. Все новые/изменённые C# файлы меньше 20000 байт. Проверены 81 Markdown-документ и 763 файловые ссылки: битых ссылок, отсутствующих solution items и не включённых документов нет. 24 документа завершённых этапов 01–05 побайтово совпадают с исходным снимком задачи; этапы 07–10 не менялись. Новые документы не добавлялись, поэтому изменения solution items не потребовались.
@@ -269,7 +309,7 @@ dotnet test --project .\tests\UptimeHarbor.Web.Tests\UptimeHarbor.Web.Tests.cspr
 
 ## Проверка этапа 05
 
-Статическая финальная проверка: 81 Markdown-документ без битых файловых ссылок, все documentation solution items существуют и включены; новые документы не добавлялись. 96 новых/изменённых файлов проверены строгим UTF-8 decoder, без U+FFFD, `????` и обнаруженных признаков mojibake. Новые/изменённые `.cs` меньше 20000 байт. Существующие смешанные окончания строк не нормализовались массово; несвязанные файлы и история 01–04/05.1 не менялись.
+Статическая финальная проверка: 81 Markdown-документ без битых файловых ссылок, все documentation solution items существуют и включены; новые документы не добавлялись. 96 новых/изменённых файлов проверены строгим UTF-8 decoder, без U+FFFD, последовательностей из четырёх знаков вопроса и обнаруженных признаков mojibake. Новые/изменённые `.cs` меньше 20000 байт. Существующие смешанные окончания строк не нормализовались массово; несвязанные файлы и история 01–04/05.1 не менялись.
 
 Регрессия recovery-version сначала воспроизвела дефект: успешная проверка, начатая до нового Invalidate, повторно открывала reader. Production store/apply теперь сравнивают RecoveryVersion начала проверки под общей границей публикации; устаревший успех отвергается. Локальный session epoch включает эту версию и не зависит от порядка доставки Changed. Финальный AccountSessionTests включает эту проверку.
 

@@ -1,5 +1,13 @@
 # Связь узлов, Raft и готовность
 
+## Sender lifecycle этапа 07
+
+Web регистрирует production DeliverySenderConsensus, AcceptedDeliveryDispatcher и ClusterDeliveryWorker рядом с существующим журналом. Самостоятельный AddClusterInfrastructure сохраняет UnavailableSenderConsensus до сборки Web graph. ClusterRaftHandle хранит текущий native экземпляр для writer, устраняя цикл runtime → gate → dispatcher → writer → runtime; наличие handle не означает readiness.
+
+Worker ничего не делает в Disabled. Enabled сначала проверяет восстановленную очередь по accepted image, затем независимо обновляет authority примерно раз в 5 секунд и запускает dispatcher. Перед transport повторяются проверки SenderAuthorityGate, RecoveryVersion, cancellation и текущего intent/configuration; неизвестные условия закрывают gate. Реальные renewal/attempt решения принимаются существующим DotNext writer, а transport results передаются через тот же revision transport.
+
+RevisionClusterRecovery по-прежнему не подтверждает activation/manual enable/sender epoch/delivery proof. Provisioning/fencing/controlled enable остаются 09, общий gate ради изолированных тестов не открыт. [Контракт доставки](Notifications.md#принятая-доставка-этапа-07), [проверки](Testing.md#проверка-этапа-07).
+
 ## Monitoring reconciliation (06)
 
 `ObservationReplicationPump` и `MonitoringCoordinator` используют существующие RevisionDispatcher/transport/DotNext apply. Первый передаёт durable capture по принятому sequence ACK; второй допускается только локальным текущим leader с актуальным term и uncancelled leadership/consensus tokens после recovery/catch-up. История до watermark обрабатывается bounded и с ротацией целей, затем принимается live evaluation и состав backlog. DeliveryStateConfirmed проверяется отдельно до summary planning; неизвестный порт не заменяется Ready.
@@ -8,11 +16,11 @@
 
 `ClusterMonitoringWorker` зарегистрирован в Web composition root; cycle/capture имеют инфраструктурные scoped границы. Peer health включает безопасный MonitoringProgress без payload. Capture не требует главного, рабочие checks требуют CanWork и сохраняют RecoveryVersion. Успешный CanConnect или replay без ConfirmRecovery не снимает latched apply fault. Disabled завершает новый worker без действий. Общие activation/browser/sender gates остаются закрытыми; детали — [Monitoring.md](Monitoring.md#распределённый-путь-этапа-06).
 
-## Реализованная граница этапов 03–06
+## Реализованная граница этапов 03–07
 
 `Application/Cluster` содержит независимые recovery/accepted-state/trust/consensus контракты, readiness, membership coordinator, окно подтверждённой готовности главного и sender gate. `Infrastructure/Cluster` содержит DotNext adapter, state machine boundary, защиту дискового состояния, mTLS/envelope/replay и probes. `Web/Cluster` управляет отдельным peer-периметром и жизненным циклом DotNext.
 
-Этап 04 подключил `RevisionClusterRecovery`, production reducer, SQL apply/replay, очередь Pending и streaming snapshot; 05.1 — чтение принятого аккаунта и active Administrator policy. 05.2–05.4 подключили общий sign-in/сессии и команды аккаунтов; 06 подключил monitoring capture/reducer/coordinator; delivery worker остаётся 07; UI и включение — 08/09. По умолчанию `UnavailableRecoveryAdmission`, `UnavailablePeerTrustSource`, `UnavailableClusterAdministrationState` и `UnavailableSenderConsensus` ничего не подтверждают. Admission требует настоящих identity/fencing/checkpoint доказательств до создания WAL; с текущими закрытыми портами enabled-конфигурация Raft не запускает.
+Этап 04 подключил `RevisionClusterRecovery`, production reducer, SQL apply/replay, очередь Pending и streaming snapshot; 05.1 — чтение принятого аккаунта и active Administrator policy. 05.2–05.4 подключили общий sign-in/сессии и команды аккаунтов; 06 подключил monitoring capture/reducer/coordinator; delivery worker подключён в 07; UI и включение — 08/09. По умолчанию `UnavailableRecoveryAdmission`, `UnavailablePeerTrustSource`, `UnavailableClusterAdministrationState` ничего не подтверждают. Web graph использует DeliverySenderConsensus, самостоятельный Infrastructure module сохраняет UnavailableSenderConsensus. Admission требует настоящих identity/fencing/checkpoint доказательств до создания WAL; с текущими закрытыми портами enabled-конфигурация Raft не запускает.
 
 `Disabled` сохраняет однопроцессное поведение. Любой enabled-режим не регистрирует прежние monitoring/outbox workers, блокирует прежний `INotificationSender` и browser endpoints, пропускает только peer-perimeter. Legacy startup migrations/bootstrap тоже пропускаются: создание БД/первого аккаунта не подменяет восстановление сетки. Наличие классов этапа 03 не разрешает controlled enable.
 
@@ -59,7 +67,7 @@ Apply fault в state machine сохраняется отдельно от connec
 
 Таймеры DotNext: election 30000–36000 мс, HeartbeatThreshold=1/6, RPC 3 с, request 10 с, AggressiveLeaderStickiness=true, встроенная lease выключена. Health polls — 5 с. Последнее подтверждение готовности обновляет только свежий matching ready proof текущего лидера. Без успеха 30 с одно и то же подтверждённое большинство инициирует relinquish и блокирует старые RPC лидера этого term; дальше выбирает DotNext. Неуспешные проверки окно не сдвигают. При известной собственной неисправности gate закрывается и лидер resign немедленно. Это не норматив срока избрания/восстановления.
 
-`SenderAuthorityGate` требует текущие cluster/generation/term/membership/sender epoch, leader и consensus cancellation tokens, accepted account/snapshot/catch-up/activation/manual enable/delivery state и свежую readiness. Ни Leader, ни локальная lease сами по себе недостаточны. После смены роли/epoch/состава — drain 12 с; renewal с уникальным round должен быть принят/применён, срок считается от начала запроса и не превышает 10 с. Следующий этап обязан обновлять authority примерно раз в 5 с. BeginAttempt тоже требует принятого applied результата, а финальная проверка выполняется не позднее 2 с от начала. Потеря условий закрывает новые попытки и отменяет in-flight scopes best effort; внешняя отправка не атомарна с отменой.
+`SenderAuthorityGate` требует текущие cluster/generation/term/membership/sender epoch, leader и consensus cancellation tokens, accepted account/snapshot/catch-up/activation/manual enable/delivery state и свежую readiness. Ни Leader, ни локальная lease сами по себе недостаточны. После смены роли/epoch/состава — drain 12 с; renewal с уникальным round должен быть принят/применён, срок считается от начала запроса и не превышает 10 с. ClusterDeliveryWorker обновляет authority примерно раз в 5 с. BeginAttempt тоже требует принятого applied результата, а финальная проверка выполняется не позднее 2 с от начала. Потеря условий закрывает новые попытки и отменяет in-flight scopes best effort; внешняя отправка не атомарна с отменой.
 
 Monotonic watchdog проверяется каждую секунду; pause более 5 с или wall-clock drift более 2 с закрывает gate, clock fault требует сверки/перезапуска и повторного recovery. Обнаружение скачков не доказывает внешнюю синхронизацию часов и предел относительной скорости 1.1 из протокола. Authority не сохраняется в snapshot/SQL. Renewal worker и transport распределённой доставки ещё не подключены: реальные отправки остаются закрытыми.
 

@@ -90,13 +90,15 @@ public class MonitoringScenario : RevisionScenario
     public void ConfirmProblem(Guid chatId)
     {
         MonitoringIntent intent = State.Monitoring.Intents.Values.First(item => item.ChatId == chatId && item.Kind == DeliveryKind.Problem);
-        MonitoringDeliveryEvidence evidence = new(intent.Id, Guid.NewGuid(), State.Index, State.Term,
-            1, A, Guid.NewGuid(), Start.AddSeconds(180), Start.AddSeconds(181), 12345);
-        MonitoringRecipients.AcceptedAttempt(State, evidence);
-        State = State with { Monitoring = State.Monitoring with
+        SenderAuthorityKey key = new(State.ClusterId, State.Generation, 1, State.Term, A, Guid.NewGuid());
+        Guid attempt = DeliveryCommands.AttemptId(intent.Id, 1);
+        DateTimeOffset at = State.Monitoring.Events[intent.EventId!.Value].AtUtc.AddSeconds(1);
+        Accept(DeliveryCommands.Create(State, A, State.Monitoring.Nodes[A], "BeginDelivery", intent.Id,
+            Guid.NewGuid(), at, new DeliveryCommand { Authority = key, AttemptId = attempt }), State.Term);
+        Accept(DeliveryCommands.Create(State, A, State.Monitoring.Nodes[A], "RecordDelivery", intent.Id,
+            Guid.NewGuid(), at.AddSeconds(1), new DeliveryCommand
         {
-            ConfirmedDeliveries = State.Monitoring.ConfirmedDeliveries.Add(intent.Id, evidence),
-            Intents = State.Monitoring.Intents.SetItem(intent.Id, intent with { State = DeliveryState.Succeeded, CompletedAtUtc = evidence.SucceededAtUtc })
-        } };
+            AttemptId = attempt, Outcome = AttemptOutcome.Succeeded, CompletedAtUtc = at.AddSeconds(1), TelegramMessageId = 12345
+        }, transport: true), State.Term);
     }
 }

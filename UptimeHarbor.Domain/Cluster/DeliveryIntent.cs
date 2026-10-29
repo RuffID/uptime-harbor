@@ -60,6 +60,51 @@ public class DeliveryIntent : ProjectionRecord
         NextAttemptAtUtc = null;
     }
 
+    /// <summary>Восстанавливает проекцию из полной истории реальных принятых попыток.</summary>
+    public void RestoreAttempts(IReadOnlyList<DeliveryAttempt> history, DeliveryState state,
+        DateTimeOffset? nextAttemptAtUtc, DateTimeOffset? completedAtUtc, Guid? summaryId)
+    {
+        if (State != DeliveryState.Planned || AttemptCount != 0 || history.Count is < 1 or > 5)
+        {
+            throw new InvalidOperationException("Invalid delivery restoration.");
+        }
+
+        DeliveryAttempt[] ordered = history.OrderBy(item => item.Number).ToArray();
+        if (ordered.Any(item => item.IntentId != Id) || !ordered.Select(item => item.Number).SequenceEqual(Enumerable.Range(1, ordered.Length)))
+        {
+            throw new InvalidOperationException("Incomplete accepted attempt history.");
+        }
+
+        DeliveryAttempt latest = ordered[^1];
+        bool succeeded = ordered.Any(item => item.Outcome == AttemptOutcome.Succeeded);
+        bool terminal = state is DeliveryState.Succeeded or DeliveryState.Failed or DeliveryState.Cancelled;
+        if (!Enum.IsDefined(state) || succeeded != (state == DeliveryState.Succeeded)
+            || terminal != completedAtUtc.HasValue || (state == DeliveryState.RetryDue) != nextAttemptAtUtc.HasValue
+            || state == DeliveryState.AttemptStarted && latest.Outcome != AttemptOutcome.Unknown
+            || state != DeliveryState.Succeeded && state != DeliveryState.AttemptStarted && latest.Outcome == AttemptOutcome.Unknown
+            || (state == DeliveryState.SuppressedBySummary) != summaryId.HasValue)
+        {
+            throw new InvalidOperationException("Accepted delivery state does not match attempts.");
+        }
+
+        if (completedAtUtc.HasValue)
+        {
+            StorageGuards.Utc(completedAtUtc.Value);
+        }
+
+        if (nextAttemptAtUtc.HasValue)
+        {
+            StorageGuards.Utc(nextAttemptAtUtc.Value);
+        }
+
+        State = state;
+        AttemptCount = ordered.Length;
+        ActiveAttemptId = latest.Id;
+        NextAttemptAtUtc = nextAttemptAtUtc;
+        CompletedAtUtc = completedAtUtc;
+        SummaryId = summaryId;
+    }
+
     public void RecordResult(Guid attemptId, bool succeeded, DateTimeOffset completedAtUtc,
         DateTimeOffset? nextAttemptAtUtc)
     {

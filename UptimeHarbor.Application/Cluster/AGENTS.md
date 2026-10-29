@@ -2,7 +2,8 @@
 
 - Monitoring-команды имеют отдельный закрытый SystemSource и admitted NodeId/storage generation; не подставлять Administrator. Coordinator требует реальный локальный leader/term/catch-up, пользовательские команды сохраняют прежнюю авторизацию.
 - Capture/sequence — одна локальная транзакция через существующий UoW и singleton gate. Reducer принимает raw facts/frontiers, сводит availability отдельно от coverage и создаёт incident/event/intents одним write set; clock/gap/stale evidence не доказывает outage/recovery.
-- Recovery получателей требует настоящего accepted delivery evidence. Состав summaries durable, исходные events/intents сохраняются; producer attempts/dispatcher принадлежат 07. Аудит подтверждённого перехода выполняется dispatcher после apply, повтор результата/replay не пишет новый успех.
+- DeliveryReducer принимает RenewSender/BeginDelivery/RecordDelivery/AbandonDelivery тем же журналом, с internal provenance и admitted storage generation. DeliveryProjection восстанавливает счётчик только из настоящей непрерывной истории attempts; не создавать синтетические BeginAttempt или success.
+- Recovery получателей требует настоящего accepted delivery evidence, включая поздний success после unbind. Состав summaries durable, исходные events/intents сохраняются. Известный успех и terminal exhaustion не перезапускаются; аудит выполняется после apply без повторного success при replay.
 
 - Независимые контракты consensus, принятого доверия/аккаунта и восстановления не содержат DotNext, EF или ASP.NET Core.
 - Readiness, роль Raft и authority отправителя различаются. Неизвестные snapshot, accepted account state, догон или результат majority держат gate закрытым.
