@@ -4,7 +4,7 @@
 
 Persistence реализован в `UptimeHarbor.Infrastructure` на EF Core с провайдером Microsoft SQL Server. `UptimeHarbor.Application` содержит только контекстно-независимые интерфейсы.
 
-`UptimeHarborDbContext` наследует Identity DbContext с ключом `Guid` и одновременно реализует контекст хранения ключей Data Protection. В модель входят объекты мониторинга, permissions, Telegram-чаты, notification bindings с per-binding состоянием доставки текущего инцидента и durable notification outbox.
+`UptimeHarborDbContext` наследует Identity DbContext с ключом `Guid` и одновременно реализует контекст хранения ключей Data Protection. В модель входят объекты мониторинга, Telegram-чаты/bindings, прежний локальный outbox и storage общих данных сетки. Ресурсные назначения исключены. Таблицы/контракты нового хранения и границы будущих workers описаны в [Shared cluster storage.md](Shared%20cluster%20storage.md).
 
 ## EF-конфигурации
 
@@ -16,8 +16,8 @@ Persistence реализован в `UptimeHarbor.Infrastructure` на EF Core �
 - строковое хранение статуса и check constraints допустимых значений;
 - обязательные ключи и `ValueGeneratedNever` для идентификаторов приложения;
 - длины строк, индексы и уникальность связей;
-- nullable связь контейнера с сервером с `NoAction`: удаление сервера явно снимает связи и container permissions в одной транзакции, сохраняя контейнеры и их notification bindings;
-- составные ключи permissions, FK container permission → server permission и отдельный FK → container ID; Application и read queries проверяют соответствие scope права текущему серверу;
+- nullable связь контейнера с сервером с `NoAction`: удаление сервера явно снимает связи в одной транзакции, сохраняя контейнеры и их notification bindings;
+- отсутствие таблиц permissions; прежние контракты cleanup не выполняют SQL, создание назначений отклоняется;
 - правило notification binding «ровно один target»;
 - хранение времён как UTC в столбцах SQL Server `datetime2`;
 - явный `Version` серверов и контейнеров как concurrency token;
@@ -27,7 +27,7 @@ Persistence реализован в `UptimeHarbor.Infrastructure` на EF Core �
 
 `UtcDateTimeOffsetConverter` преобразует `DateTimeOffset` в UTC `DateTime` провайдера и восстанавливает нулевое смещение при чтении.
 
-`ObjectAdministrationService` сохраняет настройки сервера и `ContainerLinkUpdate` одним commit. В запросе проверяются версии всех переданных контейнеров и полнота текущих связей; контейнер другого сервера через этот список не захватывается. Изменение/снятие связи удаляет прежние permissions и увеличивает версии контейнера и обоих затронутых серверов. Это защищает stale-редакторы и удаление сервера от конкурентного переноса.
+`ObjectAdministrationService` сохраняет настройки сервера и `ContainerLinkUpdate` одним commit. Проверяются версии всех переданных контейнеров и полнота текущих связей; контейнер другого сервера через этот список не захватывается. Изменение/снятие связи увеличивает версии контейнера и обоих затронутых серверов. Прежний вызов cleanup permissions оставлен для совместимости и не обращается к удалённым таблицам.
 
 ## EFCoreLibrary
 
@@ -37,7 +37,7 @@ Persistence реализован в `UptimeHarbor.Infrastructure` на EF Core �
 
 Все внешние списковые read-методы Application repositories возвращают `Task<IReadOnlyList<T>>`. Infrastructure по-прежнему materialize-ит запросы в конкретные `List<T>` через базовые list operations или `ToListAsync`; изменяемый тип не выходит через контракт. Запросы чтения выполняются no-tracking, запрос объекта для последующего изменения остаётся tracked. `IQueryable` не выходит из Infrastructure.
 
-`DashboardSnapshotReadQuery` отдельно проецирует server/container dashboard records без endpoint URL и permission IDs текущего пользователя. Для сервера проекция содержит заданное администратором имя и отдельно последнее внутреннее имя из endpoint. `MonitoringRecipientReadQuery` отдельно materialize-ит users с ролью Administrator и пакетные permission ID обычных пользователей: один server-permission query и, только для container event, один container-permission query. Оба контракта находятся в Application, реализации — в Infrastructure; EF entities, provider-типы и `IQueryable` наружу не выходят.
+`DashboardSnapshotReadQuery` проецирует server/container records без endpoint URL: администратору доступны все, неадминистративный compatibility-вызов получает пустой набор. `MonitoringRecipientReadQuery` materialize-ит пользователей/роль одним запросом, без permissions и N+1. Контракты Application и legacy visibility policy сохранены до этапа 05; EF entities, provider-типы и `IQueryable` наружу не выходят.
 
 Для начала каждого monitoring cycle `GetEnabledAsync` фильтрует включённые серверы и контейнеры в БД и возвращает materialized no-tracking snapshot. Результат каждой параллельной проверки записывается в отдельном DI scope: объект повторно загружается tracked и сохраняется через scoped `IMonitoringUnitOfWork`.
 
@@ -57,24 +57,27 @@ Application определяет общий `IUnitOfWorkScope` только с `
 - `IObjectAdministrationUnitOfWork`;
 - `IVisibilitySettingsUnitOfWork`;
 - `INotificationSettingsUnitOfWork`.
+- `IProjectionApplyUnitOfWork`, `IPendingControlUnitOfWork`, `IObservationCaptureUnitOfWork`, `IDeliveryResultUnitOfWork` — независимые транзакционные границы общего storage и локального capture.
 
 Infrastructure использует одну scoped-сессию `IUptimeHarborDbContextSession`. `UptimeHarborDbUnitOfWork` реализует сохранение и транзакцию, а сценарные классы добавляют только нужные репозитории.
 
-`IObjectAdministrationUnitOfWork` раскрывает серверы и контейнеры, снятие container permissions и отдельную предметную операцию отмены recovery. Отключение мониторинга или смена endpoint атомарно фиксирует сброс объекта и отмену незавершённых recovery jobs прежнего incident. Отмена выполняется условным update существующих `PayloadJson`/`CompletedAtUtc`, сохраняет job и явную диагностическую причину и не меняет схему. Повторная отмена безопасна. Удаление сервера выполняется транзакционно после повторной проверки подтверждённого количества контейнеров: контейнеры отвязываются от сервера, прежние container permissions снимаются, сами контейнеры и их notification bindings сохраняются. Связь server → containers использует `NoAction`, чтобы схема SQL Server не содержала запрещённых multiple cascade paths.
+`IObjectAdministrationUnitOfWork` сохраняет серверы/контейнеры и отдельную предметную отмену recovery. Отключение мониторинга или смена endpoint атомарно фиксирует сброс объекта и отмену незавершённых прежних recovery jobs. Удаление сервера после проверки количества контейнеров отвязывает их, сохраняя контейнеры и bindings. Связь server → containers использует `NoAction`; метод cleanup permissions оставлен как совместимость без хранения.
 
 Транзакционный вызов открывает транзакцию, выполняет действие, один раз сохраняет изменения и делает commit. При исключении выполняется rollback, после чего исходное исключение передаётся вызывающему коду; отдельная ошибка rollback сохраняется в `Exception.Data` и не заменяет первопричину.
 
-Identity store использует тот же scoped `UptimeHarborDbContext`, что позволяет удалению пользователя и его permissions выполняться внутри сценарной транзакции видимости без глобального Unit of Work.
+Identity использует тот же scoped `UptimeHarborDbContext`. Новый projection adapter переносит account/роль/версию без UserManager autocommit и сохраняет их с cursor одной транзакцией. Прежние пользовательские use case пока не переключены на журнал; общий вход остаётся этапом 05.
 
 `IMonitoringUnitOfWork` атомарно сохраняет состояние объекта и outage/recovery outbox job. Отдельный dispatcher claim-ит due jobs коротким lease. Непосредственно перед sender он условно захватывает активную строку job в транзакции и удерживает её до terminal/retry update: это сериализует отправку с административной отменой. Подготовка списка Telegram-доставок выполняет no-tracking чтение привязок. После успешного transport-вызова конкретная привязка повторно загружается tracked и сохраняется через отдельный scope `INotificationSettingsUnitOfWork`, поэтому состояние одного получателя не объединяется с результатом другого.
 
 ## Миграции
 
-Для необязательного родителя создана migration `20261018104849_MakeContainerServerOptional`: удаляются составной FK permission → (ServerId, Id) и соответствующий alternate key контейнера, ServerId становится nullable, создаются обычный server index и FK permission → ContainerId. Существующие связи и данные сохраняются; designer и snapshot соответствуют текущей модели. Down требует предварительно связать контейнеры с null ServerId с существующими серверами: сгенерированный default Guid.Empty удалён по прямому разрешению пользователя, автоматического удаления данных нет. Миграция к БД не применялась.
+Для этапа 02 создана `20261029053354_AddSharedClusterStorage` с designer и обновлённым snapshot: новые storage-таблицы, ревизии и аккаунтные поля, исключение resource assignments. Предыдущие migrations сохранены. Snapshot соответствует текущей SQL Server design-time модели по изолированному model-diff тесту; реального применения/отката не было. Новая схема рассчитана на первый запуск без v1/backfill. Полная запись — [Database migrations.md](Database%20migrations.md).
+
+Для необязательного родителя создана migration `20261018104849_MakeContainerServerOptional`: удаляются составной FK permission → (ServerId, Id) и соответствующий alternate key контейнера, ServerId становится nullable, создаются обычный server index и FK permission → ContainerId. Существующие связи и данные сохраняются; designer фиксирует модель того этапа, текущий snapshot уже включает `AddSharedClusterStorage`. Down требует предварительно связать контейнеры с null ServerId с существующими серверами: сгенерированный default Guid.Empty удалён по прямому разрешению пользователя, автоматического удаления данных нет. Миграция к БД не применялась.
 
 
 Pending migrations применяются автоматически при старте единственного Web-процесса после проверки подключения и успешного SQL Server backup. Миграции завершаются до Identity bootstrap; ошибка останавливает запуск. Порядок создания и применения описан в [Database migrations.md](Database%20migrations.md).
 
 Для design-time scaffolding используется `UptimeHarborDesignTimeDbContextFactory`. Она настраивает провайдер SQL Server без строки подключения: построение модели и генерация миграции не требуют секрета и не открывают соединение с БД.
 
-Прежняя цепочка PostgreSQL-миграций удалена как несовместимая с новым провайдером. Создана новая baseline-миграция SQL Server `20260831015604_InitialSqlServerSchema`; она включает текущую модель целиком, включая Identity, Data Protection, concurrency columns и durable outbox. Recovery cancellation повторно использует существующие outbox columns и новой миграции не требует. Baseline не применялась и SQL Server runtime-поведение транзакционного gate/unique classifier не проверялось в этой задаче.
+Прежняя цепочка PostgreSQL-миграций удалена как несовместимая с новым провайдером. Baseline SQL Server `20260831015604_InitialSqlServerSchema` фиксирует исходную модель, включая Identity, Data Protection, concurrency columns и durable outbox; дальнейшие изменения добавлены отдельными migrations. Recovery cancellation повторно использует существующие outbox columns и новой миграции не требует. Baseline не применялась и SQL Server runtime-поведение транзакционного gate/unique classifier не проверялось в этой задаче.

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using UptimeHarbor.Domain.Access;
+using UptimeHarbor.Domain.Cluster;
 using UptimeHarbor.Domain.Monitoring;
 using UptimeHarbor.Domain.Notifications;
 using UptimeHarbor.Infrastructure.Identity;
@@ -49,7 +50,23 @@ public class UptimeHarborDbContext(
         builder.Entity<IdentityUserRole<Guid>>().ToTable("user_roles");
         builder.Entity<DataProtectionKey>().ToTable("data_protection_keys");
         builder.Ignore<MonitoredObject>();
+        builder.Ignore<ProjectionRecord>();
 
         builder.ApplyConfigurationsFromAssembly(typeof(UptimeHarborDbContext).Assembly);
+
+        // До этапа 05 остаются контракты совместимости; целевого хранения ресурсных назначений нет.
+        builder.Ignore<ServerVisibilityPermission>();
+        builder.Ignore<ContainerVisibilityPermission>();
+
+        if (Database.IsSqlServer())
+        {
+            builder.Entity<ApplicationUser>().Property(user => user.NormalizedUserName)
+                .UseCollation("Latin1_General_100_BIN2");
+            builder.Entity<ApplicationRole>().Property(role => role.NormalizedName)
+                .UseCollation("Latin1_General_100_BIN2");
+        }
+
+        builder.Entity<ApplicationRole>().ToTable("roles", table => table.HasCheckConstraint(
+            "ck_roles_administrator", "[Name] = 'Administrator' AND [NormalizedName] = 'ADMINISTRATOR'"));
     }
 }

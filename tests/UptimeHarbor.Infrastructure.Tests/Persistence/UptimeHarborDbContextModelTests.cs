@@ -74,37 +74,16 @@ public class UptimeHarborDbContextModelTests
     [Fact]
     public void Model_ConfiguresSqlServerCompatibleDeleteBehaviors()
     {
+        // Arrange
         using UptimeHarborDbContext context = CreateContext();
+
+        // Act
         IEntityType containerType = context.Model.FindEntityType(typeof(MonitoredContainer))!;
-        IEntityType serverPermissionType = context.Model.FindEntityType(typeof(ServerVisibilityPermission))!;
-        IEntityType containerPermissionType = context.Model.FindEntityType(typeof(ContainerVisibilityPermission))!;
-        IEntityType notificationBindingType = context.Model.FindEntityType(typeof(NotificationBinding))!;
+        IEntityType bindingType = context.Model.FindEntityType(typeof(NotificationBinding))!;
 
-        IForeignKey containerServerForeignKey = Assert.Single(
-            containerType.GetForeignKeys(),
-            foreignKey => foreignKey.PrincipalEntityType.ClrType == typeof(MonitoredServer));
-        IForeignKey containerPermissionServerPermissionForeignKey = Assert.Single(
-            containerPermissionType.GetForeignKeys(),
-            foreignKey => foreignKey.PrincipalEntityType.ClrType == typeof(ServerVisibilityPermission));
-        IForeignKey serverPermissionServerForeignKey = Assert.Single(
-            serverPermissionType.GetForeignKeys(),
-            foreignKey => foreignKey.PrincipalEntityType.ClrType == typeof(MonitoredServer));
-        IForeignKey containerPermissionContainerForeignKey = Assert.Single(
-            containerPermissionType.GetForeignKeys(),
-            foreignKey => foreignKey.PrincipalEntityType.ClrType == typeof(MonitoredContainer));
-        IForeignKey bindingServerForeignKey = Assert.Single(
-            notificationBindingType.GetForeignKeys(),
-            foreignKey => foreignKey.PrincipalEntityType.ClrType == typeof(MonitoredServer));
-        IForeignKey bindingContainerForeignKey = Assert.Single(
-            notificationBindingType.GetForeignKeys(),
-            foreignKey => foreignKey.PrincipalEntityType.ClrType == typeof(MonitoredContainer));
-
-        Assert.Equal(DeleteBehavior.NoAction, containerServerForeignKey.DeleteBehavior);
-        Assert.Equal(DeleteBehavior.Cascade, containerPermissionServerPermissionForeignKey.DeleteBehavior);
-        Assert.Equal(DeleteBehavior.Cascade, serverPermissionServerForeignKey.DeleteBehavior);
-        Assert.Equal(DeleteBehavior.Cascade, containerPermissionContainerForeignKey.DeleteBehavior);
-        Assert.Equal(DeleteBehavior.Cascade, bindingServerForeignKey.DeleteBehavior);
-        Assert.Equal(DeleteBehavior.Cascade, bindingContainerForeignKey.DeleteBehavior);
+        // Assert
+        Assert.Equal(DeleteBehavior.NoAction, Assert.Single(containerType.GetForeignKeys()).DeleteBehavior);
+        Assert.All(bindingType.GetForeignKeys(), key => Assert.Equal(DeleteBehavior.Cascade, key.DeleteBehavior));
     }
 
     [Fact]
@@ -155,18 +134,18 @@ public class UptimeHarborDbContextModelTests
     }
 
     [Fact]
-    public void Model_UsesCompositeKeysForVisibilityPermissions()
+    public void Model_ExcludesResourceAssignments()
     {
+        // Arrange
         using UptimeHarborDbContext context = CreateContext();
-        IEntityType serverPermissionType = context.Model.FindEntityType(typeof(ServerVisibilityPermission))!;
-        IEntityType containerPermissionType = context.Model.FindEntityType(typeof(ContainerVisibilityPermission))!;
 
-        Assert.Equal(
-            [nameof(ServerVisibilityPermission.UserId), nameof(ServerVisibilityPermission.ServerId)],
-            serverPermissionType.FindPrimaryKey()!.Properties.Select(property => property.Name));
-        Assert.Equal(
-            [nameof(ContainerVisibilityPermission.UserId), nameof(ContainerVisibilityPermission.ContainerId)],
-            containerPermissionType.FindPrimaryKey()!.Properties.Select(property => property.Name));
+        // Act
+        IEntityType? serverPermissions = context.Model.FindEntityType(typeof(ServerVisibilityPermission));
+        IEntityType? containerPermissions = context.Model.FindEntityType(typeof(ContainerVisibilityPermission));
+
+        // Assert
+        Assert.Null(serverPermissions);
+        Assert.Null(containerPermissions);
     }
 
     [Fact]
@@ -181,31 +160,18 @@ public class UptimeHarborDbContextModelTests
     }
 
     [Fact]
-    public void Model_AllowsOptionalParentAndKeepsContainerPermissionForeignKeys()
+    public void Model_AllowsOptionalParentWithoutResourceAssignments()
     {
         // Arrange
         using UptimeHarborDbContext context = CreateContext();
 
         // Act
-        IEntityType permissionType = context.Model.FindEntityType(typeof(ContainerVisibilityPermission))!;
         IEntityType containerType = context.Model.FindEntityType(typeof(MonitoredContainer))!;
-
-        IForeignKey serverPermissionForeignKey = Assert.Single(
-            permissionType.GetForeignKeys(),
-            foreignKey => foreignKey.PrincipalEntityType.ClrType == typeof(ServerVisibilityPermission));
-        IForeignKey containerForeignKey = Assert.Single(
-            permissionType.GetForeignKeys(),
-            foreignKey => foreignKey.PrincipalEntityType.ClrType == typeof(MonitoredContainer));
 
         // Assert
         Assert.True(containerType.FindProperty(nameof(MonitoredContainer.ServerId))!.IsNullable);
         Assert.Single(containerType.GetKeys());
-        Assert.Equal(
-            [nameof(ContainerVisibilityPermission.UserId), nameof(ContainerVisibilityPermission.ServerId)],
-            serverPermissionForeignKey.Properties.Select(property => property.Name));
-        Assert.Equal(
-            [nameof(ContainerVisibilityPermission.ContainerId)],
-            containerForeignKey.Properties.Select(property => property.Name));
+        Assert.Null(context.Model.FindEntityType(typeof(ContainerVisibilityPermission)));
     }
 
     [Fact]

@@ -1,7 +1,7 @@
 # Материализованные read queries
 
-`DashboardSnapshotReadQuery` проецирует данные панели без endpoint URL. `MonitoringRecipientReadQuery` получает пользователей и роль администратора одним запросом и permissions пакетно.
+`DashboardSnapshotReadQuery` проецирует данные панели без endpoint URL и возвращает все цели администратору. `MonitoringRecipientReadQuery` получает пользователей и роль администратора одним запросом; коллекции прежних permissions пусты.
 
-При чтении container permissions проверять совпадение сохранённого server scope с текущим `MonitoredContainer.ServerId`, чтобы устаревшие права после переноса не открывали объект.
+Ресурсных permissions в целевой модели нет. Не добавлять ACL-запросы для совместимых Application records. `HistoryRetentionQuery` только определяет защиту истории: незавершённая доставка, unknown attempts, recovery entitlement, ссылки сводки и открытая observation assembly; worker очистки здесь отсутствует.
 
 Результаты — независимые Application records, полностью материализованные здесь. Не выпускать `IQueryable` и EF entities за границу; сохранять no-tracking и отсутствие N+1.

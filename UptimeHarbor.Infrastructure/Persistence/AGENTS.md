@@ -8,7 +8,7 @@
 
 - Все репозитории и Unit of Work в одном DI scope используют один `UptimeHarborDbContext`.
 - Модель EF настраивать под защищённую доменную модель, не ослабляя её публичный API.
-- Сохранять ограничения, индексы, каскады и UTC-конвертацию согласованными с доменными правилами. Связь server → containers использует `NoAction`, чтобы SQL Server не создавал multiple cascade paths; сценарий удаления сервера явно отвязывает загруженные контейнеры и снимает их permissions в той же транзакции, сохраняя контейнеры и их Telegram bindings. `ServerId` nullable; alternate key по паре server/container не используется.
+- Сохранять ограничения, индексы, каскады и UTC-конвертацию согласованными с доменными правилами. Связь server → containers использует `NoAction`, чтобы SQL Server не создавал multiple cascade paths; сценарий удаления сервера явно отвязывает загруженные контейнеры в той же транзакции, сохраняя контейнеры и их Telegram bindings. `ServerId` nullable; alternate key по паре server/container не используется. Ресурсные permissions исключены из целевой модели.
 - Существующие миграции вручную не редактировать; новые создаются отдельной командой после изменения модели.
 - Pending migrations автоматически применяются единственным Web-процессом при старте только после успешного SQL Server backup и до Identity bootstrap; multi-instance migration coordination не реализована.
 - Design-time scaffolding использует `UptimeHarborDesignTimeDbContextFactory` без строки подключения и не открывает соединение с БД.
@@ -22,3 +22,6 @@
 - Outage/recovery outbox job сохраняется атомарно с результатом monitoring; dispatcher хранит attempt, lease, retry и terminal state в `notification_outbox_jobs`.
 - Disable/endpoint change атомарно записывает terminal cancellation recovery job в существующий JSON payload/`CompletedAtUtc`; dispatcher сериализует pre-send gate с этой отменой.
 - Известные SQL Server unique violations имени сервера и Telegram chat/binding классифицируются по 2601/2627 и EF entity; неизвестные `DbUpdateException` не считаются конфликтом.
+- Принятые общие данные восстанавливаются из Raft log + snapshot. SQL receipts содержат позицию/digest без payload; SQL не хранит term/vote WAL и не принимает решения о consensus.
+- Проекция аккаунта, роли, зависимостей, receipt и cursor сохраняется одним `ProjectionApplyUnitOfWork`; после rollback tracker очищается. История ссылается Restrict FK, tombstones и terminal decisions защищают от повторов старых копий.
+- Pending, observation capture и transport results локальны; accepted observers/incidents/intents/summaries и membership/trust metadata общие. Подробная граница задана в `Documentation/Technical documentation/Shared cluster storage.md`.

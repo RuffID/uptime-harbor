@@ -2,13 +2,13 @@
 
 ## Состояние реализации
 
-Identity, cookie pipeline и адаптеры пользователей находятся в Infrastructure; application use case вычисляют доступ и управляют permissions; Web содержит страницы входа/выхода и защищённые MVC endpoints. Общая навигация показывает логин текущего пользователя перед POST-выходом. Административная страница `/Admin/Users` позволяет без перезагрузки создавать обычных пользователей, включать/блокировать, удалять и заменять видимость серверов и контейнеров. Контейнеры доступны в UI только при выбранном родительском сервере; текущий администратор не может отключить или удалить себя, а API не допускает отключение или удаление последнего включённого администратора.
+Identity, cookie pipeline и адаптеры пользователей находятся в Infrastructure; Web содержит прежние страницы входа/выхода и административные endpoints. Этап 02 подготовил модель общих аккаунтов и storage mapping, но не реализовал общий вход или управление пользователями через журнал. Единственная сохраняемая роль — Administrator; legacy создание аккаунта назначает эту роль. Старый UI permissions ещё не переработан и больше не имеет соответствующего storage: попытка создать назначение отклоняется.
 
 ## Identity-модель
 
-Пользователь и роль используют `Guid` как ключ. `ApplicationUser` дополнительно хранит `IsEnabled` и изменяет его только методами `Enable`/`Disable`.
+Пользователь и роль используют `Guid` как ключ. `ApplicationUser` хранит `IsEnabled`, `UserRevision`, `PasswordHashFormatVersion`, `DeletedAtUtc`. `ApplySharedAccount` переносит общий login/hash/stamps/активность, сохраняя локальные lockout counters. Новый projection UoW сохраняет account + Administrator membership + cursor одной транзакцией без UserManager autocommit.
 
-Identity-типы находятся в Infrastructure, потому что наследуют типы ASP.NET Core Identity. Domain хранит permissions только как независимые идентификаторы пользователя и объекта.
+Identity-типы остаются в Infrastructure. Чистый Domain `SharedAccount` задаёт FormKC/Trim/uppercase login и self/last-admin инвариант по принятому count. SQL normalized login обязателен и уникален; роль ограничена Administrator. Прежние permission-типы сохранены только для компиляции legacy use case, EF их не хранит. Детали и пределы — [Shared cluster storage.md](Shared%20cluster%20storage.md).
 
 ## Аутентификация
 
@@ -20,7 +20,7 @@ Identity-типы находятся в Infrastructure, потому что на
 - Заблокированный пользователь не должен продолжать получать доступ после завершения или инвалидации сессии.
 - Пять последовательных неудачных проверок пароля временно блокируют Identity-вход на пять минут; успешный вход до порога сбрасывает счётчик.
 
-`InitialAdministratorBootstrapper` идемпотентно создаёт роли `Administrator` и `User`, а администратора создаёт только при отсутствии пользователей в административной роли. Если существуют только disabled administrators, bootstrap включает одну существующую запись без создания дубликата и без смены пароля. `BootstrapAdminOptions` валидируются при фактической необходимости создать администратора; повторный запуск не меняет пароль существующего пользователя.
+Прежний `InitialAdministratorBootstrapper` теперь создаёт только Administrator. Его остальные однопроцессные правила пока сохранены: создание при отсутствии аккаунта, включение существующего disabled administrator без смены пароля, options только при необходимости. Этот bootstrap ещё не является cluster bootstrap/join и не должен использоваться для включения новой общей модели до реализации этапов 03–05/09.
 
 Web pipeline вызывает authentication до authorization. Cookie имеет `HttpOnly`, `SameSite=Lax` и `Secure=Always`. Security stamp проверяется на каждом запросе. Блокировка меняет `IsEnabled`, обновляет security stamp, а cookie validator немедленно отклоняет сессию заблокированного пользователя.
 
@@ -34,18 +34,10 @@ Web security headers применяются middleware до authentication/autho
 
 ## Видимость объектов
 
-`ServerVisibilityPermission` связывает пользователя и сервер. `ContainerVisibilityPermission` хранит пользователя, сервер и контейнер.
+Административные use case по-прежнему вызывают `IAdministratorAccessPolicy` до чтения и side effects. Controller role metadata — дополнительная Web-защита. Неаутентифицированный получает Unauthorized, отключённый или неадминистратор — Forbidden. Активные Administrator имеют полный доступ.
 
-Составные внешние ключи требуют, чтобы permission контейнера ссылался на permission того же пользователя к родительскому серверу и на контейнер этого сервера.
+`DashboardSnapshotReadQuery` возвращает администратору все server/container records, включая контейнеры без родителя; неадминистративный compatibility-вызов получает пустые наборы. Endpoint URL в dashboard records/DTO не входит. `MonitoringRecipientReadQuery` получает users/Administrator одним запросом и передаёт пустые permission-наборы; resolver исключает disabled users.
 
-Application use case обязан фильтровать данные до формирования DTO. UI-скрытие не считается защитой. Те же правила применяются к controller endpoints и SignalR-событиям.
+Прежние `ObjectVisibilityPolicy`, DTO, use case и UI ресурсных назначений остаются до этапа 05, но соответствующих EF-таблиц нет. Compatibility repository читает пустые назначения и отвергает новые, cleanup не обращается к SQL. Это временная согласованность схемы и вызывающего кода, а не завершённый пользовательский сценарий этапа 05.
 
-Административные use case управления пользователями, объектами и уведомлениями вызывают единый `IAdministratorAccessPolicy` до чтения и любого side effect. Policy не зависит от ASP.NET Core, Identity, EF Core и HTTP: неаутентифицированный пользователь получает semantic `Unauthorized`, disabled и обычный пользователь — согласованный `Forbidden`. Controller role metadata остаётся дополнительной Web-защитой, а не заменой Application-проверки.
-
-Администратор получает полный список без отдельных permissions. Обычный пользователь не получает контейнеры только на основании доступа к серверу.
-
-`ObjectVisibilityPolicy` остаётся чистой синхронной политикой и единообразно требует server permission для сервера и одновременно server + container permissions для контейнера. `DashboardQuery` получает materialized records через отдельный `IDashboardSnapshotReadQuery` и применяет policy до формирования dashboard DTO. `MonitoringEventRecipientResolver` получает отдельный materialized набор кандидатов через `IMonitoringRecipientReadQuery`, применяет ту же policy и возвращает только разрешённые server-side SignalR user-id; администраторы получают события всех объектов, disabled users исключаются.
-
-Отдельного пользовательского `/api/objects` нет. Единственный v1 read-контракт обычного пользователя — защищённый dashboard snapshot без endpoint URL и административных полей; endpoint также отсутствует в промежуточных dashboard read records. Recipient query получает пользователей и признак Administrator одним materialized Identity query без per-user `IsInRoleAsync`, а server/container permissions обычных пользователей — пакетными materialized запросами без per-user N+1.
-
-`UserManagementService` проверяет administrator access через общую policy внутри use case и поддерживает создание с начальным паролем, включение, блокировку, удаление и замену permissions. Self-disable/self-delete возвращают `Forbidden`, попытка убрать последнего enabled administrator — `Conflict`. Identity store повторяет last-admin guard внутри транзакции и изменяет concurrency stamp общей роли Administrator, чтобы две конкурентные операции над разными администраторами не могли оставить систему без enabled administrator. Контейнер проверяется вместе с родительским сервером до транзакционного изменения permissions. Удаление пользователя удаляет permissions каскадами БД.
+`UserManagementService` сохраняет существующие self-disable/self-delete и last-enabled-admin проверки. Legacy Identity store повторяет last-admin guard в локальной транзакции с concurrency stamp роли. Это не доказательство упорядоченного согласования аккаунтов нескольких узлов. Общая проверка принятого активного администратора, sign-in и синхронизация аккаунтов ещё не подключены.

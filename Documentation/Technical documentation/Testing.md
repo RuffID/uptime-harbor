@@ -38,6 +38,10 @@ dotnet test --project .\tests\UptimeHarbor.Web.Tests\UptimeHarbor.Web.Tests.cspr
 - `UptimeHarbor.Tests.Infrastructure.Monitoring.MonitoringCycleRunnerTests`;
 - `UptimeHarbor.Tests.Infrastructure.Persistence.UptimeHarborDbContextModelTests`;
 - `UptimeHarbor.Tests.Infrastructure.Persistence.SqlServerPersistenceConflictClassifierTests`;
+- `UptimeHarbor.Tests.Infrastructure.Persistence.SharedStorageModelTests`;
+- `UptimeHarbor.Tests.Infrastructure.Persistence.SharedStorageMigrationTests`;
+- `UptimeHarbor.Tests.Infrastructure.Persistence.ProjectionTransactionTests`;
+- `UptimeHarbor.Tests.Infrastructure.Persistence.SharedStorageRegistrationTests`;
 - `UptimeHarbor.Tests.Infrastructure.Telegram.TelegramHttpNotificationSenderTests`.
 
 Metadata-тест создаёт SQL Server options и читает EF model без открытия соединения. Sign-in, materialized reads, concurrency, unique constraints и Telegram outbox provider tests в этот выбор не входят; их нельзя считать пройденными или пропущенными runner, если они исключены фильтром. Результат обновления локальных DLL и точная граница последней проверки приведены в [Libraries.md](Libraries.md).
@@ -80,7 +84,7 @@ Metadata-тест создаёт SQL Server options и читает EF model б�
 - серверное определение SignalR-получателей, минимальный payload, изоляция push-ошибки, auth metadata и reconnect/snapshot lifecycle клиента.
 - пакетное чтение recipient permissions без per-user вызовов и прежнюю server/container visibility semantics;
 - read-only signatures всех списковых Application repository contracts, отсутствие `IQueryable` в публичных Application-контрактах и materialized dashboard/recipient read models;
-- SQLite-проверку специализированных dashboard/recipient Infrastructure queries, отсутствия endpoint URL в projection и трёх пакетных recipient queries независимо от числа пользователей;
+- SQLite-проверку специализированных dashboard/recipient Infrastructure queries и отсутствия endpoint URL в projection; после удаления ресурсных таблиц recipient query получает пользователей/роль одним запросом. Адаптированный provider-тест в этапе 02 не запускался;
 - SQLite-проверку уникального нормализованного имени сервера и metadata-проверку обязательных полей `Name`/`NormalizedName`;
 - отсутствие endpoint URL в dashboard DTO, сохранение endpoint в admin DTO и отсутствие controller route `/api/objects`;
 - best-effort administrative SignalR publisher: commit остаётся успешным при transport exception, ошибка журналируется, а до commit/conflict publisher не вызывается;
@@ -103,9 +107,33 @@ Web contract tests сериализуют `JsonResult` и administrative DTO ч�
 
 ## Проверка разделения серверов и контейнеров
 
-Проверены создание контейнера без сервера, привязка/отвязка с обеих страниц, конфликт версии/занятого контейнера, сохранение контейнеров при удалении сервера, очистка прежних permissions и отдельная выдача несвязанных контейнеров только администратору. EF metadata подтверждает nullable ServerId и новые FK без подключения к БД. Проверки DOM-заглушек в `Frontend/searchableSelects.test.mts` проверяют пустые/disabled поля, checkbox/radio и снятие связи через «Без сервера». Браузер, SQL Server, применение migration и доставка Telegram остаются непроверенными.
+Проверены создание контейнера без сервера, привязка/отвязка с обеих страниц, конфликт версии/занятого контейнера и сохранение контейнеров при удалении сервера. Прежние проверки cleanup permissions остаются проверками совместимых вызовов: после этапа 02 этих таблиц нет. EF metadata подтверждает nullable ServerId и FK без подключения к БД. Проверки DOM-заглушек в `Frontend/searchableSelects.test.mts` проверяют пустые/disabled поля, checkbox/radio и снятие связи через «Без сервера». Браузер, SQL Server, применение migration и доставка Telegram остаются непроверенными.
 
-## Изоляция
+## Проверка этапа 02
+
+2026-10-29 выполнены отдельные compile-check `UptimeHarbor.Domain`, `Application`, `Infrastructure` и `Web` в Debug с `--no-restore` и раздельным `BaseOutputPath` внутри `artifacts/compile-check`: 0 предупреждений и ошибок. Web-host не запускался; существующий MSBuild target скомпилировал TypeScript.
+
+| Набор | Успешно | Ошибки | Пропуски |
+| --- | --- | --- | --- |
+| Domain, весь изолированный проект | 36 | 0 | 0 |
+| Application, весь изолированный проект | 111 | 0 | 0 |
+| Infrastructure, только шесть выбранных классов ниже | 27 | 0 | 0 |
+
+Фактическая команда Infrastructure из корня репозитория (одна строка):
+
+```powershell
+dotnet test --project .\tests\UptimeHarbor.Infrastructure.Tests\UptimeHarbor.Infrastructure.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\infrastructure-tests\ -- --filter-class UptimeHarbor.Tests.Infrastructure.Persistence.SharedStorageMigrationTests --filter-class UptimeHarbor.Tests.Infrastructure.Persistence.SharedStorageModelTests --filter-class UptimeHarbor.Tests.Infrastructure.Persistence.ProjectionTransactionTests --filter-class UptimeHarbor.Tests.Infrastructure.Persistence.SharedStorageRegistrationTests --filter-class UptimeHarbor.Tests.Infrastructure.Persistence.UptimeHarborDbContextModelTests --filter-class UptimeHarbor.Tests.Infrastructure.Identity.InitialAdministratorBootstrapperTests
+```
+
+Новые Domain-тесты проверяют login/self/last-admin, отдельные ревизии, terminal Pending/control, cursor, observer sequence, календарный год/protection flags, лимит попыток, известный успех и recovery entitlement. `SharedStorageModelTests` проверяет metadata/индексы/Restrict-связи и границу локальных Identity-полей. `SharedStorageMigrationTests` сравнивает snapshot и design-time model через `IMigrationsModelDiffer`, проверяет операции Up/Down без SQL execution. `SharedStorageRegistrationTests` разрешает storage DI и проверяет закрытое соединение; workers не стартуют.
+
+`ProjectionTransactionTests` вызывает реальный `ProjectionApplyUnitOfWork` с fake repository/session/transaction: целый пакет передаётся в staging, затем save/commit; повтор не staging-ит заново; ошибка приводит к rollback/clear и допускает повтор; другой digest отвергается. Подставное хранилище не доказывает атомарность аккаунт + роль + cursor на SQL Server, реальные constraints или crash recovery.
+
+Регрессионный staging-тест в `SharedStorageModelTests` воспроизвёл повторное создание удалённого NodeId из старой tracked-копии: до исправления ожидание отказа падало, после общей проверки tombstone для member/observer assignment/node chat route проходит. Данные взяты из tracker; соединение не открывается, SQL не выполняется.
+
+Не запускались полный Infrastructure-набор, provider tests (включая SQLite), Web/frontend tests, применение миграций, БД/SQL, приложение, Docker, реальные HTTP/Telegram или deployment. Прежние provider-тесты и старые permission use case частично сохранены как совместимость до 05; их наличие не означает готовность общего входа. Runtime SQL Server, Raft WAL/replay, восстановление процесса и распределённая доставка не проверены. Модель и ограничения — [Shared cluster storage.md](Shared%20cluster%20storage.md).
+
+## Изоляция проверок
 
 Обычные тесты не обращаются к реальной БД, HTTP endpoint, Docker, PowerShell, процессам или внешним сервисам.
 

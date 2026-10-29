@@ -1,77 +1,68 @@
-using EFCoreLibrary.Abstractions.Database.Repository.Base;
 using UptimeHarbor.Application.Abstractions.Persistence;
 using UptimeHarbor.Domain.Access;
 
 namespace UptimeHarbor.Infrastructure.Persistence.Repositories;
 
-public class VisibilityPermissionRepository(
-    IContextGetItemByPredicateRepository<ServerVisibilityPermission, UptimeHarborDbContext> serverGetRepository,
-    IContextGetItemByPredicateRepository<ContainerVisibilityPermission, UptimeHarborDbContext> containerGetRepository,
-    IContextCreateItemRepository<ServerVisibilityPermission, UptimeHarborDbContext> serverCreateRepository,
-    IContextCreateItemRepository<ContainerVisibilityPermission, UptimeHarborDbContext> containerCreateRepository,
-    IContextDeleteItemRepository<ServerVisibilityPermission, UptimeHarborDbContext> serverDeleteRepository,
-    IContextDeleteItemRepository<ContainerVisibilityPermission, UptimeHarborDbContext> containerDeleteRepository)
-    : IVisibilityPermissionRepository
+// Совместимость вызовов до этапа 05; ресурсные разрешения больше не хранятся.
+public sealed class VisibilityPermissionRepository : IVisibilityPermissionRepository
 {
-    public async Task<IReadOnlyList<ServerVisibilityPermission>> GetServerPermissionsAsync(
-        Guid userId,
-        CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<ServerVisibilityPermission>> GetServerPermissionsAsync(
+        Guid userId, CancellationToken cancellationToken = default)
     {
-        List<ServerVisibilityPermission> permissions = await serverGetRepository.GetItemsByPredicateAsync(
-            permission => permission.UserId == userId,
-            asNoTracking: true,
-            ct: cancellationToken);
-        return permissions;
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult<IReadOnlyList<ServerVisibilityPermission>>([]);
     }
 
-    public async Task<IReadOnlyList<ContainerVisibilityPermission>> GetContainerPermissionsAsync(
-        Guid userId,
-        CancellationToken cancellationToken = default)
+    public Task<IReadOnlyList<ContainerVisibilityPermission>> GetContainerPermissionsAsync(
+        Guid userId, CancellationToken cancellationToken = default)
     {
-        List<ContainerVisibilityPermission> permissions = await containerGetRepository.GetItemsByPredicateAsync(
-            permission => permission.UserId == userId,
-            asNoTracking: true,
-            ct: cancellationToken);
-        return permissions;
+        cancellationToken.ThrowIfCancellationRequested();
+        return Task.FromResult<IReadOnlyList<ContainerVisibilityPermission>>([]);
     }
 
     public void Create(ServerVisibilityPermission item)
     {
-        serverCreateRepository.Create(item);
-    }
-
-    public void CreateRange(IEnumerable<ServerVisibilityPermission> entities)
-    {
-        serverCreateRepository.CreateRange(entities);
+        throw new NotSupportedException("Resource assignments are not supported.");
     }
 
     public void Create(ContainerVisibilityPermission item)
     {
-        containerCreateRepository.Create(item);
+        throw new NotSupportedException("Resource assignments are not supported.");
+    }
+
+    public void CreateRange(IEnumerable<ServerVisibilityPermission> entities)
+    {
+        if (entities.Any())
+        {
+            throw new NotSupportedException("Resource assignments are not supported.");
+        }
     }
 
     public void CreateRange(IEnumerable<ContainerVisibilityPermission> entities)
     {
-        containerCreateRepository.CreateRange(entities);
+        if (entities.Any())
+        {
+            throw new NotSupportedException("Resource assignments are not supported.");
+        }
     }
 
     public void Delete(ServerVisibilityPermission item)
     {
-        serverDeleteRepository.Delete(item);
-    }
-
-    public void DeleteRange(IEnumerable<ServerVisibilityPermission> entities)
-    {
-        serverDeleteRepository.DeleteRange(entities);
+        // В целевой схеме назначений нет.
     }
 
     public void Delete(ContainerVisibilityPermission item)
     {
-        containerDeleteRepository.Delete(item);
+        // В целевой схеме назначений нет.
+    }
+
+    public void DeleteRange(IEnumerable<ServerVisibilityPermission> entities)
+    {
+        // Совместимая очистка не имеет хранимых назначений.
     }
 
     public void DeleteRange(IEnumerable<ContainerVisibilityPermission> entities)
     {
-        containerDeleteRepository.DeleteRange(entities);
+        // Совместимая очистка не имеет хранимых назначений.
     }
 }

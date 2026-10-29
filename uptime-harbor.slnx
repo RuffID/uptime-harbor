@@ -21,6 +21,7 @@
     <File Path="Documentation/Technical documentation/Monitoring.md" />
     <File Path="Documentation/Technical documentation/Notifications.md" />
     <File Path="Documentation/Technical documentation/Persistence.md" />
+    <File Path="Documentation/Technical documentation/Shared cluster storage.md" />
     <File Path="Documentation/Technical documentation/Testing.md" />
     <File Path="Documentation/Technical documentation/Web application.md" />
     <File Path="Documentation/Technical documentation/V1 Technical Review Findings.md" />

@@ -15,6 +15,8 @@ public abstract class MonitoredObjectConfiguration<TEntity> : IEntityTypeConfigu
         builder.Property(entity => entity.Version)
             .IsConcurrencyToken()
             .IsRequired();
+        builder.Property(entity => entity.ConfigRevision).IsRequired();
+        builder.Property(entity => entity.CheckGeneration).IsRequired();
         builder.Property(entity => entity.EndpointUrl)
             .HasMaxLength(ModelConstraints.ENDPOINT_URL_MAX_LENGTH)
             .IsRequired();

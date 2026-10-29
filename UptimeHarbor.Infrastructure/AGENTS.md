@@ -19,8 +19,9 @@
 - Backup и migration не должны логировать connection string, credentials или SQL command; имена pending migrations логировать разрешено.
 - Блокировка пользователя обязана обновлять security stamp, а cookie validator — проверять `IsEnabled` на каждом запросе.
 - Неудачные входы учитываются Identity lockout: пять ошибок дают временную блокировку на пять минут; `IsEnabled` и Identity lockout остаются разными состояниями.
-- Специализированные dashboard и recipient read queries materialize-ят Application read records; список пользователей для SignalR загружается одним query с признаком роли Administrator, permissions — пакетно, без per-user `IsInRoleAsync`.
+- Специализированные dashboard и recipient read queries materialize-ят Application read records; список пользователей для SignalR загружается одним query с признаком роли Administrator, без per-user `IsInRoleAsync`. Таблиц ресурсных permissions в целевой модели нет.
 - HTTP-проверки мониторинга и hosted worker находятся в `Monitoring`; adapter использует `IHttpClientFactory`, а параллельные объекты обрабатываются в отдельных scopes.
 - Telegram transport, durable outbox dispatcher и worker находятся в `Telegram`; token получается только через `TelegramOptions`, стандартное HTTP-логирование клиента отключено, а ошибки чатов изолируются.
 - Telegram dispatcher и worker читают durable outbox независимо от monitoring worker; retry ограничен, а transport-семантика документирована как at-least-once.
 - Dispatcher сериализует pre-send gate с terminal recovery cancellation; SQL Server unique errors имени сервера и Telegram классифицируются в Infrastructure без утечки provider типов в Application.
+- Общее хранилище сетки — восстанавливаемая SQL-проекция будущего Raft log + snapshot. Storage-регистрации не включают consensus/reducer/replication workers; локальные секреты и lockout не входят в общие данные.

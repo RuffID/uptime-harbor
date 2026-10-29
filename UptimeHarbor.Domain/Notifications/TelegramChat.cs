@@ -28,6 +28,18 @@ public class TelegramChat
 
     public string Name { get; private set; } = string.Empty;
 
+    public long ConfigRevision { get; private set; }
+
+    public void AcceptConfigurationRevision(long revision)
+    {
+        if (revision <= ConfigRevision)
+        {
+            throw new ArgumentOutOfRangeException(nameof(revision));
+        }
+
+        ConfigRevision = revision;
+    }
+
     public void Update(long telegramChatId, string name)
     {
         if (telegramChatId == 0)

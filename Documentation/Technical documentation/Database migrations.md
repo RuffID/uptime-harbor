@@ -30,7 +30,7 @@ Design-time factory настраивает SQL Server provider без строк
 
 Исправление recovery cancellation использует уже существующие `PayloadJson`, `CompletedAtUtc` и `LockedUntilUtc`; новых колонок и отдельной migration для него не требуется. Явные имена unique indexes Telegram chat/binding совпадают с именами, уже созданными baseline. Файлы `20260831015604_InitialSqlServerSchema` и snapshot этим исправлением не изменялись.
 
-Добавление административного имени сервера изменяет схему после baseline: требуются обязательные колонки `Name` и `NormalizedName` в `monitored_servers`, а также уникальный индекс `ux_monitored_servers_name` по нормализованному значению. Новую миграцию следует создать отдельно с именем `AddMonitoredServerName`; существующую baseline-миграцию и snapshot вручную не редактировать. Если таблица уже содержит серверы, до применения обязательных колонок миграция должна определить явную стратегию заполнения уникальных имён для существующих записей.
+Migration `20260906132033_AddMonitoredServerName` уже входит в историю: обязательные `Name`/`NormalizedName` и уникальный `ux_monitored_servers_name`. Исторические файлы не изменялись при подготовке модели сетки.
 
 Baseline рассчитана на пустую базу SQL Server. Если в прежней PostgreSQL уже есть данные, их перенос выполняется отдельным проверяемым export/transform/import процессом; EF migration не переносит данные между разными СУБД.
 
@@ -44,6 +44,8 @@ Baseline рассчитана на пустую базу SQL Server. Если в
 
 ## Обновление production
 
+Эти правила описывают прежний однопроцессный startup. Подготовка этапа 02 не разрешает запуск новой общей модели; cluster bootstrap/join и эксплуатационные процедуры ещё не реализованы.
+
 1. Остановить прежний экземпляр и убедиться, что новый Web запускается в одном экземпляре.
 2. Обеспечить SQL Server доступность и права на создание backup в server-side каталоге.
 3. Запустить новую версию Web: она создаст backup и применит pending migrations до открытия HTTP pipeline.
@@ -53,3 +55,13 @@ Baseline рассчитана на пустую базу SQL Server. Если в
 Строка подключения `ConnectionStrings:SqlServer` передаётся через внешнюю конфигурацию и не включается в команду, журнал или Docker image.
 
 В рамках изолированной проверки startup service не подключался к SQL Server, backup и baseline не выполнялись. Не проверены server-side backup path/permissions, реальное создание индексов, выдача 2601/2627, EF entries provider exception, блокировка outbox row во время sender и порядок commit при конкурентной административной отмене.
+
+## Схема общих данных, этап 02
+
+Создана новая `20261029053354_AddSharedClusterStorage`, её designer и согласованный model snapshot. Up удаляет только `container_visibility_permissions` и `server_visibility_permissions`, добавляет раздельные ревизии и storage из [Shared cluster storage.md](Shared%20cluster%20storage.md), ограничивает роли Administrator и нормализованный login. Нет InsertData, выдачи ресурсных прав, отдельного SQL/backfill или переписывания исторических migrations. Down возвращает прежнюю структуру и удаляет новые таблицы; принятую историю он не сохраняет и для рабочего cluster rollback не предназначен.
+
+Scaffolding выполнен через Infrastructure как target/startup project, context `UptimeHarborDbContext`, output `Persistence/Migrations`, configuration `MigrationCheck`. Factory использует `UseSqlServer()` без строки подключения; приложение не запускается. Tool 10.0.11 предупредил о runtime 10.0.13 и возможной потере данных при удалении таблиц. Развёрнутых прежних установок нет, схема предназначена только для первого запуска. Сгенерированные нулевые/пустые значения при Add/AlterColumn не являются поддержкой переноса заполненной установки; её преобразование не предусмотрено.
+
+После проверки модели новая неприменённая migration пересоздана tooling с двумя исправлениями: длина вида tombstone и unique key incident/kind/chat для problem/recovery. Установленный tool не поддерживает `remove --offline`: команда завершилась без правок. Отдельно разрешённый `remove --force` не смог проверить БД из-за отсутствующей ConnectionString, затем восстановил предыдущий snapshot; после этого выполнен повторный add. Исторические migration/designer не менялись, новый designer/snapshot вручную не редактировались.
+
+Изолированные тесты проверили Up/Down operations без генерации SQL, отсутствие data inserts, уникальные индексы и нулевой model diff snapshot/current SQL Server model. Подключения к БД, применения Up/Down, backup/restore и SQL Server atomicity не было. Snapshot/model diff не доказывает, что provider успешно выполнит DDL на реальном SQL Server.

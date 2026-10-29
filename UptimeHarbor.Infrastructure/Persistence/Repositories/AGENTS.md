@@ -16,4 +16,7 @@
 - При изменении запросов или контрактов обновлять этот файл и `Documentation/Technical documentation/Persistence.md`.
 - `GetEnabledAsync` фильтрует включённые server/container цели в БД и materialize-ит их no-tracking для снимка цикла.
 - Привязки для подготовки batch-доставки читать no-tracking, а конкретную привязку для фиксации успеха загружать tracked по ID.
-- Пакетное чтение пользователей, ролей и permissions для SignalR выполняет отдельный recipient read query, а не per-user методы репозитория.
+- Чтение пользователей и роли для SignalR выполняет отдельный recipient read query, а не per-user методы репозитория. `VisibilityPermissionRepository` возвращает пустые списки и отвергает создание ресурсных прав; его cleanup — совместимый no-op.
+- `ProjectionRepository` получает уже решённый пакет принятого префикса и только подготавливает изменения одного tracker. Аккаунт/роль не сохраняются через отдельный auto-commit Identity store; сохранение принадлежит UoW вместе с cursor.
+- Terminal decisions, controls, tombstones и неизменяемые события нельзя переписывать. Удаление сервера отвязывает контейнеры; удаление цели/чата отменяет неначатые intents. Исторические payload не удаляются каскадом.
+- Проверять tombstone и у собственного ID узла/observer assignment/node chat route, а не только у их target/node/chat зависимостей: старая копия не должна восстанавливать удалённое назначение.

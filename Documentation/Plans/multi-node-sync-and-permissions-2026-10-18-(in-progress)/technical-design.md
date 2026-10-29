@@ -1,6 +1,6 @@
 # Техническое проектирование
 
-Документ задаёт проектируемую архитектуру, а не описание готовой функции. Обязательное пользовательское поведение находится в [требованиях](business-requirements.md). Этап 01 завершён как проектирование: API и ограничения DotNext проверены по официальным исходникам, протокол и контракты приняты. Рабочей интеграции ещё нет; имена будущих компонентов не являются существующими типами.
+Документ задаёт проектируемую архитектуру, а не описание готовой функции. Обязательное пользовательское поведение находится в [требованиях](business-requirements.md). Этап 01 завершён как проектирование; этап 02 реализовал модель и storage. Фактические типы и пределы перечислены в [Shared cluster storage.md](../../Technical%20documentation/Shared%20cluster%20storage.md). Рабочей интеграции consensus/reducer и общего входа ещё нет; имена остальных будущих компонентов не являются существующими типами.
 
 Пользовательские правила закреплены в [требованиях](business-requirements.md); в [общем реестре](open-questions.md) открытых вопросов нет. Условия связи, рабочий масштаб и порядок проверки определены ниже. Принятые решения и их доказательства находятся в трёх документах 01.1–01.3.
 
@@ -10,7 +10,7 @@
 - [Протокол/отправитель](01-protocol-and-contracts/01.2-consensus-and-sender-contracts.md): mTLS отдельного peer host через Nginx, private client CA/fingerprint allowlist, ротация/отзыв, limits/replay, readiness supervisor, 30-секундный порог согласования, 10-секундная majority authority и per-attempt gate. Внешний Telegram эффект не ограждается одним term; in-flight допускает неопределённость.
 - [Данные/восстановление](01-protocol-and-contracts/01.3-data-and-recovery-contracts.md): authoritative log+snapshot, ordered decisions и SQL projection transaction, commands/controls/conflicts, общий Administrator, observer generations/freshness, incidents/intents/summary, snapshot/compaction/recovery и карта компонентов.
 
-Эти документы — владеющая спецификация конкретных алгоритмов; разделы ниже сохраняют архитектурный обзор. Согласованное пользовательское поведение задаёт business-requirements.md. Подтверждение API: метаданные и чтение исходников конкретного commit. Не проводились restore/compile-check, прототип, тесты, реальные SQL/Identity/TLS/процессы/Telegram; stage 01 completed не означает приёмку реализации.
+Эти документы — владеющая спецификация конкретных алгоритмов; разделы ниже сохраняют архитектурный обзор. Согласованное пользовательское поведение задаёт business-requirements.md. Подтверждение API в 01: метаданные и чтение исходников конкретного commit, без runtime. Сборки и изолированные проверки storage в 02 учтены [отдельно](../../Technical%20documentation/Testing.md#проверка-этапа-02); реальные SQL/Identity/TLS/процессы/Telegram не проверялись.
 
 ## 1. Границы слоёв
 

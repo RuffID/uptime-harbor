@@ -39,23 +39,6 @@ public class DashboardSnapshotReadQuery(UptimeHarborDbContext dbContext)
             return new DashboardReadSnapshot(servers, containers, [], []);
         }
 
-        List<Guid> permittedServerIds = await dbContext.ServerVisibilityPermissions
-            .AsNoTracking()
-            .Where(permission => permission.UserId == userId)
-            .Select(permission => permission.ServerId)
-            .ToListAsync(cancellationToken);
-        List<Guid> permittedContainerIds = await dbContext.ContainerVisibilityPermissions
-            .AsNoTracking()
-            .Where(permission => permission.UserId == userId)
-            .Where(permission => dbContext.MonitoredContainers.Any(container =>
-                container.Id == permission.ContainerId && container.ServerId == permission.ServerId))
-            .Select(permission => permission.ContainerId)
-            .ToListAsync(cancellationToken);
-
-        return new DashboardReadSnapshot(
-            servers,
-            containers,
-            permittedServerIds,
-            permittedContainerIds);
+        return new DashboardReadSnapshot([], [], [], []);
     }
 }

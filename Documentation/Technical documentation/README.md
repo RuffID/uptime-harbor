@@ -8,6 +8,7 @@
 | Доменные сущности и инварианты | [Domain model.md](Domain%20model.md) |
 | Identity, роли и видимость | [Authentication and visibility.md](Authentication%20and%20visibility.md) |
 | EF Core, репозитории и транзакции | [Persistence.md](Persistence.md) |
+| Модель общих данных, проекции и границы этапа 02 | [Shared cluster storage.md](Shared%20cluster%20storage.md) |
 | Локальные DLL, зависимости и обновление | [Libraries.md](Libraries.md) |
 | Миграции и startup backup | [Database migrations.md](Database%20migrations.md) |
 | Endpoint-проверки и monitoring worker | [Monitoring.md](Monitoring.md) |

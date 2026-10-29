@@ -20,14 +20,13 @@ public class ObjectAdministrationUnitOfWork(
 
     public IMonitoredContainerRepository MonitoredContainers { get; } = monitoredContainers;
 
-    public async Task RemoveContainerPermissionsAsync(
+    public Task RemoveContainerPermissionsAsync(
         Guid containerId,
         CancellationToken cancellationToken = default)
     {
-        List<ContainerVisibilityPermission> permissions = await dbContext.ContainerVisibilityPermissions
-            .Where(permission => permission.ContainerId == containerId)
-            .ToListAsync(cancellationToken);
-        dbContext.ContainerVisibilityPermissions.RemoveRange(permissions);
+        cancellationToken.ThrowIfCancellationRequested();
+        // Ресурсных назначений в целевой схеме нет; метод сохранён для прежних вызывающих сценариев.
+        return Task.CompletedTask;
     }
 
     public async Task CancelPendingRecoveryNotificationsAsync(

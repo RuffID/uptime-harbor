@@ -119,6 +119,15 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IObjectAdministrationUnitOfWork, ObjectAdministrationUnitOfWork>();
         services.AddScoped<IVisibilitySettingsUnitOfWork, VisibilitySettingsUnitOfWork>();
         services.AddScoped<INotificationSettingsUnitOfWork, NotificationSettingsUnitOfWork>();
+        services.AddScoped<IProjectionRepository, ProjectionRepository>();
+        services.AddScoped<IPendingOperationRepository, PendingOperationRepository>();
+        services.AddScoped<IObservationCaptureRepository, ObservationCaptureRepository>();
+        services.AddScoped<IDeliveryResultRepository, DeliveryResultRepository>();
+        services.AddScoped<IProjectionApplyUnitOfWork, ProjectionApplyUnitOfWork>();
+        services.AddScoped<IPendingControlUnitOfWork, PendingControlUnitOfWork>();
+        services.AddScoped<IObservationCaptureUnitOfWork, ObservationCaptureUnitOfWork>();
+        services.AddScoped<IDeliveryResultUnitOfWork, DeliveryResultUnitOfWork>();
+        services.AddScoped<IHistoryRetentionQuery, HistoryRetentionQuery>();
         services.AddScoped<IdentityUserAccountStore>();
         services.AddScoped<IUserAccountStore>(provider =>
             provider.GetRequiredService<IdentityUserAccountStore>());

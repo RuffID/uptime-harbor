@@ -17,9 +17,9 @@
 
 ## Текущее состояние
 
-Факты ниже получены чтением исходников и документации; приложение, БД и внешние интеграции при подготовке плана не запускались.
+Таблица фиксирует исходное состояние при подготовке плана; приложение, БД и внешние интеграции не запускались. После этапа 02 фактические модели, mappings и границы storage описаны в [Shared cluster storage.md](../../Technical%20documentation/Shared%20cluster%20storage.md); распределённый runtime ещё не подключён.
 
-| Область | Сейчас | Изменение в этом плане |
+| Область | На начало планирования | Изменение в этом плане |
 | --- | --- | --- |
 | Мониторинг | HTTP GET, локальный worker, координация проверок в памяти одного процесса | Проверки узлов, распределённое управление, наблюдения и согласованные инциденты |
 | Telegram | Durable outbox в одной БД, markers на привязках, retry, at-least-once | Главный отправитель, репликация инцидентов и доставки, восстановление очереди |
@@ -32,7 +32,7 @@
 
 Подтверждающие исходники: [ObjectVisibilityPolicy](../../../UptimeHarbor.Application/Visibility/ObjectVisibilityPolicy.cs), [MonitoringService](../../../UptimeHarbor.Application/Monitoring/MonitoringService.cs), [MonitoringCycleRunner](../../../UptimeHarbor.Infrastructure/Monitoring/MonitoringCycleRunner.cs), [NotificationOutboxStore](../../../UptimeHarbor.Infrastructure/Telegram/NotificationOutboxStore.cs), [NotificationAdministrationService](../../../UptimeHarbor.Application/Notifications/NotificationAdministrationService.cs), [MonitoredObject](../../../UptimeHarbor.Domain/Monitoring/MonitoredObject.cs), [Program.cs](../../../UptimeHarbor.Web/Program.cs).
 
-Текущее описание: [мониторинг](../../Technical%20documentation/Monitoring.md), [уведомления](../../Technical%20documentation/Notifications.md), [аутентификация и видимость](../../Technical%20documentation/Authentication%20and%20visibility.md), [бизнес-требования v1](../../Business%20logic/Business%20requirements.md). Эти документы описывают существующую версию; новое поведение пока содержится только в данном плане.
+Текущее описание: [мониторинг](../../Technical%20documentation/Monitoring.md), [уведомления](../../Technical%20documentation/Notifications.md), [аутентификация и видимость](../../Technical%20documentation/Authentication%20and%20visibility.md), [бизнес-требования v1](../../Business%20logic/Business%20requirements.md). Технические документы актуализированы по storage-изменениям 02; неподключённое поведение остаётся в плане.
 
 ## Границы
 
@@ -53,7 +53,7 @@
 | Этап | Результат | Статус | Зависимости | Документ |
 | --- | --- | --- | --- | --- |
 | 01 | Проверенный проект протокола, границы согласования и совместимости | completed | Нет | [Архитектура и контракты](01-protocol-and-contracts/main.md) |
-| 02 | Модель общих аккаунтов, единственной роли, ревизий и схемы | not-started | 01 | [Домен и хранение](02-domain-and-persistence/main.md) |
+| 02 | Модель общих аккаунтов, единственной роли, ревизий и схемы | completed | 01 | [Домен и хранение](02-domain-and-persistence/main.md) |
 | 03 | Идентичность узлов, самодиагностика, большинство и главный | not-started | 01, 02 | [Связь и выбор главного](03-peer-health-and-leadership/main.md) |
 | 04 | Доставка изменений, конфликты, tombstones и восстановление | not-started | 02, 03, 05.1 | [Синхронизация ревизий](04-revision-synchronization/main.md) |
 | 05 | Общие пользователи и единственная роль администратора | not-started | 02 для 05.1; 04 для 05.2–05.4 | [Пользователи и общий вход](05-permissions-and-ownership/main.md) |
@@ -81,9 +81,9 @@
 
 | Подэтап | Результат | Статус | Зависимости | Документ |
 | --- | --- | --- | --- | --- |
-| 02.1 | Есть независимая от EF/Identity модель общих пользователей, единственной роли и ревизий. | not-started | 01 | [Общие идентификаторы, версии и инварианты](02-domain-and-persistence/02.1-domain-invariants.md) |
-| 02.2 | Определены и реализованы storage-контракты, mappings и атомарные локальные операции. | not-started | 02.1 | [Долговременное хранение и сценарные UoW](02-domain-and-persistence/02.2-durable-storage-and-uow.md) |
-| 02.3 | Подготовлены миграции схемы новой модели для первого запуска без переноса прежних данных. | not-started | 02.2 | [Миграции схемы](02-domain-and-persistence/02.3-schema-migrations.md) |
+| 02.1 | Есть независимая от EF/Identity модель общих пользователей, единственной роли и ревизий. | completed | 01 | [Общие идентификаторы, версии и инварианты](02-domain-and-persistence/02.1-domain-invariants.md) |
+| 02.2 | Определены и реализованы storage-контракты, mappings и атомарные локальные операции. | completed | 02.1 | [Долговременное хранение и сценарные UoW](02-domain-and-persistence/02.2-durable-storage-and-uow.md) |
+| 02.3 | Подготовлены миграции схемы новой модели для первого запуска без переноса прежних данных. | completed | 02.2 | [Миграции схемы](02-domain-and-persistence/02.3-schema-migrations.md) |
 
 ### 03. Связь узлов, диагностика и главный
 
@@ -207,8 +207,8 @@
 
 ## Результат выполнения
 
-2026-10-29 завершён только [этап 01](01-protocol-and-contracts/main.md), включая 01.1/01.2/01.3: официальные API DotNext, протокол связи/права отправки и контракты данных/восстановления зафиксированы в файлах. Общий статус in-progress отражает выполненный проектный этап; код распределённой модели не реализован.
+2026-10-29 завершены [этап 01](01-protocol-and-contracts/main.md) как проектирование и [этап 02](02-domain-and-persistence/main.md), включая 02.1/02.2/02.3: независимые модели, долговременная SQL-проекция, mappings/узкие UoW и migration `20261029053354_AddSharedClusterStorage` с designer/snapshot. Документы завершённого 01 не переписывались. Общий план остаётся in-progress.
 
-Проверка — чтение исходников/официальных материалов и статическая сверка документов, ссылок/якорей, статусов, solution items, UTF-8 и окончаний строк. Compile-check, прототипы, тесты, БД/SQL, приложение, Docker, реальные узлы/monitoring/Telegram и deployment не запускались; Git-команды не выполнялись. API подтверждены по коду NuGet commit, runtime-свойства остаются непроверенными.
+Проверки 02: отдельные compile-check production-проектов; Domain — 36, Application — 111, выбранные Infrastructure metadata/fake/DI — 27 успешно, без ошибок/пропусков; согласованность EF model/snapshot, документов, ссылок, solution items и UTF-8. [Результаты и ограничения](../../Technical%20documentation/Testing.md#проверка-этапа-02). Не выполнялись provider tests, БД/SQL, Up/Down, приложение, Docker, реальные узлы/monitoring/Telegram и deployment; Git-команды не выполнялись. Fake-контракты не доказывают SQL Server atomicity.
 
-Дата создания 2026-10-18 сохранена; папка плана переименована в `multi-node-sync-and-permissions-2026-10-18-(in-progress)` со ссылками и solution items. Этапы 02–10 остаются not-started, 09.2/09.3 — cancelled. После 01 работа остановлена.
+Дата создания 2026-10-18 и папка `multi-node-sync-and-permissions-2026-10-18-(in-progress)` сохранены. Этапы 03–10 остаются not-started, 09.2/09.3 — cancelled. Рабочий consensus adapter, reducer/replay, общий вход и распределённые workers не реализованы. После 02 работа остановлена.
