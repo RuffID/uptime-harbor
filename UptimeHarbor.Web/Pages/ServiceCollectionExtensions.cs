@@ -27,6 +27,7 @@ public static class ServiceCollectionExtensions
             options.Conventions.AllowAnonymousToPage("/Error");
         });
         services.AddSignalR();
+        services.AddSingleton<MonitoringConnections>();
         services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;

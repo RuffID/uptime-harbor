@@ -82,6 +82,11 @@ public static class ServiceCollectionExtensions
             .AddDefaultTokenProviders();
         services.Configure<SecurityStampValidatorOptions>(options =>
             options.ValidationInterval = TimeSpan.Zero);
+        services.Configure<PasswordHasherOptions>(options =>
+        {
+            options.CompatibilityMode = PasswordHasherCompatibilityMode.IdentityV3;
+            options.IterationCount = 100000;
+        });
         services.ConfigureApplicationCookie(options =>
         {
             options.LoginPath = "/Account/Login";
@@ -144,6 +149,18 @@ public static class ServiceCollectionExtensions
             provider.GetRequiredService<IdentityUserAccountStore>());
         services.AddScoped<InitialAdministratorBootstrapper>();
         services.AddScoped<IUserSignInService, UserSignInService>();
+        services.AddScoped<IAccountCredentialService, AccountCredentialService>();
+        services.AddSingleton<AcceptedAccountSession>();
+        services.AddSingleton<LocalAccountLoginGate>();
+        services.AddScoped<ILocalAccountLogin, LocalAccountLogin>();
+        services.AddScoped<ILocalLoginUnitOfWork, LocalLoginUnitOfWork>();
+        if (clusterOptions.Enabled)
+        {
+            services.AddScoped<IUserAccountStore, AcceptedUserAccountStore>();
+            services.AddScoped<IUserSignInService, AcceptedUserSignInService>();
+            services.AddScoped<IMonitoringRecipientReadQuery, AcceptedMonitoringRecipients>();
+            services.AddDataProtection().SetApplicationName($"UptimeHarbor/{clusterOptions.NodeId:N}");
+        }
 
         services
             .AddDataProtection()
@@ -183,6 +200,20 @@ public static class ServiceCollectionExtensions
 
     private static async Task ValidateEnabledUserAsync(CookieValidatePrincipalContext context)
     {
+        ClusterOptions cluster = context.HttpContext.RequestServices
+            .GetRequiredService<Microsoft.Extensions.Options.IOptions<ClusterOptions>>().Value;
+        if (cluster.Enabled)
+        {
+            AcceptedAccountSession sessions = context.HttpContext.RequestServices.GetRequiredService<AcceptedAccountSession>();
+            if (!sessions.IsValid(context.Principal))
+            {
+                context.RejectPrincipal();
+                await context.HttpContext.SignOutAsync(IdentityConstants.ApplicationScheme);
+            }
+
+            return;
+        }
+
         ISecurityStampValidator securityStampValidator = context.HttpContext.RequestServices
             .GetRequiredService<ISecurityStampValidator>();
         await securityStampValidator.ValidateAsync(context);

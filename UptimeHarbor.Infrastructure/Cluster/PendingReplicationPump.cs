@@ -191,7 +191,14 @@ public class PendingReplicationPump(IServiceScopeFactory scopes, IRevisionTransp
             outcome = "AlreadyDecided";
         }
 
-        audit.Record(pending.Id, pending.ActorUserId!.Value, pending.OriginNodeId, outcome);
+        if (pending.Kind.StartsWith("Account.", StringComparison.Ordinal))
+        {
+            audit.RecordAccount(pending.Id, pending.ActorUserId!.Value, pending.EntityId, pending.OriginNodeId, outcome);
+        }
+        else
+        {
+            audit.Record(pending.Id, pending.ActorUserId!.Value, pending.OriginNodeId, outcome);
+        }
     }
 
     public static void ValidateResults(IReadOnlyList<RevisionCommand> commands, IReadOnlyList<CommandResult> results)

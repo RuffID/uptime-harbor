@@ -6,45 +6,80 @@ namespace UptimeHarbor.Application.Cluster;
 /// <summary>Публикация immutable состояния только после SQL commit/replay; отказ закрывает чтение прав.</summary>
 public class RevisionStateStore : IAcceptedAccountReader
 {
+    private readonly object sync = new();
     private RevisionImage? image;
     private volatile bool available;
     private volatile bool recovering;
+    private long recoveryVersion;
 
     public RevisionImage? Current => Volatile.Read(ref image);
     public bool Available => available;
+    public long RecoveryVersion => Interlocked.Read(ref recoveryVersion);
+    public event Action? Changed;
 
     public AcceptedAccount? Find(Guid userId)
     {
-        RevisionImage? current = Current;
-        if (!available || current is null)
+        lock (sync)
         {
-            return null;
-        }
+            if (!available || image is null)
+            {
+                return null;
+            }
 
-        return RevisionAccounts.Find(current, userId);
+            return RevisionAccounts.Find(image, userId);
+        }
     }
 
     public void Publish(RevisionImage accepted)
     {
-        Volatile.Write(ref image, accepted);
-        available = !recovering;
+        lock (sync)
+        {
+            Volatile.Write(ref image, accepted);
+            available = !recovering;
+        }
+
+        Changed?.Invoke();
     }
 
     public void BeginRecovery()
     {
-        recovering = true;
-        available = false;
+        lock (sync)
+        {
+            Interlocked.Increment(ref recoveryVersion);
+            recovering = true;
+            available = false;
+        }
+
+        Changed?.Invoke();
     }
 
-    public void ConfirmRecovery(RevisionImage accepted)
+    public bool ConfirmRecovery(RevisionImage accepted, long expectedRecoveryVersion)
     {
-        Volatile.Write(ref image, accepted);
-        recovering = false;
-        available = true;
+        lock (sync)
+        {
+            if (expectedRecoveryVersion != recoveryVersion)
+            {
+                return false;
+            }
+
+            Volatile.Write(ref image, accepted);
+            recovering = false;
+            available = true;
+        }
+
+        Changed?.Invoke();
+        return true;
     }
 
     public void Invalidate()
     {
-        available = false;
+        lock (sync)
+        {
+            Interlocked.Increment(ref recoveryVersion);
+            recovering = true;
+            available = false;
+        }
+
+        Changed?.Invoke();
     }
 }

@@ -5,7 +5,7 @@ using UptimeHarbor.Infrastructure.Cluster;
 namespace UptimeHarbor.Web.Cluster;
 
 public class ClusterConsensusWriter(ClusterPeerRuntime runtime, ClusterRuntimeState state,
-    NodeReadiness readiness, IOptions<ClusterOptions> options) : IConsensusWriter
+    NodeReadiness readiness, IOptions<ClusterOptions> options, RevisionStateStore? accepted = null) : IConsensusWriter
 {
     public ValueTask<long> ReplicateAsync(ReadOnlyMemory<byte> payload, int commandId, CancellationToken cancellationToken)
     {
@@ -14,7 +14,7 @@ public class ClusterConsensusWriter(ClusterPeerRuntime runtime, ClusterRuntimeSt
             throw new InvalidOperationException("Raft recovery is unconfirmed.");
         }
 
-        DotNextConsensusAdapter adapter = new(runtime.Raft, state, readiness, options.Value);
+        DotNextConsensusAdapter adapter = new(runtime.Raft, state, readiness, options.Value, accepted);
         return adapter.ReplicateAsync(payload, commandId, cancellationToken);
     }
 

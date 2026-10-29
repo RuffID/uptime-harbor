@@ -41,7 +41,7 @@ public class EfRevisionProjectionStore(IServiceScopeFactory scopes, IOptions<Clu
     {
         await using AsyncServiceScope scope = scopes.CreateAsyncScope();
         await scope.ServiceProvider.GetRequiredService<SnapshotProjectionUnitOfWork>()
-            .VerifyCursorAsync(image, options.Value.NodeId, token);
+            .VerifyRecoveryAsync(image, options.Value.NodeId, token);
     }
 
     public async Task<RevisionImage> ExportAsync(RevisionImage image, CancellationToken token)

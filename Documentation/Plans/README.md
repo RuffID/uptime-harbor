@@ -4,7 +4,7 @@
 
 ## Активные планы
 
-- [Несколько узлов, синхронизация и общие администраторы](multi-node-sync-and-permissions-2026-10-18-%28in-progress%29/main.md) — `in-progress`: завершены 01–04 и ранний 05.1; этап 05 — in-progress, 05.2–05.4 и 06–10 не начаты. Реализованы accepted Administrator, durable Pending/reducer/UoW, очередь и snapshot/replay; admission/trust/activation/delivery остаются закрытыми. Схема не применялась; реальные узлы, SQL Server, отправки и внешняя приёмка не запускались. Изолированные тесты не доказывают crash/fsync, живую сеть или часовую цель догона.
+- [Несколько узлов, синхронизация и общие администраторы](multi-node-sync-and-permissions-2026-10-18-%28in-progress%29/main.md) — `in-progress`: завершены 01–05; 06–10 не начаты. Реализованы accepted sign-in/локальные сессии/SignalR, согласованные account commands, аккаунтный bootstrap/recovery и durable Pending/reducer/UoW/очередь/snapshot; admission/trust/activation/delivery остаются закрытыми. Схема не применялась; реальные узлы, SQL Server, отправки и внешняя приёмка не запускались. Изолированные тесты не доказывают crash/fsync, живую сеть или часовую цель догона.
 
 ## Новые самостоятельные планы
 

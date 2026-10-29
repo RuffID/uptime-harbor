@@ -6,6 +6,9 @@ using Microsoft.Extensions.DependencyInjection;
 using UptimeHarbor.Application.Cluster;
 using UptimeHarbor.Application.Cluster.Models;
 using UptimeHarbor.Application.Security;
+using UptimeHarbor.Application.Users;
+using UptimeHarbor.Application.Common;
+using UptimeHarbor.Domain.Cluster;
 using UptimeHarbor.Infrastructure.Cluster;
 using UptimeHarbor.Web.Cluster;
 using Xunit;
@@ -70,6 +73,7 @@ public class ClusterCompositionTests
         services.AddLogging();
         services.AddScoped<IUserAccessContext, UnknownUser>();
         services.AddScoped<IAdministratorAccessPolicy, AcceptedAdministratorAccessPolicy>();
+        services.AddScoped<IAccountCredentialService, UnusedCredentials>();
         services.AddClusterInfrastructure(new ConfigurationBuilder().Build());
         services.AddClusterWeb();
         using ServiceProvider provider = services.BuildServiceProvider(new ServiceProviderOptions
@@ -100,6 +104,19 @@ public class ClusterCompositionTests
         public bool IsAdministrator => false;
         public bool IsEnabled => false;
         public Guid UserId => Guid.Empty;
+    }
+
+    private class UnusedCredentials : IAccountCredentialService
+    {
+        public Task<ServiceResult<ProtectedCredential>> PrepareAsync(Guid userId, string login, string password, CancellationToken cancellationToken)
+        {
+            throw new InvalidOperationException("Construction must not prepare credentials.");
+        }
+
+        public bool Verify(Guid userId, string login, ProtectedCredential credential, string password)
+        {
+            throw new InvalidOperationException("Construction must not verify credentials.");
+        }
     }
 
     private class NoNetworkHandler : HttpMessageHandler

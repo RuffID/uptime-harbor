@@ -93,7 +93,7 @@ public static class RevisionCodec
 
     private static void ValidateLeaf(RevisionCommand command)
     {
-        if (command.Schema != 1 || command.Action is not ("Upsert" or "Delete" or "Cancel" or "Replace")
+        if (command.Schema != 1 || command.Action is not ("Upsert" or "Delete" or "Cancel" or "Replace" or "BootstrapAccount")
             || !Enum.IsDefined(command.EntityKind))
         {
             throw new InvalidDataException("UnsupportedCommand");
@@ -108,9 +108,17 @@ public static class RevisionCodec
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(command.ActorRevision);
         ArgumentOutOfRangeException.ThrowIfNegative(command.BaseRevision);
         StorageGuards.Utc(command.CreatedAtUtc);
-        if ((command.Action == "Upsert") != (command.Value is not null))
+        if ((command.Action is "Upsert" or "BootstrapAccount") != (command.Value is not null))
         {
             throw new InvalidDataException("InvalidCommandValue");
+        }
+
+        if (command.Action == "BootstrapAccount"
+            && (command.EntityKind != DeletedEntityKind.Account || command.ActorUserId != command.EntityId
+                || command.ActorRevision != 1 || command.BaseRevision != 0 || command.Value?.Enabled != true
+                || command.ResolvesConflictId.HasValue))
+        {
+            throw new InvalidDataException("InvalidAccountBootstrap");
         }
     }
 }

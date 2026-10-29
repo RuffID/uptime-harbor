@@ -1,16 +1,23 @@
 using DotNext.Net.Cluster.Consensus.Raft;
 using DotNext.Net.Cluster.Replication;
 using UptimeHarbor.Application.Cluster;
+using UptimeHarbor.Application.Cluster.Models;
+using UptimeHarbor.Domain.Cluster;
 
 namespace UptimeHarbor.Infrastructure.Cluster;
 
 public class DotNextConsensusAdapter(IRaftCluster cluster, IClusterStateView state,
-    NodeReadiness readiness, ClusterOptions options) : IConsensusWriter
+    NodeReadiness readiness, ClusterOptions options, RevisionStateStore? accepted = null) : IConsensusWriter
 {
     public async ValueTask<long> ReplicateAsync(ReadOnlyMemory<byte> payload, int commandId,
         CancellationToken cancellationToken)
     {
-        if (payload.IsEmpty || payload.Length > options.CommandMaxBytes || !readiness.CanWork(state))
+        if (payload.IsEmpty || payload.Length > options.CommandMaxBytes)
+        {
+            throw new InvalidOperationException("Cluster writer is not ready.");
+        }
+
+        if (!readiness.CanWork(state) && !CanBootstrapAccount(payload))
         {
             throw new InvalidOperationException("Cluster writer is not ready.");
         }
@@ -30,6 +37,31 @@ public class DotNextConsensusAdapter(IRaftCluster cluster, IClusterStateView sta
         long index = await applied.Task.WaitAsync(cancellation.Token);
         await cluster.AuditTrail.WaitForApplyAsync(index, cancellation.Token);
         return index;
+    }
+
+    private bool CanBootstrapAccount(ReadOnlyMemory<byte> payload)
+    {
+        if (options.Mode != "Bootstrap" || accepted?.Available != true)
+        {
+            return false;
+        }
+
+        RevisionImage image = accepted.Current!;
+        ConsensusStatus? status = state.Consensus;
+        if (status is null || !status.IsLeader || status.ClusterId != image.ClusterId || status.Generation != image.Generation
+            || status.NodeId != options.NodeId || status.VotingNodes.Count != 1 || !status.VotingNodes.Contains(options.NodeId)
+            || status.CommittedIndex > state.Accepted.AppliedIndex || !state.Accepted.SnapshotConfirmed || !state.Accepted.CaughtUp
+            || state.Accepted.MembershipVersion != status.MembershipVersion
+            || readiness.Get("Database").Status != "Ready" || readiness.Get("Storage").Status != "Ready"
+            || readiness.Get("Clock").Status != "Ready" || readiness.Get("Projection").Status != "Ready")
+        {
+            return false;
+        }
+
+        RevisionCommand command = RevisionCodec.Decode(payload.Span);
+        return command.Action == "BootstrapAccount" && command.OriginNodeId == options.NodeId
+            && image.BootstrapAccountDigest == RevisionCodec.Digest(command)
+            && !image.Values.Values.Any(value => value.Kind == DeletedEntityKind.Account);
     }
 
     public ValueTask<bool> ResignAsync(CancellationToken cancellationToken)

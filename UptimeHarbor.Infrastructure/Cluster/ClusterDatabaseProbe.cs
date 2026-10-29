@@ -5,7 +5,7 @@ using UptimeHarbor.Infrastructure.Persistence;
 
 namespace UptimeHarbor.Infrastructure.Cluster;
 
-public class ClusterDatabaseProbe(IServiceScopeFactory scopes, NodeReadiness readiness)
+public class ClusterDatabaseProbe(IServiceScopeFactory scopes, NodeReadiness readiness, RevisionStateStore? accounts = null)
 {
     public async Task ProbeAsync(CancellationToken cancellationToken)
     {
@@ -34,5 +34,9 @@ public class ClusterDatabaseProbe(IServiceScopeFactory scopes, NodeReadiness rea
         }
 
         readiness.Report("Database", healthy, reason, TimeSpan.FromSeconds(10));
+        if (!healthy)
+        {
+            accounts?.Invalidate();
+        }
     }
 }

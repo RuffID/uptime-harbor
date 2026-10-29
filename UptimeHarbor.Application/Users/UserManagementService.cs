@@ -75,7 +75,7 @@ public class UserManagementService(
         }
 
         return ServiceResult<UserAccountDto>.Ok(
-            new UserAccountDto(userId, login.Trim(), true, false, [], []));
+            new UserAccountDto(userId, login.Trim(), true, true, [], []));
     }
 
     public async Task<ServiceResult> SetEnabledAsync(

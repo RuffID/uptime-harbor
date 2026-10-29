@@ -1,5 +1,6 @@
 using UptimeHarbor.Application.Cluster;
 using UptimeHarbor.Infrastructure.Cluster;
+using UptimeHarbor.Infrastructure.Identity;
 
 namespace UptimeHarbor.Web.Cluster;
 
@@ -14,6 +15,7 @@ public static class ClusterWebExtensions
         services.AddSingleton<IMembershipProtocol, DotNextMembershipProtocol>();
         services.AddSingleton<IConsensusWriter, ClusterConsensusWriter>();
         services.AddSingleton<RevisionDispatcher>();
+        services.AddScoped<ClusterAccountBootstrapper>();
         services.AddSingleton<IRevisionTransport, ClusterRevisionTransport>();
         services.AddSingleton<PendingReplicationPump>();
         services.AddHostedService<ClusterRevisionWorker>();

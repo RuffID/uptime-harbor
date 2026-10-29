@@ -20,6 +20,8 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<Cluster.PendingAdmissionGate>();
         services.AddScoped<Cluster.PendingCommandService>();
         services.AddScoped<IUserManagementService, UserManagementService>();
+        services.AddSingleton<AccountCommandGate>();
+        services.AddScoped<SharedUserManagementService>();
         services.AddScoped<IDashboardQuery, DashboardQuery>();
         services.AddScoped<IMonitoringEventRecipientResolver, MonitoringEventRecipientResolver>();
         services.AddScoped<IObjectAdministrationService, ObjectAdministrationService>();

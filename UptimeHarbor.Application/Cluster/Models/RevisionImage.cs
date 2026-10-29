@@ -8,6 +8,7 @@ public record RevisionImage(Guid ClusterId, long Generation)
     public long Index { get; init; }
     public long Term { get; init; }
     public string? Digest { get; init; }
+    public string? BootstrapAccountDigest { get; init; }
     public ImmutableArray<SharedSnapshotRow> ProjectionRows { get; init; } = [];
     public ImmutableDictionary<Guid, AcceptedValue> Values { get; init; } = ImmutableDictionary<Guid, AcceptedValue>.Empty;
     public ImmutableDictionary<string, AcceptedValue> Versions { get; init; } = ImmutableDictionary<string, AcceptedValue>.Empty;

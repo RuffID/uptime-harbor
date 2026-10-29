@@ -35,6 +35,17 @@ public class RevisionReducer
             return state;
         }
 
+        if (command.Action == "BootstrapAccount")
+        {
+            bool emptyAccounts = !state.Values.Values.Any(value => value.Kind == DeletedEntityKind.Account);
+            if (!emptyAccounts || state.BootstrapAccountDigest != digest)
+            {
+                return Decide(state, command, digest, OperationOutcome.Rejected, "BootstrapNotAuthorized");
+            }
+
+            return Change(state, command, digest);
+        }
+
         AcceptedAccount? actor = RevisionAccounts.Find(state, command.ActorUserId);
         if (!AcceptedAdministratorAccessPolicy.IsActiveAdministrator(actor) || actor!.Revision != command.ActorRevision)
         {
@@ -237,8 +248,17 @@ public class RevisionReducer
     private static RevisionImage Decide(RevisionImage state, RevisionCommand command, string digest,
         OperationOutcome outcome, string? reason, long? appliedRevision = null, Guid? conflictId = null, Guid? replacedBy = null)
     {
+        Guid? subjectUserId = null;
+        if (command.EntityKind == DeletedEntityKind.Account)
+        {
+            subjectUserId = command.EntityId;
+        }
+
         CommandResult result = new(command.OperationId, digest, outcome, state.Index, state.Term,
-            appliedRevision, reason, conflictId, replacedBy, command.ActorRevision);
+            appliedRevision, reason, conflictId, replacedBy, command.ActorRevision)
+        {
+            SubjectUserId = subjectUserId
+        };
         return state with { Results = state.Results.Add(command.OperationId, result) };
     }
 }

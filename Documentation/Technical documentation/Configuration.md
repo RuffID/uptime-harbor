@@ -78,3 +78,9 @@ Application регистрирует `TimeProvider.System`. Сценарии, з
 Используется один bot token. Он не передаётся в HTML, TypeScript или административный API. Telegram Bot API включает token в URL, поэтому стандартное HTTP-логирование этого клиента отключено; adapter не включает URI, тело ответа или текст сообщения в исключения.
 
 `TelegramOptions.HasValidBotToken` проверяет формат: положительный числовой ID бота, двоеточие и секрет длиной 30–128 символов из ASCII-букв, цифр, `_` и `-`. `ValidateOnStart` отклоняет пустое значение, обычный ID вместо токена и заглушку из `config.example.json`. Ошибка указывает на `Telegram:BotToken` и `Config/config.json`, не выводя значение. Для работы нужно заменить заглушку токеном от BotFather и перезапустить приложение. Проверка формата не доказывает, что токен действующий: отклонённый или отозванный токен определяется ответом Telegram при отправке.
+
+## Локальные credentials и сессии в сетке (05)
+
+Enabled-регистрации выбирают accepted sign-in/account store; ключи Data Protection остаются в локальной SQL таблице и исключены из shared snapshot. Application discriminator имеет вид `UptimeHarbor/{NodeId:N}`. Cookie дополнительно привязана к случайному process epoch, поэтому копия старой БД/ключей не возвращает старую сессию после restart. Lockout — пять ошибок/пять минут на одном узле; сброс/rehash не передаётся общим журналом.
+
+`BootstrapAdmin` используется только однопроцессным Disabled startup. Для аккаунтного cluster bootstrap нужны точная prepared команда и независимое подтверждение RecoveryAdmission; ни Mode=Bootstrap, ни секрет в config не создают proof. Provisioning/fencing/controlled enable остаются этапом 09, новых публичных bootstrap endpoints/секретных config полей в 05 не добавлено. Default Mode остаётся Disabled.

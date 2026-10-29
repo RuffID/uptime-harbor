@@ -17,7 +17,7 @@
 
 ## Текущее состояние
 
-Таблица фиксирует исходное состояние при подготовке плана; приложение, БД и внешние интеграции не запускались. Модели/mappings/storage описаны в [Shared cluster storage.md](../../Technical%20documentation/Shared%20cluster%20storage.md); adapter, peer transport, readiness и закрытый до recovery runtime этапов 03/04 — в [Cluster runtime.md](../../Technical%20documentation/Cluster%20runtime.md). Реализованные Pending/reducer/snapshot и ранняя авторизация 05.1 описаны там же; общий вход и lifecycle остаются будущей интеграцией.
+Таблица фиксирует исходное состояние при подготовке плана; приложение, БД и внешние интеграции не запускались. Модели/mappings/storage описаны в [Shared cluster storage.md](../../Technical%20documentation/Shared%20cluster%20storage.md); adapter, peer transport, readiness и закрытый до recovery runtime этапов 03/04 — в [Cluster runtime.md](../../Technical%20documentation/Cluster%20runtime.md). Реализованные Pending/reducer/snapshot и ранняя авторизация 05.1 описаны там же; общий вход, account commands и аккаунтный lifecycle реализованы в 05.2–05.4, а controlled enable остаётся будущей работой.
 
 | Область | На начало планирования | Изменение в этом плане |
 | --- | --- | --- |
@@ -32,7 +32,7 @@
 
 Подтверждающие исходники: [ObjectVisibilityPolicy](../../../UptimeHarbor.Application/Visibility/ObjectVisibilityPolicy.cs), [MonitoringService](../../../UptimeHarbor.Application/Monitoring/MonitoringService.cs), [MonitoringCycleRunner](../../../UptimeHarbor.Infrastructure/Monitoring/MonitoringCycleRunner.cs), [NotificationOutboxStore](../../../UptimeHarbor.Infrastructure/Telegram/NotificationOutboxStore.cs), [NotificationAdministrationService](../../../UptimeHarbor.Application/Notifications/NotificationAdministrationService.cs), [MonitoredObject](../../../UptimeHarbor.Domain/Monitoring/MonitoredObject.cs), [Program.cs](../../../UptimeHarbor.Web/Program.cs).
 
-Текущее описание: [мониторинг](../../Technical%20documentation/Monitoring.md), [уведомления](../../Technical%20documentation/Notifications.md), [аутентификация и видимость](../../Technical%20documentation/Authentication%20and%20visibility.md), [бизнес-требования v1](../../Business%20logic/Business%20requirements.md). Технические документы актуализированы по изменениям 02–04 и 05.1; неподключённое поведение остаётся в плане.
+Текущее описание: [мониторинг](../../Technical%20documentation/Monitoring.md), [уведомления](../../Technical%20documentation/Notifications.md), [аутентификация и видимость](../../Technical%20documentation/Authentication%20and%20visibility.md), [бизнес-требования v1](../../Business%20logic/Business%20requirements.md). Технические документы актуализированы по изменениям 02–05; неподключённое поведение остаётся в плане.
 
 ## Границы
 
@@ -56,7 +56,7 @@
 | 02 | Модель общих аккаунтов, единственной роли, ревизий и схемы | completed | 01 | [Домен и хранение](02-domain-and-persistence/main.md) |
 | 03 | Идентичность узлов, самодиагностика, большинство и главный | completed | 01, 02 | [Связь и выбор главного](03-peer-health-and-leadership/main.md) |
 | 04 | Доставка изменений, конфликты, tombstones и восстановление | completed | 02, 03, 05.1 | [Синхронизация ревизий](04-revision-synchronization/main.md) |
-| 05 | Общие пользователи и единственная роль администратора | in-progress | 02 для 05.1; 04 для 05.2–05.4 | [Пользователи и общий вход](05-permissions-and-ownership/main.md) |
+| 05 | Общие пользователи и единственная роль администратора | completed | 02 для 05.1; 04 для 05.2–05.4 | [Пользователи и общий вход](05-permissions-and-ownership/main.md) |
 | 06 | Взаимный мониторинг и согласованные инциденты | not-started | 03, 04 | [Мониторинг и инциденты](06-monitoring-and-incidents/main.md) |
 | 07 | Отправка главным и восстановление состояния Telegram-доставки | not-started | 05, 06 | [Telegram](07-leader-notifications/main.md) |
 | 08 | Управление через любой узел, общие аккаунты, Pending и конфликты | not-started | 05, 07 | [Web и интерфейс](08-web-and-administration/main.md) |
@@ -109,9 +109,9 @@
 | Подэтап | Результат | Статус | Зависимости | Документ |
 | --- | --- | --- | --- | --- |
 | 05.1 | Готова проверка активного принятого администратора для command pipeline и Web. | completed | 02 | [Общий аккаунт и единая проверка администратора](05-permissions-and-ownership/05.1-subjects-and-resource-policies.md) |
-| 05.2 | Один аккаунт работает на всех догнавших узлах; чтение и SignalR доступны всем администраторам. | not-started | 04, 05.1 | [Общий вход, чтение и SignalR](05-permissions-and-ownership/05.2-filtered-reads-and-signalr.md) |
-| 05.3 | Создание и изменение общих пользователей и роли подключены к принятому журналу. | not-started | 05.2 | [Согласованные изменения пользователей](05-permissions-and-ownership/05.3-acl-commands-and-owners.md) |
-| 05.4 | Первый администратор, блокировка аккаунтов и восстановление пользователей согласованы с жизненным циклом сетки. | not-started | 05.3 | [Bootstrap, жизненный цикл аккаунтов и возврат узла](05-permissions-and-ownership/05.4-identity-and-node-lifecycle.md) |
+| 05.2 | Один аккаунт работает на всех догнавших узлах; чтение и SignalR доступны всем администраторам. | completed | 04, 05.1 | [Общий вход, чтение и SignalR](05-permissions-and-ownership/05.2-filtered-reads-and-signalr.md) |
+| 05.3 | Создание и изменение общих пользователей и роли подключены к принятому журналу. | completed | 05.2 | [Согласованные изменения пользователей](05-permissions-and-ownership/05.3-acl-commands-and-owners.md) |
+| 05.4 | Первый администратор, блокировка аккаунтов и восстановление пользователей согласованы с жизненным циклом сетки. | completed | 05.3 | [Bootstrap, жизненный цикл аккаунтов и возврат узла](05-permissions-and-ownership/05.4-identity-and-node-lifecycle.md) |
 
 ### 06. Взаимный мониторинг и общие инциденты
 
@@ -215,4 +215,6 @@
 
 2026-10-29 завершены ранний [05.1](05-permissions-and-ownership/05.1-subjects-and-resource-policies.md) и [04.1–04.5](04-revision-synchronization/main.md): accepted Administrator policy, durable Pending/controls/results, production reducer/UoW/cursor через DotNext, конфликты/tombstones, bounded priority queue и streaming snapshot/replay/compaction. Создана разрешённая `20261029075201_AllowUniquenessConflictRevisions`; миграции к БД не применялись. Четыре production builds — 0 предупреждений/ошибок; Domain 36, Application 166, выбранные Infrastructure 65, Web Cluster/DI 22 успешно, без ошибок/пропусков. [Фактические проверки и пределы](../../Technical%20documentation/Testing.md#проверка-этапа-04-и-зависимости-051).
 
-Дата создания 2026-10-18 и папка `multi-node-sync-and-permissions-2026-10-18-(in-progress)` сохранены. Общий план — in-progress; 04 и 05.1 — completed; 05 — in-progress; 05.2–05.4 и 06–10 — not-started, 09.2/09.3 — cancelled. Общий sign-in, распределённые workers и controlled enable не реализованы; admission/trust/activation/delivery по умолчанию закрыты. БД/SQL/provider tests, реальные узлы/peer/Telegram, приложение/hosting/Docker/deployment и Git не запускались. Часовая цель догона, crash/fsync и внешняя приёмка не подтверждены. После 04 и зависимости 05.1 работа остановлена.
+2026-10-29 завершены [05.2–05.4](05-permissions-and-ownership/main.md): общий accepted sign-in/локальные сессии/SignalR, согласованные изменения пользователей и аккаунтная часть bootstrap/recovery. Четыре production builds — 0 предупреждений/ошибок; Domain 36, Application 172, выбранные Infrastructure 82, Web 50 успешно, без ошибок/пропусков. [Проверки и ограничения](../../Technical%20documentation/Testing.md#проверка-этапа-05).
+
+Дата создания 2026-10-18 и папка `multi-node-sync-and-permissions-2026-10-18-(in-progress)` сохранены. Общий план — in-progress; 01–05 — completed; 06–10 — not-started, 09.2/09.3 — cancelled. Распределённые workers/UI/controlled enable не реализованы; browser/worker/sender и admission/trust/activation/delivery по умолчанию закрыты. SQL/provider tests, приложение/hosting, Docker, реальные peers/monitoring/Telegram/deployment и Git не запускались. Миграции 02/04 не применялись; новой migration в 05 нет. Часовой догон, SQL atomicity, crash/fsync и внешняя приёмка не подтверждены. После 05.4 работа остановлена.

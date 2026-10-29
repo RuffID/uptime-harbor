@@ -45,7 +45,7 @@
 
 SignalR handler реализован в Web. Он получает из Application список разрешённых включённых пользователей и отправляет им только `objectId` и `objectKind`; скрытые имя, описание, состояние и времена в push payload не попадают. Telegram не является synchronous handler: отдельный Infrastructure worker читает durable outbox. SQL Server остаётся источником истины.
 
-`ObjectVisibilityPolicy` предоставляет доступ только активному Administrator ко всем объектам, включая контейнеры без сервера. Старые permission-наборы не предоставляют доступ. Infrastructure `IMonitoringRecipientReadQuery` читает users/роль одним запросом и возвращает пустые compatibility collections; per-user queries и рабочих ACL нет. Подключение общего accepted sign-in/SignalR остаётся в 05.2.
+`ObjectVisibilityPolicy` предоставляет доступ только активному Administrator ко всем объектам, включая контейнеры без сервера. Старые permission-наборы не предоставляют доступ. Infrastructure `IMonitoringRecipientReadQuery` читает users/роль одним запросом и возвращает пустые compatibility collections; per-user queries и рабочих ACL нет. В enabled-режиме `AcceptedMonitoringRecipients` читает активных принятых Administrator без ресурсных ACL, `MonitoringConnections` проверяет локальную cookie-сессию перед доставкой и отзывает подписку после apply hash/stamp/disable/delete/fault. Это не открывает workers этапа 06.
 
 ## Конкурентность
 

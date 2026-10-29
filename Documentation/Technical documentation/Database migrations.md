@@ -77,3 +77,7 @@ dotnet ef migrations add AllowUniquenessConflictRevisions --project .\UptimeHarb
 Изменяется только `ck_shared_conflicts_revisions`: Up требует BaseRevision ≥0 и FirstAcceptedRevision >0; прежнее сравнение FirstAcceptedRevision > BaseRevision неверно для uniqueness conflict двух разных сущностей. Например, competing record принят на 3, изменяемый — на 4: обе реальные версии должны сохраняться. Down возвращает прежний constraint; при существующих таких конфликтах он может завершиться ошибкой и требует предварительного анализа данных, автоматического backfill нет.
 
 Исторические migrations не переписывались. Factory не содержит строки подключения; приложение и БД не запускались. Tool 10.0.11 предупредил о runtime 10.0.13; scaffolding завершился. `SharedStorageMigrationTests` проверяет Up/Down operations и нулевой model/snapshot diff без SQL. Migration к БД не применялась; исполнение DDL/Down на SQL Server не подтверждено.
+
+## Схема после 05.2–05.4
+
+Общий sign-in, account commands, локальные counters/session validation и аккаунтная часть bootstrap/recovery используют существующие поля схемы 02/04. Новая migration не потребовалась; historical migrations, designer и snapshot не изменялись. Обе подготовленные migrations `20261029053354_AddSharedClusterStorage` и `20261029075201_AllowUniquenessConflictRevisions` к БД не применялись. Аккаунтная часть bootstrap реализована отдельно от будущего controlled enable/эксплуатации 09; enabled startup по-прежнему пропускает automatic migration/legacy bootstrap.

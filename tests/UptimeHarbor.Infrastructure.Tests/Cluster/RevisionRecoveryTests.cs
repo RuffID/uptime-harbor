@@ -7,12 +7,89 @@ using UptimeHarbor.Application.Cluster;
 using UptimeHarbor.Application.Cluster.Models;
 using UptimeHarbor.Infrastructure.Cluster;
 using UptimeHarbor.Infrastructure.Cluster.Models;
+using UptimeHarbor.Infrastructure.Identity;
+using UptimeHarbor.Domain.Cluster;
 using Xunit;
 
 namespace UptimeHarbor.Tests.Infrastructure.Cluster;
 
 public class RevisionRecoveryTests
 {
+    [Fact]
+    public async Task AccountReplayAfterOlderSnapshotPreservesNewCredentialsAndDeletionBeforeReopeningAccess()
+    {
+        // Arrange
+        using ClusterTestDirectory directory = new();
+        RevisionFixture fixture = new();
+        ClusterOptions options = fixture.Options(directory.Location);
+        RevisionSnapshotStore snapshots = new(Options.Create(options));
+        PublishedRevisionSnapshot snapshot = await snapshots.PublishAsync(fixture.WithProjectionRows(), TestContext.Current.CancellationToken);
+        RecoveryAdmission proof = new(options.ClusterId, 1, options.NodeId, options.StorageGeneration,
+            true, false, snapshot.Manifest.SnapshotId, snapshot.Digest, 5, 1);
+        Projection projection = new(fixture.Baseline);
+        using ServiceProvider scopes = new ServiceCollection().BuildServiceProvider();
+        Guid subject = Guid.NewGuid();
+        ConfigurationValue old = fixture.Baseline.Values[fixture.Actor].Value;
+        RevisionCommand create = fixture.Server() with
+        {
+            EntityId = subject, EntityKind = DeletedEntityKind.Account,
+            Value = old with { Name = "subject" }
+        };
+        RevisionCommand password = create with
+        {
+            OperationId = Guid.NewGuid(), EntityId = fixture.Actor, BaseRevision = 1,
+            Value = old with { PasswordHash = "new-protected-hash", SecurityStamp = "new-stamp" }
+        };
+        RevisionCommand delete = create with
+        {
+            OperationId = Guid.NewGuid(), Action = "Delete", BaseRevision = 3, ActorRevision = 4, Value = null
+        };
+        string walPath = Path.Combine(directory.Location, "wal");
+
+        // Act
+        var first = Create(proof, projection, snapshots, scopes.GetRequiredService<IServiceScopeFactory>(), options);
+        await first.Machine.RestoreAsync(options, TestContext.Current.CancellationToken);
+        await using (WriteAheadLog wal = new(WalOptions(walPath), first.Machine))
+        {
+            await wal.InitializeAsync(TestContext.Current.CancellationToken);
+            foreach (RevisionCommand command in new[] { create, password, delete })
+            {
+                long index = await wal.AppendAsync(new BinaryLogEntry
+                {
+                    Term = 2, CommandId = RevisionCodec.COMMAND_ID, Content = RevisionCodec.Encode(command)
+                }, TestContext.Current.CancellationToken);
+                await wal.CommitAsync(index, TestContext.Current.CancellationToken);
+                await wal.WaitForApplyAsync(index, TestContext.Current.CancellationToken);
+            }
+        }
+
+        var restarted = Create(proof, projection, snapshots, scopes.GetRequiredService<IServiceScopeFactory>(), options);
+        AcceptedAccountSession sessions = new(restarted.State);
+        var stale = sessions.Create(RevisionAccounts.Materialize(fixture.Baseline.Values[fixture.Actor]), "cookie");
+        await restarted.Machine.RestoreAsync(options, TestContext.Current.CancellationToken);
+        await using WriteAheadLog reopened = new(WalOptions(walPath), restarted.Machine);
+        await reopened.InitializeAsync(TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Null(restarted.State.Find(fixture.Actor));
+        Assert.False(sessions.IsValid(stale));
+
+        // Act
+        bool confirmed = await restarted.Recovery.ConfirmLocalReplayAsync(reopened.LastCommittedEntryIndex,
+            reopened.LastAppliedIndex, 1, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.True(confirmed);
+        RevisionImage accepted = restarted.State.Current!;
+        Assert.Equal("new-protected-hash", accepted.Values[fixture.Actor].Value.PasswordHash);
+        Assert.True(accepted.Values[subject].Deleted);
+        Assert.False(restarted.State.Find(subject)!.IsEnabled);
+        Assert.False(sessions.IsValid(stale));
+        Assert.True(sessions.IsValid(sessions.Create(RevisionAccounts.Materialize(accepted.Values[fixture.Actor]), "cookie")));
+        Assert.Equal(3, projection.Effects);
+        Assert.False(restarted.Recovery.Accepted.Activated);
+    }
+
     [Fact]
     public async Task RealWalReplaysProductionReducerAfterSnapshotBeforeConfirmingAccounts()
     {

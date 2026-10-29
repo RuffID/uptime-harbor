@@ -100,7 +100,14 @@ public class PendingCommandService(IPendingControlUnitOfWork work, IUserAccessCo
 
         if (created)
         {
-            audit.Record(proposal.OperationId, user.UserId, localNodeId, "LocalPending");
+            if (proposal.EntityKind == DeletedEntityKind.Account)
+            {
+                audit.RecordAccount(proposal.OperationId, user.UserId, proposal.EntityId, localNodeId, "LocalPending");
+            }
+            else
+            {
+                audit.Record(proposal.OperationId, user.UserId, localNodeId, "LocalPending");
+            }
         }
 
         return new SubmissionReceipt(proposal.OperationId, true, null);

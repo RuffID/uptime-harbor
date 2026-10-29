@@ -51,15 +51,20 @@ public class RevisionApplyEngine(RevisionStateStore state, RevisionReducer reduc
         await serial.WaitAsync(token);
         try
         {
-            state.Invalidate();
+            long recoveryVersion = state.RecoveryVersion;
             RevisionImage? image = state.Current;
             if (image is null || !await verify(image))
             {
+                state.Invalidate();
                 return false;
             }
 
-            state.ConfirmRecovery(image);
-            return true;
+            return state.ConfirmRecovery(image, recoveryVersion);
+        }
+        catch
+        {
+            state.Invalidate();
+            throw;
         }
         finally
         {

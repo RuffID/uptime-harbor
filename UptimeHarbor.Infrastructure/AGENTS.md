@@ -14,7 +14,7 @@
 - Для production persistence использовать провайдер EF Core SQL Server и строку подключения `ConnectionStrings:SqlServer`.
 - Типизированные настройки получать через options; `IConfiguration` использовать только при регистрации.
 - При изменении интеграций, Identity или persistence обновлять этот файл и тематическую документацию `Documentation/Technical documentation`.
-- Identity bootstrap и user store остаются в `Identity`; начальный пароль используется только при создании отсутствующего администратора.
+- Identity bootstrap и user store остаются в `Identity`. Disabled сохраняет legacy bootstrap; enabled использует принятый sign-in/credentials и запрещает локальные account writers. Password validators/hasher готовят credential до durable Pending; локальный login UoW меняет только counters/lockout. Детальные границы session invalidation и точного bootstrap proof — в `Identity/AGENTS.md`.
 - При старте `DataBaseCheckUpService<UptimeHarborDbContext>` проверяет SQL Server, создаёт backup при наличии pending migrations и применяет их до Identity bootstrap; ошибка подключения, backup или migration останавливает запуск.
 - Backup и migration не должны логировать connection string, credentials или SQL command; имена pending migrations логировать разрешено.
 - Блокировка пользователя обязана обновлять security stamp, а cookie validator — проверять `IsEnabled` на каждом запросе.

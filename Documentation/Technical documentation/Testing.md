@@ -220,3 +220,44 @@ dotnet test --project .\tests\UptimeHarbor.Web.Tests\UptimeHarbor.Web.Tests.cspr
 `RevisionBatchTests`/`PendingReplicationTests` проверяют malformed tail/response, дубли/перестановки/пропуски, фактические count/byte limits, минутный цикл, priority retry, backlog/held backup без payload. `RevisionBoundaryTests` вызывает controller без host и проверяет отсутствие dispatch при неверном peer/batch. Migration tests проверяют только operations/model metadata, не SQL DDL.
 
 Не запускались БД/SQL (включая SQLite), полный Infrastructure-набор, provider tests, приложение/hosting, Docker, реальные peer HTTP/TLS/Nginx, мониторинг/Telegram, процессы, deployment и Git. Общий sign-in/сессии 05.2–05.4, распределённые incidents/delivery 06/07, UI/controlled enable 08/09 не реализовывались; закрытые зависимости остаются закрытыми. Часовая цель догона трёх узлов/около 30 приложений не наблюдалась и не доказана. Самостоятельная внешняя приёмка учитывается отдельно; полного стенда и прогона всей матрицы не было.
+
+## Проверка этапа 05
+
+Статическая финальная проверка: 81 Markdown-документ без битых файловых ссылок, все documentation solution items существуют и включены; новые документы не добавлялись. 96 новых/изменённых файлов проверены строгим UTF-8 decoder, без U+FFFD, `????` и обнаруженных признаков mojibake. Новые/изменённые `.cs` меньше 20000 байт. Существующие смешанные окончания строк не нормализовались массово; несвязанные файлы и история 01–04/05.1 не менялись.
+
+Регрессия recovery-version сначала воспроизвела дефект: успешная проверка, начатая до нового Invalidate, повторно открывала reader. Production store/apply теперь сравнивают RecoveryVersion начала проверки под общей границей публикации; устаревший успех отвергается. Локальный session epoch включает эту версию и не зависит от порядка доставки Changed. Финальный AccountSessionTests включает эту проверку.
+
+2026-10-29 выполнен минимальный изолированный объём аккаунтной интеграции и регрессий production pipeline 04. Четыре production-проекта собраны **последовательно и отдельно** в Debug без restore: 0 предупреждений и ошибок. Общие obj не позволяют безопасно выполнять эти сборки/тестовые builds одновременно. Использованы команды:
+
+```powershell
+dotnet build .\UptimeHarbor.Domain\UptimeHarbor.Domain.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\domain\
+dotnet build .\UptimeHarbor.Application\UptimeHarbor.Application.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\application\
+dotnet build .\UptimeHarbor.Infrastructure\UptimeHarbor.Infrastructure.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\infrastructure\
+dotnet build .\UptimeHarbor.Web\UptimeHarbor.Web.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\web\
+```
+
+| Набор | Успешно | Ошибки | Пропуски |
+| --- | --- | --- | --- |
+| Domain, весь изолированный проект | 36 | 0 | 0 |
+| Application, весь изолированный проект | 172 | 0 | 0 |
+| Infrastructure, только перечисленные классы | 82 | 0 | 0 |
+| Web, только перечисленные классы | 50 | 0 | 0 |
+
+Фактические финальные test-команды из корня:
+
+```powershell
+dotnet test --project .\tests\UptimeHarbor.Domain.Tests\UptimeHarbor.Domain.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\domain-tests\
+dotnet test --project .\tests\UptimeHarbor.Application.Tests\UptimeHarbor.Application.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\application-tests\
+dotnet test --project .\tests\UptimeHarbor.Infrastructure.Tests\UptimeHarbor.Infrastructure.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\infrastructure-tests\ -- --filter-class UptimeHarbor.Tests.Infrastructure.Identity.AcceptedSignInTests --filter-class UptimeHarbor.Tests.Infrastructure.Identity.AcceptedCookieTests --filter-class UptimeHarbor.Tests.Infrastructure.Identity.AccountBootstrapTests --filter-class UptimeHarbor.Tests.Infrastructure.Cluster.* --filter-class UptimeHarbor.Tests.Infrastructure.Persistence.ProjectionTransactionTests --filter-class UptimeHarbor.Tests.Infrastructure.Persistence.SharedStorageModelTests --filter-class UptimeHarbor.Tests.Infrastructure.Persistence.SharedStorageMigrationTests --filter-class UptimeHarbor.Tests.Infrastructure.Persistence.SharedStorageRegistrationTests
+dotnet test --project .\tests\UptimeHarbor.Web.Tests\UptimeHarbor.Web.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\web-tests\ -- --filter-class UptimeHarbor.Tests.Web.Cluster.* --filter-class UptimeHarbor.Tests.Web.DependencyInjection.* --filter-class UptimeHarbor.Tests.Web.AdminUsersControllerAuthorizationTests --filter-class UptimeHarbor.Tests.Web.ReadContractSecurityTests --filter-class UptimeHarbor.Tests.Web.WebPerimeterSecurityTests --filter-class UptimeHarbor.Tests.Web.DashboardSignalRTests
+```
+
+AcceptedSignInTests вызывает реальные password validators/hasher, AcceptedUserSignInService, LocalAccountLogin и session policy с изолированными UoW/authentication/time. Проверены общий credential на двух локальных экземплярах, локальные lockout/cookie, inactive/unaccepted/recovery deny, ordinary offline и apply смены пароля, отсутствие rehash/journal записи каждого входа, отказ при apply во время проверки/выдачи cookie и отсутствие секретов/ложного success в проверяемых логах. AcceptedCookieTests вызывает фактически зарегистрированный OnValidatePrincipal и проверяет NodeId discriminator без чтения key repository или SQL.
+
+SharedUserManagementTests использует production Pending/reducer с изолированными storage/protection/credential doubles: Create/Update/Password/SetEnabled/Delete, Pending без изменения входа, повтор OperationId/потерянный ответ, concurrent normalized login, deactivation последних администраторов/повторная авторизация, self/stale/changed retry и удержание restore Pending. Safe DTO не содержит credentials. PendingReplicationTests проверяет однократный подтверждённый account audit с точными operation/actor/subject/node IDs. Прежние reducer/transaction/batch/snapshot tests 04 включены повторно.
+
+AccountBootstrapTests проверяет точный trusted digest, единственного первого Administrator, отказ Join/Restart/Disabled/old-backup и dedup. AdapterWiringTests вызывает настоящий DotNext replication API с локальным WAL и подменённой transport boundary; узкий bootstrap проходит при закрытом общем gate, другая команда/fault — нет. Это не native majority/elections.
+
+RevisionRecoveryTests использует реальный локальный snapshot/WAL и production recovery/reducer: старый snapshot → новые credentials/удаление → reopen/replay, аккаунты закрыты до подтверждения, прежняя cookie остаётся недействительной, tombstone сохраняется. Проекция подставная; SQL recovery/atomicity/locking и power-loss/crash-fsync этим не доказаны. AccountSessionTests вызывает production apply/session/connection registry с fake HubCallerContext, проверяя отзыв password/stamp/disable/delete/fault и сохранность обычной offline-сессии/периодической сверки. Это не browser/WebSocket acceptance.
+
+Новая migration не нужна; существующие designer/snapshot/historical migrations не изменялись. БД/SQL (включая SQLite), provider tests, полный Infrastructure-набор, приложение/hosting, Docker, реальные peers/monitoring/Telegram и deployment не запускались; Git-команды не выполнялись. Схема к БД не применялась. UI этапа 08, provisioning/внешнее fencing/controlled enable 09 и распределённые workers 06/07 не реализовывались. Все соответствующие gates и неизвестные proof остаются закрытыми. Этапы 06–10 не начаты; внешняя приёмка и часовая цель догона не подтверждены.

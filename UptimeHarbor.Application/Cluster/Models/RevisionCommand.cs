@@ -21,6 +21,7 @@ public record RevisionCommand
     public RevisionCommand? Target { get; init; }
     public RevisionCommand? Replacement { get; init; }
     public Guid? ResolvesConflictId { get; init; }
+    public string? AccountAction { get; init; }
 
     public override string ToString()
     {

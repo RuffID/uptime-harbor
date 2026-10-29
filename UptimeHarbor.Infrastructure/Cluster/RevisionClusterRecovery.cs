@@ -49,6 +49,18 @@ public class RevisionClusterRecovery(IRecoveryAdmission admissionSource, Revisio
 
         admission = proof;
         RevisionImage checkpoint = new(clusterId, generation);
+        if (proof.BootstrapAccount is not null)
+        {
+            RevisionCommand bootstrap = proof.BootstrapAccount;
+            RevisionCodec.Validate(bootstrap);
+            if (bootstrap.Action != "BootstrapAccount" || bootstrap.ClusterId != clusterId
+                || bootstrap.ClusterGeneration != generation)
+            {
+                throw new InvalidDataException("BootstrapProvenanceMismatch");
+            }
+
+            checkpoint = checkpoint with { BootstrapAccountDigest = RevisionCodec.Digest(bootstrap) };
+        }
         ProjectionHead? sql = await projection.ReadHeadAsync(token);
         if (sql is not null && (sql.ClusterId != clusterId || sql.Generation != generation))
         {
@@ -64,6 +76,10 @@ public class RevisionClusterRecovery(IRecoveryAdmission admissionSource, Revisio
 
             PublishedRevisionSnapshot snapshot = await snapshots.LoadAsync(proof.SnapshotId.Value, proof.SnapshotDigest, token);
             checkpoint = snapshot.Image;
+            if (proof.BootstrapAccount is not null && checkpoint.BootstrapAccountDigest != RevisionCodec.Digest(proof.BootstrapAccount))
+            {
+                throw new InvalidDataException("BootstrapHistoryMismatch");
+            }
             if (sql is null || sql.Index < checkpoint.Index)
             {
                 await engine.InstallAsync(checkpoint, snapshot.Manifest.SnapshotId, snapshot.Digest, token);
@@ -131,6 +147,7 @@ public class RevisionClusterRecovery(IRecoveryAdmission admissionSource, Revisio
             || appliedIndex != committedIndex
             || persistedMembershipVersion != admission.MembershipVersion)
         {
+            state.Invalidate();
             return false;
         }
 
@@ -148,10 +165,7 @@ public class RevisionClusterRecovery(IRecoveryAdmission admissionSource, Revisio
                 return false;
             }
 
-            if (sql is not null)
-            {
-                await projection.VerifyAsync(image, token);
-            }
+            await projection.VerifyAsync(image, token);
 
             if (admission.OldBackup && !backupReconciled)
             {

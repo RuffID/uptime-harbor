@@ -73,6 +73,8 @@ public class PendingReplicationTests
         Assert.Equal(PendingState.NeedsUserConfirmation, held.State);
         Assert.NotNull(pump.Progress.OldestPendingAtUtc);
         Assert.Equal(4, audit.Outcomes.Count);
+        Assert.Equal((priority.OperationId, priority.ActorUserId, priority.EntityId, priority.OriginNodeId, "Committed"),
+            Assert.Single(audit.Accounts));
         Assert.DoesNotContain(transport.Batches.SelectMany(batch => batch), command => command.OperationId == held.Id);
     }
 
@@ -137,6 +139,13 @@ public class PendingReplicationTests
     private class Audit : IRevisionAudit
     {
         public List<string> Outcomes { get; } = [];
+        public List<(Guid Operation, Guid Actor, Guid Subject, Guid Node, string Outcome)> Accounts { get; } = [];
+
+        public void RecordAccount(Guid operationId, Guid actorUserId, Guid subjectUserId, Guid nodeId, string outcome)
+        {
+            Accounts.Add((operationId, actorUserId, subjectUserId, nodeId, outcome));
+            Outcomes.Add(outcome);
+        }
 
         public void Record(Guid operationId, Guid actorUserId, Guid nodeId, string outcome)
         {

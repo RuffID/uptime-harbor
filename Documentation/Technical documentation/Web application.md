@@ -2,11 +2,11 @@
 
 ## Граница 05.1 и этапа 04
 
-Рабочие ACL repository/UoW, SetVisibility use case/request и endpoint `/api/admin/users/{id}/visibility` удалены. Старый Users UI/DTO-поля ниже остаются compatibility и не предоставляют ресурсных прав; его сохранение permissions больше не является рабочим API. Переработка пользовательского сценария относится к 05.2–05.4/08 и здесь не выполнялась. В cluster mode browser writers остаются закрытыми; peer batch принимает только verified peer origin и active accepted actor, а backlog доступен в безопасной peer health диагностике.
+Рабочие ACL repository/UoW, SetVisibility use case/request и endpoint `/api/admin/users/{id}/visibility` удалены. Старый Users UI/DTO-поля ниже остаются compatibility и не предоставляют ресурсных прав; его сохранение permissions больше не является рабочим API. 05.2–05.4 подключили accepted sign-in/cookie/SignalR и минимальный account command API. Переработка UI относится к этапу 08 и не выполнялась. В cluster mode browser writers остаются закрытыми; peer batch принимает только verified peer origin и active accepted actor, а backlog доступен в безопасной peer health диагностике.
 
 ## Peer-периметр этапа 03
 
-`ConfigureClusterListeners` проверяет отдельные именованные Kestrel `Browser`/`Peer` endpoints; Direct требует mTLS, внутренний HTTP разрешён только в режиме `NginxIsolatedHttp` с изоляцией/точным allowlist. `UseClusterPeerBoundary` находится до forwarded headers и cookie authentication: browser listener не обслуживает `/internal`, peer listener не обслуживает пользовательские endpoints. Enabled-режим до реализации 05/08 возвращает 503 на прежние browser routes. Peer health и native Raft доступны только после envelope/certificate/trust проверки; неизвестные будущие routes не открыты. Это не новое административное UI. Composition и ограничения — [Cluster runtime.md](Cluster%20runtime.md).
+`ConfigureClusterListeners` проверяет отдельные именованные Kestrel `Browser`/`Peer` endpoints; Direct требует mTLS, внутренний HTTP разрешён только в режиме `NginxIsolatedHttp` с изоляцией/точным allowlist. `UseClusterPeerBoundary` находится до forwarded headers и cookie authentication: browser listener не обслуживает `/internal`, peer listener не обслуживает пользовательские endpoints. Enabled-режим до готовности будущих lifecycle/activation возвращает 503 на browser routes, включая login и account API: регистрация компонентов 05 не открывает gate. Peer health и native Raft доступны только после envelope/certificate/trust проверки; неизвестные будущие routes не открыты. Это не новое административное UI. Composition и ограничения — [Cluster runtime.md](Cluster%20runtime.md).
 
 ## Composition root
 
@@ -107,3 +107,9 @@ Login Page имеет отдельную fixed-window policy: не более 10
 После успешного административного сохранения `SignalRObjectAdministrationChangePublisher` отправляет всем аутентифицированным открытым панелям только событие `ObjectAdministrationChanged` без данных объекта. Получатель должен перечитать разрешённый ему snapshot через защищённый API; событие не является источником истины и не раскрывает скрытые объекты.
 
 Административный SignalR refresh является best-effort: publisher вызывается только после commit, изолирует и журналирует transport exception без данных объекта. Ошибка push не меняет успешный `ServiceResult` сохранённой операции и не требует повторного HTTP-запроса; после save/concurrency error publisher не вызывается.
+
+## Минимальный контракт общих пользователей (05.2–05.4)
+
+В enabled-регистрации `/api/admin/users` читает принятые аккаунты с Revision, а `/api/admin/users/commands` принимает OperationId, UserId, BaseRevision, Action (Create/Update/Password/SetEnabled/Delete) и необходимые Login/Password/IsEnabled. ActorUserId и NodeId назначаются сервером; выбора роли и ресурсных прав нет. Изменения защищены Administrator metadata, antiforgery и повторной принятой авторизацией Application/reducer. HTTP 202 означает только durable Pending, а не принятый успех. `/api/admin/users/operations/{operationId}` возвращает принятый безопасный итог; неизвестный итог — NotFound, не ложный успех. Старые mutating routes в сетке возвращают конфликт и не пишут локальный Identity store.
+
+Cookie validator проверяет accepted credential binding на каждом запросе. MonitoringHub принимает только валидную локальную сессию; apply/fault отзывает подписки через MonitoringConnections. Publishers адресуют только проверенные connection IDs. Hash/stamps/credentials и конфликтные варианты в эти DTO/SignalR не входят. Старый Users UI не адаптировался к Pending и не является UI этапа 08; enabled browser gate остаётся закрытым до будущего lifecycle.

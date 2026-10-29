@@ -29,14 +29,15 @@ public class DashboardQueryTests
             null, TestContext.Current.CancellationToken);
 
         // Assert
-        Assert.True(result.Success);
         if (isAdministrator)
         {
+            Assert.True(result.Success);
             Assert.Equal(data.FirstContainer.Id, Assert.Single(result.Data!.UnassignedContainers).Id);
         }
         else
         {
-            Assert.Empty(result.Data!.UnassignedContainers);
+            Assert.Equal(ServiceErrorType.Forbidden, result.Error!.Type);
+            Assert.Null(result.Data);
         }
     }
 
@@ -71,13 +72,13 @@ public class DashboardQueryTests
         data.AllowContainer(data.FirstContainer);
 
         // Act
-        DashboardSnapshotDto snapshot = (await data
+        ServiceResult<DashboardSnapshotDto> result = await data
             .CreateQuery(isAdministrator: false)
-            .GetSnapshotAsync(null, TestContext.Current.CancellationToken)).Data!;
+            .GetSnapshotAsync(null, TestContext.Current.CancellationToken);
 
         // Assert
-        Assert.Empty(snapshot.Servers);
-        Assert.Empty(snapshot.UnassignedContainers);
+        Assert.Equal(ServiceErrorType.Forbidden, result.Error!.Type);
+        Assert.Null(result.Data);
     }
 
     [Fact]
@@ -88,28 +89,31 @@ public class DashboardQueryTests
         data.AllowServer(data.FirstServer);
 
         // Act
-        DashboardSnapshotDto snapshot = (await data
+        ServiceResult<DashboardSnapshotDto> result = await data
             .CreateQuery(isAdministrator: false)
-            .GetSnapshotAsync(null, TestContext.Current.CancellationToken)).Data!;
+            .GetSnapshotAsync(null, TestContext.Current.CancellationToken);
 
         // Assert
-        Assert.Empty(snapshot.Servers);
+        Assert.Equal(ServiceErrorType.Forbidden, result.Error!.Type);
+        Assert.Null(result.Data);
     }
 
     [Fact]
     public async Task GetSnapshotAsync_HiddenContainerIsAbsent()
     {
+        // Arrange
         TestData data = new();
         data.AllowServer(data.FirstServer);
         data.AllowContainer(data.FirstContainer);
 
-        DashboardSnapshotDto snapshot = (await data
+        // Act
+        ServiceResult<DashboardSnapshotDto> result = await data
             .CreateQuery(isAdministrator: false)
-            .GetSnapshotAsync(null, TestContext.Current.CancellationToken)).Data!;
+            .GetSnapshotAsync(null, TestContext.Current.CancellationToken);
 
-        Assert.DoesNotContain(
-            snapshot.Servers.SelectMany(server => server.Containers),
-            container => container.Id == data.SecondContainerOnFirstServer.Id);
+        // Assert
+        Assert.Equal(ServiceErrorType.Forbidden, result.Error!.Type);
+        Assert.Null(result.Data);
     }
 
     [Theory]
@@ -132,24 +136,30 @@ public class DashboardQueryTests
     [Fact]
     public async Task GetSnapshotAsync_SearchDoesNotReturnHiddenObject()
     {
+        // Arrange
         TestData data = new();
         data.AllowServer(data.FirstServer);
 
-        DashboardSnapshotDto snapshot = (await data
+        // Act
+        ServiceResult<DashboardSnapshotDto> result = await data
             .CreateQuery(isAdministrator: false)
-            .GetSnapshotAsync("secondary", TestContext.Current.CancellationToken)).Data!;
+            .GetSnapshotAsync("secondary", TestContext.Current.CancellationToken);
 
-        Assert.Empty(snapshot.Servers);
+        // Assert
+        Assert.Equal(ServiceErrorType.Forbidden, result.Error!.Type);
+        Assert.Null(result.Data);
     }
 
     [Fact]
     public async Task GetSnapshotAsync_EmptySearchReturnsAccessibleSnapshot()
     {
+        // Arrange
         TestData data = new();
         data.AllowServer(data.FirstServer);
         data.AllowContainer(data.FirstContainer);
-        DashboardQuery query = data.CreateQuery(isAdministrator: false);
+        DashboardQuery query = data.CreateQuery(isAdministrator: true);
 
+        // Act
         DashboardSnapshotDto withoutSearch = (await query.GetSnapshotAsync(
             null,
             TestContext.Current.CancellationToken)).Data!;
@@ -157,6 +167,7 @@ public class DashboardQueryTests
             "   ",
             TestContext.Current.CancellationToken)).Data!;
 
+        // Assert
         Assert.Equal(
             withoutSearch.Servers.Select(server => server.Id),
             withEmptySearch.Servers.Select(server => server.Id));
@@ -290,10 +301,11 @@ public class DashboardQueryTests
 
         public DashboardQuery CreateQuery(bool isAdministrator)
         {
+            FakeAccessContext context = new(UserId, isAdministrator);
             return new DashboardQuery(
-                new FakeAccessContext(UserId, isAdministrator),
+                context,
                 new FakeDashboardSnapshotReadQuery(Servers, Containers, Permissions),
-                new FixedTimeProvider(NOW_UTC));
+                new FixedTimeProvider(NOW_UTC), new AdministratorAccessPolicy(context));
         }
     }
 

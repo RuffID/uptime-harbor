@@ -43,6 +43,67 @@ public class SnapshotProjectionUnitOfWork(IUptimeHarborDbContextSession session,
         }
     }
 
+    public async Task VerifyRecoveryAsync(RevisionImage image, Guid nodeId, CancellationToken token)
+    {
+        if (image.Index == 0)
+        {
+            if (await context.Set<ProjectionCursor>().AnyAsync(cursor => cursor.Id == nodeId, token))
+            {
+                throw new InvalidDataException("UnexpectedProjectionCheckpoint");
+            }
+        }
+        else
+        {
+            await VerifyCursorAsync(image, nodeId, token);
+        }
+
+        List<ApplicationUser> users = await context.Users.AsNoTracking().ToListAsync(token);
+        AcceptedValue[] accounts = image.Values.Values.Where(value => value.Kind == DeletedEntityKind.Account).ToArray();
+        if (users.Count != accounts.Length)
+        {
+            throw new InvalidDataException("RecoveryAccountSetMismatch");
+        }
+
+        foreach (ApplicationUser user in users)
+        {
+            AcceptedValue? value = image.Values.GetValueOrDefault(user.Id);
+            if (value is null || value.Kind != DeletedEntityKind.Account)
+            {
+                throw new InvalidDataException("RecoveryAccountHistoryMissing");
+            }
+
+            SharedAccount account = RevisionAccounts.Materialize(value);
+            bool identityMismatch = user.UserRevision != account.UserRevision || user.IsEnabled != account.IsEnabled
+                || user.DeletedAtUtc != account.DeletedAtUtc || user.UserName != account.Login
+                || user.NormalizedUserName != account.NormalizedLogin;
+            bool credentialMismatch = user.PasswordHash != account.Credential.PasswordHash
+                || user.PasswordHashFormatVersion != account.Credential.FormatVersion
+                || user.SecurityStamp != account.Credential.SecurityStamp || user.ConcurrencyStamp != account.Credential.ConcurrencyStamp;
+            if (identityMismatch || credentialMismatch)
+            {
+                throw new InvalidDataException("RecoveryAccountMismatch");
+            }
+        }
+
+        var memberships = await context.UserRoles.AsNoTracking().ToListAsync(token);
+        List<ApplicationRole> roles = await context.Roles.AsNoTracking().ToListAsync(token);
+        if (memberships.Count != accounts.Length || roles.Count != accounts.Select(account => account.Value.RoleId).Distinct().Count())
+        {
+            throw new InvalidDataException("RecoveryRoleSetMismatch");
+        }
+
+        foreach (AcceptedValue account in accounts)
+        {
+            bool member = memberships.Any(role => role.UserId == account.Id && role.RoleId == account.Value.RoleId);
+            bool administrator = roles.Any(role => role.Id == account.Value.RoleId
+                && role.Name == SharedAccount.ADMINISTRATOR && role.NormalizedName == "ADMINISTRATOR");
+            if (!member || !administrator)
+            {
+                throw new InvalidDataException("RecoveryAdministratorRoleMissing");
+            }
+        }
+    }
+
     public async Task InstallAsync(RevisionImage image, Guid nodeId, Guid snapshotId, string digest, CancellationToken token)
     {
         SnapshotImageValidation.Validate(context, image);

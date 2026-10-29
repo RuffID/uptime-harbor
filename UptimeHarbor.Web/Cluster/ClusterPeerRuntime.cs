@@ -8,6 +8,7 @@ using Microsoft.Extensions.Options;
 using UptimeHarbor.Application.Cluster;
 using UptimeHarbor.Application.Cluster.Models;
 using UptimeHarbor.Infrastructure.Cluster;
+using UptimeHarbor.Infrastructure.Identity;
 
 namespace UptimeHarbor.Web.Cluster;
 
@@ -78,6 +79,13 @@ public class ClusterPeerRuntime(IServiceProvider services, IOptions<ClusterOptio
                 ConsensusStatus? status = state.Consensus;
                 if (status is not null)
                 {
+                    if (status.IsLeader && configured.Value.Mode == "Bootstrap")
+                    {
+                        await using AsyncServiceScope scope = services.CreateAsyncScope();
+                        await scope.ServiceProvider.GetRequiredService<ClusterAccountBootstrapper>()
+                            .InitializeAsync(stoppingToken);
+                    }
+
                     readiness.ConfirmRecovery(readiness.RecoveryVersion, state.Accepted, status);
                     failureWindow.ObserveTerm(status.Term, status.MembershipVersion, LeaderNodeId);
                     bool leaderReady = status.IsLeader && readiness.CanSend(state);
