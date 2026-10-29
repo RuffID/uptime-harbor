@@ -19,7 +19,11 @@ public static class RevisionValidation
                 && candidate.Kind is DeletedEntityKind.Server or DeletedEntityKind.Container)
             {
                 bool checkChanged = current.Value.Endpoint != candidate.Value.Endpoint
-                    || current.Value.Enabled != candidate.Value.Enabled;
+                    || current.Value.Enabled != candidate.Value.Enabled
+                    || !current.Value.ObserverNodes.Order().SequenceEqual(candidate.Value.ObserverNodes.Order())
+                    || current.Value.FailureThreshold != candidate.Value.FailureThreshold
+                    || current.Value.IntervalSeconds != candidate.Value.IntervalSeconds
+                    || current.Value.TimeoutSeconds != candidate.Value.TimeoutSeconds;
                 bool generationChanged = current.Value.Generation != candidate.Value.Generation;
                 if (checkChanged != generationChanged)
                 {
@@ -27,7 +31,30 @@ public static class RevisionValidation
                 }
             }
 
-            if (current is not null && candidate.Kind == DeletedEntityKind.Binding
+            if (candidate.Kind is DeletedEntityKind.Server or DeletedEntityKind.Container && !candidate.Deleted)
+            {
+                ConfigurationValue value = candidate.Value;
+                bool invalidObservers = value.ObserverNodes.IsDefault || value.ObserverNodes.Distinct().Count() != value.ObserverNodes.Length
+                    || value.ObserverNodes.Any(node => !state.Monitoring.Nodes.ContainsKey(node));
+                bool invalidTiming = value.FailureThreshold is < 1 or > 100 || value.IntervalSeconds is < 5 or > 3600
+                    || value.TimeoutSeconds is < 1 or > 60;
+                if (invalidObservers || invalidTiming)
+                {
+                    return "InvalidObserverConfiguration";
+                }
+            }
+
+            if (candidate.Kind == DeletedEntityKind.ObserverAssignment)
+            {
+                return "ObserverSetRequiresTargetCommand";
+            }
+
+            if (candidate.Kind == DeletedEntityKind.NodeChatRoute && candidate.Value.Generation == Guid.Empty)
+            {
+                return "RouteGenerationRequired";
+            }
+
+            if (current is not null && !candidate.Deleted && candidate.Kind == DeletedEntityKind.Binding
                 && (current.Value.ParentId != candidate.Value.ParentId || current.Value.ChatId != candidate.Value.ChatId
                     || current.Value.Enabled != candidate.Value.Enabled))
             {
@@ -162,7 +189,8 @@ public static class RevisionValidation
         }
 
         if (candidate.Kind == DeletedEntityKind.NodeChatRoute
-            && (!Exists(state, value.ParentId, DeletedEntityKind.Node) || !Exists(state, value.ChatId, DeletedEntityKind.Chat)))
+            && (!value.ParentId.HasValue || !state.Monitoring.Nodes.ContainsKey(value.ParentId.Value)
+                || !Exists(state, value.ChatId, DeletedEntityKind.Chat)))
         {
             return "DependencyDeletedOrMissing";
         }

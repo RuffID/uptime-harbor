@@ -1,5 +1,9 @@
 # Миграции SQL Server
 
+## Схема после этапа 06
+
+Production capture, accepted observations/frontiers, incidents/events/intents и состав сводок используют таблицы этапа 02. Изменения image/command contracts не требуют нового SQL столбца. Новая migration не создавалась, historical migrations и generated designer/snapshot не редактировались. Обе подготовленные migrations 02/04 к БД не применялись; SQL/SQLite и runtime DDL не запускались. Enabled startup не включает automatic migration.
+
 ## Принятый способ применения
 
 UptimeHarbor автоматически применяет pending migrations при старте Web. `InitializeInfrastructureAsync` создаёт scope и выполняет `DataBaseCheckUpService<UptimeHarborDbContext>` до bootstrap Identity:

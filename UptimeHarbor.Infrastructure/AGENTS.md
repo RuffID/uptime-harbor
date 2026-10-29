@@ -1,5 +1,7 @@
 # UptimeHarbor.Infrastructure
 
+- Распределённый monitoring capture/reducer integration описан в Monitoring/AGENTS.md и Cluster/AGENTS.md; отдельного consensus, SQL WAL и dispatcher доставки не создавать. Наличие зарегистрированных компонентов не открывает activation/worker/sender gates.
+
 ## Ответственность
 
 Проект реализует persistence, Identity и внешние адаптеры. Он зависит от Application и Domain; `EFCoreLibrary` и `HttpClientLibrary` используются только здесь.

@@ -1,5 +1,7 @@
 # Persistence repositories
 
+- ObservationCaptureRepository хранит sequence/capture через прежние EFCoreLibrary writers; retry читает без tracking, stream/result pagination ограничена 100. SQL-проекция monitoring пополняется только существующим ProjectionRepository, без отдельного журнала.
+
 ## Ответственность
 
 Репозитории адаптируют Application-контракты к базовым операциям `EFCoreLibrary` и материализуют запросы внутри Infrastructure.

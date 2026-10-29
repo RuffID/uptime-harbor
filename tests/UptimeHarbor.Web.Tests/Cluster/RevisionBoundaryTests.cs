@@ -13,6 +13,37 @@ namespace UptimeHarbor.Tests.Web.Cluster;
 
 public class RevisionBoundaryTests
 {
+    [Fact]
+    public async Task ObservationStorageMustMatchAuthenticatedPeerBeforeDispatch()
+    {
+        // Arrange
+        Guid clusterId = Guid.NewGuid();
+        Guid nodeId = Guid.NewGuid();
+        Guid storage = Guid.NewGuid();
+        Guid targetId = Guid.NewGuid();
+        MonitoringObservation observation = new(Guid.NewGuid(), targetId, nodeId, storage, Guid.NewGuid(), 1, 1,
+            DateTimeOffset.UnixEpoch, 1, true, null, "app", null, true);
+        RevisionCommand command = MonitoringCommands.Record(new(clusterId, 1), nodeId, storage, [observation]);
+        DefaultHttpContext context = new();
+        context.Request.Body = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(new[] { command }));
+        context.Items[typeof(PeerEnvelope)] = new PeerEnvelope(clusterId, 1, nodeId, Guid.NewGuid(), Guid.NewGuid(),
+            Guid.NewGuid(), Guid.NewGuid(), DateTimeOffset.UnixEpoch, "1.0/1/1/1/1/6.10.0", Guid.NewGuid());
+        Consensus consensus = new();
+        RevisionStateStore state = new();
+        state.Publish(new(clusterId, 1));
+        ClusterRevisionController controller = new(new(consensus, state), Options.Create(new ClusterOptions()))
+        {
+            ControllerContext = new() { HttpContext = context }
+        };
+
+        // Act
+        IActionResult result = await controller.SubmitAsync(TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(403, Assert.IsType<StatusCodeResult>(result).StatusCode);
+        Assert.Equal(0, consensus.Calls);
+    }
+
     [Theory]
     [InlineData(false, 403)]
     [InlineData(true, 400)]

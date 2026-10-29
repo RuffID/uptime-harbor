@@ -90,6 +90,8 @@ public static class RevisionWriteSetFactory
             records.Add(conflict);
         }
 
+        records.AddRange(MonitoringProjection.Changes(before, after));
+
         return new ProjectionWriteSet
         {
             NodeId = nodeId, ExpectedCursorIndex = before.Index,

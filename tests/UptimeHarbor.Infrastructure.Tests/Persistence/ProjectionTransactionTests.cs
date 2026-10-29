@@ -14,6 +14,69 @@ public class ProjectionTransactionTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    public async Task MonitoringIncidentEventAndIntentsCommitTogetherAndReplayOnce(bool afterCommit)
+    {
+        // Arrange
+        var (baseline, observation) = Cluster.ObservationCaptureTests.Scenario();
+        RevisionCommand observations = MonitoringCommands.Record(baseline, observation.ObserverNodeId, observation.StorageGeneration,
+            Enumerable.Range(1, 3).Select(number => observation with
+            {
+                Id = Guid.NewGuid(), Sequence = number, Succeeded = false, EndpointName = null,
+                FailureKind = "Timeout", CheckedAtUtc = observation.CheckedAtUtc.AddSeconds(number)
+            }).ToImmutableArray());
+        RevisionImage image = new RevisionReducer().Apply(baseline, observations, 4, 1);
+        Guid chatId = Guid.NewGuid();
+        AcceptedValue chat = new(chatId, DeletedEntityKind.Chat, 4, new ConfigurationValue { Name = "chat", TelegramChatId = 123 });
+        AcceptedValue binding = new(Guid.NewGuid(), DeletedEntityKind.Binding, 4, new ConfigurationValue
+        {
+            ParentId = observation.TargetId, ChatId = chatId, Generation = Guid.NewGuid()
+        });
+        image = image with { Values = image.Values.Add(chat.Id, chat).Add(binding.Id, binding) };
+        FakeProjection repository = new();
+        FakeSession session = new(repository);
+        ProjectionApplyUnitOfWork work = new(session, repository);
+        await work.ApplyAsync(new ProjectionWriteSet
+        {
+            NodeId = observation.ObserverNodeId, ExpectedCursorIndex = 0,
+            Receipt = new AppliedJournalReceipt(Guid.NewGuid(), new JournalPosition(new ClusterIdentity(image.ClusterId, image.Generation), 4, 1), image.Digest!)
+        }, TestContext.Current.CancellationToken);
+        RevisionStateStore state = new();
+        state.Publish(image);
+        ProductionStore store = new(work, repository) { FailAfterCommit = afterCommit };
+        RevisionApplyEngine engine = new(state, new(), store);
+        RevisionCommand evaluate = MonitoringCommands.Evaluate(image, MonitoringTargets.Find(image, observation.TargetId)!,
+            observation.ObserverNodeId, observation.StorageGeneration, 2, observation.CheckedAtUtc.AddSeconds(4), false, observation.CheckedAtUtc.AddSeconds(4));
+        session.FailOnSave = !afterCommit;
+
+        // Act
+        Exception? failure = await Record.ExceptionAsync(() => engine.ApplyAsync(evaluate, 5, 2, observation.ObserverNodeId, TestContext.Current.CancellationToken));
+
+        // Assert
+        Assert.NotNull(failure);
+        Assert.Empty(state.Current!.Monitoring.Incidents);
+        Assert.False(state.Available);
+        Assert.Equal(afterCommit ? 5 : 4, repository.SavedCursor!.LogIndex);
+
+        // Act
+        session.FailOnSave = false;
+        store.FailAfterCommit = false;
+        await engine.ApplyAsync(evaluate, 5, 2, observation.ObserverNodeId, TestContext.Current.CancellationToken);
+        var records = repository.SavedChanges!.Records;
+        await engine.ApplyAsync(evaluate, 6, 3, observation.ObserverNodeId, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Single(records.OfType<SharedIncident>());
+        Assert.Single(records.OfType<IncidentEvent>());
+        Assert.Single(records.OfType<DeliveryIntent>());
+        Assert.Single(state.Current!.Monitoring.Events);
+        Assert.Single(state.Current.Monitoring.Intents);
+        Assert.Empty(repository.SavedChanges!.Records.OfType<IncidentEvent>());
+        Assert.False(state.Available); // Replay сам по себе не снимает latched fault.
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     public async Task ProductionReducerAndUnitOfWorkRecoverBeforeAndAfterCommit(bool afterCommit)
     {
         // Arrange

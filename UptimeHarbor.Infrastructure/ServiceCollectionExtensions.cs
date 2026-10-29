@@ -140,6 +140,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<UptimeHarbor.Application.Cluster.IRevisionPayloadProtection, RevisionPayloadProtection>();
         services.AddScoped<SnapshotProjectionUnitOfWork>();
         services.AddScoped<IObservationCaptureUnitOfWork, ObservationCaptureUnitOfWork>();
+        services.AddScoped<UptimeHarbor.Application.Cluster.ObservationCaptureService>();
         services.AddScoped<IDeliveryResultUnitOfWork, DeliveryResultUnitOfWork>();
         services.AddScoped<IHistoryRetentionQuery, HistoryRetentionQuery>();
         services.AddScoped<IdentityUserAccountStore>();

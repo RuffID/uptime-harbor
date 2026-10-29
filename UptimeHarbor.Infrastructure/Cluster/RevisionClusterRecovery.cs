@@ -48,7 +48,15 @@ public class RevisionClusterRecovery(IRecoveryAdmission admissionSource, Revisio
         }
 
         admission = proof;
-        RevisionImage checkpoint = new(clusterId, generation);
+        if (proof.MonitoringNodes.Any(node => node.Key == Guid.Empty || node.Value == Guid.Empty))
+        {
+            throw new InvalidDataException("MonitoringAdmissionInvalid");
+        }
+
+        RevisionImage checkpoint = new(clusterId, generation)
+        {
+            Monitoring = new MonitoringImage { Nodes = proof.MonitoringNodes }
+        };
         if (proof.BootstrapAccount is not null)
         {
             RevisionCommand bootstrap = proof.BootstrapAccount;
@@ -76,6 +84,10 @@ public class RevisionClusterRecovery(IRecoveryAdmission admissionSource, Revisio
 
             PublishedRevisionSnapshot snapshot = await snapshots.LoadAsync(proof.SnapshotId.Value, proof.SnapshotDigest, token);
             checkpoint = snapshot.Image;
+            if (!checkpoint.Monitoring.Nodes.OrderBy(node => node.Key).SequenceEqual(proof.MonitoringNodes.OrderBy(node => node.Key)))
+            {
+                throw new InvalidDataException("MonitoringAdmissionMismatch");
+            }
             if (proof.BootstrapAccount is not null && checkpoint.BootstrapAccountDigest != RevisionCodec.Digest(proof.BootstrapAccount))
             {
                 throw new InvalidDataException("BootstrapHistoryMismatch");
@@ -111,6 +123,12 @@ public class RevisionClusterRecovery(IRecoveryAdmission admissionSource, Revisio
                 if (snapshot.Manifest.Index != entry.Index || snapshot.Manifest.Term != entry.Term)
                 {
                     throw new InvalidDataException("RaftSnapshotCutMismatch");
+                }
+
+                if (admission is null || !snapshot.Image.Monitoring.Nodes.OrderBy(node => node.Key)
+                    .SequenceEqual(admission.MonitoringNodes.OrderBy(node => node.Key)))
+                {
+                    throw new InvalidDataException("MonitoringAdmissionMismatch");
                 }
 
                 await engine.InstallAsync(snapshot.Image, snapshot.Manifest.SnapshotId, snapshot.Digest, token);

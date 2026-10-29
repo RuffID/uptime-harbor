@@ -18,8 +18,11 @@ public static class ClusterWebExtensions
         services.AddScoped<ClusterAccountBootstrapper>();
         services.AddSingleton<IRevisionTransport, ClusterRevisionTransport>();
         services.AddSingleton<PendingReplicationPump>();
+        services.AddSingleton<ObservationReplicationPump>();
+        services.AddSingleton<MonitoringCoordinator>();
         services.AddHostedService<ClusterRevisionWorker>();
         services.AddHostedService<ClusterSnapshotWorker>();
+        services.AddHostedService<ClusterMonitoringWorker>();
         return services;
     }
 

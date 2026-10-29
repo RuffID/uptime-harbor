@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using UptimeHarbor.Application.Cluster;
 using UptimeHarbor.Application.Security;
 using UptimeHarbor.Infrastructure.Telegram;
+using UptimeHarbor.Infrastructure.Monitoring;
 
 namespace UptimeHarbor.Infrastructure.Cluster;
 
@@ -26,6 +27,7 @@ public static class ClusterServiceCollectionExtensions
         services.TryAddSingleton<RevisionClusterRecovery>();
         services.TryAddSingleton<IClusterRecovery>(provider => provider.GetRequiredService<RevisionClusterRecovery>());
         services.TryAddSingleton<IRevisionAudit, RevisionAudit>();
+        services.TryAddSingleton<IMonitoringAudit, MonitoringAudit>();
         services.TryAddSingleton<IPeerTrustSource, UnavailablePeerTrustSource>();
         services.TryAddSingleton<ISenderConsensus, UnavailableSenderConsensus>();
         services.TryAddSingleton<IClusterAdministrationState, UnavailableClusterAdministrationState>();
@@ -39,6 +41,9 @@ public static class ClusterServiceCollectionExtensions
         services.AddSingleton<ClusterDatabaseProbe>();
         services.AddSingleton<TelegramHealthProbe>();
         services.AddSingleton<MonitoringProgressWatchdog>();
+        services.AddSingleton<ObservationCaptureGate>();
+        services.AddSingleton<PeerObservationCapture>();
+        services.AddSingleton<ClusterMonitoringCycle>();
         services.AddTransient<PeerClientHandler>();
         services.AddHttpClient(PeerClientHandler.CLIENT_NAME, client => client.Timeout = TimeSpan.FromSeconds(10))
             .RemoveAllLoggers()

@@ -22,6 +22,8 @@ public record RevisionCommand
     public RevisionCommand? Replacement { get; init; }
     public Guid? ResolvesConflictId { get; init; }
     public string? AccountAction { get; init; }
+    public string? SystemSource { get; init; }
+    public MonitoringCommand? Monitoring { get; init; }
 
     public override string ToString()
     {

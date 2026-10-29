@@ -1,5 +1,9 @@
 # Cluster infrastructure
 
+- Monitoring pump передаёт bounded durable captures существующим revision transport, ACK читает только из accepted frontier. Coordinator обрабатывает historical watermark до live с ротацией/бюджетом; backlog planning требует независимо подтверждённой delivery history.
+- PeerObservationCapture сохраняет аутентифицированный NodeId и только известную причину; timeout не означает remote DB fault. Snapshot/recovery сверяют monitoring rows и admitted NodeId/storage generation с ClusterMember до открытия доступа.
+- Pump/coordinator, требующие Web transport/dispatcher, регистрируются в AddClusterWeb; scoped capture — вместе с persistence UoW. Не добавлять отсутствующие зависимости в самостоятельный AddClusterInfrastructure.
+
 - DotNext 6.10.0 — единственный алгоритм Raft. WAL с CRC64, flush на append/commit и persistent configuration отделены от SQL.
 - Восстановить checkpoint/snapshot до создания WAL; неизвестный checkpoint запрещает создание и старт. Не обнулять manifest/state/configuration при отказе.
 - Ошибку apply держать latched до подтверждённого Restore/replay: успешный CanConnect не восстанавливает исправность проекции. Сообщения исключений reducer/provider не выпускать в DotNext/HTTP — только безопасную ошибку без inner payload.

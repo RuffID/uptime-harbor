@@ -46,6 +46,11 @@ public class RevisionReducer
             return Change(state, command, digest);
         }
 
+        if (MonitoringCommandValidation.IsSystem(command))
+        {
+            return MonitoringReducer.Apply(state, command);
+        }
+
         AcceptedAccount? actor = RevisionAccounts.Find(state, command.ActorUserId);
         if (!AcceptedAdministratorAccessPolicy.IsActiveAdministrator(actor) || actor!.Revision != command.ActorRevision)
         {
@@ -136,6 +141,16 @@ public class RevisionReducer
         }
 
         AcceptedValue candidate = new(command.EntityId, command.EntityKind, state.Index, command.Value!);
+        if (candidate.Kind is DeletedEntityKind.Server or DeletedEntityKind.Container && command.Value is not null)
+        {
+            DateTimeOffset assignedAt = command.CreatedAtUtc;
+            if (current is not null && current.Value.Generation == candidate.Value.Generation)
+            {
+                assignedAt = current.Value.AssignedAtUtc;
+            }
+
+            candidate = candidate with { Value = candidate.Value with { AssignedAtUtc = assignedAt } };
+        }
         if (command.Action == "Delete")
         {
             candidate = current! with
@@ -188,6 +203,7 @@ public class RevisionReducer
         }
 
         state = Put(state, candidate);
+        state = MonitoringRecipients.ConfigurationChanged(state, current, candidate, command.CreatedAtUtc);
         if (candidate.Deleted)
         {
             state = DeleteDependents(state, candidate, command.CreatedAtUtc);

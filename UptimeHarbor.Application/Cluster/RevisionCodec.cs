@@ -93,7 +93,8 @@ public static class RevisionCodec
 
     private static void ValidateLeaf(RevisionCommand command)
     {
-        if (command.Schema != 1 || command.Action is not ("Upsert" or "Delete" or "Cancel" or "Replace" or "BootstrapAccount")
+        bool system = MonitoringCommandValidation.IsSystem(command);
+        if (command.Schema != 1 || !system && command.Action is not ("Upsert" or "Delete" or "Cancel" or "Replace" or "BootstrapAccount")
             || !Enum.IsDefined(command.EntityKind))
         {
             throw new InvalidDataException("UnsupportedCommand");
@@ -102,12 +103,22 @@ public static class RevisionCodec
         StorageGuards.Id(command.ClusterId, nameof(command.ClusterId));
         StorageGuards.Id(command.OperationId, nameof(command.OperationId));
         StorageGuards.Id(command.OriginNodeId, nameof(command.OriginNodeId));
-        StorageGuards.Id(command.ActorUserId, nameof(command.ActorUserId));
         StorageGuards.Id(command.EntityId, nameof(command.EntityId));
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(command.ClusterGeneration);
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(command.ActorRevision);
         ArgumentOutOfRangeException.ThrowIfNegative(command.BaseRevision);
         StorageGuards.Utc(command.CreatedAtUtc);
+        if (system)
+        {
+            MonitoringCommandValidation.Validate(command);
+            return;
+        }
+
+        StorageGuards.Id(command.ActorUserId, nameof(command.ActorUserId));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(command.ActorRevision);
+        if (command.SystemSource is not null || command.Monitoring is not null)
+        {
+            throw new InvalidDataException("UnexpectedSystemSource");
+        }
         if ((command.Action is "Upsert" or "BootstrapAccount") != (command.Value is not null))
         {
             throw new InvalidDataException("InvalidCommandValue");

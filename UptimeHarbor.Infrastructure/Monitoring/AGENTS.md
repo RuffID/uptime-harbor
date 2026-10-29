@@ -1,5 +1,7 @@
 # Infrastructure monitoring
 
+- ClusterMonitoringCycle проверяет только accepted назначенные цели, до восьми параллельных scopes. Перед capture повторно проверяет конфигурацию и RecoveryVersion; cadence отмечается лишь после durable capture. Условие Disabled не запускает этот путь.
+
 ## Ответственность
 
 Каталог содержит HTTP/JSON-адаптер endpoint, параллельный запуск одного цикла и hosted worker периодического мониторинга.
@@ -12,6 +14,6 @@
 - Keyed-координацию освобождать в `finally`; одновременно разрешена только одна проверка пары «тип + идентификатор».
 - Ожидаемые HTTP, network, timeout и validation-ошибки возвращать как результат проверки; неожиданные исключения изолировать на границе объекта и логировать.
 - Не выполнять retry внутри цикла и корректно передавать cancellation при остановке.
-- Прежний worker регистрируется только при Cluster:Mode=Disabled. Будущий распределённый worker должен проверять NodeReadiness.CanWork и подтверждать реальный прогресс через MonitoringProgressWatchdog; partial цели не является неисправностью самого главного.
+- Прежний worker регистрируется только при Cluster:Mode=Disabled. Распределённый worker проверяет NodeReadiness.CanWork и подтверждает реальный прогресс через MonitoringProgressWatchdog; partial цели не является неисправностью самого главного.
 - Автоматические redirect отключать; любой `3xx` считать HTTP-ошибкой. Тело ответа ограничивать 64 KiB по `Content-Length` и фактически прочитанным байтам.
 - При изменении цикла или transport-контракта обновлять тесты и `Documentation/Technical documentation/Monitoring.md`.

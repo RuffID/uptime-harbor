@@ -1,5 +1,11 @@
 # Доменная модель
 
+## Accepted monitoring (06)
+
+`ObserverResult`/frontier, `TargetObservationState`, `SharedIncident`/`IncidentEvent`, `DeliveryIntent`, `DeliverySummary`/`SummarySource` и `RecoveryEntitlement` существующей Domain/Cluster используются production reducer. Локальные sequence/capture отделены от принятых фактов. Application MonitoringImage содержит неизменяемые facts и provenance, оценки live/history, metadata по observer, incidents/events/intents, состав сводок и подтверждённые delivery evidence.
+
+Локальная ошибка/threshold observer не равна общему outage. Availability и coverage — разные состояния и истории; missing не закрывает аварию. IncidentKind.Node связан с NodeId и отдельными чатами, без подмены объектом server. Принятая успешная попытка — обязательное основание recovery entitlement; её producer относится к 07. Подробные алгоритмы — [Monitoring.md](Monitoring.md#распределённый-путь-этапа-06).
+
 ## Объекты мониторинга
 
 `MonitoredObject` содержит общее состояние сервера и контейнера:
@@ -53,7 +59,7 @@
 
 `Cluster` содержит идентичность/позиции, `SharedAccount` с единственной Administrator и защищёнными реквизитами, Pending/decisions/controls/conflicts/tombstones, observer streams, incidents и delivery ledger. Login нормализуется FormKC/Trim/uppercase. Self-disable/self-delete и удаление последнего активного администратора проверяются чистым методом по переданному принятому count; упорядоченная проверка нескольких аккаунтов выполняется production reducer 04.
 
-Состояние общего аккаунта, ConfigRevision, оперативные наблюдения и cursor разделены. Хранимые сводки ссылаются на исходные events/intents, recovery entitlement не зависит от существования binding. `HistoryRetention` защищает незавершённую работу и compact safety markers независимо от возраста. Подробная карта сущностей и реализованных границ — [Shared cluster storage.md](Shared%20cluster%20storage.md). Replay подключён в 04 через принятый log/snapshot; общий вход/сессии и команды аккаунтов подключены в 05.2–05.4; распределённые workers остаются будущей интеграцией. Conflicts сохраняют реальные competing revisions, которые могут быть старше базы другой сущности.
+Состояние общего аккаунта, ConfigRevision, оперативные наблюдения и cursor разделены. Хранимые сводки ссылаются на исходные events/intents, recovery entitlement не зависит от существования binding. `HistoryRetention` защищает незавершённую работу и compact safety markers независимо от возраста. Подробная карта сущностей и реализованных границ — [Shared cluster storage.md](Shared%20cluster%20storage.md). Replay подключён в 04 через принятый log/snapshot; общий вход/сессии и команды аккаунтов подключены в 05.2–05.4; распределённый capture/reducer/incidents подключены в 06 за readiness gates, а delivery worker остаётся этапом 07. Conflicts сохраняют реальные competing revisions, которые могут быть старше базы другой сущности.
 
 ## Покрытие тестами
 

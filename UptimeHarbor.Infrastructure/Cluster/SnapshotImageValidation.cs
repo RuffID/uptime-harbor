@@ -19,6 +19,42 @@ public static class SnapshotImageValidation
         SnapshotSchema.Validate(context, image.ProjectionRows);
         JournalPosition position = new(new ClusterIdentity(image.ClusterId, image.Generation), image.Index, image.Term);
         Dictionary<Type, HashSet<Guid>> expected = [];
+        RevisionImage empty = new(image.ClusterId, image.Generation);
+        IReadOnlyList<ProjectionRecord> monitoringRecords = MonitoringProjection.Changes(empty, image, deliveryIdentityOnly: true);
+        foreach (ProjectionRecord record in monitoringRecords)
+        {
+            Type recordType = record.GetType();
+            string[] fields = SnapshotSchema.Fields(context.Model.FindEntityType(recordType)!)
+                .Select(field => field.Name).ToArray();
+            if (record is ObserverAssignment)
+            {
+                // Term служебного update assignments не является ревизией конфигурации цели.
+                fields = fields.Where(field => field != "Term").ToArray();
+            }
+
+            if (record is DeliveryIntent intent && image.Monitoring.Intents[intent.Id].State == DeliveryState.Succeeded)
+            {
+                MonitoringSnapshotDelivery.Validate(image, intent.Id);
+                string[] stateFields = ["State", "AttemptCount", "ActiveAttemptId", "NextAttemptAtUtc", "CompletedAtUtc", "SummaryId"];
+                fields = fields.Except(stateFields).ToArray();
+            }
+
+            Compare(context, image, record, fields);
+            if (!expected.TryGetValue(recordType, out HashSet<Guid>? ids))
+            {
+                ids = [];
+                expected.Add(recordType, ids);
+            }
+
+            ids.Add(record.Id);
+        }
+
+        foreach (MonitoringDeliveryEvidence evidence in image.Monitoring.ConfirmedDeliveries.Values)
+        {
+            DeliveryAttempt attempt = MonitoringRecipients.AcceptedAttempt(image, evidence);
+            Compare(context, image, attempt, SnapshotSchema.Fields(context.Model.FindEntityType(typeof(DeliveryAttempt))!)
+                .Select(field => field.Name).ToArray());
+        }
         foreach (AcceptedValue cell in image.Values.Values)
         {
             if (cell.Revision <= 0 || cell.Revision > image.Index || image.Values[cell.Id] != cell)
@@ -65,7 +101,9 @@ public static class SnapshotImageValidation
         }
 
         Type[] configurationTypes = [typeof(ApplicationUser), typeof(MonitoredServer), typeof(MonitoredContainer),
-            typeof(TelegramChat), typeof(NotificationBinding), typeof(ObserverAssignment), typeof(NodeChatRoute)];
+            typeof(TelegramChat), typeof(NotificationBinding), typeof(ObserverAssignment), typeof(NodeChatRoute),
+            typeof(ObserverResult), typeof(ObservationFrontier), typeof(TargetObservationState), typeof(SharedIncident),
+            typeof(IncidentEvent), typeof(DeliveryIntent), typeof(DeliverySummary), typeof(SummarySource)];
         foreach (Type type in configurationTypes)
         {
             HashSet<Guid> ids = expected.GetValueOrDefault(type) ?? [];

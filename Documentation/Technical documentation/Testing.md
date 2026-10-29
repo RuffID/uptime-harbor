@@ -1,5 +1,51 @@
 # Тестирование
 
+## Проверка этапа 06
+
+Финальная статическая проверка: 101 новый/изменённый файл проверен строгим UTF-8 decoder, без U+FFFD и обнаруженных признаков mojibake; сохранены исходные LF/CRLF, массовой нормализации нет. Все новые/изменённые C# файлы меньше 20000 байт. Проверены 81 Markdown-документ и 763 файловые ссылки: битых ссылок, отсутствующих solution items и не включённых документов нет. 24 документа завершённых этапов 01–05 побайтово совпадают с исходным снимком задачи; этапы 07–10 не менялись. Новые документы не добавлялись, поэтому изменения solution items не потребовались.
+
+Дополнительная проверка unbind выявила guard, ошибочно считавший deletion изменением identity binding; guard ограничен редактированием. Тесты теперь проверяют Committed у самого unbind. Проверены отзыв неотправленной сводки, сохранение её состава и новый план для остальных источников. Старое evidence требует настоящей accepted конфигурации/назначения; fabricated generation/observer отвергаются.
+
+2026-10-29 завершены 06.1–06.4. Четыре production-проекта собраны последовательно и отдельно в Debug без restore: 0 предупреждений/ошибок. После исправления границы DI повторены затронутые Infrastructure/Web builds и проверки. Общий obj не изолируется разным BaseOutputPath; параллельных builds не было.
+
+| Набор | Успешно | Ошибки | Пропуски |
+| --- | --- | --- | --- |
+| Domain, весь изолированный проект | 36 | 0 | 0 |
+| Application, весь изолированный проект | 185 | 0 | 0 |
+| Infrastructure, только перечисленные классы | 127 | 0 | 0 |
+| Web, только перечисленные классы | 51 | 0 | 0 |
+
+Всего 399 успешных проверок. Это свежие результаты этапа 06, включая регрессии production pipeline и account/session/recovery-version 04/05. Полный Infrastructure-набор с provider tests не запускался.
+
+Фактические финальные команды из корня репозитория:
+
+```powershell
+dotnet build .\UptimeHarbor.Domain\UptimeHarbor.Domain.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\domain\
+dotnet build .\UptimeHarbor.Application\UptimeHarbor.Application.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\application\
+dotnet build .\UptimeHarbor.Infrastructure\UptimeHarbor.Infrastructure.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\infrastructure\
+dotnet build .\UptimeHarbor.Web\UptimeHarbor.Web.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\web\
+dotnet test --project .\tests\UptimeHarbor.Domain.Tests\UptimeHarbor.Domain.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\domain-tests\
+dotnet test --project .\tests\UptimeHarbor.Application.Tests\UptimeHarbor.Application.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\application-tests\
+dotnet test --project .\tests\UptimeHarbor.Infrastructure.Tests\UptimeHarbor.Infrastructure.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\infrastructure-tests\ -- --filter-class UptimeHarbor.Tests.Infrastructure.Identity.AcceptedSignInTests --filter-class UptimeHarbor.Tests.Infrastructure.Identity.AcceptedCookieTests --filter-class UptimeHarbor.Tests.Infrastructure.Identity.AccountBootstrapTests --filter-class UptimeHarbor.Tests.Infrastructure.Cluster.* --filter-class UptimeHarbor.Tests.Infrastructure.Persistence.ProjectionTransactionTests --filter-class UptimeHarbor.Tests.Infrastructure.Persistence.SharedStorageModelTests --filter-class UptimeHarbor.Tests.Infrastructure.Persistence.SharedStorageMigrationTests --filter-class UptimeHarbor.Tests.Infrastructure.Persistence.SharedStorageRegistrationTests --filter-class UptimeHarbor.Tests.Infrastructure.Monitoring.HttpMonitoringEndpointCheckerTests --filter-class UptimeHarbor.Tests.Infrastructure.Monitoring.MonitoringCycleRunnerTests
+dotnet test --project .\tests\UptimeHarbor.Web.Tests\UptimeHarbor.Web.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\web-tests\ -- --filter-class UptimeHarbor.Tests.Web.Cluster.* --filter-class UptimeHarbor.Tests.Web.DependencyInjection.* --filter-class UptimeHarbor.Tests.Web.AdminUsersControllerAuthorizationTests --filter-class UptimeHarbor.Tests.Web.ReadContractSecurityTests --filter-class UptimeHarbor.Tests.Web.WebPerimeterSecurityTests --filter-class UptimeHarbor.Tests.Web.DashboardSignalRTests
+```
+
+Application MonitoringAvailability/Incident/Contract tests вызывают фактические reducer/write set: assigned observers, независимые thresholds/success reset, generation/stale/deleted/disabled/gap/id reuse, unknown clock, availability отдельно от coverage, metadata по observers (включая разное время запуска), node routes и правильный NodeId. Проверены стабильные partial/full/recovery IDs и порядок, отсутствие дублей событий/intents при replay, отсутствие recovery неуведомлённому чату, сохранение права после unbind и отмена при удалении чата. Обычный partial не обращается к election/resign.
+
+ObservationCaptureTests вызывает настоящий ObservationCaptureService и ObservationCaptureUnitOfWork на транзакционном storage/session double: отказ до commit, потеря ответа после commit, retry того же ID, восстановление хранилища/sequence и отказ changed/stale payload. Fake storage не доказывает SQL Server transaction semantics, constraints, multi-process locking или физическую durability.
+
+MonitoringRuntimeTests вызывает production pump/cycle/peer capture/dispatcher: accepted frontier ACK после потери ответа и restart, сохранение local capture, назначенные параллельные проверки на fake HttpMessageHandler, отсутствие проверок unassigned/Disabled, DB failure и запрет возврата до ConfirmRecovery. Проверены PeerUnavailable отдельно от сообщённых DatabaseUnavailable/WorkerStalled/TelegramUnavailable, source NodeId, отсутствие success-аудита при failed apply, один audit при retry/replay и отказ follower coordinator. Тестовый accepted proof из harness не переносится в production registrations.
+
+MonitoringCoordinatorTests проверяет historical budget, отсутствие live до обработки очереди временных точек, follower deny/new term continuation, независимый DeliveryStateConfirmed и две порции давнего offline backlog в одном term. Durable summaries сохраняют cut/source IDs и SuppressedBySummary, не выдают recovery без подтверждения отправки. Открытые аварии и recovery ранее уведомлённых чатов проверены reducer tests; возрастного отсечения нет.
+
+MonitoringRecoveryTests использует настоящий snapshot file и DotNext WAL: outage snapshot → success/evaluate/repeat → dispose/reopen → production recovery/reducer → подтверждение committed/applied/membership. Incident ID и порядок сохраняются, observations не теряются, repeated evaluate не создаёт дубль. Snapshot metadata сопоставлены с monitoring rows; отсутствие observation или настоящего delivery evidence отвергается. Domain DeliveryAttempt в fixture отражает принятую успешную попытку; production producer attempts не добавлен. Подставная projection не доказывает SQL snapshot install/atomicity, native elections/majority, crash/fsync или power loss.
+
+ProjectionTransactionTests включает production monitoring incident/event/intents в одну границу существующего UnitOfWork с cursor/receipt, проверяет fault до/после fake commit, replay без повторных эффектов и сохранение latched apply fault. Прежние account/recovery-version tests также успешны; новый Invalidate не позволяет завершить старую recovery-проверку успехом.
+
+Web RevisionBoundaryTests проверяет совпадение monitoring storage generation с authenticated peer envelope до dispatch. DI-регрессия сначала выявила регистрацию pump/coordinator в Infrastructure без Web transport/dispatcher; production composition исправлен, все выбранные Web tests успешны. Это проверка графа/контракта без Start host, а не browser/WebSocket acceptance.
+
+Схема не менялась: новая migration не требуется, historical migrations/designer/snapshot вручную не изменялись, обе подготовленные migrations 02/04 к БД не применялись. Не запускались SQL/БД (включая SQLite), provider tests, приложение/hosting, Docker, реальные peers/endpoints/Telegram, deployment или Git. Dispatcher/attempt producer/sender lifecycle 07, UI 08, provisioning/fencing/controlled enable 09 не реализованы; закрытые dependencies/gates и Disabled сохранены. Этап 10 отдельно не начинался: его согласованный минимальный порядок использован внутри 06. Часовая цель догона трёх узлов/около 30 приложений сохранена для самостоятельного наблюдения, нагрузка и внешняя приёмка не проведены.
+
 ## Проверка этапа 03
 
 2026-10-29 production-проекты Domain, Application, Infrastructure и Web собраны отдельными `dotnet build -c Debug --no-restore`, каждый в собственный compile-check output: 0 warnings / 0 errors. Restore Web, Infrastructure.Tests и Web.Tests с DotNext 6.10.0 выполнен успешно. Ни host, ни узлы не запускались.

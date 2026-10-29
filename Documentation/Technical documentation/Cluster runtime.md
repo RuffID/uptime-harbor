@@ -1,10 +1,18 @@
 # Связь узлов, Raft и готовность
 
-## Реализованная граница этапов 03/04 и 05.1
+## Monitoring reconciliation (06)
+
+`ObservationReplicationPump` и `MonitoringCoordinator` используют существующие RevisionDispatcher/transport/DotNext apply. Первый передаёт durable capture по принятому sequence ACK; второй допускается только локальным текущим leader с актуальным term и uncancelled leadership/consensus tokens после recovery/catch-up. История до watermark обрабатывается bounded и с ротацией целей, затем принимается live evaluation и состав backlog. DeliveryStateConfirmed проверяется отдельно до summary planning; неизвестный порт не заменяется Ready.
+
+Внутренняя monitoring provenance имеет admitted OriginNodeId/storage generation и системный source, без Administrator actor. Пользовательские команды сохраняют accepted Administrator authorization. Trusted RecoveryAdmission содержит MonitoringNodes; snapshot должен совпадать с ним, SQL recovery дополнительно сверяет ClusterMember и monitoring projections. Membership provisioning по-прежнему не подключён.
+
+`ClusterMonitoringWorker` зарегистрирован в Web composition root; cycle/capture имеют инфраструктурные scoped границы. Peer health включает безопасный MonitoringProgress без payload. Capture не требует главного, рабочие checks требуют CanWork и сохраняют RecoveryVersion. Успешный CanConnect или replay без ConfirmRecovery не снимает latched apply fault. Disabled завершает новый worker без действий. Общие activation/browser/sender gates остаются закрытыми; детали — [Monitoring.md](Monitoring.md#распределённый-путь-этапа-06).
+
+## Реализованная граница этапов 03–06
 
 `Application/Cluster` содержит независимые recovery/accepted-state/trust/consensus контракты, readiness, membership coordinator, окно подтверждённой готовности главного и sender gate. `Infrastructure/Cluster` содержит DotNext adapter, state machine boundary, защиту дискового состояния, mTLS/envelope/replay и probes. `Web/Cluster` управляет отдельным peer-периметром и жизненным циклом DotNext.
 
-Этап 04 подключил `RevisionClusterRecovery`, production reducer, SQL apply/replay, очередь Pending и streaming snapshot; 05.1 — чтение принятого аккаунта и active Administrator policy. 05.2–05.4 подключили общий sign-in/сессии и команды аккаунтов; workers — 06/07; UI и включение — 08/09. По умолчанию `UnavailableRecoveryAdmission`, `UnavailablePeerTrustSource`, `UnavailableClusterAdministrationState` и `UnavailableSenderConsensus` ничего не подтверждают. Admission требует настоящих identity/fencing/checkpoint доказательств до создания WAL; с текущими закрытыми портами enabled-конфигурация Raft не запускает.
+Этап 04 подключил `RevisionClusterRecovery`, production reducer, SQL apply/replay, очередь Pending и streaming snapshot; 05.1 — чтение принятого аккаунта и active Administrator policy. 05.2–05.4 подключили общий sign-in/сессии и команды аккаунтов; 06 подключил monitoring capture/reducer/coordinator; delivery worker остаётся 07; UI и включение — 08/09. По умолчанию `UnavailableRecoveryAdmission`, `UnavailablePeerTrustSource`, `UnavailableClusterAdministrationState` и `UnavailableSenderConsensus` ничего не подтверждают. Admission требует настоящих identity/fencing/checkpoint доказательств до создания WAL; с текущими закрытыми портами enabled-конфигурация Raft не запускает.
 
 `Disabled` сохраняет однопроцессное поведение. Любой enabled-режим не регистрирует прежние monitoring/outbox workers, блокирует прежний `INotificationSender` и browser endpoints, пропускает только peer-perimeter. Legacy startup migrations/bootstrap тоже пропускаются: создание БД/первого аккаунта не подменяет восстановление сетки. Наличие классов этапа 03 не разрешает controlled enable.
 

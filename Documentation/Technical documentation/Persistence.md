@@ -1,5 +1,13 @@
 # Persistence и транзакции
 
+## Monitoring capture и apply (06)
+
+`ObservationCaptureService` использует существующий сценарный ObservationCaptureUnitOfWork: sequence reservation и CapturedObservation сохраняются одной транзакцией. Singleton gate сериализует локальные scopes; per-target endpoint scopes не разделяют DbContext. Capture retry сверяет ID/payload и не выделяет новый sequence. Bounded repository queries читают stream/result pages без tracking.
+
+`MonitoringProjection` добавляет observer results/frontiers, state, incidents/events/intents, assignments, entitlements и summaries/sources в общий projection write set с receipt/cursor. Ошибка до commit не публикует accepted image, потеря ответа после commit разрешается receipt/replay. Success-аудит выполняется после результата apply, без повторения на replay.
+
+Snapshot/recovery проверяют соответствие monitoring image и SQL rows, accepted delivery attempts и NodeId/storage generation реестра наряду с account/role/cursor. Это использует существующую схему; новая migration не нужна. Fake storage tests доказывают порядок вызовов/сценарные границы, SQL Server atomicity и unique/delete ordering не запускались. Подробности — [Shared cluster storage.md](Shared%20cluster%20storage.md#проекции-monitoring-этапа-06).
+
 ## Граница кластерного режима
 
 Этап 03 хранит Raft WAL/term/vote/configuration на отдельном диске через DotNext 6.10.0; SQL остаётся восстанавливаемой проекцией. `ClusterStateMachine` передаёт committed records независимому recovery/reducer-порту и ждёт фактического apply; `RevisionClusterRecovery`/`RevisionApplyEngine` реализуют SQL replay и установку snapshot. Admission/fencing/checkpoint проверяются до создания WAL, чтение аккаунтов открывается после проверки догона. В enabled-режиме legacy startup migrations/bootstrap пропускаются; автоматического применения схемы новой сетки нет. Migration 04 `20261029075201_AllowUniquenessConflictRevisions` допускает реальную competing revision старше base другой сущности; к БД не применялась. Порядок восстановления, lock и защита от потери файлов — [Cluster runtime.md](Cluster%20runtime.md).

@@ -102,6 +102,30 @@ public class SnapshotProjectionUnitOfWork(IUptimeHarborDbContextSession session,
                 throw new InvalidDataException("RecoveryAdministratorRoleMissing");
             }
         }
+
+        if (!image.Monitoring.Nodes.IsEmpty || !image.Monitoring.Observations.IsEmpty)
+        {
+            ImmutableArray<SharedSnapshotRow>.Builder rows = ImmutableArray.CreateBuilder<SharedSnapshotRow>();
+            foreach (IEntityType type in SnapshotSchema.Entities(context))
+            {
+                foreach (object entity in await SnapshotSchema.ReadAsync(context, type.ClrType, token))
+                {
+                    rows.Add(SnapshotSchema.Capture(context, type, entity));
+                }
+            }
+
+            RevisionImage projected = image with { ProjectionRows = rows.ToImmutable() };
+            SnapshotImageValidation.Validate(context, projected);
+            foreach (var node in image.Monitoring.Nodes)
+            {
+                ClusterMember? member = await context.Set<ClusterMember>().FindAsync([node.Key], token);
+                if (member is null || member.StorageGeneration != node.Value || member.ClusterId != image.ClusterId
+                    || member.ClusterGeneration != image.Generation)
+                {
+                    throw new InvalidDataException("RecoveryMonitoringMemberMismatch");
+                }
+            }
+        }
     }
 
     public async Task InstallAsync(RevisionImage image, Guid nodeId, Guid snapshotId, string digest, CancellationToken token)

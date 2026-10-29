@@ -1,5 +1,7 @@
 # Persistence unit of work
 
+- Snapshot recovery дополнительно сверяет monitoring image с конфигурацией/observations/incidents/intents/summaries и настоящими accepted delivery attempts, а admitted NodeId/storage generation — с ClusterMember. Cursor/CanConnect не заменяют эту проверку; provider semantics остаются отдельной проверкой.
+
 ## Ответственность
 
 Каталог реализует общую scoped-сессию контекста, техническое сохранение/транзакцию и тонкие сценарные Unit of Work.

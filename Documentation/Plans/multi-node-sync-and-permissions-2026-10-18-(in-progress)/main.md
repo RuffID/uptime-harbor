@@ -32,7 +32,7 @@
 
 Подтверждающие исходники: [ObjectVisibilityPolicy](../../../UptimeHarbor.Application/Visibility/ObjectVisibilityPolicy.cs), [MonitoringService](../../../UptimeHarbor.Application/Monitoring/MonitoringService.cs), [MonitoringCycleRunner](../../../UptimeHarbor.Infrastructure/Monitoring/MonitoringCycleRunner.cs), [NotificationOutboxStore](../../../UptimeHarbor.Infrastructure/Telegram/NotificationOutboxStore.cs), [NotificationAdministrationService](../../../UptimeHarbor.Application/Notifications/NotificationAdministrationService.cs), [MonitoredObject](../../../UptimeHarbor.Domain/Monitoring/MonitoredObject.cs), [Program.cs](../../../UptimeHarbor.Web/Program.cs).
 
-Текущее описание: [мониторинг](../../Technical%20documentation/Monitoring.md), [уведомления](../../Technical%20documentation/Notifications.md), [аутентификация и видимость](../../Technical%20documentation/Authentication%20and%20visibility.md), [бизнес-требования v1](../../Business%20logic/Business%20requirements.md). Технические документы актуализированы по изменениям 02–05; неподключённое поведение остаётся в плане.
+Текущее описание: [мониторинг](../../Technical%20documentation/Monitoring.md), [уведомления](../../Technical%20documentation/Notifications.md), [аутентификация и видимость](../../Technical%20documentation/Authentication%20and%20visibility.md), [бизнес-требования v1](../../Business%20logic/Business%20requirements.md). Технические документы актуализированы по изменениям 02–06; неподключённое поведение остаётся в плане.
 
 ## Границы
 
@@ -57,7 +57,7 @@
 | 03 | Идентичность узлов, самодиагностика, большинство и главный | completed | 01, 02 | [Связь и выбор главного](03-peer-health-and-leadership/main.md) |
 | 04 | Доставка изменений, конфликты, tombstones и восстановление | completed | 02, 03, 05.1 | [Синхронизация ревизий](04-revision-synchronization/main.md) |
 | 05 | Общие пользователи и единственная роль администратора | completed | 02 для 05.1; 04 для 05.2–05.4 | [Пользователи и общий вход](05-permissions-and-ownership/main.md) |
-| 06 | Взаимный мониторинг и согласованные инциденты | not-started | 03, 04 | [Мониторинг и инциденты](06-monitoring-and-incidents/main.md) |
+| 06 | Взаимный мониторинг и согласованные инциденты | completed | 03, 04 | [Мониторинг и инциденты](06-monitoring-and-incidents/main.md) |
 | 07 | Отправка главным и восстановление состояния Telegram-доставки | not-started | 05, 06 | [Telegram](07-leader-notifications/main.md) |
 | 08 | Управление через любой узел, общие аккаунты, Pending и конфликты | not-started | 05, 07 | [Web и интерфейс](08-web-and-administration/main.md) |
 | 09 | Первый запуск новой модели, восстановление и эксплуатация | not-started | 02–08 | [Ввод и восстановление](09-migration-and-operations/main.md) |
@@ -117,10 +117,10 @@
 
 | Подэтап | Результат | Статус | Зависимости | Документ |
 | --- | --- | --- | --- | --- |
-| 06.1 | Наблюдения имеют устойчивую идентичность, сохраняются локально и передаются без потери порядка. | not-started | 03, 04 | [Наблюдения и взаимные проверки](06-monitoring-and-incidents/06.1-observations-and-peer-monitoring.md) |
-| 06.2 | Общее состояние различает available/partial/unavailable и неполное покрытие. | not-started | 06.1 | [Сведение доступности и свежесть](06-monitoring-and-incidents/06.2-availability-and-freshness.md) |
-| 06.3 | Переходы partial/full/recovered образуют одну согласованную историю и стабильные события. | not-started | 06.2 | [Общие инциденты и намерения доставки](06-monitoring-and-incidents/06.3-incidents-and-delivery-intents.md) |
-| 06.4 | Новый главный продолжает инцидент и безопасно обрабатывает старые накопленные наблюдения. | not-started | 06.3 | [Смена главного и накопленные наблюдения](06-monitoring-and-incidents/06.4-failover-and-offline-backlog.md) |
+| 06.1 | Наблюдения имеют устойчивую идентичность, сохраняются локально и передаются без потери порядка. | completed | 03, 04 | [Наблюдения и взаимные проверки](06-monitoring-and-incidents/06.1-observations-and-peer-monitoring.md) |
+| 06.2 | Общее состояние различает available/partial/unavailable и неполное покрытие. | completed | 06.1 | [Сведение доступности и свежесть](06-monitoring-and-incidents/06.2-availability-and-freshness.md) |
+| 06.3 | Переходы partial/full/recovered образуют одну согласованную историю и стабильные события. | completed | 06.2 | [Общие инциденты и намерения доставки](06-monitoring-and-incidents/06.3-incidents-and-delivery-intents.md) |
+| 06.4 | Новый главный продолжает инцидент и безопасно обрабатывает старые накопленные наблюдения. | completed | 06.3 | [Смена главного и накопленные наблюдения](06-monitoring-and-incidents/06.4-failover-and-offline-backlog.md) |
 
 ### 07. Telegram только от подтверждённого главного
 
@@ -217,4 +217,6 @@
 
 2026-10-29 завершены [05.2–05.4](05-permissions-and-ownership/main.md): общий accepted sign-in/локальные сессии/SignalR, согласованные изменения пользователей и аккаунтная часть bootstrap/recovery. Четыре production builds — 0 предупреждений/ошибок; Domain 36, Application 172, выбранные Infrastructure 82, Web 50 успешно, без ошибок/пропусков. [Проверки и ограничения](../../Technical%20documentation/Testing.md#проверка-этапа-05).
 
-Дата создания 2026-10-18 и папка `multi-node-sync-and-permissions-2026-10-18-(in-progress)` сохранены. Общий план — in-progress; 01–05 — completed; 06–10 — not-started, 09.2/09.3 — cancelled. Распределённые workers/UI/controlled enable не реализованы; browser/worker/sender и admission/trust/activation/delivery по умолчанию закрыты. SQL/provider tests, приложение/hosting, Docker, реальные peers/monitoring/Telegram/deployment и Git не запускались. Миграции 02/04 не применялись; новой migration в 05 нет. Часовой догон, SQL atomicity, crash/fsync и внешняя приёмка не подтверждены. После 05.4 работа остановлена.
+2026-10-29 завершены [06.1–06.4](06-monitoring-and-incidents/main.md): durable наблюдения/назначения, availability и coverage, accepted incidents/events/intents, восстановление истории и состав offline summaries. Domain 36, Application 185, выбранные Infrastructure 127, Web 51 успешно; четыре production builds без предупреждений/ошибок. [Проверки и ограничения](../../Technical%20documentation/Testing.md#проверка-этапа-06).
+
+Дата создания 2026-10-18 и папка `multi-node-sync-and-permissions-2026-10-18-(in-progress)` сохранены. Общий план — in-progress; 01–06 — completed; 07–10 — not-started, 09.2/09.3 — cancelled. Sender/attempt producer, UI и controlled enable не реализованы; browser/worker/sender и admission/trust/activation/delivery по умолчанию закрыты. SQL/provider tests, приложение/hosting, Docker, реальные peers/monitoring/Telegram/deployment и Git не запускались. Миграции 02/04 не применялись; новой migration в 06 нет. Часовой догон, SQL atomicity, crash/fsync и внешняя приёмка не подтверждены. После 06.4 работа остановлена; порядок минимальных проверок 10 использован внутри 06 без самостоятельного начала 10.

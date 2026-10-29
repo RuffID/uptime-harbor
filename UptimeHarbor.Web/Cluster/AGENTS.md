@@ -1,5 +1,9 @@
 # Peer perimeter and Raft hosting
 
+- AddClusterWeb собирает monitoring worker/pump/coordinator с revision transport/dispatcher; Infrastructure регистрирует scoped capture рядом с его UoW. Проверять и самостоятельные DI modules, и итоговый граф без запуска host.
+- Monitoring payload storage generation должен совпадать с authenticated peer envelope до dispatch всего batch. Health отдаёт только safe MonitoringProgress; UI/SignalR payload не расширять внутренним image.
+- ClusterMonitoringWorker ничего не делает в Disabled; enabled проверки не обходят CanWork/recovery/activation. Реальный attempt producer/sender остаётся 07.
+
 - Peer listener имеет отдельный порт и canonical host; middleware стоит до forwarded headers, cookie authentication и DotNext. Пользовательские endpoints на этом listener запрещены.
 - Nginx certificate headers принимать только на изолированном listener от точного allowlist IP; проверять client CA, SAN и accepted fingerprint на каждом запросе. Требуются CRL, запрет прямого ingress и выключенный early data.
 - Регистрация DotNext не разрешает ранний hosted start или resolve WAL. Управляемый runtime восстанавливает snapshot до создания persistent state. Дефект БД закрывает RPC перед stop, не меняя membership.

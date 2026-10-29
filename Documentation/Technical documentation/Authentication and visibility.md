@@ -1,5 +1,11 @@
 # Аутентификация и видимость
 
+## Внутренняя авторизация monitoring (06)
+
+RecordObservations требует admitted NodeId/storage generation, совпадающих с аутентифицированным peer envelope. EvaluateAvailability/PlanBacklogDelivery допускаются только текущим локальным leader с настоящим term/leadership/catch-up proof. Эти команды имеют ActorUserId=Empty/ActorRevision=0 и закрытый SystemSource; пользовательская команда не может использовать monitoring payload или system source.
+
+Изменение целей/observers/NodeChatRoute остаётся обычной принятой Administrator-командой. Service facts не используют пользователя, его cookie или фиктивную роль. Аудит переходов содержит system source и безопасные IDs после apply, без secrets/actor fabrication; account/session/recovery-version инварианты 05 сохранены.
+
 ## Состояние реализации
 
 Identity, cookie pipeline и адаптеры пользователей находятся в Infrastructure; Web содержит прежние страницы входа/выхода и административные endpoints. Этапы 02/04 подготовили общие accounts/storage/reducer/snapshot, а ранний 05.1 — accepted account reader и Administrator policy. 05.2–05.4 подключили принятый sign-in, локальные сессии/lockout, безопасные команды пользователей и аккаунтный bootstrap/recovery. Единственная сохраняемая роль — Administrator; legacy создание аккаунта назначает эту роль. Старый UI permissions ещё не переработан; рабочие SetVisibility API/request/use case и ACL repository/UoW удалены.

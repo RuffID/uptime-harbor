@@ -1,10 +1,20 @@
 # Telegram-уведомления
 
+## Принятые инциденты и состав доставки (06)
+
+Unbind/удаление источника отзывает не начатую часть сводки целиком, сохраняя её неизменяемый исторический состав. Остальные допустимые источники возвращаются в Planned для нового плана; отозванные отменяются. Удаление цели блокирует также её старые завершённые intents и recovery, а удаление чата — все его не начатые sends.
+
+`MonitoringIncidents` принимает одну историю Target/Node и отдельную Coverage history. Stable incident/event IDs и logical intent key определяются принятой историей; неизменное состояние/replay не создают повтор. Все incident/event/intents фиксируются тем же projection apply, без локального autocommit.
+
+Обычные цели используют bindings, узлы — отдельные NodeChatRoute по NodeId. Recovery планируется только для чатов с настоящим accepted successful DeliveryAttempt. Unbind отменяет не начатые problem/update, сохраняя право уже уведомлённого чата на recovery; удаление чата отменяет и recovery. При неизвестном delivery proof восстановление получателей/состав backlog не подменяется успехом.
+
+`MonitoringBacklog` сохраняет durable part/cut/source IDs и текст до 3500 символов. Давние завершённые аварии входят в сводки без age cutoff, открытые остаются отдельными intents; исходные events/intents не удаляются. Источники помечаются SuppressedBySummary, без фиктивного delivery confirmation. Попытки, sender lifecycle, renewal и dispatcher не реализованы — это этап 07. Подробности — [Monitoring.md](Monitoring.md#распределённый-путь-этапа-06).
+
 ## Граница этапов 03/04 и 05.1
 
 Ниже описана локальная доставка при `Cluster:Mode=Disabled`. Enabled-режим не регистрирует прежний outbox worker; `ClusterNotificationSender` отвергает legacy-вызовы без принятого AttemptId. Новая доставка здесь не включена. `SenderAuthorityGate` проверяет принятую authority/attempt, большинство, generation/epoch и readiness; реальные authority/attempt решения и delivery worker остаются в 07; 04 реализует конфигурационные команды/привязки, без Telegram delivery. `TelegramHealthProbe` вызывает только `getMe` через отдельный клиент без HTTP logging, сверяет BotId, ограничивает timeout/body и сохраняет известную причину/возраст. Ошибка одного чата и rate limit не объявляются общим outage; тестовые сообщения health не отправляет. Подробности и ограничения — [Cluster runtime.md](Cluster%20runtime.md).
 
-05.1 повторяет administrator policy в `NotificationAdministrationService` после чтения чата непосредственно перед внешним test-send. В cluster mode policy читает active accepted account; disabled/deleted/unaccepted актор не вызывает sender. Сам cluster test-send через главного и пользовательский flow здесь не подключены. 04 сохраняет конфигурационные изменения привязок, не сбрасывая подтверждённые markers; tombstones блокируют удалённые зависимости. Будущие incident/delivery priority events не подменяются успешными результатами.
+05.1 повторяет administrator policy в `NotificationAdministrationService` после чтения чата непосредственно перед внешним test-send. В cluster mode policy читает active accepted account; disabled/deleted/unaccepted актор не вызывает sender. Сам cluster test-send через главного и пользовательский flow здесь не подключены. 04 сохраняет конфигурационные изменения привязок, не сбрасывая подтверждённые markers; tombstones блокируют удалённые зависимости. Этап 06 принимает incident events/intents без подтверждения отправки; production delivery decisions остаются этапом 07.
 
 ## Состояние реализации
 

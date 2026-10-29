@@ -1,5 +1,11 @@
 # Конфигурация и запуск
 
+## Настройки принятого мониторинга (06)
+
+Назначенные ObserverNodes, FailureThreshold (1–100), IntervalSeconds (5–3600), TimeoutSeconds (1–60), CheckGeneration и ConfigRevision относятся к принятой конфигурации server/container. Это не локальные appsettings overrides. Их изменение проходит общий Administrator pipeline; смена endpoint/enable/observers/порога/периодов требует нового поколения. По умолчанию — 3 ошибки, 60/10 секунд; пустой назначенный набор не запускает проверки.
+
+MonitoringNodes (NodeId → storage generation) приходит из trusted RecoveryAdmission и сверяется с snapshot/ClusterMember; публичное config поле для неподтверждённого допуска не добавлено. Node checks используют отдельный peer health, 5/3 секунд и шесть сетевых ошибок. Default Cluster Mode остаётся Disabled, provisioning/activation — 09; схема и секреты не менялись.
+
 ## Источники настроек
 
 После `WebApplication.CreateBuilder` Web-проект использует стандартные источники ASP.NET Core, а затем добавляет обязательный `Config/config.json` относительно content root с `optional: false` и `reloadOnChange: false`. Поэтому этот файл имеет приоритет над ранее добавленными стандартными источниками и должен существовать до старта. Отсутствующий файл или некорректный JSON останавливают запуск до регистрации прикладных и инфраструктурных сервисов.

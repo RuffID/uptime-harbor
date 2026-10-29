@@ -1,8 +1,14 @@
 # Web-приложение
 
+## Сборка monitoring компонентов (06)
+
+AddClusterWeb регистрирует ObservationReplicationPump/MonitoringCoordinator рядом с RevisionDispatcher и IRevisionTransport; Infrastructure регистрирует cycle/peer capture, а scoped ObservationCaptureService — рядом с его persistence UoW. ClusterMonitoringWorker завершает работу без действий в Disabled; enabled требует действительных readiness/recovery/activation proof.
+
+Peer batch до dispatch сверяет storage generation monitoring payload с аутентифицированным envelope. Пользовательская Administrator authorization отделена от внутреннего monitoring source; browser routes не получили обход gate. Peer health возвращает только безопасный MonitoringProgress. Новый dashboard/SignalR UI, sender/attempt lifecycle и controlled enable не реализованы (07–09). Регрессия DI разрешает граф без старта host/WAL/HTTP; это не browser acceptance.
+
 ## Граница 05.1 и этапа 04
 
-Рабочие ACL repository/UoW, SetVisibility use case/request и endpoint `/api/admin/users/{id}/visibility` удалены. Старый Users UI/DTO-поля ниже остаются compatibility и не предоставляют ресурсных прав; его сохранение permissions больше не является рабочим API. 05.2–05.4 подключили accepted sign-in/cookie/SignalR и минимальный account command API. Переработка UI относится к этапу 08 и не выполнялась. В cluster mode browser writers остаются закрытыми; peer batch принимает только verified peer origin и active accepted actor, а backlog доступен в безопасной peer health диагностике.
+Рабочие ACL repository/UoW, SetVisibility use case/request и endpoint `/api/admin/users/{id}/visibility` удалены. Старый Users UI/DTO-поля ниже остаются compatibility и не предоставляют ресурсных прав; его сохранение permissions больше не является рабочим API. 05.2–05.4 подключили accepted sign-in/cookie/SignalR и минимальный account command API. Переработка UI относится к этапу 08 и не выполнялась. В cluster mode browser writers остаются закрытыми; peer batch принимает verified peer origin, active accepted actor для пользовательских команд и отдельную внутреннюю provenance для monitoring-команд, а backlog доступен в безопасной peer health диагностике.
 
 ## Peer-периметр этапа 03
 

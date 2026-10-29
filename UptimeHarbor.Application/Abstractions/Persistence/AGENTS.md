@@ -1,5 +1,7 @@
 # Application persistence contracts
 
+- Observation capture repository раскрывает Find по ID и bounded pages streams/results (до 100); sequence/capture writes сохраняются существующим сценарным UoW. Принятый frontier служит ACK, но локальный capture не объявляется accepted и не удаляется по ACK.
+
 ## Ответственность
 
 Каталог определяет независимые от технологии хранения базовые и предметные контракты репозиториев.

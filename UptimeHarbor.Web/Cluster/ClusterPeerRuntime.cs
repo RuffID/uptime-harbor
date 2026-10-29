@@ -371,7 +371,8 @@ public class ClusterPeerRuntime(IServiceProvider services, IOptions<ClusterOptio
         return new(configured.Value.NodeId, bootId, status?.Term ?? 0, LeaderNodeId,
             status?.MembershipVersion ?? -1, status?.CommittedIndex ?? 0, state.Accepted.AppliedIndex,
             ready, failureWindow.SecondsWithoutReady, components, failureWindow.ConfirmedPeers(),
-            services.GetService<PendingReplicationPump>()?.Progress);
+            services.GetService<PendingReplicationPump>()?.Progress,
+            MonitoringDiagnostics.Read(services.GetRequiredService<RevisionStateStore>(), state.Accepted.CaughtUp, timeProvider.GetUtcNow()));
     }
 
     public async Task WriteHealthAsync(HttpContext context, PeerEnvelope envelope)

@@ -9,7 +9,8 @@ namespace UptimeHarbor.Web.Cluster;
 public class ClusterHealthWorker(IOptions<ClusterOptions> options, ClusterDatabaseProbe database,
     TelegramHealthProbe telegram, IPeerTrustSource trust,
     IHttpClientFactory clients, LeaderFailureWindow failureWindow,
-    TimeProvider timeProvider) : BackgroundService
+    TimeProvider timeProvider, PeerObservationCapture? observations = null,
+    ILogger<ClusterHealthWorker>? logger = null) : BackgroundService
 {
     private readonly Dictionary<Guid, (HealthResult Result, long At)> connections = new();
     private readonly object sync = new();
@@ -61,6 +62,7 @@ public class ClusterHealthWorker(IOptions<ClusterOptions> options, ClusterDataba
     public async Task PollPeerAsync(PeerCredential peer, CancellationToken cancellationToken)
     {
         long start = timeProvider.GetTimestamp();
+        PeerHealthSnapshot? observed = null;
         using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(3));
         try
@@ -103,6 +105,7 @@ public class ClusterHealthWorker(IOptions<ClusterOptions> options, ClusterDataba
             }
 
             failureWindow.ObserveAuthenticated(health);
+            observed = health;
             RecordConnection(peer.NodeId, new("Ready", "PeerReachable", TimeSpan.Zero));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -113,6 +116,25 @@ public class ClusterHealthWorker(IOptions<ClusterOptions> options, ClusterDataba
         {
             // Timeout не доказывает неисправность удалённой БД или Telegram.
             RecordConnection(peer.NodeId, new("Unknown", "PeerUnavailable", TimeSpan.Zero));
+        }
+        finally
+        {
+            if (observations is not null && !cancellationToken.IsCancellationRequested)
+            {
+                try
+                {
+                    await observations.CaptureAsync(peer.NodeId, observed,
+                        (long)timeProvider.GetElapsedTime(start).TotalMilliseconds, cancellationToken);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception)
+                {
+                    logger?.LogWarning("Peer observation capture failed for {NodeId}.", peer.NodeId);
+                }
+            }
         }
     }
 
