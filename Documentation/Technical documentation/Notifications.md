@@ -1,5 +1,9 @@
 # Telegram-уведомления
 
+## Граница этапа 03
+
+Ниже описана локальная доставка при `Cluster:Mode=Disabled`. Enabled-режим не регистрирует прежний outbox worker; `ClusterNotificationSender` отвергает legacy-вызовы без принятого AttemptId. Новая доставка здесь не включена. `SenderAuthorityGate` проверяет принятую authority/attempt, большинство, generation/epoch и readiness; реальные решения и delivery worker принадлежат 04/07. `TelegramHealthProbe` вызывает только `getMe` через отдельный клиент без HTTP logging, сверяет BotId, ограничивает timeout/body и сохраняет известную причину/возраст. Ошибка одного чата и rate limit не объявляются общим outage; тестовые сообщения health не отправляет. Подробности и ограничения — [Cluster runtime.md](Cluster%20runtime.md).
+
 ## Состояние реализации
 
 Application содержит независимые `INotificationSender`, административный use case и use case подготовки/фиксации доставки. Infrastructure содержит HTTP adapter Bot API, durable outbox dispatcher и отдельный hosted worker. Web содержит административный MVC API `/api/admin/notifications` и AJAX-only страницу `/Admin/Notifications` на TypeScript. Текущая persistence-схема входит в SQL Server baseline `20260831015604_InitialSqlServerSchema`.

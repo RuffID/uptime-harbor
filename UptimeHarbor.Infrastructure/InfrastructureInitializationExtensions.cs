@@ -2,6 +2,8 @@ using Microsoft.Extensions.DependencyInjection;
 using UptimeHarbor.Infrastructure.Identity;
 using UptimeHarbor.Infrastructure.Persistence;
 using UptimeHarbor.Infrastructure.Services.DataBase;
+using Microsoft.Extensions.Options;
+using UptimeHarbor.Infrastructure.Cluster;
 
 namespace UptimeHarbor.Infrastructure;
 
@@ -14,6 +16,12 @@ public static class InfrastructureInitializationExtensions
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(services);
+        if (services.GetRequiredService<IOptions<ClusterOptions>>().Value.Enabled)
+        {
+            // Cluster schema/provisioning и общий bootstrap выполняются controlled lifecycle этапа 09.
+            return;
+        }
+
         await using AsyncServiceScope scope = services.CreateAsyncScope();
 
         DataBaseCheckUpService<UptimeHarborDbContext> databaseCheckUp =

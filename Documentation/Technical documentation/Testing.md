@@ -1,5 +1,39 @@
 # Тестирование
 
+## Проверка этапа 03
+
+2026-10-29 production-проекты Domain, Application, Infrastructure и Web собраны отдельными `dotnet build -c Debug --no-restore`, каждый в собственный compile-check output: 0 warnings / 0 errors. Restore Web, Infrastructure.Tests и Web.Tests с DotNext 6.10.0 выполнен успешно. Ни host, ни узлы не запускались.
+
+| Набор | Passed | Failed | Skipped |
+| --- | --- | --- | --- |
+| Application, весь изолированный проект | 139 | 0 | 0 |
+| Infrastructure, только `UptimeHarbor.Tests.Infrastructure.Cluster.*` | 38 | 0 | 0 |
+| Web, только `UptimeHarbor.Tests.Web.Cluster.*` | 16 | 0 | 0 |
+
+Всего 193 passed. Domain-код в 03 не менялся; прежние 36 Domain и 27 Infrastructure этапа 02 не выдаются за новые результаты. Полный Infrastructure-набор с SQLite provider tests не запускался.
+
+Фактические команды из корня репозитория:
+
+```powershell
+dotnet build .\UptimeHarbor.Domain\UptimeHarbor.Domain.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\domain\
+dotnet build .\UptimeHarbor.Application\UptimeHarbor.Application.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\application\
+dotnet build .\UptimeHarbor.Infrastructure\UptimeHarbor.Infrastructure.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\infrastructure\
+dotnet build .\UptimeHarbor.Web\UptimeHarbor.Web.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\web\
+dotnet test --project .\tests\UptimeHarbor.Application.Tests\UptimeHarbor.Application.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\application-tests\
+dotnet test --project .\tests\UptimeHarbor.Infrastructure.Tests\UptimeHarbor.Infrastructure.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\infrastructure-tests\ -- --filter-class UptimeHarbor.Tests.Infrastructure.Cluster.*
+dotnet test --project .\tests\UptimeHarbor.Web.Tests\UptimeHarbor.Web.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\web-tests\ -- --filter-class UptimeHarbor.Tests.Web.Cluster.*
+```
+
+Application Cluster tests вызывают production readiness, health-quorum, gate и membership coordinator: singleton authority с accepted proof, role-only deny, потеря majority/generation/epoch/readiness, DB fault и repair без старого proof, неподтверждённый catch-up/account, 30 с без продления неуспехом, 3+2/minority/asymmetric/stale witnesses, clock jump/pause/restart, drain/expiry/late proofs и отмена in-flight scopes. Membership проверяет локальный/принятый активный аккаунт, запрет последнего участника, достоверные actor/node IDs и отсутствие успеха до protocol result + accepted receipt. Подставной consensus проверяет контракт gate/coordinator, не выборы DotNext.
+
+Infrastructure Cluster tests используют настоящий DotNext WriteAheadLog в временном каталоге: reopen term/vote/committed payload и callback apply. Локальный Commit — только storage-подготовка, не имитация majority. DispatchProxy перехватывает фактический интерфейс replication API, чтобы проверить wiring adapter и ожидание apply; он не реализует fake election. Проверены восстановление до WAL, exclusive lock, одноразовый bootstrap, отказ утраченного/усечённого state, peer envelope/compatibility/identity/replay/limits, настоящий тестовый CA/certificate/SAN/pin, native sender/term, fake HTTP challenge/timeout/no cookies, Telegram getMe/BotId и безопасный audit. Web Cluster tests проверяют настоящий persistent configuration reopen с 1/3 voters, middleware/listener boundary/oversize, закрытый recovery и DI без host/WAL/HTTP.
+
+Первый Web Cluster прогон выявил ошибку test assertion для отсутствующего StringValues header; исправлена проверка Count. Ошибка компиляции тестовой подготовки persistent configuration исправлена по реальному API Load/Add/Save. Изолированное создание настоящего DotNext cluster/store/native pipeline выявило недостающий DiagnosticListener в child DI; добавлены diagnostic/metrics зависимости ASP.NET, повторная проверка прошла без Start и без запросов (fake handler запрещает сеть). Финальные наборы прошли без предупреждений. Более ранний положительный certificate тест выявил сравнение local certificate dates с UTC; production сравнение приведено к UTC и повторно проверено.
+
+Reopen не доказывает fsync/power-loss/crash recovery. Не выполнялись реальные выборы/одновременные кандидаты/majority commit на узлах, peer HTTPS/Nginx/CRL, network partitions, OS suspend, SQL recovery/миграции, браузер, мониторинг, Telegram, Docker или deployment. Полный стенд и нагрузка не требовались; внешние наблюдения учитываются отдельно по согласованному этапу 10. `Unavailable*` порты не заменялись фиктивным успехом, controlled enable не выполнялся. Проверены ссылки/solution items/UTF-8; документы 01/02 не переписаны, Git не использовался.
+
+В 03 дополнительно проверен replay/apply fault на настоящем WAL: ошибка остаётся latched при последующем успешном DB connectivity probe, health сохраняет отдельные ProjectionUnavailable и возраст, а provider payload не появляется в исключении DotNext. Это проверка закрытия повреждённой проекции, не её восстановления средствами будущего 04.
+
 ## Test stack
 
 Четыре test-проекта в каталоге `tests` используют общие настройки из `tests/Directory.Build.props`:
@@ -11,6 +45,8 @@
 - расширения code coverage и TRX report.
 
 Корневой `global.json` выбирает .NET SDK 10.0.400 и runner `Microsoft.Testing.Platform`.
+
+Перечисленные выше версии — базовые из tests/Directory.Build.props. Текущие test csproj переопределяют xunit.v3 4.0.2, runner 4.0.1, Test.Sdk 18.11.0, CodeCoverage 18.12.0 и TrxReport 2.5.1.
 
 ## Запуск
 

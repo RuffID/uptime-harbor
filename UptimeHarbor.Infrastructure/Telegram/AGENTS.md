@@ -18,3 +18,4 @@
 - Отменённые jobs не удалять и не retry-ить; повторная обработка должна безопасно завершаться без sender.
 - После transport-успеха фиксировать конкретную привязку в отдельном DI scope.
 - HTTP adapter тестировать через fake `HttpMessageHandler`, не обращаясь к Telegram.
+- В enabled-режиме legacy worker не регистрируется, ClusterNotificationSender запрещает прежние вызовы без принятого AttemptId. Новый delivery flow 07 обязан использовать SenderAuthorityGate; health getMe не даёт права отправки, ошибка отдельного чата не означает общий outage.

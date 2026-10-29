@@ -197,6 +197,7 @@ public class ConfigurationFilesTests
     [Fact]
     public void ConfigurationExample_ContainsCompleteSafeStartupSettings()
     {
+        // Arrange
         string example = File.ReadAllText(GetRepositoryPath(
             "UptimeHarbor.Web",
             "Config",
@@ -208,17 +209,23 @@ public class ConfigurationFilesTests
         [
             "AllowedHosts",
             "BootstrapAdmin",
+            "Cluster",
             "ConnectionStrings",
             "ForwardedHeaders",
             "Monitoring",
             "Telegram"
         ];
+
+        // Act
         string[] actualSections = root
             .EnumerateObject()
             .Select(property => property.Name)
             .Order(StringComparer.Ordinal)
             .ToArray();
+
+        // Assert
         Assert.Equal(expectedSections, actualSections);
+        Assert.Equal("Disabled", root.GetProperty("Cluster").GetProperty("Mode").GetString());
 
         JsonElement bootstrap = root.GetProperty("BootstrapAdmin");
         Assert.Equal("replace-me", bootstrap.GetProperty("Login").GetString());

@@ -13,15 +13,16 @@
 
 Для локального или опубликованного запуска нужно скопировать `Config/config.example.json` в `Config/config.json`, затем заменить bootstrap login/password, пароль SQL Server, Telegram bot token и при необходимости proxy CIDR/`AllowedHosts`. При publish файл не упаковывается: окружение запуска должно предоставить его снаружи по пути `Config/config.json` относительно content root.
 
-В `Config/config.json` находятся секции `BootstrapAdmin`, `ConnectionStrings:SqlServer`, `Monitoring`, `Telegram`, `ForwardedHeaders` и `AllowedHosts`. В репозитории нет настоящих значений секретов.
+В `Config/config.json` находятся секции `BootstrapAdmin`, `ConnectionStrings:SqlServer`, `Monitoring`, `Telegram`, `Cluster`, `ForwardedHeaders` и `AllowedHosts`. При будущем включении сетки отдельно нужны `Kestrel:Endpoints:Browser/Peer`. В репозитории нет настоящих значений секретов; локальный секретный файл в этапе 03 не изменялся.
 
 ## Типизированные группы
 
-Определены три options-типа:
+Определены четыре options-типа:
 
 - `BootstrapAdminOptions` — логин и начальный пароль администратора;
 - `MonitoringOptions` — принадлежащий Application общий контракт интервала, timeout и порога ошибок;
 - `TelegramOptions` — принадлежащий Infrastructure тип с токеном бота.
+- `ClusterOptions` — режим, identity/storage generation, canonical HTTPS URI, mTLS boundary и пути, таймеры, compatibility и пределы; привязка/валидация выполняется в `AddClusterInfrastructure`, настройка listener — в Web extension.
 
 `MonitoringOptions` и `TelegramOptions` привязываются в Web через `AddApplicationConfiguration` и используют `ValidateOnStart`. Monitoring worker и HTTP-адаптер получают только `IOptions<MonitoringOptions>`, Telegram adapter — только `IOptions<TelegramOptions>`; потребители не зависят от `IConfiguration`. `BootstrapAdminOptions` принадлежит Infrastructure и валидируется при bootstrap только если администратор отсутствует. Это позволяет повторному запуску с уже созданным администратором не зависеть от сохранения начального пароля в конфигурации.
 
@@ -29,7 +30,27 @@
 
 `ForwardedHeaders:KnownNetworks` задаёт CIDR доверенной proxy-сети; приложение принимает forwarded-заголовки только из этой сети и ограничивает цепочку одним прокси (`ForwardLimit = 1`). Значение сети должно совпадать с подсетью используемого reverse proxy.
 
-## DI validation
+## Настройки сетки этапа 03
+
+Безопасный пример содержит `Cluster:Mode=Disabled`. Режимы `Bootstrap`, `Join`, `Restart` требуют ненулевые UUID identity/credential/storage, generation >= 1, отдельный provisioned StoragePath, абсолютные пути сертификатов/ключа/CA, SHA-256 CA fingerprint и ожидаемый общий BotId. PublicUri — canonical `https://<peer-host>/internal/raft`. Состав/доверие приходят из принятого registry, а не из списка доступных адресов. Секретный CA key на узле не нужен. Таймеры/версии протокола проверяются строго; лимиты могут только уменьшаться в согласованных пределах. Неподтверждённые accepted state и recovery запрещают старт даже с корректными options.
+
+Enabled-режим требует два именованных Kestrel endpoint с разными портами. Пример структуры прямого TLS (не инструкция включать функцию до 04–09):
+
+```json
+"Kestrel": {
+  "Endpoints": {
+    "Browser": { "Url": "http://127.0.0.1:5000" },
+    "Peer": {
+      "Url": "https://0.0.0.0:8443",
+      "Certificate": { "Path": "/srv/uptime/keys/server.crt", "KeyPath": "/srv/uptime/keys/server.key" }
+    }
+  }
+}
+```
+
+Direct listener требует client certificate и проверяет private CA; middleware дополнительно проверяет accepted pin/SAN/generation. Для `NginxIsolatedHttp` Peer.Url должен быть внутренним HTTP на PeerListenPort, `TrustedProxyAddresses` содержит точные IP. Firewall запрещает обход Nginx; proxy проверяет mTLS/CRL, перезаписывает `Ssl-Client-Verify` и URL-encoded публичный `Ssl-Client-Cert`, сохраняет peer Host и отключает early data. Публичные TLS DNS/certificate/renewal и изоляция проверяются оператором отдельно. В [Cluster runtime.md](Cluster%20runtime.md) приведены lifecycle, лимиты и границы будущих этапов. Enabled не запускает прежние workers/startup migration и не открывает пользовательские маршруты/отправку.
+
+## Проверка DI
 
 В Development включены `ValidateScopes` и `ValidateOnBuild`. Это обнаруживает captive dependencies и недоступные регистрации при построении контейнера.
 

@@ -4,7 +4,7 @@
 
 ## Активные планы
 
-- [Несколько узлов, синхронизация и общие администраторы](multi-node-sync-and-permissions-2026-10-18-%28in-progress%29/main.md) — `in-progress`: 01 completed как проектирование, 02 completed как доменная модель, storage/UoW и неприменённая EF migration. Этапы 03–10 не реализованы. Цель — отдельные БД, главный по большинству, синхронизация настроек/доставки и общие Administrator без ACL. Выполнены изолированные storage-проверки; SQL Server, распределённый runtime и пользовательская приёмка не проверены.
+- [Несколько узлов, синхронизация и общие администраторы](multi-node-sync-and-permissions-2026-10-18-%28in-progress%29/main.md) — `in-progress`: 01/02 completed, 03.1–03.4 completed как защищённый peer transport, durable DotNext, readiness и authority gate. 04–10 не начаты; recovery/account/trust/accepted decisions по умолчанию закрыты. Схема не применялась; реальные узлы, SQL Server, отправки и пользовательская приёмка не запускались. Изолированные результаты не подменяют elections/partition/crash recovery.
 
 ## Новые самостоятельные планы
 

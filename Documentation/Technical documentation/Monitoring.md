@@ -1,5 +1,9 @@
 # Движок мониторинга
 
+## Режим сетки после этапа 03
+
+Ниже описан однопроцессный путь при `Cluster:Mode=Disabled`. В enabled-режиме прежний `MonitoringWorker` не регистрируется, прежние browser writers закрыты. Распределённые наблюдения/инциденты принадлежат 06. `MonitoringProgressWatchdog` предоставляет будущему worker контракт подтверждения завершённого цикла; отсутствие свежего прогресса держит sender закрытым. Собственная неисправность БД закрывает CanWork, новые native ACK/vote и sender, supervisor останавливает Raft, не уменьшая состав. После ремонта нужен подтверждённый replay/catch-up. Обычная partial-цель не участвует в health-quorum выбора главного. Возраст health и окно 30 с описаны в [Cluster runtime.md](Cluster%20runtime.md).
+
 ## Состояние реализации
 
 Этап движка мониторинга реализован. Application содержит независимые server/container contracts, результаты ожидаемых endpoint-ошибок, `MonitoringService` и `MonitoringStateChangedEvent`. Infrastructure содержит HTTP/JSON-адаптер, запуск цикла и hosted worker.

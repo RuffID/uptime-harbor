@@ -2,9 +2,9 @@
 
 ## Реализованная граница
 
-Этап 02 добавил независимую модель в `UptimeHarbor.Domain/Cluster`, storage-контракты Application, EF mappings, сценарные UoW и migration `20261029053354_AddSharedClusterStorage`. Эти компоненты ещё не подключены к рабочему consensus/reducer или пользовательскому входу. Новые workers, peer endpoints и UI не добавлены. Существующие однопроцессные workers не стали распределёнными.
+Этап 02 добавил независимую модель в `UptimeHarbor.Domain/Cluster`, storage-контракты Application, EF mappings, сценарные UoW и migration `20261029053354_AddSharedClusterStorage`. Этап 03 добавил [DotNext adapter, peer endpoints и lifecycle](Cluster%20runtime.md). Прикладной reducer/replay, установка snapshot, общий вход и распределённые workers пока не подключены. Без подтверждения независимого recovery-контракта WAL и Raft не стартуют.
 
-Источник истины принятых общих данных — будущие Raft log и опубликованный snapshot. SQL хранит восстанавливаемую проекцию. `applied_journal_receipts` содержит только ID записи, позицию и digest, без payload для replay; это не SQL WAL. Term/vote и долговременный Raft WAL в SQL не реализованы. Их адаптер принадлежит этапу 03, reducer и snapshot/replay — этапу 04.
+Источник истины принятых общих данных — Raft log и опубликованный snapshot. SQL хранит восстанавливаемую проекцию. `applied_journal_receipts` содержит только ID записи, позицию и digest, без payload для replay; это не SQL WAL. Term/vote/log и membership сохраняются DotNext в отдельном provisioned `Cluster:StoragePath`, вне SQL. Reducer и snapshot/replay принадлежат этапу 04; новая EF migration в 03 не требовалась.
 
 ## Идентичность и версии
 

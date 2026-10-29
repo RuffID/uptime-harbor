@@ -17,7 +17,7 @@
 
 ## Текущее состояние
 
-Таблица фиксирует исходное состояние при подготовке плана; приложение, БД и внешние интеграции не запускались. После этапа 02 фактические модели, mappings и границы storage описаны в [Shared cluster storage.md](../../Technical%20documentation/Shared%20cluster%20storage.md); распределённый runtime ещё не подключён.
+Таблица фиксирует исходное состояние при подготовке плана; приложение, БД и внешние интеграции не запускались. Модели/mappings/storage описаны в [Shared cluster storage.md](../../Technical%20documentation/Shared%20cluster%20storage.md); adapter, peer transport, readiness и закрытый до recovery runtime этапа 03 — в [Cluster runtime.md](../../Technical%20documentation/Cluster%20runtime.md).
 
 | Область | На начало планирования | Изменение в этом плане |
 | --- | --- | --- |
@@ -54,7 +54,7 @@
 | --- | --- | --- | --- | --- |
 | 01 | Проверенный проект протокола, границы согласования и совместимости | completed | Нет | [Архитектура и контракты](01-protocol-and-contracts/main.md) |
 | 02 | Модель общих аккаунтов, единственной роли, ревизий и схемы | completed | 01 | [Домен и хранение](02-domain-and-persistence/main.md) |
-| 03 | Идентичность узлов, самодиагностика, большинство и главный | not-started | 01, 02 | [Связь и выбор главного](03-peer-health-and-leadership/main.md) |
+| 03 | Идентичность узлов, самодиагностика, большинство и главный | completed | 01, 02 | [Связь и выбор главного](03-peer-health-and-leadership/main.md) |
 | 04 | Доставка изменений, конфликты, tombstones и восстановление | not-started | 02, 03, 05.1 | [Синхронизация ревизий](04-revision-synchronization/main.md) |
 | 05 | Общие пользователи и единственная роль администратора | not-started | 02 для 05.1; 04 для 05.2–05.4 | [Пользователи и общий вход](05-permissions-and-ownership/main.md) |
 | 06 | Взаимный мониторинг и согласованные инциденты | not-started | 03, 04 | [Мониторинг и инциденты](06-monitoring-and-incidents/main.md) |
@@ -89,10 +89,10 @@
 
 | Подэтап | Результат | Статус | Зависимости | Документ |
 | --- | --- | --- | --- | --- |
-| 03.1 | Узел имеет валидируемую конфигурацию и отдельный доверенный peer transport. | not-started | 02 | [Настройки, идентичность и защищённый peer HTTP](03-peer-health-and-leadership/03.1-identity-and-peer-http.md) |
-| 03.2 | Работают consensus adapter, term/vote/log, bootstrap и контролируемое изменение состава. | not-started | 03.1 | [Долговременный Raft и состав сетки](03-peer-health-and-leadership/03.2-durable-raft-and-membership.md) |
-| 03.3 | Readiness различает локальную неисправность и отсутствие peer-связи, управляет остановкой рабочих компонентов. | not-started | 03.2 | [Самодиагностика и готовность узла](03-peer-health-and-leadership/03.3-health-and-readiness.md) |
-| 03.4 | Есть общий gate большинства/поколения/readiness и безопасные переходы при pause/restart. | not-started | 03.3 | [Право отправки и жизненный цикл главного](03-peer-health-and-leadership/03.4-sender-authority-and-lifecycle.md) |
+| 03.1 | Узел имеет валидируемую конфигурацию и отдельный доверенный peer transport. | completed | 02 | [Настройки, идентичность и защищённый peer HTTP](03-peer-health-and-leadership/03.1-identity-and-peer-http.md) |
+| 03.2 | Работают consensus adapter, term/vote/log, bootstrap и контролируемое изменение состава. | completed | 03.1 | [Долговременный Raft и состав сетки](03-peer-health-and-leadership/03.2-durable-raft-and-membership.md) |
+| 03.3 | Readiness различает локальную неисправность и отсутствие peer-связи, управляет остановкой рабочих компонентов. | completed | 03.2 | [Самодиагностика и готовность узла](03-peer-health-and-leadership/03.3-health-and-readiness.md) |
+| 03.4 | Есть общий gate большинства/поколения/readiness и безопасные переходы при pause/restart. | completed | 03.3 | [Право отправки и жизненный цикл главного](03-peer-health-and-leadership/03.4-sender-authority-and-lifecycle.md) |
 
 ### 04. Синхронизация ревизий и конфликты
 
@@ -211,4 +211,6 @@
 
 Проверки 02: отдельные compile-check production-проектов; Domain — 36, Application — 111, выбранные Infrastructure metadata/fake/DI — 27 успешно, без ошибок/пропусков; согласованность EF model/snapshot, документов, ссылок, solution items и UTF-8. [Результаты и ограничения](../../Technical%20documentation/Testing.md#проверка-этапа-02). Не выполнялись provider tests, БД/SQL, Up/Down, приложение, Docker, реальные узлы/monitoring/Telegram и deployment; Git-команды не выполнялись. Fake-контракты не доказывают SQL Server atomicity.
 
-Дата создания 2026-10-18 и папка `multi-node-sync-and-permissions-2026-10-18-(in-progress)` сохранены. Этапы 03–10 остаются not-started, 09.2/09.3 — cancelled. Рабочий consensus adapter, reducer/replay, общий вход и распределённые workers не реализованы. После 02 работа остановлена.
+2026-10-29 завершён [этап 03](03-peer-health-and-leadership/main.md), включая 03.1–03.4: защищённый peer transport, DotNext adapter/WAL/membership, readiness и sender authority с независимыми закрытыми recovery/account/accepted-decision портами. Проверки 03: отдельные production builds без предупреждений/ошибок; Application — 139, выбранные Infrastructure Cluster — 38, Web Cluster — 16 passed, без ошибок/пропусков. [Доказательства и ограничения](../../Technical%20documentation/Testing.md#проверка-этапа-03).
+
+Дата создания 2026-10-18 и папка `multi-node-sync-and-permissions-2026-10-18-(in-progress)` сохранены. Общий план — in-progress, 04–10 — not-started, 09.2/09.3 — cancelled. Reducer/replay, общий вход и распределённые workers не реализованы; accepted recovery/trust/authority по умолчанию закрыты. Реальные узлы, БД, peer/Telegram, deployment и controlled enable не запускались. После 03 работа остановлена.

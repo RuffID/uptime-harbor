@@ -25,6 +25,7 @@ using UptimeHarbor.Infrastructure.Telegram;
 using UptimeHarbor.Application.Dashboard;
 using UptimeHarbor.Application.Visibility;
 using UptimeHarbor.Infrastructure.Services.DataBase;
+using UptimeHarbor.Infrastructure.Cluster;
 
 namespace UptimeHarbor.Infrastructure;
 
@@ -38,6 +39,9 @@ public static class ServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
+
+        services.AddClusterInfrastructure(configuration);
+        ClusterOptions clusterOptions = configuration.GetSection(ClusterOptions.SECTION_NAME).Get<ClusterOptions>() ?? new();
 
         string? connectionString = configuration.GetConnectionString("SqlServer");
 
@@ -151,18 +155,23 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IContainerEndpointChecker>(provider =>
             provider.GetRequiredService<HttpMonitoringEndpointChecker>());
         services.AddSingleton<IMonitoringCycleRunner, MonitoringCycleRunner>();
-        services.AddHostedService<MonitoringWorker>();
+        if (!clusterOptions.Enabled)
+        {
+            services.AddHostedService<MonitoringWorker>();
+        }
 
         services.AddHttpClient<TelegramHttpNotificationSender>(client =>
         {
             client.BaseAddress = new Uri("https://api.telegram.org/");
             client.Timeout = TimeSpan.FromSeconds(30);
         }).RemoveAllLoggers();
-        services.AddScoped<INotificationSender>(provider =>
-            provider.GetRequiredService<TelegramHttpNotificationSender>());
+        services.AddScoped<INotificationSender, ClusterNotificationSender>();
         services.AddScoped<NotificationOutboxStore>();
         services.AddSingleton<TelegramOutboxDispatcher>();
-        services.AddHostedService<TelegramOutboxWorker>();
+        if (!clusterOptions.Enabled)
+        {
+            services.AddHostedService<TelegramOutboxWorker>();
+        }
 
         return services;
     }

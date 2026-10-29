@@ -24,4 +24,5 @@
 - Telegram transport, durable outbox dispatcher и worker находятся в `Telegram`; token получается только через `TelegramOptions`, стандартное HTTP-логирование клиента отключено, а ошибки чатов изолируются.
 - Telegram dispatcher и worker читают durable outbox независимо от monitoring worker; retry ограничен, а transport-семантика документирована как at-least-once.
 - Dispatcher сериализует pre-send gate с terminal recovery cancellation; SQL Server unique errors имени сервера и Telegram классифицируются в Infrastructure без утечки provider типов в Application.
-- Общее хранилище сетки — восстанавливаемая SQL-проекция будущего Raft log + snapshot. Storage-регистрации не включают consensus/reducer/replication workers; локальные секреты и lockout не входят в общие данные.
+- Общее хранилище сетки — восстанавливаемая SQL-проекция Raft log + snapshot. `Cluster` хранит term/vote/log и membership через DotNext на отдельном provisioned диске; reducer/replay остаётся за recovery-портом 04. Локальные секреты и lockout не входят в общие данные.
+- В enabled-режиме не регистрировать прежние monitoring/outbox workers, не выполнять legacy startup migration/bootstrap и не пропускать прежний sender в обход authority/attempt. Disabled сохраняет однопроцессную модель. Подробности — `Documentation/Technical documentation/Cluster runtime.md`.

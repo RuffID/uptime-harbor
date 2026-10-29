@@ -5,10 +5,12 @@ using UptimeHarbor.Web.Hubs;
 using UptimeHarbor.Web.Pages;
 using UptimeHarbor.Web.Security;
 using Serilog;
+using UptimeHarbor.Web.Cluster;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration.AddJsonFile("Config/config.json", optional: false, reloadOnChange: false);
+builder.ConfigureClusterListeners();
 
 builder.Host.UseSerilog((_, loggerConfiguration) =>
     loggerConfiguration.ReadFrom.Configuration(builder.Configuration));
@@ -26,7 +28,8 @@ builder.Services
     .AddApplication()
     .AddApplicationConfiguration(builder.Configuration)
     .AddInfrastructure(builder.Configuration)
-    .AddWebPresentation();
+    .AddWebPresentation()
+    .AddClusterWeb();
 
 var app = builder.Build();
 
@@ -38,6 +41,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+app.UseClusterPeerBoundary();
 app.UseForwardedHeaders();
 app.UseRouting();
 app.UseSecurityHeaders();

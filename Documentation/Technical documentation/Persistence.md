@@ -1,5 +1,9 @@
 # Persistence и транзакции
 
+## Граница кластерного режима
+
+Этап 03 хранит Raft WAL/term/vote/configuration на отдельном диске через DotNext 6.10.0; SQL остаётся восстанавливаемой проекцией. `ClusterStateMachine` передаёт committed records независимому recovery/reducer-порту и ждёт фактического apply; реализация SQL replay и установки snapshot остаётся этапом 04. До её подтверждения WAL не создаётся. В enabled-режиме legacy startup migrations/bootstrap пропускаются; автоматического применения схемы новой сетки нет. Новых migrations в 03 нет. Порядок восстановления, lock и защита от потери файлов — [Cluster runtime.md](Cluster%20runtime.md).
+
 ## Текущее состояние
 
 Persistence реализован в `UptimeHarbor.Infrastructure` на EF Core с провайдером Microsoft SQL Server. `UptimeHarbor.Application` содержит только контекстно-независимые интерфейсы.

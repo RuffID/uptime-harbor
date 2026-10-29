@@ -1,0 +1,177 @@
+using System.Net;
+using System.Security.Cryptography.X509Certificates;
+using Microsoft.AspNetCore.Http.Features;
+using Microsoft.Extensions.Options;
+using UptimeHarbor.Application.Cluster;
+using UptimeHarbor.Application.Cluster.Models;
+using UptimeHarbor.Infrastructure.Cluster;
+
+namespace UptimeHarbor.Web.Cluster;
+
+public class PeerBoundaryMiddleware(RequestDelegate next, IOptions<ClusterOptions> configured)
+{
+    public async Task InvokeAsync(HttpContext context, IPeerTrustSource trust,
+        NodeReadiness readiness, TimeProvider timeProvider, ClusterPeerRuntime runtime)
+    {
+        ClusterOptions options = configured.Value;
+        bool peerPath = context.Request.Path.StartsWithSegments("/internal");
+        bool peerListener = options.Enabled && context.Connection.LocalPort == options.PeerListenPort;
+        if (!peerPath && !peerListener)
+        {
+            if (options.Enabled)
+            {
+                context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+                return;
+            }
+
+            await next(context);
+            return;
+        }
+
+        if (!peerListener || !peerPath || context.Request.Host.Host != new Uri(options.PublicUri).Host)
+        {
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
+            return;
+        }
+
+        if (readiness.Get("Clock").Status != "Ready")
+        {
+            context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+            return;
+        }
+
+        bool native = context.Request.Path.StartsWithSegments("/internal/raft");
+        bool health = context.Request.Path == "/internal/cluster/v1/health";
+        if (!native && !health)
+        {
+            context.Response.StatusCode = StatusCodes.Status404NotFound;
+            return;
+        }
+
+        long limit = options.HealthMaxBytes;
+        if (native)
+        {
+            limit = options.NativeMaxBytes;
+        }
+
+        if (context.Request.ContentLength > limit)
+        {
+            context.Response.StatusCode = StatusCodes.Status413PayloadTooLarge;
+            return;
+        }
+
+        IHttpMaxRequestBodySizeFeature? bodyLimit = context.Features.Get<IHttpMaxRequestBodySizeFeature>();
+        if (bodyLimit is not null && !bodyLimit.IsReadOnly)
+        {
+            bodyLimit.MaxRequestBodySize = limit;
+        }
+        else if (context.Request.ContentLength != 0 && !HttpMethods.IsGet(context.Request.Method))
+        {
+            context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+            return;
+        }
+
+        PeerEnvelope? envelope = PeerHeaders.Decode(context.Request.Headers[PeerHeaders.ENVELOPE].ToString());
+        if (envelope is null)
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return;
+        }
+
+        PeerProtocolGuard guard = new(options, trust, timeProvider);
+        PeerCredential? credential = await guard.ValidateAsync(envelope, context.Request.ContentLength ?? 0,
+            limit, context.RequestAborted);
+        if (credential is null || (native && !credential.IsVoting && !credential.IsAdmission))
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return;
+        }
+
+        if (native && !NativeRaftIdentity.Validate(credential, context.Request.Headers["X-Raft-Node-ID"].ToString(),
+            context.Request.Headers["X-Raft-Message-Type"].ToString(), context.Request.Headers["X-Raft-Term"].ToString(),
+            context.Request.Headers["X-Raft-State-Version"].ToString(), envelope))
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return;
+        }
+
+        using X509Certificate2? certificate = await GetCertificateAsync(context, options);
+        if (certificate is null)
+        {
+            context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+            return;
+        }
+
+        using X509Certificate2 root = X509CertificateLoader.LoadCertificateFromFile(options.ClientCaPath);
+        PeerCertificateValidator validator = new();
+        if (!validator.Validate(certificate, root, options, credential, timeProvider.GetUtcNow()))
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return;
+        }
+
+        PeerEnvelope reply = new(options.ClusterId, options.Generation, options.NodeId,
+            envelope.FromNodeId, options.StorageGeneration, options.CredentialId, envelope.RequestId,
+            timeProvider.GetUtcNow(), options.Compatibility, envelope.Challenge);
+        context.Response.Headers[PeerHeaders.ENVELOPE] = PeerHeaders.Encode(reply);
+        context.Response.Headers.CacheControl = "no-store";
+        context.Response.Headers.Remove("Set-Cookie");
+
+        if (native)
+        {
+            await runtime.ProcessRaftAsync(context, envelope);
+            return;
+        }
+
+        if (!runtime.AcceptNonce(envelope))
+        {
+            context.Response.StatusCode = StatusCodes.Status409Conflict;
+            return;
+        }
+
+        await runtime.WriteHealthAsync(context, envelope);
+    }
+
+    private static async Task<X509Certificate2?> GetCertificateAsync(HttpContext context, ClusterOptions options)
+    {
+        if (options.TlsBoundary == "Direct")
+        {
+            if (!context.Request.IsHttps)
+            {
+                return null;
+            }
+
+            X509Certificate2? certificate = await context.Connection.GetClientCertificateAsync(context.RequestAborted);
+            if (certificate is null)
+            {
+                return null;
+            }
+
+            return new X509Certificate2(certificate);
+        }
+
+        IPAddress? remote = context.Connection.RemoteIpAddress;
+        bool trustedProxy = remote is not null && options.TrustedProxyAddresses
+            .Any(address => IPAddress.Parse(address).Equals(remote));
+        if (!trustedProxy || context.Request.Headers["Ssl-Client-Verify"] != "SUCCESS")
+        {
+            return null;
+        }
+
+        string encoded = context.Request.Headers["Ssl-Client-Cert"].ToString();
+        if (encoded.Length > 49152)
+        {
+            return null;
+        }
+
+        string pem = Uri.UnescapeDataString(encoded);
+        try
+        {
+            return X509Certificate2.CreateFromPem(pem);
+        }
+        catch (System.Security.Cryptography.CryptographicException)
+        {
+            return null;
+        }
+    }
+}

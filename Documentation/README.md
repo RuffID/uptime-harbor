@@ -15,7 +15,7 @@
 ## Планы и история
 
 - [Plans/README.md](Plans/README.md) — активные планы и правила их оформления.
-- [Несколько узлов, синхронизация и общие администраторы](Plans/multi-node-sync-and-permissions-2026-10-18-%28in-progress%29/main.md) — план `in-progress`: завершены проектирование 01 и модель/storage/migration 02; этапы 03–10 не начаты. Распределённый runtime и общий вход ещё не подключены; SQL Server не проверялся.
+- [Несколько узлов, синхронизация и общие администраторы](Plans/multi-node-sync-and-permissions-2026-10-18-%28in-progress%29/main.md) — план `in-progress`: завершены 01/02 и 03.1–03.4 (peer, DotNext, readiness/gate). 04–10 не начаты; runtime закрыт до подтверждённого recovery/accepted state. Общий вход/доставка не включены; SQL Server и реальные узлы не проверялись.
 - [Первичное техническое ревью v1](Technical%20documentation/V1%20Technical%20Review%20Findings.md).
 - [Повторное техническое ревью v1](Technical%20documentation/V1%20Follow-up%20Technical%20Review.md).
 

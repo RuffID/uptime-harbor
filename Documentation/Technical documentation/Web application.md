@@ -1,5 +1,9 @@
 # Web-приложение
 
+## Peer-периметр этапа 03
+
+`ConfigureClusterListeners` проверяет отдельные именованные Kestrel `Browser`/`Peer` endpoints; Direct требует mTLS, внутренний HTTP разрешён только в режиме `NginxIsolatedHttp` с изоляцией/точным allowlist. `UseClusterPeerBoundary` находится до forwarded headers и cookie authentication: browser listener не обслуживает `/internal`, peer listener не обслуживает пользовательские endpoints. Enabled-режим до реализации 05/08 возвращает 503 на прежние browser routes. Peer health и native Raft доступны только после envelope/certificate/trust проверки; неизвестные будущие routes не открыты. Это не новое административное UI. Composition и ограничения — [Cluster runtime.md](Cluster%20runtime.md).
+
 ## Composition root
 
 `UptimeHarbor.Web/Program.cs` выполняет только настройку host, модульные DI-вызовы, middleware и endpoint mapping. Прикладная логика в нём не размещается.

@@ -9,6 +9,7 @@
 | Identity, роли и видимость | [Authentication and visibility.md](Authentication%20and%20visibility.md) |
 | EF Core, репозитории и транзакции | [Persistence.md](Persistence.md) |
 | Модель общих данных, проекции и границы этапа 02 | [Shared cluster storage.md](Shared%20cluster%20storage.md) |
+| Peer mTLS, durable DotNext, readiness и sender gate этапа 03 | [Cluster runtime.md](Cluster%20runtime.md) |
 | Локальные DLL, зависимости и обновление | [Libraries.md](Libraries.md) |
 | Миграции и startup backup | [Database migrations.md](Database%20migrations.md) |
 | Endpoint-проверки и monitoring worker | [Monitoring.md](Monitoring.md) |
