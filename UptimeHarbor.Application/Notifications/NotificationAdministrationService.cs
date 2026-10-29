@@ -168,6 +168,12 @@ public class NotificationAdministrationService(
             return ServiceResult.Fail(ServiceErrorType.NotFound, "Telegram-чат не найден.");
         }
 
+        accessError = administratorAccessPolicy.GetAccessError();
+        if (accessError is not null)
+        {
+            return ServiceResult.Fail(accessError);
+        }
+
         try
         {
             await sender.SendAsync(

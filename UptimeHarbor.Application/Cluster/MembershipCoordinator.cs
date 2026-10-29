@@ -5,7 +5,8 @@ using UptimeHarbor.Application.Security;
 namespace UptimeHarbor.Application.Cluster;
 
 public class MembershipCoordinator(IUserAccessContext user, IClusterAdministrationState accepted,
-    IMembershipProtocol protocol, SenderAuthorityGate gate, IClusterAudit audit, TimeProvider timeProvider)
+    IMembershipProtocol protocol, SenderAuthorityGate gate, IClusterAudit audit, TimeProvider timeProvider,
+    IAdministratorAccessPolicy policy)
 {
     public async Task<ServiceResult> ExecuteAsync(Guid changeId, CancellationToken cancellationToken)
     {
@@ -14,7 +15,7 @@ public class MembershipCoordinator(IUserAccessContext user, IClusterAdministrati
             return ServiceResult.Fail(ServiceErrorType.Unauthorized, "Требуется вход администратора.");
         }
 
-        if (!user.IsEnabled || !user.IsAdministrator)
+        if (policy.GetAccessError() is not null)
         {
             audit.Membership(user.UserId, Guid.Empty, changeId, "Denied");
             return ServiceResult.Fail(ServiceErrorType.Forbidden, "Требуется активный администратор.");
@@ -56,6 +57,12 @@ public class MembershipCoordinator(IUserAccessContext user, IClusterAdministrati
         try
         {
             await Task.Delay(TimeSpan.FromSeconds(22), timeProvider, cancellationToken);
+            if (policy.GetAccessError() is not null)
+            {
+                audit.Membership(user.UserId, change.TargetNodeId, change.ChangeId, "Denied");
+                return ServiceResult.Fail(ServiceErrorType.Forbidden, "Требуется активный принятый администратор.");
+            }
+
             bool committed = await protocol.ChangeAsync(change, cancellationToken);
             MembershipSnapshot? after = await protocol.ReadAsync(cancellationToken);
             bool contains = false;

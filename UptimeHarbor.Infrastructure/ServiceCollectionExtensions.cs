@@ -26,6 +26,7 @@ using UptimeHarbor.Application.Dashboard;
 using UptimeHarbor.Application.Visibility;
 using UptimeHarbor.Infrastructure.Services.DataBase;
 using UptimeHarbor.Infrastructure.Cluster;
+using UptimeHarbor.Application.Security;
 
 namespace UptimeHarbor.Infrastructure;
 
@@ -42,6 +43,10 @@ public static class ServiceCollectionExtensions
 
         services.AddClusterInfrastructure(configuration);
         ClusterOptions clusterOptions = configuration.GetSection(ClusterOptions.SECTION_NAME).Get<ClusterOptions>() ?? new();
+        if (clusterOptions.Enabled)
+        {
+            services.AddScoped<IAdministratorAccessPolicy, AcceptedAdministratorAccessPolicy>();
+        }
 
         string? connectionString = configuration.GetConnectionString("SqlServer");
 
@@ -115,13 +120,11 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IMonitoredContainerRepository, MonitoredContainerRepository>();
         services.AddScoped<ITelegramChatRepository, TelegramChatRepository>();
         services.AddScoped<INotificationBindingRepository, NotificationBindingRepository>();
-        services.AddScoped<IVisibilityPermissionRepository, VisibilityPermissionRepository>();
         services.AddScoped<IDashboardSnapshotReadQuery, DashboardSnapshotReadQuery>();
         services.AddScoped<IMonitoringRecipientReadQuery, MonitoringRecipientReadQuery>();
         services.AddScoped<IUptimeHarborDbContextSession, UptimeHarborDbContextSession>();
         services.AddScoped<IMonitoringUnitOfWork, MonitoringUnitOfWork>();
         services.AddScoped<IObjectAdministrationUnitOfWork, ObjectAdministrationUnitOfWork>();
-        services.AddScoped<IVisibilitySettingsUnitOfWork, VisibilitySettingsUnitOfWork>();
         services.AddScoped<INotificationSettingsUnitOfWork, NotificationSettingsUnitOfWork>();
         services.AddScoped<IProjectionRepository, ProjectionRepository>();
         services.AddScoped<IPendingOperationRepository, PendingOperationRepository>();
@@ -129,6 +132,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDeliveryResultRepository, DeliveryResultRepository>();
         services.AddScoped<IProjectionApplyUnitOfWork, ProjectionApplyUnitOfWork>();
         services.AddScoped<IPendingControlUnitOfWork, PendingControlUnitOfWork>();
+        services.AddScoped<UptimeHarbor.Application.Cluster.IRevisionPayloadProtection, RevisionPayloadProtection>();
+        services.AddScoped<SnapshotProjectionUnitOfWork>();
         services.AddScoped<IObservationCaptureUnitOfWork, ObservationCaptureUnitOfWork>();
         services.AddScoped<IDeliveryResultUnitOfWork, DeliveryResultUnitOfWork>();
         services.AddScoped<IHistoryRetentionQuery, HistoryRetentionQuery>();

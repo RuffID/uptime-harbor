@@ -1,6 +1,6 @@
 # Этап 05. Общие пользователи и единственная роль администратора
 
-Статус: not-started
+Статус: in-progress
 
 ## Цель
 
@@ -18,7 +18,7 @@ Application/Security и Users, Infrastructure/Identity и Persistence, Web autho
 
 | Подэтап | Результат | Статус | Зависимости | Документ |
 | --- | --- | --- | --- | --- |
-| 05.1 | Готова проверка активного принятого администратора для command pipeline и Web. | not-started | 02 | [Общий аккаунт и единая проверка администратора](05.1-subjects-and-resource-policies.md) |
+| 05.1 | Готова проверка активного принятого администратора для command pipeline и Web. | completed | 02 | [Общий аккаунт и единая проверка администратора](05.1-subjects-and-resource-policies.md) |
 | 05.2 | Один аккаунт работает на всех догнавших узлах; чтение и SignalR доступны всем администраторам. | not-started | 04, 05.1 | [Общий вход, чтение и SignalR](05.2-filtered-reads-and-signalr.md) |
 | 05.3 | Создание и изменение общих пользователей и роли подключены к принятому журналу. | not-started | 05.2 | [Согласованные изменения пользователей](05.3-acl-commands-and-owners.md) |
 | 05.4 | Первый администратор, блокировка аккаунтов и восстановление пользователей согласованы с жизненным циклом сетки. | not-started | 05.3 | [Bootstrap, жизненный цикл аккаунтов и возврат узла](05.4-identity-and-node-lifecycle.md) |
@@ -48,4 +48,6 @@ Application/Security и Users, Infrastructure/Identity и Persistence, Web autho
 
 ## Результат выполнения
 
-Реализация не начата. Новая модель описана только в плане; существующий код и БД не менялись.
+2026-10-29 завершён только ранний 05.1: accepted account reader по UserId, единая active Administrator policy, повторная авторизация reducer/test-send/membership и удаление рабочего ACL API/repositories/UoW. Проверки и ограничения — в [05.1](05.1-subjects-and-resource-policies.md) и [Testing.md](../../../Technical%20documentation/Testing.md#проверка-этапа-04-и-зависимости-051).
+
+Этап 05 — in-progress; 05.2–05.4 — not-started. Общий sign-in, session lifecycle, пользовательские сценарии управления аккаунтами и bootstrap не реализовывались. Используется общий reducer/snapshot 04, отдельной репликации пользователей нет.

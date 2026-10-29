@@ -5,3 +5,4 @@
 - Регистрация DotNext не разрешает ранний hosted start или resolve WAL. Управляемый runtime восстанавливает snapshot до создания persistent state. Дефект БД закрывает RPC перед stop, не меняя membership.
 - Дочерний DI DotNext должен содержать ASP.NET diagnostic/metrics зависимости native handler. Проверять фактическое создание cluster/store/pipeline после checkpoint без Start и сети: один ValidateOnBuild не раскрывает зависимости middleware/factory.
 - Health не зависит от SQL в обработчике, возвращает только safe statuses/ages и challenge. Управление составом требует принятой авторизации общего Administrator; локальная cookie сама по себе недостаточна.
+- Командный batch принимает только проверенный peer origin и валидируется целиком до dispatch. Replication/snapshot workers не подтверждают readiness самостоятельно; replay должен доказать действительный принятый префикс. Backlog не содержит payload.

@@ -4,7 +4,6 @@ using UptimeHarbor.Application.Abstractions.UnitOfWork;
 using UptimeHarbor.Application.Monitoring;
 using UptimeHarbor.Application.Monitoring.Models;
 using UptimeHarbor.Domain.Monitoring;
-using UptimeHarbor.Domain.Access;
 
 namespace UptimeHarbor.Infrastructure.Persistence.UnitOfWork;
 
@@ -19,15 +18,6 @@ public class ObjectAdministrationUnitOfWork(
     public IMonitoredServerRepository MonitoredServers { get; } = monitoredServers;
 
     public IMonitoredContainerRepository MonitoredContainers { get; } = monitoredContainers;
-
-    public Task RemoveContainerPermissionsAsync(
-        Guid containerId,
-        CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        // Ресурсных назначений в целевой схеме нет; метод сохранён для прежних вызывающих сценариев.
-        return Task.CompletedTask;
-    }
 
     public async Task CancelPendingRecoveryNotificationsAsync(
         MonitoringObjectKind objectKind,

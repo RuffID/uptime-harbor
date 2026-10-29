@@ -11,6 +11,31 @@ namespace UptimeHarbor.Tests.Infrastructure.Persistence;
 public class SharedStorageMigrationTests
 {
     [Fact]
+    public void ConflictMigrationOnlyRelaxesOrderingOfCompetingRevision()
+    {
+        // Arrange
+        using UptimeHarborDbContext context = new(new DbContextOptionsBuilder<UptimeHarborDbContext>().UseSqlServer().Options);
+        IMigrationsAssembly assembly = context.GetService<IMigrationsAssembly>();
+        var type = Assert.Single(assembly.Migrations, item => item.Key.EndsWith("_AllowUniquenessConflictRevisions", StringComparison.Ordinal));
+        Migration migration = assembly.CreateMigration(type.Value, context.Database.ProviderName!);
+
+        // Act
+        var up = migration.UpOperations;
+        var down = migration.DownOperations;
+
+        // Assert
+        Assert.Equal(2, up.Count);
+        Assert.Equal(2, down.Count);
+        Assert.IsType<DropCheckConstraintOperation>(up[0]);
+        AddCheckConstraintOperation constraint = Assert.IsType<AddCheckConstraintOperation>(up[1]);
+        Assert.Equal("shared_conflicts", constraint.Table);
+        Assert.Equal("[BaseRevision] >= 0 AND [FirstAcceptedRevision] > 0", constraint.Sql);
+        Assert.Equal("[BaseRevision] >= 0 AND [FirstAcceptedRevision] > [BaseRevision]",
+            Assert.IsType<AddCheckConstraintOperation>(down[1]).Sql);
+        Assert.Equal(System.Data.ConnectionState.Closed, context.Database.GetDbConnection().State);
+    }
+
+    [Fact]
     public void SnapshotMatchesCurrentSqlServerModel_WithoutOpeningConnection()
     {
         // Arrange

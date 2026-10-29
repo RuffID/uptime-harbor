@@ -1,0 +1,116 @@
+using System.Security.Cryptography;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using UptimeHarbor.Application.Cluster.Models;
+using UptimeHarbor.Domain.Cluster;
+
+namespace UptimeHarbor.Application.Cluster;
+
+public static class RevisionCodec
+{
+    public const int COMMAND_ID = 1;
+    public const int MAX_COMMAND_BYTES = 262144;
+    private static readonly JsonSerializerOptions OPTIONS = new()
+    {
+        UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
+        MaxDepth = 16
+    };
+
+    public static byte[] Encode(RevisionCommand command)
+    {
+        Validate(command);
+        byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(command, OPTIONS);
+        if (bytes.Length > MAX_COMMAND_BYTES)
+        {
+            throw new InvalidDataException("CommandTooLarge");
+        }
+
+        return bytes;
+    }
+
+    public static RevisionCommand Decode(ReadOnlySpan<byte> bytes)
+    {
+        if (bytes.IsEmpty || bytes.Length > MAX_COMMAND_BYTES)
+        {
+            throw new InvalidDataException("InvalidCommandLength");
+        }
+
+        RevisionCommand command = JsonSerializer.Deserialize<RevisionCommand>(bytes, OPTIONS)
+            ?? throw new InvalidDataException("InvalidCommand");
+        Validate(command);
+        return command;
+    }
+
+    public static string Digest(ReadOnlySpan<byte> bytes)
+    {
+        return Convert.ToHexString(SHA256.HashData(bytes));
+    }
+
+    public static string Digest(RevisionCommand command)
+    {
+        return Digest(Encode(command));
+    }
+
+    public static void Validate(RevisionCommand command)
+    {
+        ValidateLeaf(command);
+        if (command.Action is "Cancel" or "Replace")
+        {
+            RevisionCommand target = command.Target ?? throw new InvalidDataException("MissingControlTarget");
+            ValidateLeaf(target);
+            if (target.Action is not ("Upsert" or "Delete") || target.Target is not null || target.Replacement is not null
+                || target.ClusterId != command.ClusterId || target.ClusterGeneration != command.ClusterGeneration
+                || target.OperationId == command.OperationId || target.EntityId != command.EntityId
+                || target.EntityKind != command.EntityKind)
+            {
+                throw new InvalidDataException("InvalidControlTarget");
+            }
+
+            if (command.Action == "Replace")
+            {
+                RevisionCommand replacement = command.Replacement ?? throw new InvalidDataException("MissingReplacement");
+                ValidateLeaf(replacement);
+                if (replacement.Action is not ("Upsert" or "Delete") || replacement.Target is not null
+                    || replacement.Replacement is not null || replacement.OperationId == target.OperationId
+                    || replacement.OperationId == command.OperationId || replacement.EntityId != target.EntityId
+                    || replacement.EntityKind != target.EntityKind || replacement.ClusterId != command.ClusterId
+                    || replacement.ClusterGeneration != command.ClusterGeneration || replacement.ActorUserId != command.ActorUserId
+                    || replacement.OriginNodeId != command.OriginNodeId)
+                {
+                    throw new InvalidDataException("InvalidReplacement");
+                }
+            }
+            else if (command.Replacement is not null)
+            {
+                throw new InvalidDataException("UnexpectedReplacement");
+            }
+        }
+        else if (command.Target is not null || command.Replacement is not null)
+        {
+            throw new InvalidDataException("UnexpectedControl");
+        }
+    }
+
+    private static void ValidateLeaf(RevisionCommand command)
+    {
+        if (command.Schema != 1 || command.Action is not ("Upsert" or "Delete" or "Cancel" or "Replace")
+            || !Enum.IsDefined(command.EntityKind))
+        {
+            throw new InvalidDataException("UnsupportedCommand");
+        }
+
+        StorageGuards.Id(command.ClusterId, nameof(command.ClusterId));
+        StorageGuards.Id(command.OperationId, nameof(command.OperationId));
+        StorageGuards.Id(command.OriginNodeId, nameof(command.OriginNodeId));
+        StorageGuards.Id(command.ActorUserId, nameof(command.ActorUserId));
+        StorageGuards.Id(command.EntityId, nameof(command.EntityId));
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(command.ClusterGeneration);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(command.ActorRevision);
+        ArgumentOutOfRangeException.ThrowIfNegative(command.BaseRevision);
+        StorageGuards.Utc(command.CreatedAtUtc);
+        if ((command.Action == "Upsert") != (command.Value is not null))
+        {
+            throw new InvalidDataException("InvalidCommandValue");
+        }
+    }
+}

@@ -184,3 +184,39 @@ Web security tests статически проверяют отсутствие 
 Configuration contract tests не запускают Web-host и поэтому не доказывают runtime-загрузку внешнего `Config/config.json`; отсутствие/ошибка JSON обеспечиваются параметрами обязательного configuration source и остаются частью будущей ручной проверки запуска.
 
 Проверка доработок modal редактора объектов, полей поиска, переключателей и Telegram: Web и затронутые test-проекты собраны без предупреждений/ошибок; 15 transport-тестов, 16 Application notification administration tests, 41 выбранный Web-тест и 3 frontend-теста ресайза прошли. Изолированные проверки не подтверждают внешний вид/фокус в настоящем браузере и реальную доставку Telegram; приложение, БД и внешняя сеть не запускались.
+
+## Проверка этапа 04 и зависимости 05.1
+
+2026-10-29 ранний 05.1 и 04.1–04.5 проверены в согласованном минимальном изолированном объёме. Четыре production-проекта собраны отдельно в Debug, `--no-restore`, с раздельным `BaseOutputPath=...\artifacts\compile-check\<project>\`: 0 предупреждений и ошибок. Web MSBuild скомпилировал существующий TypeScript target; Web-host не запускался.
+
+| Набор | Успешно | Ошибки | Пропуски |
+| --- | --- | --- | --- |
+| Domain, весь изолированный проект | 36 | 0 | 0 |
+| Application, весь изолированный проект | 166 | 0 | 0 |
+| Infrastructure, только выбранные ниже классы | 65 | 0 | 0 |
+| Web, только Cluster и DependencyInjection | 22 | 0 | 0 |
+
+Фактические команды из корня репозитория:
+
+```powershell
+dotnet test --project .\tests\UptimeHarbor.Domain.Tests\UptimeHarbor.Domain.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\domain-tests\
+dotnet test --project .\tests\UptimeHarbor.Application.Tests\UptimeHarbor.Application.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\application-tests\
+dotnet test --project .\tests\UptimeHarbor.Infrastructure.Tests\UptimeHarbor.Infrastructure.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\infrastructure-tests\ -- --filter-class UptimeHarbor.Tests.Infrastructure.Cluster.* --filter-class UptimeHarbor.Tests.Infrastructure.Persistence.ProjectionTransactionTests --filter-class UptimeHarbor.Tests.Infrastructure.Persistence.SharedStorageModelTests --filter-class UptimeHarbor.Tests.Infrastructure.Persistence.SharedStorageMigrationTests --filter-class UptimeHarbor.Tests.Infrastructure.Persistence.SharedStorageRegistrationTests
+dotnet test --project .\tests\UptimeHarbor.Web.Tests\UptimeHarbor.Web.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\web-tests\ -- --filter-class UptimeHarbor.Tests.Web.Cluster.* --filter-class UptimeHarbor.Tests.Web.DependencyInjection.*
+```
+
+`AcceptedAdministratorTests` проверяет anonymous/disabled/deleted/unaccepted и принятый активный аккаунт; membership/test-send tests отключают аккаунт между первой и второй policy-проверкой. Claims роли/активности не подменяют accepted state.
+
+`PendingCommandTests` проверяет trusted identity, защищённый payload через изолированный protection double, restart/retry с исходной actor revision, потерянный accepted response, old backup reconciliation, held replacement и отказ stale/disabled confirmation. Capacity tests проверяют лимит, резерв controls, допустимость retry и конкурентные scopes с общим admission gate. `RevisionReducerTests` вызывает production reducer/write-set: dedup, cancel/replace race/late original, смена term, конфликты и разрешение при обратном ходе календарных часов, уникальность login/server name/chat ID, tombstones/родитель, deleted login, credential stamp и endpoint generation.
+
+`ProjectionTransactionTests` вызывает production reducer + apply engine + ProjectionApplyUnitOfWork с fake repository/session/transaction, моделируя отказ до save и потерянный ответ после commit, повтор apply и duplicate OperationId в новом term. Это проверка сценарной транзакционной границы, а не SQL Server atomicity/locking/constraints.
+
+Проверены размеры новых cluster-файлов: каждый меньше 20000 байт. Существующие `ObjectAdministrationService.cs` (25435 байт) и его tests (31197 байт) оставлены цельными: изменения ограничены удалением ACL cleanup/обновлением ожиданий, новая ответственность туда не добавлялась. Документальные ссылки, solution items и UTF-8 проверены без проектных скриптов; 81 Markdown-документ без битых ссылок, все documentation solution items присутствуют. Смешанные окончания строк встречаются в существующих файлах; массовая нормализация вне точечных правок не выполнялась.
+
+`RevisionRecoveryTests` использует настоящий DotNext WAL во временном каталоге: snapshot → append/commit → dispose/reopen → production replay; accepted accounts закрыты до подтверждения committed/applied/membership/SQL cut. Projection подставная: нет доказательства SQL replay на provider, majority/elections, power-loss или crash/fsync. Отдельно проверены unknown admission и checkpoint failure без смены опубликованного snapshot.
+
+`RevisionSnapshotTests` проверяет manifest/hash/compatibility, размер chunk receiver, bounded streaming import/overflow/temp cleanup, compaction с controls/decisions/tombstone и late original, whitelist локальных полей и stale credential rows. Это не выполнение SQL snapshot install: сохранность локальных rows и один outer commit подтверждены кодом/границами, provider execution остаётся непроверенным.
+
+`RevisionBatchTests`/`PendingReplicationTests` проверяют malformed tail/response, дубли/перестановки/пропуски, фактические count/byte limits, минутный цикл, priority retry, backlog/held backup без payload. `RevisionBoundaryTests` вызывает controller без host и проверяет отсутствие dispatch при неверном peer/batch. Migration tests проверяют только operations/model metadata, не SQL DDL.
+
+Не запускались БД/SQL (включая SQLite), полный Infrastructure-набор, provider tests, приложение/hosting, Docker, реальные peer HTTP/TLS/Nginx, мониторинг/Telegram, процессы, deployment и Git. Общий sign-in/сессии 05.2–05.4, распределённые incidents/delivery 06/07, UI/controlled enable 08/09 не реализовывались; закрытые зависимости остаются закрытыми. Часовая цель догона трёх узлов/около 30 приложений не наблюдалась и не доказана. Самостоятельная внешняя приёмка учитывается отдельно; полного стенда и прогона всей матрицы не было.

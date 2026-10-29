@@ -35,4 +35,10 @@ public class ProjectionCursor
         Term = position.Term;
         Digest = canonicalDigest;
     }
+
+    public void RecordSnapshot(Guid snapshotId)
+    {
+        StorageGuards.Id(snapshotId, nameof(snapshotId));
+        InstalledSnapshotId = snapshotId;
+    }
 }

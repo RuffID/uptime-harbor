@@ -17,6 +17,6 @@ public class ConflictRecordConfiguration : ProjectionConfiguration<ConflictRecor
         builder.HasIndex(entity => entity.OperationId).IsUnique();
         builder.HasIndex(entity => entity.ResolvedAtUtc);
         builder.ToTable(TableName, table => table.HasCheckConstraint("ck_shared_conflicts_revisions",
-            "[BaseRevision] >= 0 AND [FirstAcceptedRevision] > [BaseRevision]"));
+            "[BaseRevision] >= 0 AND [FirstAcceptedRevision] > 0"));
     }
 }

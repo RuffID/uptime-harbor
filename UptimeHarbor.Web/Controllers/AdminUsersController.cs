@@ -49,21 +49,6 @@ public class AdminUsersController(IUserManagementService userManagementService) 
         return JsonResultMapper.ToJsonResult(result);
     }
 
-    [HttpPut("{userId:guid}/visibility")]
-    [ValidateAntiForgeryToken]
-    public async Task<JsonResult> SetVisibilityAsync(
-        Guid userId,
-        SetUserVisibilityRequest request,
-        CancellationToken cancellationToken)
-    {
-        Application.Common.ServiceResult result = await userManagementService.SetVisibilityAsync(
-            userId,
-            request.ServerIds,
-            request.ContainerIds,
-            cancellationToken);
-        return JsonResultMapper.ToJsonResult(result);
-    }
-
     [HttpDelete("{userId:guid}")]
     [ValidateAntiForgeryToken]
     public async Task<JsonResult> DeleteAsync(Guid userId, CancellationToken cancellationToken)

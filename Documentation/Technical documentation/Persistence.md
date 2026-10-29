@@ -2,7 +2,7 @@
 
 ## Граница кластерного режима
 
-Этап 03 хранит Raft WAL/term/vote/configuration на отдельном диске через DotNext 6.10.0; SQL остаётся восстанавливаемой проекцией. `ClusterStateMachine` передаёт committed records независимому recovery/reducer-порту и ждёт фактического apply; реализация SQL replay и установки snapshot остаётся этапом 04. До её подтверждения WAL не создаётся. В enabled-режиме legacy startup migrations/bootstrap пропускаются; автоматического применения схемы новой сетки нет. Новых migrations в 03 нет. Порядок восстановления, lock и защита от потери файлов — [Cluster runtime.md](Cluster%20runtime.md).
+Этап 03 хранит Raft WAL/term/vote/configuration на отдельном диске через DotNext 6.10.0; SQL остаётся восстанавливаемой проекцией. `ClusterStateMachine` передаёт committed records независимому recovery/reducer-порту и ждёт фактического apply; `RevisionClusterRecovery`/`RevisionApplyEngine` реализуют SQL replay и установку snapshot. Admission/fencing/checkpoint проверяются до создания WAL, чтение аккаунтов открывается после проверки догона. В enabled-режиме legacy startup migrations/bootstrap пропускаются; автоматического применения схемы новой сетки нет. Migration 04 `20261029075201_AllowUniquenessConflictRevisions` допускает реальную competing revision старше base другой сущности; к БД не применялась. Порядок восстановления, lock и защита от потери файлов — [Cluster runtime.md](Cluster%20runtime.md).
 
 ## Текущее состояние
 
@@ -21,7 +21,7 @@ Persistence реализован в `UptimeHarbor.Infrastructure` на EF Core �
 - обязательные ключи и `ValueGeneratedNever` для идентификаторов приложения;
 - длины строк, индексы и уникальность связей;
 - nullable связь контейнера с сервером с `NoAction`: удаление сервера явно снимает связи в одной транзакции, сохраняя контейнеры и их notification bindings;
-- отсутствие таблиц permissions; прежние контракты cleanup не выполняют SQL, создание назначений отклоняется;
+- отсутствие таблиц и рабочих repository/UoW/API permissions;
 - правило notification binding «ровно один target»;
 - хранение времён как UTC в столбцах SQL Server `datetime2`;
 - явный `Version` серверов и контейнеров как concurrency token;
@@ -31,7 +31,7 @@ Persistence реализован в `UptimeHarbor.Infrastructure` на EF Core �
 
 `UtcDateTimeOffsetConverter` преобразует `DateTimeOffset` в UTC `DateTime` провайдера и восстанавливает нулевое смещение при чтении.
 
-`ObjectAdministrationService` сохраняет настройки сервера и `ContainerLinkUpdate` одним commit. Проверяются версии всех переданных контейнеров и полнота текущих связей; контейнер другого сервера через этот список не захватывается. Изменение/снятие связи увеличивает версии контейнера и обоих затронутых серверов. Прежний вызов cleanup permissions оставлен для совместимости и не обращается к удалённым таблицам.
+`ObjectAdministrationService` сохраняет настройки сервера и `ContainerLinkUpdate` одним commit. Проверяются версии всех переданных контейнеров и полнота текущих связей; контейнер другого сервера через этот список не захватывается. Изменение/снятие связи увеличивает версии контейнера и обоих затронутых серверов. Compatibility cleanup permissions удалён.
 
 ## EFCoreLibrary
 
@@ -41,7 +41,7 @@ Persistence реализован в `UptimeHarbor.Infrastructure` на EF Core �
 
 Все внешние списковые read-методы Application repositories возвращают `Task<IReadOnlyList<T>>`. Infrastructure по-прежнему materialize-ит запросы в конкретные `List<T>` через базовые list operations или `ToListAsync`; изменяемый тип не выходит через контракт. Запросы чтения выполняются no-tracking, запрос объекта для последующего изменения остаётся tracked. `IQueryable` не выходит из Infrastructure.
 
-`DashboardSnapshotReadQuery` проецирует server/container records без endpoint URL: администратору доступны все, неадминистративный compatibility-вызов получает пустой набор. `MonitoringRecipientReadQuery` materialize-ит пользователей/роль одним запросом, без permissions и N+1. Контракты Application и legacy visibility policy сохранены до этапа 05; EF entities, provider-типы и `IQueryable` наружу не выходят.
+`DashboardSnapshotReadQuery` проецирует server/container records без endpoint URL: администратору доступны все, неадминистративный compatibility-вызов получает пустой набор. `MonitoringRecipientReadQuery` materialize-ит пользователей/роль одним запросом, без permissions и N+1. Legacy visibility policy предоставляет доступ только Administrator; EF entities, provider-типы и `IQueryable` наружу не выходят.
 
 Для начала каждого monitoring cycle `GetEnabledAsync` фильтрует включённые серверы и контейнеры в БД и возвращает materialized no-tracking snapshot. Результат каждой параллельной проверки записывается в отдельном DI scope: объект повторно загружается tracked и сохраняется через scoped `IMonitoringUnitOfWork`.
 
@@ -51,6 +51,12 @@ Persistence реализован в `UptimeHarbor.Infrastructure` на EF Core �
 
 Тот же технический Unit of Work отдельно классифицирует только SQL Server unique violations 2601/2627 для EF entries `TelegramChat` и `NotificationBinding`. Они преобразуются в provider-independent `PersistenceConflictException`; Application не зависит от EF Core или `Microsoft.Data.SqlClient`. Неизвестный номер, неизвестная сущность и произвольный `DbUpdateException` пробрасываются как непредвиденная ошибка. Unique indexes Telegram chat ID и пар chat/target имеют стабильные имена, совпадающие с SQL Server baseline.
 
+## Snapshot и повтор применения
+
+`RevisionWriteSetFactory` формирует ready projection changes; `ProjectionApplyUnitOfWork` одной транзакцией проверяет receipt/cursor и фиксирует аккаунт/роль, настройки, decisions/controls/conflicts/tombstones и позицию. Immutable accepted image публикуется после commit. Повтор после потерянного ответа сверяется по digest и возвращает исходное решение; SQL receipt без payload не является WAL.
+
+`SnapshotProjectionUnitOfWork` экспортирует shared whitelist с проверенным cursor. Install валидирует образ до SQL, отвергает stale account/cursor, удаляет/устанавливает общие rows и checkpoint одной внешней транзакцией (два SaveChanges, один commit). Локальные user lockout counters, SessionEpoch, сессии, ключи, секреты и Pending сохраняются. Соответствие SQL transaction semantics не доказано fake-тестами; реальная provider-проверка не проводилась.
+
 ## Сценарные Unit of Work
 
 Application определяет общий `IUnitOfWorkScope` только с `SaveChangesAsync` и выполнением действия в транзакции.
@@ -59,7 +65,6 @@ Application определяет общий `IUnitOfWorkScope` только с `
 
 - `IMonitoringUnitOfWork`;
 - `IObjectAdministrationUnitOfWork`;
-- `IVisibilitySettingsUnitOfWork`;
 - `INotificationSettingsUnitOfWork`.
 - `IProjectionApplyUnitOfWork`, `IPendingControlUnitOfWork`, `IObservationCaptureUnitOfWork`, `IDeliveryResultUnitOfWork` — независимые транзакционные границы общего storage и локального capture.
 

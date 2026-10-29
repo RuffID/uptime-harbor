@@ -30,7 +30,7 @@
 
 `ForwardedHeaders:KnownNetworks` задаёт CIDR доверенной proxy-сети; приложение принимает forwarded-заголовки только из этой сети и ограничивает цепочку одним прокси (`ForwardLimit = 1`). Значение сети должно совпадать с подсетью используемого reverse proxy.
 
-## Настройки сетки этапа 03
+## Настройки сетки этапов 03/04
 
 Безопасный пример содержит `Cluster:Mode=Disabled`. Режимы `Bootstrap`, `Join`, `Restart` требуют ненулевые UUID identity/credential/storage, generation >= 1, отдельный provisioned StoragePath, абсолютные пути сертификатов/ключа/CA, SHA-256 CA fingerprint и ожидаемый общий BotId. PublicUri — canonical `https://<peer-host>/internal/raft`. Состав/доверие приходят из принятого registry, а не из списка доступных адресов. Секретный CA key на узле не нужен. Таймеры/версии протокола проверяются строго; лимиты могут только уменьшаться в согласованных пределах. Неподтверждённые accepted state и recovery запрещают старт даже с корректными options.
 
@@ -49,6 +49,10 @@ Enabled-режим требует два именованных Kestrel endpoint
 ```
 
 Direct listener требует client certificate и проверяет private CA; middleware дополнительно проверяет accepted pin/SAN/generation. Для `NginxIsolatedHttp` Peer.Url должен быть внутренним HTTP на PeerListenPort, `TrustedProxyAddresses` содержит точные IP. Firewall запрещает обход Nginx; proxy проверяет mTLS/CRL, перезаписывает `Ssl-Client-Verify` и URL-encoded публичный `Ssl-Client-Cert`, сохраняет peer Host и отключает early data. Публичные TLS DNS/certificate/renewal и изоляция проверяются оператором отдельно. В [Cluster runtime.md](Cluster%20runtime.md) приведены lifecycle, лимиты и границы будущих этапов. Enabled не запускает прежние workers/startup migration и не открывает пользовательские маршруты/отправку.
+
+`ConfigurationIntervalSeconds` — 60–3600, кратно 60; обычные настройки передаются минутным циклом. Account/delete/control проходят priority pump с шагом 1 с и retry 1/2/5/10/30 с плюс jitter ≤20%. `SnapshotIntervalSeconds` — 60–3600, по умолчанию 300; без подтверждённого recovery/catch-up snapshot worker ничего не публикует.
+
+`CommandMaxBytes` ≤256 KiB; `BatchMaxEntries` ≤100, `BatchMaxBytes` ≤1 MiB; `SnapshotChunkMaxBytes` 16 KiB–1 MiB. Snapshot ограничен 64 MiB с резервом 64 KiB под native envelope и не превышает `NativeMaxBytes`. Receiver использует размер chunk из manifest. Приём Pending ограничен 10000 незавершённых записей (1000 зарезервировано для controls), singleton admission gate сериализует scopes одного NodeId. Это фиксированный предел, отдельной option нет. Очередь имеет bounded pages/packets; снижение лимита ниже размера головной заявки даёт безопасный `BatchCapacityLimit`, не молчаливую потерю. Эти параметры не доказывают производительность и часовую цель догона.
 
 ## Проверка DI
 

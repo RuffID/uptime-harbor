@@ -2,9 +2,9 @@
 
 ## Реализованная граница
 
-Этап 02 добавил независимую модель в `UptimeHarbor.Domain/Cluster`, storage-контракты Application, EF mappings, сценарные UoW и migration `20261029053354_AddSharedClusterStorage`. Этап 03 добавил [DotNext adapter, peer endpoints и lifecycle](Cluster%20runtime.md). Прикладной reducer/replay, установка snapshot, общий вход и распределённые workers пока не подключены. Без подтверждения независимого recovery-контракта WAL и Raft не стартуют.
+Этап 02 добавил независимую модель в `UptimeHarbor.Domain/Cluster`, storage-контракты Application, EF mappings, сценарные UoW и migration `20261029053354_AddSharedClusterStorage`. Этап 03 добавил [DotNext adapter, peer endpoints и lifecycle](Cluster%20runtime.md). Этап 04 подключил production reducer/replay, установку общего snapshot и durable очередь; ранний 05.1 — чтение accepted account и единую Administrator policy. Общий вход/сессии и распределённые workers пока не подключены. Без подтверждения независимого recovery-контракта WAL и Raft не стартуют.
 
-Источник истины принятых общих данных — Raft log и опубликованный snapshot. SQL хранит восстанавливаемую проекцию. `applied_journal_receipts` содержит только ID записи, позицию и digest, без payload для replay; это не SQL WAL. Term/vote/log и membership сохраняются DotNext в отдельном provisioned `Cluster:StoragePath`, вне SQL. Reducer и snapshot/replay принадлежат этапу 04; новая EF migration в 03 не требовалась.
+Источник истины принятых общих данных — Raft log и опубликованный snapshot. SQL хранит восстанавливаемую проекцию. `applied_journal_receipts` содержит только ID записи, позицию и digest, без payload для replay; это не SQL WAL. Term/vote/log и membership сохраняются DotNext в отдельном provisioned `Cluster:StoragePath`, вне SQL. Reducer/snapshot/replay реализованы в 04; migration `20261029075201_AllowUniquenessConflictRevisions` снимает неверное сравнение competing revision с base другой сущности. К БД не применялась.
 
 ## Идентичность и версии
 
@@ -37,7 +37,7 @@
 
 `IProjectionApplyUnitOfWork.ApplyAsync` принимает уже решённый `ProjectionWriteSet`, не пользовательскую команду. Одной транзакцией staging сохраняет account + Administrator membership, доменные изменения, decisions/controls/conflicts/tombstones, incident/events/intents/summary sources и cursor/receipt. Identity adapter не вызывает UserManager и не делает собственного SaveChanges. После ошибки выполняются rollback и очистка tracker; повтор той же позиции/digest не staging-ит изменения повторно. Несовпадающие receipt/digest, stale cursor и попытка воскресить tombstone завершаются ошибкой.
 
-Внешняя авторизация, проверка base revision, генерация change set, конфликтное решение и доказательство принятого префикса остаются ответственностью будущего reducer. Это особенно важно для двух конкурентных команд отключения администратора: чистый `SharedAccount.EnsureCanDeactivate` проверяет self-action/последнего по переданному принятому count, а упорядоченное получение этого count ещё предстоит подключить в 04/05.
+`RevisionReducer` повторно проверяет принятого active Administrator/actor revision, base, уникальность и доменные инварианты, формирует `RevisionWriteSetFactory` пакет и сохраняет конфликтные варианты. `SharedAccount.EnsureCanDeactivate` получает актуальный count из последовательного accepted image; self-disable/self-delete и последнее активное лицо защищены этим же порядком. Изменение PasswordHash требует нового SecurityStamp. Login удалённого аккаунта остаётся зарезервированным; другие удалённые сущности освобождают уникальный ключ. Endpoint/enable change требует нового CheckGeneration, metadata/связь родителя сохраняет его.
 
 Отдельные `IPendingControlUnitOfWork`, `IObservationCaptureUnitOfWork`, `IDeliveryResultUnitOfWork` сохраняют только локальный сценарий. Все используют существующую scoped-сессию и EFCoreLibrary с ключом `UptimeHarborDbContext`; глобального UoW нет. Нет атомарной транзакции SQL + WAL + Telegram. SQL commit не является majority acceptance.
 
@@ -45,9 +45,17 @@
 
 `SharedAccount` нормализует login через FormKC → Trim → invariant uppercase. SQL Server индекс использует BIN2 collation и обязательный normalized key. `ProtectedCredential` содержит hash, version и stamps; открытого пароля в модели нет. Передача таких значений и protected payload допускается только доверенным storage/peer-кодом. Фактическая защита диска/backup и peer transport этим этапом не настроена.
 
-`ApplicationUser.ApplySharedAccount` переносит только общие поля; AccessFailedCount, LockoutEnd, cookie и ключи Data Protection не переносятся. `SharedAccount` не содержит локальных полей и является границей будущего snapshot аккаунтов; экспорт всей Identity-строки для snapshot недопустим. Общий sign-in, session epoch validation и управление аккаунтами через журнал ещё не реализованы.
+`ApplicationUser.ApplySharedAccount` переносит только общие поля; AccessFailedCount, LockoutEnd, cookie и ключи Data Protection не переносятся. `SharedAccount` не содержит локальных полей; `SnapshotSchema` экспортирует только явный whitelist общих account/role полей. Экспорт всей Identity-строки недопустим. Общий sign-in, session epoch validation и управление аккаунтами через журнал ещё не реализованы.
 
-Таблицы ресурсных назначений исключены из целевой модели. Их прежние Domain/Application типы временно сохранены для компиляции вызывающих use case до этапа 05. Compatibility repository читает пустые наборы, отклоняет создание назначений и не обращается к старым таблицам. Dashboard для администратора возвращает все объекты, для неадминистративного legacy-вызова — пустой набор; recipient query получает пользователей/роль одним запросом. Старый UI разрешений ещё не переработан. Legacy создание пользователя теперь назначает Administrator, legacy bootstrap создаёт только эту роль; это адаптация к схеме, а не реализация общего входа.
+Таблицы ресурсных назначений исключены из целевой модели. В 05.1 удалены рабочие ACL repositories/UoW, SetVisibility use case/request и endpoint. Прежние Domain-типы и пустые compatibility DTO-поля остаются до переработки UI; механизмов назначения прав нет. Dashboard для администратора возвращает все объекты, для неадминистративного legacy-вызова — пустой набор; recipient query получает пользователей/роль одним запросом. Старый UI разрешений ещё не переработан. Legacy создание пользователя теперь назначает Administrator, legacy bootstrap создаёт только эту роль; это адаптация к схеме, а не реализация общего входа.
+
+## Snapshot, Pending и retention
+
+`RevisionStateStore` публикует принятый immutable образ после projection commit; во время recovery accounts закрыты до сверки committed/applied/membership и SQL cursor. `RevisionClusterRecovery` восстанавливает snapshot до создания native Raft, затем применяет WAL через production engine. Подтверждение recovery не открывает будущие activation/delivery зависимости.
+
+`SnapshotProjectionUnitOfWork` экспортирует только согласованный cut и whitelist shared rows. Install валидирует accepted image/проекцию, отвергает более новый local account/cursor и отсутствие истории аккаунта, затем заменяет общие rows и checkpoint одной внешней транзакцией. Два SaveChanges имеют один commit. Pending, local_node_state identity/session epoch, lockout, Data Protection keys и секреты не заменяются. Устаревший пароль/удалённый аккаунт не подставляются поверх принятой версии.
+
+Snapshot содержит decisions/controls/conflicts/versions/tombstones: late original после compaction остаётся решённым. Старый backup сверяет Pending по OperationId и принятому control/result до передачи; неизвестные удерживаются. Подтверждение требует активного accepted Administrator и текущей base и создаёт новый Replace control. SQL queue имеет bounded pagination/due/priority и не является журналом согласования. Singleton admission gate ограничивает локальный приём 10000 незавершённых записей, резервирует 1000 для controls; retry прежнего ID не занимает новый слот.
 
 ## Подтверждённый объём
 

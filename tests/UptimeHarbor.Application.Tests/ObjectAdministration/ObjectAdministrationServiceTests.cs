@@ -32,7 +32,7 @@ public class ObjectAdministrationServiceTests
     }
 
     [Fact]
-    public async Task UpdateContainerAsync_CanDetachAndReassign_ClearsOldPermissions()
+    public async Task UpdateContainerAsync_CanDetachAndReassign_WithoutResourcePermissions()
     {
         // Arrange
         TestData data = new();
@@ -50,7 +50,7 @@ public class ObjectAdministrationServiceTests
         Assert.True(detached.Success);
         Assert.Null(container.ServerId);
         Assert.True(first.Version > firstVersion);
-        Assert.Equal(container.Id, Assert.Single(data.UnitOfWork.ClearedPermissions));
+        Assert.Empty(data.UnitOfWork.ClearedPermissions);
 
         // Act
         ServiceResult<AdminContainerDto> assigned = await data.Service.UpdateContainerAsync(

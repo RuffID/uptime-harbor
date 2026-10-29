@@ -1,5 +1,9 @@
 # Web-приложение
 
+## Граница 05.1 и этапа 04
+
+Рабочие ACL repository/UoW, SetVisibility use case/request и endpoint `/api/admin/users/{id}/visibility` удалены. Старый Users UI/DTO-поля ниже остаются compatibility и не предоставляют ресурсных прав; его сохранение permissions больше не является рабочим API. Переработка пользовательского сценария относится к 05.2–05.4/08 и здесь не выполнялась. В cluster mode browser writers остаются закрытыми; peer batch принимает только verified peer origin и active accepted actor, а backlog доступен в безопасной peer health диагностике.
+
 ## Peer-периметр этапа 03
 
 `ConfigureClusterListeners` проверяет отдельные именованные Kestrel `Browser`/`Peer` endpoints; Direct требует mTLS, внутренний HTTP разрешён только в режиме `NginxIsolatedHttp` с изоляцией/точным allowlist. `UseClusterPeerBoundary` находится до forwarded headers и cookie authentication: browser listener не обслуживает `/internal`, peer listener не обслуживает пользовательские endpoints. Enabled-режим до реализации 05/08 возвращает 503 на прежние browser routes. Peer health и native Raft доступны только после envelope/certificate/trust проверки; неизвестные будущие routes не открыты. Это не новое административное UI. Composition и ограничения — [Cluster runtime.md](Cluster%20runtime.md).

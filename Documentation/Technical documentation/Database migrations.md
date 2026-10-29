@@ -65,3 +65,15 @@ Scaffolding выполнен через Infrastructure как target/startup pro
 После проверки модели новая неприменённая migration пересоздана tooling с двумя исправлениями: длина вида tombstone и unique key incident/kind/chat для problem/recovery. Установленный tool не поддерживает `remove --offline`: команда завершилась без правок. Отдельно разрешённый `remove --force` не смог проверить БД из-за отсутствующей ConnectionString, затем восстановил предыдущий snapshot; после этого выполнен повторный add. Исторические migration/designer не менялись, новый designer/snapshot вручную не редактировались.
 
 Изолированные тесты проверили Up/Down operations без генерации SQL, отсутствие data inserts, уникальные индексы и нулевой model diff snapshot/current SQL Server model. Подключения к БД, применения Up/Down, backup/restore и SQL Server atomicity не было. Snapshot/model diff не доказывает, что provider успешно выполнит DDL на реальном SQL Server.
+
+## Конкурирующие ревизии, этап 04
+
+По отдельному разрешению создана `20261029075201_AllowUniquenessConflictRevisions`, designer и согласованный snapshot. Команда:
+
+```powershell
+dotnet ef migrations add AllowUniquenessConflictRevisions --project .\UptimeHarbor.Infrastructure\UptimeHarbor.Infrastructure.csproj --startup-project .\UptimeHarbor.Infrastructure\UptimeHarbor.Infrastructure.csproj --context UptimeHarborDbContext --output-dir Persistence/Migrations
+```
+
+Изменяется только `ck_shared_conflicts_revisions`: Up требует BaseRevision ≥0 и FirstAcceptedRevision >0; прежнее сравнение FirstAcceptedRevision > BaseRevision неверно для uniqueness conflict двух разных сущностей. Например, competing record принят на 3, изменяемый — на 4: обе реальные версии должны сохраняться. Down возвращает прежний constraint; при существующих таких конфликтах он может завершиться ошибкой и требует предварительного анализа данных, автоматического backfill нет.
+
+Исторические migrations не переписывались. Factory не содержит строки подключения; приложение и БД не запускались. Tool 10.0.11 предупредил о runtime 10.0.13; scaffolding завершился. `SharedStorageMigrationTests` проверяет Up/Down operations и нулевой model/snapshot diff без SQL. Migration к БД не применялась; исполнение DDL/Down на SQL Server не подтверждено.

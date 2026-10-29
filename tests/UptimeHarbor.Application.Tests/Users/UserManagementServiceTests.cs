@@ -28,21 +28,6 @@ public class UserManagementServiceTests
         Assert.Equal(0, data.Accounts.CreateCount);
     }
 
-    [Fact]
-    public async Task SetVisibilityAsync_WhenContainerParentIsNotAssigned_ReturnsValidationError()
-    {
-        TestData data = new(isAdministrator: true);
-
-        ServiceResult result = await data.Service.SetVisibilityAsync(
-            data.ManagedUserId,
-            [],
-            [data.Container.Id],
-            TestContext.Current.CancellationToken);
-
-        Assert.False(result.Success);
-        Assert.Equal(ServiceErrorType.Validation, result.Error!.Type);
-        Assert.Empty(data.Permissions.ContainerPermissions);
-    }
 
     [Fact]
     public async Task DeleteAsync_RemovesUserAndPermissions()
@@ -155,16 +140,11 @@ public class UserManagementServiceTests
                 Permissions.ServerPermissions.RemoveAll(permission => permission.UserId == userId);
                 Permissions.ContainerPermissions.RemoveAll(permission => permission.UserId == userId);
             };
-            FakeVisibilityUnitOfWork unitOfWork = new(
-                new FakeServerRepository([Server]),
-                new FakeContainerRepository([Container]),
-                Permissions);
             FakeAccessContext accessContext = new(AdministratorId, true, isAdministrator, true);
             Service = new UserManagementService(
                 accessContext,
                 new AdministratorAccessPolicy(accessContext),
-                Accounts,
-                unitOfWork);
+                Accounts);
         }
 
         public Guid ManagedUserId { get; } = Guid.NewGuid();
@@ -217,22 +197,6 @@ public class UserManagementServiceTests
         }
     }
 
-    private class FakeVisibilityUnitOfWork(
-        IMonitoredServerRepository servers,
-        IMonitoredContainerRepository containers,
-        IVisibilityPermissionRepository permissions)
-        : IVisibilitySettingsUnitOfWork
-    {
-        public IMonitoredServerRepository MonitoredServers { get; } = servers;
-        public IMonitoredContainerRepository MonitoredContainers { get; } = containers;
-        public IVisibilityPermissionRepository VisibilityPermissions { get; } = permissions;
-        public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => Task.FromResult(0);
-        public async Task ExecuteInTransactionAsync(Func<CancellationToken, Task> action, CancellationToken cancellationToken = default)
-        {
-            await action(cancellationToken);
-            await SaveChangesAsync(cancellationToken);
-        }
-    }
 
     private class FakeServerRepository(List<MonitoredServer> items) : IMonitoredServerRepository
     {
@@ -263,7 +227,7 @@ public class UserManagementServiceTests
         }
     }
 
-    private class FakePermissionRepository : IVisibilityPermissionRepository
+    private class FakePermissionRepository
     {
         public List<ServerVisibilityPermission> ServerPermissions { get; } = [];
         public List<ContainerVisibilityPermission> ContainerPermissions { get; } = [];

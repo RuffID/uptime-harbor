@@ -1,17 +1,13 @@
-using UptimeHarbor.Application.Abstractions.UnitOfWork;
 using UptimeHarbor.Application.Common;
 using UptimeHarbor.Application.Security;
 using UptimeHarbor.Application.Users.Models;
-using UptimeHarbor.Domain.Access;
-using UptimeHarbor.Domain.Monitoring;
 
 namespace UptimeHarbor.Application.Users;
 
 public class UserManagementService(
     IUserAccessContext accessContext,
     IAdministratorAccessPolicy administratorAccessPolicy,
-    IUserAccountStore accountStore,
-    IVisibilitySettingsUnitOfWork unitOfWork)
+    IUserAccountStore accountStore)
     : IUserManagementService
 {
     public async Task<ServiceResult<IReadOnlyList<UserAccountDto>>> GetUsersAsync(
@@ -27,17 +23,12 @@ public class UserManagementService(
         List<UserAccountDto> users = [];
         foreach (UserAccountRecord account in accounts)
         {
-            IReadOnlyList<ServerVisibilityPermission> serverPermissions =
-                await unitOfWork.VisibilityPermissions.GetServerPermissionsAsync(account.Id, cancellationToken);
-            IReadOnlyList<ContainerVisibilityPermission> containerPermissions =
-                await unitOfWork.VisibilityPermissions.GetContainerPermissionsAsync(account.Id, cancellationToken);
             users.Add(new UserAccountDto(
                 account.Id,
                 account.Login,
                 account.IsEnabled,
                 account.IsAdministrator,
-                serverPermissions.Select(permission => permission.ServerId).ToList(),
-                containerPermissions.Select(permission => permission.ContainerId).ToList()));
+                [], []));
         }
 
         return ServiceResult<IReadOnlyList<UserAccountDto>>.Ok(users);
@@ -159,91 +150,6 @@ public class UserManagementService(
 
         AccountStoreResult deleteResult = await accountStore.DeleteAsync(userId, cancellationToken);
         return MapStoreResult(deleteResult);
-    }
-
-    public async Task<ServiceResult> SetVisibilityAsync(
-        Guid userId,
-        IReadOnlyCollection<Guid> serverIds,
-        IReadOnlyCollection<Guid> containerIds,
-        CancellationToken cancellationToken = default)
-    {
-        ServiceError? accessError = administratorAccessPolicy.GetAccessError();
-        if (accessError is not null)
-        {
-            return ServiceResult.Fail(accessError);
-        }
-
-        ArgumentNullException.ThrowIfNull(serverIds);
-        ArgumentNullException.ThrowIfNull(containerIds);
-
-        UserAccountRecord? account = await accountStore.GetByIdAsync(userId, cancellationToken);
-        if (account is null)
-        {
-            return ServiceResult.Fail(ServiceErrorType.NotFound, "Пользователь не найден.");
-        }
-
-        HashSet<Guid> requestedServerIds = serverIds.ToHashSet();
-        HashSet<Guid> requestedContainerIds = containerIds.ToHashSet();
-        IReadOnlyList<MonitoredServer> servers =
-            await unitOfWork.MonitoredServers.GetAllAsync(cancellationToken);
-        if (!requestedServerIds.IsSubsetOf(servers.Select(server => server.Id)))
-        {
-            return ServiceResult.Fail(ServiceErrorType.Validation, "Указан несуществующий сервер.");
-        }
-
-        IReadOnlyList<MonitoredContainer> containers =
-            await unitOfWork.MonitoredContainers.GetAllAsync(cancellationToken);
-        List<MonitoredContainer> requestedContainers = containers
-            .Where(container => requestedContainerIds.Contains(container.Id))
-            .ToList();
-        if (requestedContainers.Count != requestedContainerIds.Count)
-        {
-            return ServiceResult.Fail(ServiceErrorType.Validation, "Указан несуществующий контейнер.");
-        }
-
-        if (requestedContainers.Any(container => container.ServerId is null))
-        {
-            return ServiceResult.Fail(ServiceErrorType.Validation,
-                "Права на контейнер без сервера доступны только администратору.");
-        }
-
-        if (requestedContainers.Any(container => !requestedServerIds.Contains(container.ServerId!.Value)))
-        {
-            return ServiceResult.Fail(
-                ServiceErrorType.Validation,
-                "Контейнер нельзя назначить без его родительского сервера.");
-        }
-
-        await unitOfWork.ExecuteInTransactionAsync(
-            async transactionCancellationToken =>
-            {
-                IReadOnlyList<ServerVisibilityPermission> currentServerPermissions =
-                    await unitOfWork.VisibilityPermissions.GetServerPermissionsAsync(
-                        userId,
-                        transactionCancellationToken);
-                IReadOnlyList<ContainerVisibilityPermission> currentContainerPermissions =
-                    await unitOfWork.VisibilityPermissions.GetContainerPermissionsAsync(
-                        userId,
-                        transactionCancellationToken);
-                HashSet<Guid> currentServerIds = currentServerPermissions.Select(item => item.ServerId).ToHashSet();
-                HashSet<Guid> currentContainerIds = currentContainerPermissions.Select(item => item.ContainerId).ToHashSet();
-
-                unitOfWork.VisibilityPermissions.DeleteRange(
-                    currentContainerPermissions.Where(item => !requestedContainerIds.Contains(item.ContainerId)));
-                unitOfWork.VisibilityPermissions.DeleteRange(
-                    currentServerPermissions.Where(item => !requestedServerIds.Contains(item.ServerId)));
-                unitOfWork.VisibilityPermissions.CreateRange(
-                    requestedServerIds
-                        .Where(serverId => !currentServerIds.Contains(serverId))
-                        .Select(serverId => new ServerVisibilityPermission(userId, serverId)));
-                unitOfWork.VisibilityPermissions.CreateRange(
-                    requestedContainers
-                        .Where(container => !currentContainerIds.Contains(container.Id))
-                        .Select(container => new ContainerVisibilityPermission(userId, container.ServerId!.Value, container.Id)));
-            },
-            cancellationToken);
-
-        return ServiceResult.Ok();
     }
 
     private static ServiceResult MapStoreResult(AccountStoreResult storeResult)

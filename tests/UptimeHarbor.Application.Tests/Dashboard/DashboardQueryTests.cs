@@ -63,32 +63,37 @@ public class DashboardQueryTests
     }
 
     [Fact]
-    public async Task GetSnapshotAsync_ForUser_ReturnsOnlyPermittedServerAndContainer()
+    public async Task GetSnapshotAsync_NonAdministratorCannotUseResourceAssignments()
     {
+        // Arrange
         TestData data = new();
         data.AllowServer(data.FirstServer);
         data.AllowContainer(data.FirstContainer);
 
+        // Act
         DashboardSnapshotDto snapshot = (await data
             .CreateQuery(isAdministrator: false)
             .GetSnapshotAsync(null, TestContext.Current.CancellationToken)).Data!;
 
-        DashboardServerDto server = Assert.Single(snapshot.Servers);
-        Assert.Equal(data.FirstServer.Id, server.Id);
-        Assert.Equal(data.FirstContainer.Id, Assert.Single(server.Containers).Id);
+        // Assert
+        Assert.Empty(snapshot.Servers);
+        Assert.Empty(snapshot.UnassignedContainers);
     }
 
     [Fact]
     public async Task GetSnapshotAsync_ServerPermissionDoesNotGrantContainers()
     {
+        // Arrange
         TestData data = new();
         data.AllowServer(data.FirstServer);
 
+        // Act
         DashboardSnapshotDto snapshot = (await data
             .CreateQuery(isAdministrator: false)
             .GetSnapshotAsync(null, TestContext.Current.CancellationToken)).Data!;
 
-        Assert.Empty(Assert.Single(snapshot.Servers).Containers);
+        // Assert
+        Assert.Empty(snapshot.Servers);
     }
 
     [Fact]
@@ -163,13 +168,15 @@ public class DashboardQueryTests
     [Fact]
     public async Task GetSnapshotAsync_ServerUsesConfiguredNameAndOmitsMissingInternalName()
     {
+        // Arrange
         TestData data = new();
-        data.AllowServer(data.SecondServer);
 
+        // Act
         DashboardServerDto server = Assert.Single((await data
-            .CreateQuery(isAdministrator: false)
-            .GetSnapshotAsync(null, TestContext.Current.CancellationToken)).Data!.Servers);
+            .CreateQuery(isAdministrator: true)
+            .GetSnapshotAsync("Secondary server", TestContext.Current.CancellationToken)).Data!.Servers);
 
+        // Assert
         Assert.Equal(data.SecondServer.Name, server.Name);
         Assert.Null(server.InternalName);
     }
@@ -177,15 +184,18 @@ public class DashboardQueryTests
     [Fact]
     public async Task GetSnapshotAsync_PreservesUtcLastCheckAndUsesTimeProviderForUptime()
     {
+        // Arrange
         TestData data = new();
         data.AllowServer(data.FirstServer);
         data.AllowContainer(data.FirstContainer);
 
+        // Act
         DashboardServerDto server = Assert.Single((await data
-            .CreateQuery(isAdministrator: false)
-            .GetSnapshotAsync(null, TestContext.Current.CancellationToken)).Data!.Servers);
+            .CreateQuery(isAdministrator: true)
+            .GetSnapshotAsync("payments", TestContext.Current.CancellationToken)).Data!.Servers);
         DashboardContainerDto container = Assert.Single(server.Containers);
 
+        // Assert
         Assert.Equal(NOW_UTC.AddMinutes(-5), server.LastCheckedAtUtc);
         Assert.Equal(TimeSpan.Zero, server.LastCheckedAtUtc!.Value.Offset);
         Assert.Equal(NOW_UTC.AddHours(-2), container.StartedAtUtc);
@@ -195,15 +205,18 @@ public class DashboardQueryTests
     [Fact]
     public async Task GetSnapshotAsync_MissingStartedAtDoesNotCreateUptime()
     {
+        // Arrange
         TestData data = new();
         data.AllowServer(data.FirstServer);
         data.AllowContainer(data.SecondContainerOnFirstServer);
 
+        // Act
         DashboardContainerDto container = Assert.Single((await data
-            .CreateQuery(isAdministrator: false)
-            .GetSnapshotAsync(null, TestContext.Current.CancellationToken)).Data!
+            .CreateQuery(isAdministrator: true)
+            .GetSnapshotAsync("Background worker", TestContext.Current.CancellationToken)).Data!
             .Servers.Single().Containers);
 
+        // Assert
         Assert.Null(container.StartedAtUtc);
         Assert.Null(container.UptimeSeconds);
     }
@@ -336,19 +349,6 @@ public class DashboardQueryTests
         }
     }
 
-    private class FakeVisibilityUnitOfWork(
-        IMonitoredServerRepository servers,
-        IMonitoredContainerRepository containers,
-        IVisibilityPermissionRepository permissions)
-        : IVisibilitySettingsUnitOfWork
-    {
-        public IMonitoredServerRepository MonitoredServers { get; } = servers;
-        public IMonitoredContainerRepository MonitoredContainers { get; } = containers;
-        public IVisibilityPermissionRepository VisibilityPermissions { get; } = permissions;
-        public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => Task.FromResult(0);
-        public Task ExecuteInTransactionAsync(Func<CancellationToken, Task> action, CancellationToken cancellationToken = default) =>
-            action(cancellationToken);
-    }
 
     private class FakeServerRepository(List<MonitoredServer> items) : IMonitoredServerRepository
     {
@@ -391,7 +391,7 @@ public class DashboardQueryTests
         }
     }
 
-    private class FakePermissionRepository : IVisibilityPermissionRepository
+    private class FakePermissionRepository
     {
         public List<ServerVisibilityPermission> ServerPermissions { get; } = [];
         public List<ContainerVisibilityPermission> ContainerPermissions { get; } = [];

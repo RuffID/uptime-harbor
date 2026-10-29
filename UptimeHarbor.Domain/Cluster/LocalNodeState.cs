@@ -54,4 +54,18 @@ public class LocalNodeState
         SessionEpoch = newSessionEpoch;
         IsQuarantined = true;
     }
+
+    public void PublishSnapshotCheckpoint(Guid snapshotId, string digest, long cutIndex)
+    {
+        StorageGuards.Id(snapshotId, nameof(snapshotId));
+        string canonicalDigest = StorageGuards.Digest(digest);
+        if (cutIndex < SnapshotCutIndex || cutIndex <= 0)
+        {
+            throw new InvalidOperationException("Snapshot publication cannot move backwards.");
+        }
+
+        SnapshotId = snapshotId;
+        SnapshotDigest = canonicalDigest;
+        SnapshotCutIndex = cutIndex;
+    }
 }

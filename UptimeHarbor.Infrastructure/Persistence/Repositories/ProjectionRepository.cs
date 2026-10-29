@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using UptimeHarbor.Application.Abstractions.Persistence;
 using UptimeHarbor.Domain.Cluster;
 using UptimeHarbor.Infrastructure.Identity;
+using UptimeHarbor.Domain.Monitoring;
+using UptimeHarbor.Domain.Notifications;
 
 namespace UptimeHarbor.Infrastructure.Persistence.Repositories;
 
@@ -90,6 +92,11 @@ public class ProjectionRepository(
         if (changes.Account is not null)
         {
             await StageAccountAsync(changes.Account, cancellationToken);
+        }
+
+        foreach (SharedAccount account in changes.Accounts)
+        {
+            await StageAccountAsync(account, cancellationToken);
         }
 
         foreach (var server in changes.Servers)
@@ -199,6 +206,34 @@ public class ProjectionRepository(
         }
         else if (!ReferenceEquals(tracked, entity))
         {
+            if (tracked is MonitoredServer server && entity is MonitoredServer updatedServer)
+            {
+                server.UpdateSettings(updatedServer.Name, updatedServer.EndpointUrl,
+                    updatedServer.Description, updatedServer.IsMonitoringEnabled);
+                server.AcceptConfigurationRevision(updatedServer.ConfigRevision, updatedServer.CheckGeneration);
+                return;
+            }
+
+            if (tracked is MonitoredContainer container && entity is MonitoredContainer updatedContainer)
+            {
+                container.UpdateSettings(updatedContainer.EndpointUrl, updatedContainer.Description, updatedContainer.IsMonitoringEnabled);
+                container.AssignServer(updatedContainer.ServerId);
+                container.AcceptConfigurationRevision(updatedContainer.ConfigRevision, updatedContainer.CheckGeneration);
+                return;
+            }
+
+            if (tracked is NotificationBinding binding && entity is NotificationBinding updatedBinding)
+            {
+                if (binding.TelegramChatId != updatedBinding.TelegramChatId || binding.ServerId != updatedBinding.ServerId
+                    || binding.ContainerId != updatedBinding.ContainerId)
+                {
+                    throw new InvalidOperationException("Binding identity cannot be moved.");
+                }
+
+                binding.AcceptBindingRevision(updatedBinding.BindingRevision, updatedBinding.BindingGeneration);
+                return;
+            }
+
             bool immutable = entity is OperationControl or Tombstone or ObserverResult
                 or IncidentEvent or DeliverySummary or SummarySource;
             if (immutable)
@@ -263,7 +298,11 @@ public class ProjectionRepository(
             .ToListAsync(cancellationToken);
         foreach (var container in containers)
         {
-            container.AcceptConfigurationRevision(tombstone.LogIndex, container.CheckGeneration);
+            if (container.ConfigRevision < tombstone.LogIndex)
+            {
+                container.AcceptConfigurationRevision(tombstone.LogIndex, container.CheckGeneration);
+            }
+
             container.AssignServer(null);
         }
 

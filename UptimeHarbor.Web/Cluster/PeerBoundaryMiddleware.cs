@@ -42,13 +42,19 @@ public class PeerBoundaryMiddleware(RequestDelegate next, IOptions<ClusterOption
 
         bool native = context.Request.Path.StartsWithSegments("/internal/raft");
         bool health = context.Request.Path == "/internal/cluster/v1/health";
-        if (!native && !health)
+        bool commands = context.Request.Path == "/internal/cluster/v1/commands";
+        if (!native && !health && !commands)
         {
             context.Response.StatusCode = StatusCodes.Status404NotFound;
             return;
         }
 
         long limit = options.HealthMaxBytes;
+        if (commands)
+        {
+            limit = options.BatchMaxBytes;
+        }
+
         if (native)
         {
             limit = options.NativeMaxBytes;
@@ -126,6 +132,19 @@ public class PeerBoundaryMiddleware(RequestDelegate next, IOptions<ClusterOption
         if (!runtime.AcceptNonce(envelope))
         {
             context.Response.StatusCode = StatusCodes.Status409Conflict;
+            return;
+        }
+
+        if (commands)
+        {
+            if (!credential.IsVoting || !runtime.CanAcceptCommands)
+            {
+                context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+                return;
+            }
+
+            context.Items[typeof(PeerEnvelope)] = envelope;
+            await next(context);
             return;
         }
 

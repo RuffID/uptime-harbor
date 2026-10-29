@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Options;
 using UptimeHarbor.Application.Cluster;
+using UptimeHarbor.Application.Security;
 using UptimeHarbor.Infrastructure.Telegram;
 
 namespace UptimeHarbor.Infrastructure.Cluster;
@@ -15,7 +16,16 @@ public static class ClusterServiceCollectionExtensions
         services.TryAddSingleton(TimeProvider.System);
         services.AddOptions<ClusterOptions>().Bind(configuration.GetSection(ClusterOptions.SECTION_NAME)).ValidateOnStart();
         services.AddSingleton<IValidateOptions<ClusterOptions>, ClusterOptionsValidator>();
-        services.TryAddSingleton<IClusterRecovery, UnavailableClusterRecovery>();
+        services.TryAddSingleton<IRecoveryAdmission, UnavailableRecoveryAdmission>();
+        services.TryAddSingleton<RevisionStateStore>();
+        services.TryAddSingleton<IAcceptedAccountReader>(provider => provider.GetRequiredService<RevisionStateStore>());
+        services.TryAddSingleton<RevisionReducer>();
+        services.TryAddSingleton<IRevisionProjectionStore, EfRevisionProjectionStore>();
+        services.TryAddSingleton<RevisionApplyEngine>();
+        services.TryAddSingleton<RevisionSnapshotStore>();
+        services.TryAddSingleton<RevisionClusterRecovery>();
+        services.TryAddSingleton<IClusterRecovery>(provider => provider.GetRequiredService<RevisionClusterRecovery>());
+        services.TryAddSingleton<IRevisionAudit, RevisionAudit>();
         services.TryAddSingleton<IPeerTrustSource, UnavailablePeerTrustSource>();
         services.TryAddSingleton<ISenderConsensus, UnavailableSenderConsensus>();
         services.TryAddSingleton<IClusterAdministrationState, UnavailableClusterAdministrationState>();

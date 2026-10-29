@@ -38,6 +38,7 @@
     "CommandTimeoutSeconds": 10,
     "ChunkTimeoutSeconds": 30,
     "ConfigurationIntervalSeconds": 60,
+    "SnapshotIntervalSeconds": 300,
     "ProtocolMajor": 1,
     "ProtocolMinor": 0,
     "CommandSchema": 1,

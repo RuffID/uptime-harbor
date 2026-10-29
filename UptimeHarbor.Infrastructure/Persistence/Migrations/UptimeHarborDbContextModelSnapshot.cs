@@ -417,7 +417,7 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                         {
                             t.HasCheckConstraint("ck_shared_conflicts_position", "[ClusterGeneration] > 0 AND [LogIndex] > 0 AND [Term] > 0");
 
-                            t.HasCheckConstraint("ck_shared_conflicts_revisions", "[BaseRevision] >= 0 AND [FirstAcceptedRevision] > [BaseRevision]");
+                            t.HasCheckConstraint("ck_shared_conflicts_revisions", "[BaseRevision] >= 0 AND [FirstAcceptedRevision] > 0");
                         });
                 });
 

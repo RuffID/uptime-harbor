@@ -14,7 +14,7 @@ public class ConflictRecord : ProjectionRecord
         StorageGuards.Id(operationId, nameof(operationId));
         StorageGuards.Id(entityId, nameof(entityId));
         ArgumentOutOfRangeException.ThrowIfNegative(baseRevision);
-        if (firstAcceptedRevision <= baseRevision)
+        if (firstAcceptedRevision <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(firstAcceptedRevision));
         }

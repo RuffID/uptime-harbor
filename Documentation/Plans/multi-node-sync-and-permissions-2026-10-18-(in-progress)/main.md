@@ -17,7 +17,7 @@
 
 ## Текущее состояние
 
-Таблица фиксирует исходное состояние при подготовке плана; приложение, БД и внешние интеграции не запускались. Модели/mappings/storage описаны в [Shared cluster storage.md](../../Technical%20documentation/Shared%20cluster%20storage.md); adapter, peer transport, readiness и закрытый до recovery runtime этапа 03 — в [Cluster runtime.md](../../Technical%20documentation/Cluster%20runtime.md).
+Таблица фиксирует исходное состояние при подготовке плана; приложение, БД и внешние интеграции не запускались. Модели/mappings/storage описаны в [Shared cluster storage.md](../../Technical%20documentation/Shared%20cluster%20storage.md); adapter, peer transport, readiness и закрытый до recovery runtime этапов 03/04 — в [Cluster runtime.md](../../Technical%20documentation/Cluster%20runtime.md). Реализованные Pending/reducer/snapshot и ранняя авторизация 05.1 описаны там же; общий вход и lifecycle остаются будущей интеграцией.
 
 | Область | На начало планирования | Изменение в этом плане |
 | --- | --- | --- |
@@ -32,7 +32,7 @@
 
 Подтверждающие исходники: [ObjectVisibilityPolicy](../../../UptimeHarbor.Application/Visibility/ObjectVisibilityPolicy.cs), [MonitoringService](../../../UptimeHarbor.Application/Monitoring/MonitoringService.cs), [MonitoringCycleRunner](../../../UptimeHarbor.Infrastructure/Monitoring/MonitoringCycleRunner.cs), [NotificationOutboxStore](../../../UptimeHarbor.Infrastructure/Telegram/NotificationOutboxStore.cs), [NotificationAdministrationService](../../../UptimeHarbor.Application/Notifications/NotificationAdministrationService.cs), [MonitoredObject](../../../UptimeHarbor.Domain/Monitoring/MonitoredObject.cs), [Program.cs](../../../UptimeHarbor.Web/Program.cs).
 
-Текущее описание: [мониторинг](../../Technical%20documentation/Monitoring.md), [уведомления](../../Technical%20documentation/Notifications.md), [аутентификация и видимость](../../Technical%20documentation/Authentication%20and%20visibility.md), [бизнес-требования v1](../../Business%20logic/Business%20requirements.md). Технические документы актуализированы по storage-изменениям 02; неподключённое поведение остаётся в плане.
+Текущее описание: [мониторинг](../../Technical%20documentation/Monitoring.md), [уведомления](../../Technical%20documentation/Notifications.md), [аутентификация и видимость](../../Technical%20documentation/Authentication%20and%20visibility.md), [бизнес-требования v1](../../Business%20logic/Business%20requirements.md). Технические документы актуализированы по изменениям 02–04 и 05.1; неподключённое поведение остаётся в плане.
 
 ## Границы
 
@@ -55,8 +55,8 @@
 | 01 | Проверенный проект протокола, границы согласования и совместимости | completed | Нет | [Архитектура и контракты](01-protocol-and-contracts/main.md) |
 | 02 | Модель общих аккаунтов, единственной роли, ревизий и схемы | completed | 01 | [Домен и хранение](02-domain-and-persistence/main.md) |
 | 03 | Идентичность узлов, самодиагностика, большинство и главный | completed | 01, 02 | [Связь и выбор главного](03-peer-health-and-leadership/main.md) |
-| 04 | Доставка изменений, конфликты, tombstones и восстановление | not-started | 02, 03, 05.1 | [Синхронизация ревизий](04-revision-synchronization/main.md) |
-| 05 | Общие пользователи и единственная роль администратора | not-started | 02 для 05.1; 04 для 05.2–05.4 | [Пользователи и общий вход](05-permissions-and-ownership/main.md) |
+| 04 | Доставка изменений, конфликты, tombstones и восстановление | completed | 02, 03, 05.1 | [Синхронизация ревизий](04-revision-synchronization/main.md) |
+| 05 | Общие пользователи и единственная роль администратора | in-progress | 02 для 05.1; 04 для 05.2–05.4 | [Пользователи и общий вход](05-permissions-and-ownership/main.md) |
 | 06 | Взаимный мониторинг и согласованные инциденты | not-started | 03, 04 | [Мониторинг и инциденты](06-monitoring-and-incidents/main.md) |
 | 07 | Отправка главным и восстановление состояния Telegram-доставки | not-started | 05, 06 | [Telegram](07-leader-notifications/main.md) |
 | 08 | Управление через любой узел, общие аккаунты, Pending и конфликты | not-started | 05, 07 | [Web и интерфейс](08-web-and-administration/main.md) |
@@ -98,17 +98,17 @@
 
 | Подэтап | Результат | Статус | Зависимости | Документ |
 | --- | --- | --- | --- | --- |
-| 04.1 | На любом узле сохраняется durable заявка и отслеживается её окончательный результат. | not-started | 03, 05.1 | [Ожидающие заявки и результаты](04-revision-synchronization/04.1-pending-commands-and-results.md) |
-| 04.2 | Авторизованные команды получают согласованный порядок и атомарно меняют проекцию с курсором. | not-started | 04.1 | [Принятие и атомарное применение](04-revision-synchronization/04.2-commit-and-atomic-apply.md) |
-| 04.3 | Варианты конфликтов сохраняются, tombstones и зависимые изменения применяются согласованно. | not-started | 04.2 | [Конфликты, зависимости и удаления](04-revision-synchronization/04.3-conflicts-and-deletions.md) |
-| 04.4 | Есть управляемая доставка обычных и приоритетных изменений с диагностикой отставания. | not-started | 04.2 | [Доставка журнала, курсоры и ограничения очередей](04-revision-synchronization/04.4-replication-and-backpressure.md) |
-| 04.5 | Новый или отставший узел восстанавливает только общие данные по snapshot и хвосту журнала. | not-started | 04.3, 04.4 | [Снимок, догон и compaction](04-revision-synchronization/04.5-snapshot-replay-and-compaction.md) |
+| 04.1 | На любом узле сохраняется durable заявка и отслеживается её окончательный результат. | completed | 03, 05.1 | [Ожидающие заявки и результаты](04-revision-synchronization/04.1-pending-commands-and-results.md) |
+| 04.2 | Авторизованные команды получают согласованный порядок и атомарно меняют проекцию с курсором. | completed | 04.1 | [Принятие и атомарное применение](04-revision-synchronization/04.2-commit-and-atomic-apply.md) |
+| 04.3 | Варианты конфликтов сохраняются, tombstones и зависимые изменения применяются согласованно. | completed | 04.2 | [Конфликты, зависимости и удаления](04-revision-synchronization/04.3-conflicts-and-deletions.md) |
+| 04.4 | Есть управляемая доставка обычных и приоритетных изменений с диагностикой отставания. | completed | 04.2 | [Доставка журнала, курсоры и ограничения очередей](04-revision-synchronization/04.4-replication-and-backpressure.md) |
+| 04.5 | Новый или отставший узел восстанавливает только общие данные по snapshot и хвосту журнала. | completed | 04.3, 04.4 | [Снимок, догон и compaction](04-revision-synchronization/04.5-snapshot-replay-and-compaction.md) |
 
 ### 05. Общие пользователи и единственная роль администратора
 
 | Подэтап | Результат | Статус | Зависимости | Документ |
 | --- | --- | --- | --- | --- |
-| 05.1 | Готова проверка активного принятого администратора для command pipeline и Web. | not-started | 02 | [Общий аккаунт и единая проверка администратора](05-permissions-and-ownership/05.1-subjects-and-resource-policies.md) |
+| 05.1 | Готова проверка активного принятого администратора для command pipeline и Web. | completed | 02 | [Общий аккаунт и единая проверка администратора](05-permissions-and-ownership/05.1-subjects-and-resource-policies.md) |
 | 05.2 | Один аккаунт работает на всех догнавших узлах; чтение и SignalR доступны всем администраторам. | not-started | 04, 05.1 | [Общий вход, чтение и SignalR](05-permissions-and-ownership/05.2-filtered-reads-and-signalr.md) |
 | 05.3 | Создание и изменение общих пользователей и роли подключены к принятому журналу. | not-started | 05.2 | [Согласованные изменения пользователей](05-permissions-and-ownership/05.3-acl-commands-and-owners.md) |
 | 05.4 | Первый администратор, блокировка аккаунтов и восстановление пользователей согласованы с жизненным циклом сетки. | not-started | 05.3 | [Bootstrap, жизненный цикл аккаунтов и возврат узла](05-permissions-and-ownership/05.4-identity-and-node-lifecycle.md) |
@@ -213,4 +213,6 @@
 
 2026-10-29 завершён [этап 03](03-peer-health-and-leadership/main.md), включая 03.1–03.4: защищённый peer transport, DotNext adapter/WAL/membership, readiness и sender authority с независимыми закрытыми recovery/account/accepted-decision портами. Проверки 03: отдельные production builds без предупреждений/ошибок; Application — 139, выбранные Infrastructure Cluster — 38, Web Cluster — 16 passed, без ошибок/пропусков. [Доказательства и ограничения](../../Technical%20documentation/Testing.md#проверка-этапа-03).
 
-Дата создания 2026-10-18 и папка `multi-node-sync-and-permissions-2026-10-18-(in-progress)` сохранены. Общий план — in-progress, 04–10 — not-started, 09.2/09.3 — cancelled. Reducer/replay, общий вход и распределённые workers не реализованы; accepted recovery/trust/authority по умолчанию закрыты. Реальные узлы, БД, peer/Telegram, deployment и controlled enable не запускались. После 03 работа остановлена.
+2026-10-29 завершены ранний [05.1](05-permissions-and-ownership/05.1-subjects-and-resource-policies.md) и [04.1–04.5](04-revision-synchronization/main.md): accepted Administrator policy, durable Pending/controls/results, production reducer/UoW/cursor через DotNext, конфликты/tombstones, bounded priority queue и streaming snapshot/replay/compaction. Создана разрешённая `20261029075201_AllowUniquenessConflictRevisions`; миграции к БД не применялись. Четыре production builds — 0 предупреждений/ошибок; Domain 36, Application 166, выбранные Infrastructure 65, Web Cluster/DI 22 успешно, без ошибок/пропусков. [Фактические проверки и пределы](../../Technical%20documentation/Testing.md#проверка-этапа-04-и-зависимости-051).
+
+Дата создания 2026-10-18 и папка `multi-node-sync-and-permissions-2026-10-18-(in-progress)` сохранены. Общий план — in-progress; 04 и 05.1 — completed; 05 — in-progress; 05.2–05.4 и 06–10 — not-started, 09.2/09.3 — cancelled. Общий sign-in, распределённые workers и controlled enable не реализованы; admission/trust/activation/delivery по умолчанию закрыты. БД/SQL/provider tests, реальные узлы/peer/Telegram, приложение/hosting/Docker/deployment и Git не запускались. Часовая цель догона, crash/fsync и внешняя приёмка не подтверждены. После 04 и зависимости 05.1 работа остановлена.

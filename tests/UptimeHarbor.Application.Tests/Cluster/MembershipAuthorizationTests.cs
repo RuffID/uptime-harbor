@@ -18,7 +18,8 @@ public class MembershipAuthorizationTests
         User user = new(authenticated, enabled);
         Ports ports = new(user.UserId, confirmed, 3);
         AuthorityFixture fixture = new();
-        MembershipCoordinator coordinator = new(user, ports, ports, fixture.Gate, ports, fixture.Time);
+        MembershipCoordinator coordinator = new(user, ports, ports, fixture.Gate, ports, fixture.Time,
+            new AdministratorAccessPolicy(user));
 
         // Act
         ServiceResult result = await coordinator.ExecuteAsync(ports.Change.ChangeId, TestContext.Current.CancellationToken);
@@ -37,7 +38,8 @@ public class MembershipAuthorizationTests
         User user = new(true, true);
         Ports ports = new(user.UserId, true, 1);
         AuthorityFixture fixture = new();
-        MembershipCoordinator coordinator = new(user, ports, ports, fixture.Gate, ports, fixture.Time);
+        MembershipCoordinator coordinator = new(user, ports, ports, fixture.Gate, ports, fixture.Time,
+            new AdministratorAccessPolicy(user));
 
         // Act
         ServiceResult result = await coordinator.ExecuteAsync(ports.Change.ChangeId, TestContext.Current.CancellationToken);

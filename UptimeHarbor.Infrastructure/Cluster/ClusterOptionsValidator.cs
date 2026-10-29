@@ -35,10 +35,16 @@ public class ClusterOptionsValidator : IValidateOptions<ClusterOptions>
         bool invalidTiming = options.HeartbeatSeconds != 5 || options.HealthTimeoutSeconds != 3
             || options.FailureWindowSeconds != 30 || options.HealthFreshSeconds != 10;
         bool invalidTransfer = options.CommandTimeoutSeconds != 10 || options.ChunkTimeoutSeconds != 30
-            || options.ConfigurationIntervalSeconds != 60;
+            || options.ConfigurationIntervalSeconds is < 60 or > 3600
+            || options.ConfigurationIntervalSeconds % 60 != 0;
         if (invalidTiming || invalidTransfer)
         {
             return ValidateOptionsResult.Fail("Cluster timing must match protocol 1.0.");
+        }
+
+        if (options.SnapshotIntervalSeconds is < 60 or > 3600)
+        {
+            return ValidateOptionsResult.Fail("Cluster snapshot interval is invalid.");
         }
 
         if (options.Compatibility != "1.0/1/1/1/1/6.10.0")
@@ -48,7 +54,7 @@ public class ClusterOptionsValidator : IValidateOptions<ClusterOptions>
 
         bool invalidLimits = options.HealthMaxBytes is < 1 or > 65536
             || options.CommandMaxBytes is < 1 or > 262144 || options.BatchMaxBytes is < 1 or > 1048576
-            || options.BatchMaxEntries is < 1 or > 100 || options.SnapshotChunkMaxBytes is < 1 or > 1048576;
+            || options.BatchMaxEntries is < 1 or > 100 || options.SnapshotChunkMaxBytes is < 16384 or > 1048576;
         if (invalidLimits || options.NativeMaxBytes < options.BatchMaxBytes
             || options.NativeMaxBytes > 67108864 || options.ReplayCapacity is < 100 or > 100000)
         {

@@ -1,8 +1,10 @@
 # Движок мониторинга
 
-## Режим сетки после этапа 03
+## Режим сетки после этапов 03/04
 
 Ниже описан однопроцессный путь при `Cluster:Mode=Disabled`. В enabled-режиме прежний `MonitoringWorker` не регистрируется, прежние browser writers закрыты. Распределённые наблюдения/инциденты принадлежат 06. `MonitoringProgressWatchdog` предоставляет будущему worker контракт подтверждения завершённого цикла; отсутствие свежего прогресса держит sender закрытым. Собственная неисправность БД закрывает CanWork, новые native ACK/vote и sender, supervisor останавливает Raft, не уменьшая состав. После ремонта нужен подтверждённый replay/catch-up. Обычная partial-цель не участвует в health-quorum выбора главного. Возраст health и окно 30 с описаны в [Cluster runtime.md](Cluster%20runtime.md).
+
+Принятые настройки 04 имеют отдельные ConfigRevision/CheckGeneration: endpoint/enable change требует нового поколения, metadata/родительская связь сохраняет его; tombstone не позволяет старой настройке воскресить цель. Production projection update сохраняет monitoring-поля. Само вычисление распределённых observations/incidents не реализовано и не включается наличием reducer.
 
 ## Состояние реализации
 
@@ -43,7 +45,7 @@
 
 SignalR handler реализован в Web. Он получает из Application список разрешённых включённых пользователей и отправляет им только `objectId` и `objectKind`; скрытые имя, описание, состояние и времена в push payload не попадают. Telegram не является synchronous handler: отдельный Infrastructure worker читает durable outbox. SQL Server остаётся источником истины.
 
-Application resolver сохраняет прежнюю семантику чистой `ObjectVisibilityPolicy`: administrator получает событие любого объекта, обычный пользователь — только разрешённого сервера или контейнера вместе с его server permission, disabled пользователь не получает событие. Отдельный Infrastructure `IMonitoringRecipientReadQuery` materialize-ит users, roles и permissions пакетно; отдельного permission или role query для каждого пользователя нет.
+`ObjectVisibilityPolicy` предоставляет доступ только активному Administrator ко всем объектам, включая контейнеры без сервера. Старые permission-наборы не предоставляют доступ. Infrastructure `IMonitoringRecipientReadQuery` читает users/роль одним запросом и возвращает пустые compatibility collections; per-user queries и рабочих ACL нет. Подключение общего accepted sign-in/SignalR остаётся в 05.2.
 
 ## Конкурентность
 

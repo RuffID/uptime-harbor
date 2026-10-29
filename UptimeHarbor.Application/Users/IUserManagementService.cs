@@ -16,9 +16,4 @@ public interface IUserManagementService
 
     Task<ServiceResult> DeleteAsync(Guid userId, CancellationToken cancellationToken = default);
 
-    Task<ServiceResult> SetVisibilityAsync(
-        Guid userId,
-        IReadOnlyCollection<Guid> serverIds,
-        IReadOnlyCollection<Guid> containerIds,
-        CancellationToken cancellationToken = default);
 }

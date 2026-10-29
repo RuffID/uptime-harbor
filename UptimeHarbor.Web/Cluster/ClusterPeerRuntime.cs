@@ -27,6 +27,8 @@ public class ClusterPeerRuntime(IServiceProvider services, IOptions<ClusterOptio
     private readonly Guid bootId = Guid.NewGuid();
     public Guid? LeaderNodeId { get; private set; }
     public IRaftHttpCluster? Raft => raft;
+    public bool CanAcceptCommands => rpcOpen && !machine.Failed && raft?.Leader?.IsRemote == false
+        && readiness.CanWork(state);
     public SemaphoreSlim MembershipLock { get; } = new(1, 1);
 
     // Вызывать только под MembershipLock: stop/dispose ждёт тот же scope.
@@ -156,6 +158,7 @@ public class ClusterPeerRuntime(IServiceProvider services, IOptions<ClusterOptio
                 return;
             }
 
+            machine.ConfirmReplay(replayConfirmed);
             await ((IHostedService)candidate).StartAsync(cancellationToken);
             raft = candidate;
             protocol = DotNextNodeServices.CreateProtocol(nodeServices);
@@ -234,6 +237,11 @@ public class ClusterPeerRuntime(IServiceProvider services, IOptions<ClusterOptio
 
         readiness.Report("Storage", true, "Ready", TimeSpan.FromSeconds(10));
         bool localLeader = raft.Leader?.IsRemote == false;
+        IClusterRecovery recovery = services.GetRequiredService<IClusterRecovery>();
+        WriteAheadLog wal = (WriteAheadLog)raft.AuditTrail;
+        bool replayConfirmed = await recovery.ConfirmLocalReplayAsync(wal.LastCommittedEntryIndex, wal.LastAppliedIndex,
+            persisted.Version, cancellationToken);
+        machine.ConfirmReplay(replayConfirmed);
         state.Publish(new(options.ClusterId, options.Generation, options.NodeId, raft.AuditTrail.Term,
             persisted.Version, localLeader, raft.AuditTrail.LastCommittedEntryIndex, voters,
             raft.LeadershipToken, raft.ConsensusToken));
@@ -354,7 +362,8 @@ public class ClusterPeerRuntime(IServiceProvider services, IOptions<ClusterOptio
         bool ready = status?.IsLeader == true && readiness.CanSend(state);
         return new(configured.Value.NodeId, bootId, status?.Term ?? 0, LeaderNodeId,
             status?.MembershipVersion ?? -1, status?.CommittedIndex ?? 0, state.Accepted.AppliedIndex,
-            ready, failureWindow.SecondsWithoutReady, components, failureWindow.ConfirmedPeers());
+            ready, failureWindow.SecondsWithoutReady, components, failureWindow.ConfirmedPeers(),
+            services.GetService<PendingReplicationPump>()?.Progress);
     }
 
     public async Task WriteHealthAsync(HttpContext context, PeerEnvelope envelope)

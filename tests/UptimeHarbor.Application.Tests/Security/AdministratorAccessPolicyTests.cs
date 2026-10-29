@@ -71,8 +71,7 @@ public class AdministratorAccessPolicyTests
         UserManagementService users = new(
             accessContext,
             policy,
-            new ThrowingUserAccountStore(),
-            new ThrowingVisibilityUnitOfWork());
+            new ThrowingUserAccountStore());
         ObjectAdministrationService objects = new(
             policy,
             new ThrowingObjectAdministrationUnitOfWork(),
@@ -133,19 +132,6 @@ public class AdministratorAccessPolicyTests
             throw new InvalidOperationException("Account store must not be called.");
     }
 
-    private class ThrowingVisibilityUnitOfWork : IVisibilitySettingsUnitOfWork
-    {
-        public IMonitoredServerRepository MonitoredServers =>
-            throw new InvalidOperationException("Repository must not be called.");
-        public IMonitoredContainerRepository MonitoredContainers =>
-            throw new InvalidOperationException("Repository must not be called.");
-        public IVisibilityPermissionRepository VisibilityPermissions =>
-            throw new InvalidOperationException("Repository must not be called.");
-        public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) =>
-            throw new InvalidOperationException("SaveChanges must not be called.");
-        public Task ExecuteInTransactionAsync(Func<CancellationToken, Task> action, CancellationToken cancellationToken = default) =>
-            throw new InvalidOperationException("Unit of work must not be called.");
-    }
 
     private class ThrowingObjectAdministrationUnitOfWork : IObjectAdministrationUnitOfWork
     {

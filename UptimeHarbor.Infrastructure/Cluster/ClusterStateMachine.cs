@@ -38,11 +38,21 @@ public class ClusterStateMachine(IClusterRecovery recovery, NodeReadiness readin
             options.NodeId, options.StorageGeneration, cancellationToken);
         if (restored)
         {
-            failed = false;
-            readiness.Report("Projection", true, "Ready", TimeSpan.MaxValue);
+            readiness.Report("Projection", false, "Unknown", TimeSpan.MaxValue);
         }
 
         return restored;
+    }
+
+    public void ConfirmReplay(bool confirmed)
+    {
+        if (!restored || !confirmed)
+        {
+            return;
+        }
+
+        failed = false;
+        readiness.Report("Projection", true, "Ready", TimeSpan.MaxValue);
     }
 
     public async ValueTask<long> ApplyAsync(LogEntry entry, CancellationToken token)
@@ -95,8 +105,19 @@ public class ClusterStateMachine(IClusterRecovery recovery, NodeReadiness readin
         }
     }
 
-    public ValueTask ReclaimGarbageAsync(long watermark, CancellationToken token)
+    public async ValueTask ReclaimGarbageAsync(long watermark, CancellationToken token)
     {
-        return recovery.ReclaimAsync(watermark, token);
+        try
+        {
+            await recovery.ReclaimAsync(watermark, token);
+        }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            throw new OperationCanceledException("Cluster retention was cancelled.", token);
+        }
+        catch
+        {
+            throw new InvalidOperationException("Cluster retention failed.");
+        }
     }
 }

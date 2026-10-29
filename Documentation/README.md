@@ -15,7 +15,7 @@
 ## Планы и история
 
 - [Plans/README.md](Plans/README.md) — активные планы и правила их оформления.
-- [Несколько узлов, синхронизация и общие администраторы](Plans/multi-node-sync-and-permissions-2026-10-18-%28in-progress%29/main.md) — план `in-progress`: завершены 01/02 и 03.1–03.4 (peer, DotNext, readiness/gate). 04–10 не начаты; runtime закрыт до подтверждённого recovery/accepted state. Общий вход/доставка не включены; SQL Server и реальные узлы не проверялись.
+- [Несколько узлов, синхронизация и общие администраторы](Plans/multi-node-sync-and-permissions-2026-10-18-%28in-progress%29/main.md) — `in-progress`: завершены 01–04 и ранний 05.1; этап 05 — in-progress, 05.2–05.4 и 06–10 не начаты. Реализованы accepted Administrator, durable Pending/reducer/UoW, очередь и snapshot/replay; admission/trust/activation/delivery остаются закрытыми. Схема не применялась; реальные узлы, SQL Server, отправки и внешняя приёмка не запускались. Изолированные тесты не доказывают crash/fsync, живую сеть или часовую цель догона.
 - [Первичное техническое ревью v1](Technical%20documentation/V1%20Technical%20Review%20Findings.md).
 - [Повторное техническое ревью v1](Technical%20documentation/V1%20Follow-up%20Technical%20Review.md).
 

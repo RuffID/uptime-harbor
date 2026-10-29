@@ -2,13 +2,13 @@
 
 ## Состояние реализации
 
-Identity, cookie pipeline и адаптеры пользователей находятся в Infrastructure; Web содержит прежние страницы входа/выхода и административные endpoints. Этап 02 подготовил модель общих аккаунтов и storage mapping, но не реализовал общий вход или управление пользователями через журнал. Единственная сохраняемая роль — Administrator; legacy создание аккаунта назначает эту роль. Старый UI permissions ещё не переработан и больше не имеет соответствующего storage: попытка создать назначение отклоняется.
+Identity, cookie pipeline и адаптеры пользователей находятся в Infrastructure; Web содержит прежние страницы входа/выхода и административные endpoints. Этапы 02/04 подготовили общие accounts/storage/reducer/snapshot, а ранний 05.1 — accepted account reader и Administrator policy. Общий вход и пользовательское управление аккаунтами через журнал ещё не подключены. Единственная сохраняемая роль — Administrator; legacy создание аккаунта назначает эту роль. Старый UI permissions ещё не переработан; рабочие SetVisibility API/request/use case и ACL repository/UoW удалены.
 
 ## Identity-модель
 
 Пользователь и роль используют `Guid` как ключ. `ApplicationUser` хранит `IsEnabled`, `UserRevision`, `PasswordHashFormatVersion`, `DeletedAtUtc`. `ApplySharedAccount` переносит общий login/hash/stamps/активность, сохраняя локальные lockout counters. Новый projection UoW сохраняет account + Administrator membership + cursor одной транзакцией без UserManager autocommit.
 
-Identity-типы остаются в Infrastructure. Чистый Domain `SharedAccount` задаёт FormKC/Trim/uppercase login и self/last-admin инвариант по принятому count. SQL normalized login обязателен и уникален; роль ограничена Administrator. Прежние permission-типы сохранены только для компиляции legacy use case, EF их не хранит. Детали и пределы — [Shared cluster storage.md](Shared%20cluster%20storage.md).
+Identity-типы остаются в Infrastructure. Чистый Domain `SharedAccount` задаёт FormKC/Trim/uppercase login и self/last-admin инвариант по принятому count. SQL normalized login обязателен и уникален; роль ограничена Administrator. Прежние Domain permission-типы и пустые DTO-поля сохранены для совместимости, EF их не хранит; права доступа ими не предоставляются. Детали и пределы — [Shared cluster storage.md](Shared%20cluster%20storage.md).
 
 ## Аутентификация
 
@@ -38,6 +38,6 @@ Web security headers применяются middleware до authentication/autho
 
 `DashboardSnapshotReadQuery` возвращает администратору все server/container records, включая контейнеры без родителя; неадминистративный compatibility-вызов получает пустые наборы. Endpoint URL в dashboard records/DTO не входит. `MonitoringRecipientReadQuery` получает users/Administrator одним запросом и передаёт пустые permission-наборы; resolver исключает disabled users.
 
-Прежние `ObjectVisibilityPolicy`, DTO, use case и UI ресурсных назначений остаются до этапа 05, но соответствующих EF-таблиц нет. Compatibility repository читает пустые назначения и отвергает новые, cleanup не обращается к SQL. Это временная согласованность схемы и вызывающего кода, а не завершённый пользовательский сценарий этапа 05.
+`ObjectVisibilityPolicy` предоставляет доступ только Administrator, независимо от старых permission-наборов или родителя контейнера. ACL repositories/UoW, SetVisibility request/use case и controller endpoint удалены. DTO-поля назначений возвращают пустые наборы; старый UI остаётся до будущей переработки. Отдельных ролей, владельцев и операторов нет.
 
-`UserManagementService` сохраняет существующие self-disable/self-delete и last-enabled-admin проверки. Legacy Identity store повторяет last-admin guard в локальной транзакции с concurrency stamp роли. Это не доказательство упорядоченного согласования аккаунтов нескольких узлов. Общая проверка принятого активного администратора, sign-in и синхронизация аккаунтов ещё не подключены.
+`UserManagementService` сохраняет существующие self-disable/self-delete и last-enabled-admin проверки. Legacy Identity store повторяет last-admin guard в локальной транзакции с concurrency stamp роли. Это не доказательство упорядоченного согласования аккаунтов нескольких узлов. `AcceptedAdministratorAccessPolicy` в enabled-режиме получает `IAcceptedAccountReader.Find(UserId)` из принятого образа. Анонимный, unknown/unaccepted, disabled/deleted и неадминистратор получают отказ; claims роли/активности не заменяют accepted state. Во время replay чтение закрыто до подтверждения догона. Командный reducer повторяет авторизацию и actor revision, membership — после drain, test-send — непосредственно перед sender после чтения чата. Общий sign-in, security-stamp/session lifecycle новой модели и пользовательские flows остаются в 05.2–05.4; enabled browser gate закрыт. Аккаунты используют общий log/snapshot, отдельного Identity replication нет.

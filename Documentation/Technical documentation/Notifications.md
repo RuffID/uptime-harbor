@@ -1,8 +1,10 @@
 # Telegram-уведомления
 
-## Граница этапа 03
+## Граница этапов 03/04 и 05.1
 
-Ниже описана локальная доставка при `Cluster:Mode=Disabled`. Enabled-режим не регистрирует прежний outbox worker; `ClusterNotificationSender` отвергает legacy-вызовы без принятого AttemptId. Новая доставка здесь не включена. `SenderAuthorityGate` проверяет принятую authority/attempt, большинство, generation/epoch и readiness; реальные решения и delivery worker принадлежат 04/07. `TelegramHealthProbe` вызывает только `getMe` через отдельный клиент без HTTP logging, сверяет BotId, ограничивает timeout/body и сохраняет известную причину/возраст. Ошибка одного чата и rate limit не объявляются общим outage; тестовые сообщения health не отправляет. Подробности и ограничения — [Cluster runtime.md](Cluster%20runtime.md).
+Ниже описана локальная доставка при `Cluster:Mode=Disabled`. Enabled-режим не регистрирует прежний outbox worker; `ClusterNotificationSender` отвергает legacy-вызовы без принятого AttemptId. Новая доставка здесь не включена. `SenderAuthorityGate` проверяет принятую authority/attempt, большинство, generation/epoch и readiness; реальные authority/attempt решения и delivery worker остаются в 07; 04 реализует конфигурационные команды/привязки, без Telegram delivery. `TelegramHealthProbe` вызывает только `getMe` через отдельный клиент без HTTP logging, сверяет BotId, ограничивает timeout/body и сохраняет известную причину/возраст. Ошибка одного чата и rate limit не объявляются общим outage; тестовые сообщения health не отправляет. Подробности и ограничения — [Cluster runtime.md](Cluster%20runtime.md).
+
+05.1 повторяет administrator policy в `NotificationAdministrationService` после чтения чата непосредственно перед внешним test-send. В cluster mode policy читает active accepted account; disabled/deleted/unaccepted актор не вызывает sender. Сам cluster test-send через главного и пользовательский flow здесь не подключены. 04 сохраняет конфигурационные изменения привязок, не сбрасывая подтверждённые markers; tombstones блокируют удалённые зависимости. Будущие incident/delivery priority events не подменяются успешными результатами.
 
 ## Состояние реализации
 

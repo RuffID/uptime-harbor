@@ -26,6 +26,7 @@ public class ClusterOptions
     public int CommandTimeoutSeconds { get; set; } = 10;
     public int ChunkTimeoutSeconds { get; set; } = 30;
     public int ConfigurationIntervalSeconds { get; set; } = 60;
+    public int SnapshotIntervalSeconds { get; set; } = 300;
     public int ProtocolMajor { get; set; } = 1;
     public int ProtocolMinor { get; set; }
     public int CommandSchema { get; set; } = 1;

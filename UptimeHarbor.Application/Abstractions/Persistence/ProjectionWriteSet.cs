@@ -11,6 +11,7 @@ public class ProjectionWriteSet
     public required long ExpectedCursorIndex { get; init; }
     public required AppliedJournalReceipt Receipt { get; init; }
     public SharedAccount? Account { get; init; }
+    public IReadOnlyList<SharedAccount> Accounts { get; init; } = [];
     public IReadOnlyList<ProjectionRecord> Records { get; init; } = [];
     public IReadOnlyList<MonitoredServer> Servers { get; init; } = [];
     public IReadOnlyList<MonitoredContainer> Containers { get; init; } = [];

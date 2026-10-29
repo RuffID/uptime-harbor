@@ -8,6 +8,36 @@ namespace UptimeHarbor.Tests.Application.Cluster;
 
 public class MembershipResultTests
 {
+    [Fact]
+    public async Task AcceptedAccountDisabledDuringDrainCannotChangeMembership()
+    {
+        // Arrange
+        Ports ports = new(true, true);
+        AuthorityFixture fixture = new();
+        ChangingAccount accounts = new(ports.UserId);
+        MembershipCoordinator coordinator = new(ports, ports, ports, fixture.Gate, ports, new ImmediateDelayTime(),
+            new AcceptedAdministratorAccessPolicy(ports, accounts));
+
+        // Act
+        ServiceResult result = await coordinator.ExecuteAsync(ports.Change.ChangeId, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.False(result.Success);
+        Assert.Equal(ServiceErrorType.Forbidden, result.Error!.Type);
+        Assert.Equal("Denied", Assert.Single(ports.Audit).Outcome);
+    }
+
+    private class ChangingAccount(Guid id) : IAcceptedAccountReader
+    {
+        private int reads;
+
+        public AcceptedAccount? Find(Guid userId)
+        {
+            reads++;
+            return new AcceptedAccount(id, reads, reads == 1, true, false);
+        }
+    }
+
     [Theory]
     [InlineData(true, true, true)]
     [InlineData(false, true, false)]
@@ -17,7 +47,8 @@ public class MembershipResultTests
         // Arrange
         Ports ports = new(committed, receipt);
         AuthorityFixture fixture = new();
-        MembershipCoordinator coordinator = new(ports, ports, ports, fixture.Gate, ports, new ImmediateDelayTime());
+        MembershipCoordinator coordinator = new(ports, ports, ports, fixture.Gate, ports, new ImmediateDelayTime(),
+            new AdministratorAccessPolicy(ports));
 
         // Act
         ServiceResult result = await coordinator.ExecuteAsync(ports.Change.ChangeId, TestContext.Current.CancellationToken);

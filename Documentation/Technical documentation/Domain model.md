@@ -47,13 +47,13 @@
 
 `TelegramChat` хранит внутренний идентификатор, Telegram chat ID и отображаемое имя. `NotificationBinding` через фабрики создаёт связь ровно с сервером или контейнером. Для текущего инцидента каждая привязка отдельно хранит идентификаторы успешной outage- и recovery-доставки. Это позволяет повторять только неуспешные доставки и не подменять частичный результат глобальным флагом объекта.
 
-`ServerVisibilityPermission` и `ContainerVisibilityPermission` остаются только типами совместимости прежних use case до этапа 05. Они исключены из целевой EF-модели; создавать ресурсные назначения больше нельзя. Контейнеры с родителем и без него доступны администраторам без отдельных назначений.
+`ServerVisibilityPermission` и `ContainerVisibilityPermission` остаются только типами совместимости; рабочих ACL use case/repositories/API нет. Они исключены из целевой EF-модели; создавать ресурсные назначения больше нельзя. Контейнеры с родителем и без него доступны администраторам без отдельных назначений.
 
 ## Общая модель сетки
 
-`Cluster` содержит идентичность/позиции, `SharedAccount` с единственной Administrator и защищёнными реквизитами, Pending/decisions/controls/conflicts/tombstones, observer streams, incidents и delivery ledger. Login нормализуется FormKC/Trim/uppercase. Self-disable/self-delete и удаление последнего активного администратора проверяются чистым методом по переданному принятому count; упорядоченная проверка нескольких аккаунтов принадлежит будущему reducer.
+`Cluster` содержит идентичность/позиции, `SharedAccount` с единственной Administrator и защищёнными реквизитами, Pending/decisions/controls/conflicts/tombstones, observer streams, incidents и delivery ledger. Login нормализуется FormKC/Trim/uppercase. Self-disable/self-delete и удаление последнего активного администратора проверяются чистым методом по переданному принятому count; упорядоченная проверка нескольких аккаунтов выполняется production reducer 04.
 
-Состояние общего аккаунта, ConfigRevision, оперативные наблюдения и cursor разделены. Хранимые сводки ссылаются на исходные events/intents, recovery entitlement не зависит от существования binding. `HistoryRetention` защищает незавершённую работу и compact safety markers независимо от возраста. Подробная карта сущностей и реализованных границ — [Shared cluster storage.md](Shared%20cluster%20storage.md). Workers/общий вход/replay этой моделью ещё не включены.
+Состояние общего аккаунта, ConfigRevision, оперативные наблюдения и cursor разделены. Хранимые сводки ссылаются на исходные events/intents, recovery entitlement не зависит от существования binding. `HistoryRetention` защищает незавершённую работу и compact safety markers независимо от возраста. Подробная карта сущностей и реализованных границ — [Shared cluster storage.md](Shared%20cluster%20storage.md). Replay подключён в 04 через принятый log/snapshot; общий вход и распределённые workers остаются будущей интеграцией. Conflicts сохраняют реальные competing revisions, которые могут быть старше базы другой сущности.
 
 ## Покрытие тестами
 

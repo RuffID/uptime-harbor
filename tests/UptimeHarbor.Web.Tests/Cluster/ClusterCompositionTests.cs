@@ -69,6 +69,7 @@ public class ClusterCompositionTests
         ServiceCollection services = new();
         services.AddLogging();
         services.AddScoped<IUserAccessContext, UnknownUser>();
+        services.AddScoped<IAdministratorAccessPolicy, AcceptedAdministratorAccessPolicy>();
         services.AddClusterInfrastructure(new ConfigurationBuilder().Build());
         services.AddClusterWeb();
         using ServiceProvider provider = services.BuildServiceProvider(new ServiceProviderOptions
@@ -88,7 +89,8 @@ public class ClusterCompositionTests
         Assert.False(state.Accepted.AccountStateConfirmed);
         Assert.False(provider.GetRequiredService<NodeReadiness>().CanSend(state));
         Assert.NotNull(coordinator);
-        Assert.IsType<UnavailableClusterRecovery>(provider.GetRequiredService<IClusterRecovery>());
+        Assert.IsType<RevisionClusterRecovery>(provider.GetRequiredService<IClusterRecovery>());
+        Assert.IsType<UnavailableRecoveryAdmission>(provider.GetRequiredService<IRecoveryAdmission>());
         Assert.IsType<UnavailableSenderConsensus>(provider.GetRequiredService<ISenderConsensus>());
     }
 
