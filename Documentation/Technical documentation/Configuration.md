@@ -6,7 +6,7 @@
 
 ## Интерфейс сетки (08)
 
-ClusterOptions.Enabled выбирает общий cluster UI; default Mode=Disabled сохранён. DI регистрирует один ClusterHealthWorker для hosted polling и diagnostics query. Сборка Razor/TypeScript использует существующий Web target; hosting и runtime не требуются для compile-check. UI не открывает admission/trust/activation/manual-enable/sender/delivery gates; controlled enable собирается отдельным lifecycle 09.
+ClusterOptions.Enabled выбирает общий cluster UI; default Mode=Disabled сохранён. DI регистрирует один ClusterHealthWorker для hosted polling и diagnostics query. Сборка Razor/TypeScript использует существующий Web target; hosting и runtime не требуются для compile-check. UI не открывает admission/trust/activation/manual-enable/sender/delivery gates; controlled enable реализован lifecycle 09 и требует настоящих подтверждений.
 
 
 ## Настройки доставки этапа 07
@@ -34,16 +34,17 @@ MonitoringNodes (NodeId → storage generation) приходит из trusted Re
 
 Для локального или опубликованного запуска нужно скопировать `Config/config.example.json` в `Config/config.json`, затем заменить bootstrap login/password, пароль SQL Server, Telegram bot token и при необходимости proxy CIDR/`AllowedHosts`. При publish файл не упаковывается: окружение запуска должно предоставить его снаружи по пути `Config/config.json` относительно content root.
 
-В `Config/config.json` находятся секции `BootstrapAdmin`, `ConnectionStrings:SqlServer`, `Monitoring`, `Telegram`, `Cluster`, `ForwardedHeaders` и `AllowedHosts`. При будущем включении сетки отдельно нужны `Kestrel:Endpoints:Browser/Peer`. В репозитории нет настоящих значений секретов; локальный секретный файл в этапе 03 не изменялся.
+В `Config/config.json` находятся секции `BootstrapAdmin`, `ConnectionStrings:SqlServer`, `Monitoring`, `Telegram`, `Cluster`, `ClusterControl`, `ForwardedHeaders` и `AllowedHosts`. При будущем включении сетки отдельно нужны `Kestrel:Endpoints:Browser/Peer`. В репозитории нет настоящих значений секретов; локальный секретный файл в этапе 03 не изменялся.
 
 ## Типизированные группы
 
-Определены четыре options-типа:
+Определены пять options-типов:
 
 - `BootstrapAdminOptions` — логин и начальный пароль администратора;
 - `MonitoringOptions` — принадлежащий Application общий контракт интервала, timeout и порога ошибок;
 - `TelegramOptions` — принадлежащий Infrastructure тип с токеном бота.
 - `ClusterOptions` — режим, identity/storage generation, canonical HTTPS URI, mTLS boundary и пути, таймеры, compatibility и пределы; привязка/валидация выполняется в `AddClusterInfrastructure`, настройка listener — в Web extension.
+- `ClusterControlOptions` — пути локальных control-файлов, pinned публичного ключа и отдельного bootstrap keyring; привязка выполняется в AddClusterInfrastructure.
 
 `MonitoringOptions` и `TelegramOptions` привязываются в Web через `AddApplicationConfiguration` и используют `ValidateOnStart`. Monitoring worker и HTTP-адаптер получают только `IOptions<MonitoringOptions>`, Telegram adapter — только `IOptions<TelegramOptions>`; потребители не зависят от `IConfiguration`. `BootstrapAdminOptions` принадлежит Infrastructure и валидируется при bootstrap только если администратор отсутствует. Это позволяет повторному запуску с уже созданным администратором не зависеть от сохранения начального пароля в конфигурации.
 
@@ -55,7 +56,7 @@ MonitoringNodes (NodeId → storage generation) приходит из trusted Re
 
 Безопасный пример содержит `Cluster:Mode=Disabled`. Режимы `Bootstrap`, `Join`, `Restart` требуют ненулевые UUID identity/credential/storage, generation >= 1, отдельный provisioned StoragePath, абсолютные пути сертификатов/ключа/CA, SHA-256 CA fingerprint и ожидаемый общий BotId. PublicUri — canonical `https://<peer-host>/internal/raft`. Состав/доверие приходят из принятого registry, а не из списка доступных адресов. Секретный CA key на узле не нужен. Таймеры/версии протокола проверяются строго; лимиты могут только уменьшаться в согласованных пределах. Неподтверждённые accepted state и recovery запрещают старт даже с корректными options.
 
-Enabled-режим требует два именованных Kestrel endpoint с разными портами. Пример структуры прямого TLS (не инструкция включать функцию до 04–09):
+Enabled-режим требует два именованных Kestrel endpoint с разными портами. Пример структуры прямого TLS (структура не заменяет controlled enable):
 
 ```json
 "Kestrel": {
@@ -69,7 +70,7 @@ Enabled-режим требует два именованных Kestrel endpoint
 }
 ```
 
-Direct listener требует client certificate и проверяет private CA; middleware дополнительно проверяет accepted pin/SAN/generation. Для `NginxIsolatedHttp` Peer.Url должен быть внутренним HTTP на PeerListenPort, `TrustedProxyAddresses` содержит точные IP. Firewall запрещает обход Nginx; proxy проверяет mTLS/CRL, перезаписывает `Ssl-Client-Verify` и URL-encoded публичный `Ssl-Client-Cert`, сохраняет peer Host и отключает early data. Публичные TLS DNS/certificate/renewal и изоляция проверяются оператором отдельно. В [Cluster runtime.md](Cluster%20runtime.md) приведены lifecycle, лимиты и границы будущих этапов. Enabled не запускает прежние workers/startup migration и не открывает пользовательские маршруты/отправку.
+Direct listener требует client certificate и проверяет private CA; middleware дополнительно проверяет accepted pin/SAN/generation. Для `NginxIsolatedHttp` Peer.Url должен быть внутренним HTTP на PeerListenPort, `TrustedProxyAddresses` содержит точные IP. Firewall запрещает обход Nginx; proxy проверяет mTLS/CRL, перезаписывает `Ssl-Client-Verify` и URL-encoded публичный `Ssl-Client-Cert`, сохраняет peer Host и отключает early data. Публичные TLS DNS/certificate/renewal и изоляция проверяются оператором отдельно. В [Cluster runtime.md](Cluster%20runtime.md) приведены lifecycle, лимиты и границы будущих этапов. Enabled не запускает прежние workers/startup migration. Пользовательские маршруты и отправка закрыты до controlled enable и подтверждения всех соответствующих gates.
 
 `ConfigurationIntervalSeconds` — 60–3600, кратно 60; обычные настройки передаются минутным циклом. Account/delete/control проходят priority pump с шагом 1 с и retry 1/2/5/10/30 с плюс jitter ≤20%. `SnapshotIntervalSeconds` — 60–3600, по умолчанию 300; без подтверждённого recovery/catch-up snapshot worker ничего не публикует.
 

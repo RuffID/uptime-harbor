@@ -1,5 +1,47 @@
 # Тестирование
 
+## Проверка этапа 10
+
+2026-10-30 самостоятельно выполнены обязательные 10.1 и 10.6 в согласованном минимальном объёме. Результаты 09 ниже — исходная история; приведённые здесь числа получены новым запуском, а не перенесены из неё. Сначала сверены project-файлы, tests/Directory.Build.props, global.json, существующий TypeScript target, тестовые границы и критичные правила. Дополнительных пробелов, требующих нового теста, и дефектов кода в этом объёме не обнаружено; исходники, test/project-файлы и ожидания не менялись.
+
+Четыре production build выполнены отдельно, последовательно: Domain → Application → Infrastructure → Web, Debug `--no-restore`, по точным четырём командам [проверки 09](#проверка-этапа-09), с теми же отдельными `artifacts/compile-check/<project>/`. Все завершились с 0 предупреждений и 0 ошибок; Web штатно собрал Razor/TypeScript. Затем последовательно выполнены четыре `dotnet test --project` и `node --experimental-strip-types --test tests/Frontend/*.test.mts` из того же раздела, без изменения команд и Infrastructure-фильтра. Тестовые команды выполняли актуальный build (`--no-build` не использован); отдельные BaseOutputPath не изолируют общий obj. Restore не потребовался. Web source tests сохранили глубину output `artifacts/compile-check/web-tests/Debug/net10.0`.
+
+| Новый запуск этапа 10 | Успешно | Ошибки | Пропуски runner |
+| --- | --- | --- | --- |
+| Domain, весь изолированный проект | 36 | 0 | 0 |
+| Application, весь изолированный проект | 225 | 0 | 0 |
+| Infrastructure, точный разрешённый фильтр 09 | 198 | 0 | 0 |
+| Web, весь изолированный проект | 123 | 0 | 0 |
+| Frontend, все три файла после Web build | 18 | 0 | 0 |
+
+Итого **582 .NET + 18 frontend**. Исключённые provider tests не являются пропусками runner и не считаются пройденными. Никакой полный Infrastructure-набор, SQLite, SQL Server или реальная сеть не запускались.
+
+### Сверка критичных правил с существующими проверками
+
+Это минимальная карта доказательств, а не отметка о прохождении каждой строки внешней справочной матрицы. Прочитаны сценарии и проверяемые production-границы, включая успешный путь и отказ; новый тест ради дублирования существующего не добавлялся.
+
+| Правило | Существующие проверки | Что доказано изолированно и где граница |
+| --- | --- | --- |
+| Majority, 30-секундное окно и sender gate | [ReadinessAndFailureWindowTests](../../tests/UptimeHarbor.Application.Tests/Cluster/ReadinessAndFailureWindowTests.cs), [SenderAuthorityGateTests](../../tests/UptimeHarbor.Application.Tests/Cluster/SenderAuthorityGateTests.cs), ClusterRuntimeStateTests | Production policy/gate: minority/asymmetry/stale evidence, отменённый consensus, смена term, drain/renew/applied attempt, expiry/pause/clock, неизвестные зависимости закрывают новые попытки; положительный путь также проверен. Native DotNext elections/majority commit и partitions живой сети не доказаны |
+| Идемпотентность, Pending/controls и latched fault | PendingCommandTests, RevisionReducerTests, AdministrationCommandTests; [ProjectionTransactionTests](../../tests/UptimeHarbor.Infrastructure.Tests/Persistence/ProjectionTransactionTests.cs), AdapterWiringTests | Повтор OperationId/потерянный ответ, Replace/Cancel против принятия, конфликт без отката, fault до/после fake commit и replay без повторного эффекта; apply fault не снимается простым replay/CanConnect. Fake session не доказывает SQL locking/atomicity |
+| Принятый общий Administrator, вход и отзыв сессий | AcceptedAdministratorTests, SharedUserManagementTests, AcceptedSignInTests, AcceptedCookieTests, AccountSessionTests, AdministrationSecurityTests | Accepted state важнее claims; Pending/inactive/deleted deny, общий credential на двух локальных экземплярах, уникальный login/последний admin/self-action, новая RecoveryVersion и apply во время входа, безопасные DTO/логи. Изолированный authentication/SignalR не доказывает browser/WebSocket |
+| Сохранность инцидентов и доставки | MonitoringAvailabilityTests, MonitoringIncidentTests, DeliveryLedgerTests; [AcceptedDeliveryTests](../../tests/UptimeHarbor.Infrastructure.Tests/Cluster/AcceptedDeliveryTests.cs), ClusterTestDeliveryTests | Production reducer/dispatcher сохраняют intent/attempt/result, известный success не повторяется, ambiguous timeout не синтезирует успех, поздний success/unbind даёт recovery, чаты независимы, follower test-send заново авторизуется. Fake sender не доказывает exactly-once; внешнее неопределённое окно допускает редкий дубль |
+| Bootstrap/join/rejoin, snapshot и история | AccountBootstrapTests, SignedRecoveryAdmissionTests, PersistentMembershipTests, RevisionRecoveryTests, RevisionSnapshotTests, RaftStorageTests | Точный singleton bootstrap, запрет независимого account при Join/Restart и nonempty/clone; snapshot/replay accounts/credentials/tombstones без local secrets/sessions, held backup Pending. Настоящий временный WAL/reopen и native store подтверждают локальный формат/API; crash/fsync, SQL install и живой Join не доказаны |
+| Ручное управление и аварийные границы | ClusterOperationsTests, ClusterRuntimeStateTests, ClusterLocalControlTests, EmergencyRecoveryTests, RevisionBoundaryTests | Неизвестные/отозванные proofs закрыты; accepted lifecycle/internal provenance; signature/challenge/CA/SAN/pin, отсутствие автоматического enable после restart/двух лет времени, ResumeConsensus отдельно от Enable; выбранный отставший срез и реальная attempt history. Подпись проверяет подтверждение специалиста, а не питание/autostart/firewall или фактический отзыв token |
+| UI/API и frontend | AdministrationHttpTests/DiagnosticTests/SecurityTests, [clusterAdministration.test.mts](../../tests/Frontend/clusterAdministration.test.mts), остальные два frontend-файла | MVC serialization/auth/antiforgery/202, безопасная диагностика, OperationId/retry/rebase/held/stale response/reconnect на DOM/fetch stubs; Browser/mobile/CSP/WebSocket и настоящий HTTP pipeline отдельно не выполнялись |
+
+### Раздельные свидетельства и непроверенный объём
+
+- **Новый фактический результат агента:** сборки и изолированные наборы из таблицы выше; сверка контрактов, файловых ссылок/якорей, навигации, solution items и строгого UTF-8/BOM/окончаний строк. Документы завершённых 01–09, включая cancelled 09.2/09.3, сохраняются побайтово при смене пути папки плана; секретная конфигурация и migrations не меняются.
+- **Сообщение пользователя и исходная диагностика, без повторного воспроизведения в 10:** после 09 обычный bin Infrastructure.Tests содержал старую Domain.dll и давал MissingMethodException для DeliveryIntent.RestoreAttempts: 18/18 падений до обычной сборки, 18/18 успешных после неё, затем 198 выбранных Infrastructure из обычного bin успешны; исходники не менялись. Пользователь подтвердил отсутствие ошибок в Visual Studio. Это не новое наблюдение cluster runtime. В 10 использован свежий build выбранного output; обычный bin повторно не проверялся.
+- **Не проверено внешне:** SQL/schema/constraints/locking/atomicity (также SQLite/provider tests), hosting/Docker, peers/HTTP/TLS/CRL/elections/partition/process failures, monitoring endpoints, browser/mobile/SignalR, Telegram/failover, физическое fencing/token/CA revocation, backup/restore/rollback/provisioning/deployment. Часовая цель догона трёх узлов/около 30 приложений не измерена. Необязательные 10.2–10.5 остаются not-started, внешняя приёмка пользователем не выполнена.
+
+Исправлены документальные расхождения с уже реализованными workers/UI/lifecycle и разницей startup Disabled/Enabled; подробности актуальны в Configuration, Deployment, Database migrations и Cluster runtime. Поведение кода не менялось. Default Disabled, локальные секреты, accepted pipeline, сценарные UoW, RecoveryVersion, latched apply fault, sender gate и настоящая история доставки сохранены. Git и команды runbook не выполнялись.
+
+Финальная статическая сверка: 871 файловая ссылка и 140 Markdown-якорей в 86 Markdown-файлах (84 Documentation плюс корневые README/AGENTS) разрешаются; все 84 документа включены в solution, все 86 solution items существуют. 46 документов завершённых 01–09 и четыре документа необязательных 10.2–10.5 побайтово совпадают с исходным снимком по новому пути папки. Историческое тело Testing.md от раздела 09 сохранено целиком. Изменения ограничены документацией и solution items; исходники, тесты, project-файлы, секретная конфигурация и generated migrations/model совпадают с исходным снимком. Строгий UTF-8, отсутствие U+FFFD/четырёх вопросительных знаков/проверенных признаков mojibake, исходные BOM и типы EOL проверены; смешанные окончания строк не нормализованы.
+
+Следующий самостоятельный шаг — [подготовка и проверка одного узла на ПК, затем последовательный ввод production](Cluster%20operations.md#самостоятельная-проверка-пк-разработчика-затем-production). Подготовленная инструкция не является успешным запуском/restore и не расширяет разрешения агента. После этапа 10 работа остановлена.
+
 ## Проверка этапа 09
 
 2026-10-30 завершены только активные 09.1/09.4/09.5. Согласованный минимальный порядок 10 использован внутри 09; 10 отдельно не начинался. Перед изменениями выполнены все разрешённые изолированные наборы: Domain 36, Application 215, выбранные Infrastructure 165, весь Web 115 (531 .NET), все три frontend-файла (18). Ошибок и пропусков исходной проверки не было. Полный Infrastructure с provider tests не запускался по ограничению задачи.

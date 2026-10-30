@@ -18,7 +18,7 @@
 | Внешняя конфигурация и секреты | [Configuration.md](Configuration.md) |
 | Сборки, тесты и пределы доказательств | [Testing.md](Testing.md) |
 | Развёртывание и эксплуатационные ограничения | [Deployment.md](Deployment.md) |
-| Первый запуск, join, membership, TLS, обслуживание и rollback | [Cluster operations.md](Cluster%20operations.md) |
+| Самостоятельная проверка ПК → production, первый запуск, join, membership, TLS, обслуживание и rollback | [Cluster operations.md](Cluster%20operations.md) |
 | Backup/rejoin и ручное аварийное восстановление | [Cluster recovery.md](Cluster%20recovery.md) |
 | Офлайн-инструмент и подписанные control-файлы | [Cluster control files.md](Cluster%20control%20files.md) |
 

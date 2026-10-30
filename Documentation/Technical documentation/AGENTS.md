@@ -1,6 +1,6 @@
 # Technical documentation
 
-- Cluster operations.md владеет первым запуском/join/membership/TLS/maintenance/rollback, Cluster recovery.md — backup/rejoin/ручным аварийным выбором, Cluster control files.md — офлайн-командами и подписанными форматами. Не выдавать ручную isolation attestation за автоматическую проверку питания/firewall; commands только описывать, внешнюю приёмку учитывать отдельно.
+- Cluster operations.md владеет первым запуском/join/membership/TLS/maintenance/rollback и порядком самостоятельной проверки ПК → постепенный production; каждый шаг содержит предпосылки, ожидаемый результат, остановку и диагностику. Cluster recovery.md — backup/rejoin/ручным аварийным выбором, Cluster control files.md — офлайн-командами и подписанными форматами. Не выдавать ручную isolation attestation за автоматическую проверку питания/firewall; commands только описывать, внешнюю приёмку учитывать отдельно.
 
 ## Назначение
 

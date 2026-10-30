@@ -21,7 +21,7 @@ Production capture, accepted observations/frontiers, incidents/events/intents и
 
 ## Принятый способ применения
 
-UptimeHarbor автоматически применяет pending migrations при старте Web. `InitializeInfrastructureAsync` создаёт scope и выполняет `DataBaseCheckUpService<UptimeHarborDbContext>` до bootstrap Identity:
+В Disabled UptimeHarbor автоматически применяет pending migrations при старте Web. `InitializeInfrastructureAsync` создаёт scope и выполняет `DataBaseCheckUpService<UptimeHarborDbContext>` до legacy bootstrap Identity:
 
 1. проверяет доступность SQL Server;
 2. получает список pending migrations;
@@ -31,7 +31,7 @@ UptimeHarbor автоматически применяет pending migrations п
 
 Database startup ограничен 60 секундами. Ошибка подключения, backup, migration или timeout останавливает запуск; fallback с пропуском миграций отсутствует. Connection string, SQL command и backup path не логируются, имена pending migrations логируются.
 
-Механизм рассчитан на один Web-процесс. Координация конкурентного применения миграций несколькими экземплярами не реализована, поэтому при обновлении нельзя одновременно запускать несколько новых экземпляров.
+Механизм рассчитан на один Web-процесс в Disabled. В Bootstrap/Join/Restart `InitializeInfrastructureAsync` возвращается до этой процедуры: схему каждой SQL-проекции подготавливает отдельно разрешённая операция окружения без запуска legacy bootstrap. ClusterDatabaseProbe проверяет connectivity и отсутствие pending migrations, но не применяет их. Координация конкурентного применения миграций несколькими экземплярами не реализована; подготовку схемы сериализовать и не включать workers до её подтверждения.
 
 Перед migration backup создаётся через `BACKUP DATABASE`. На Linux используется SQL Server path `/var/opt/mssql/backups`, на остальных платформах — каталог `Backups` рядом с исполняемым Web-приложением. Путь интерпретируется SQL Server host; его service account должен иметь право записи. На Windows приложение создаёт локальный каталог, но для удалённого SQL Server оператор должен обеспечить соответствующий доступный server-side path.
 

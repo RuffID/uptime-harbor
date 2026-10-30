@@ -15,7 +15,7 @@
 ## Планы и история
 
 - [Plans/README.md](Plans/README.md) — активные планы и правила их оформления.
-- [Несколько узлов, синхронизация и общие администраторы](Plans/multi-node-sync-and-permissions-2026-10-18-%28in-progress%29/main.md) — `in-progress`: 01–09 completed с cancelled 09.2/09.3; 10 not-started. Реализованы accepted pipeline/UI и production controlled enable, membership/trust, ручная аварийная подготовка, maintenance и safe diagnostics. [Первый запуск/обслуживание](Technical%20documentation/Cluster%20operations.md), [recovery](Technical%20documentation/Cluster%20recovery.md), [control-файлы](Technical%20documentation/Cluster%20control%20files.md). Default Disabled сохранён; текущая установка не включалась. 582 .NET и 18 frontend tests успешны, внешняя приёмка отдельно. После 09 работа остановлена.
+- [Несколько узлов, синхронизация и общие администраторы](Plans/multi-node-sync-and-permissions-2026-10-18-%28completed%29/main.md) — `completed` (2026-10-30): разработка 01–10 и обязательные 10.1/10.6 завершены; 09.2/09.3 cancelled, необязательные внешние 10.2–10.5 not-started. Новый прогон: четыре production build без предупреждений/ошибок, 582 .NET и 18 frontend tests успешны. Default Disabled сохранён, установка не включалась, внешняя приёмка пользователем не выполнена. Подготовлен порядок ПК → постепенный production с остановками и диагностикой; SQL/сеть/браузер/Telegram/restore, физическое fencing и часовой догон не подтверждены. После 10 работа остановлена.
 - [Первичное техническое ревью v1](Technical%20documentation/V1%20Technical%20Review%20Findings.md).
 - [Повторное техническое ревью v1](Technical%20documentation/V1%20Follow-up%20Technical%20Review.md).
 
