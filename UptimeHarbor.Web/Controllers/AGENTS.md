@@ -1,5 +1,7 @@
 # HTTP API
 
+ClusterAdministrationController предоставляет accepted snapshot, постраничный local Pending, безопасный operation result и общую диагностику через /api/admin/cluster. Изменения требуют typed settings/OperationId/base revision, Administrator и antiforgery; LocalPending возвращает 202. Legacy read models и writers в enabled отклоняются фильтром; общие Users read/commands и accepted test-send сохраняются. Disabled использует прежние маршруты.
+
 Контроллеры разделяют защищённое чтение панели и административные операции с объектами, пользователями и уведомлениями. Они вызывают Application и используют `JsonResultMapper`.
 
 Cluster test-send возвращает 202 после durable постановки через IAcceptedTestDelivery; это не подтверждение Telegram success. Ошибки сохраняют общий envelope и исходный статус; Disabled test-send остаётся синхронным.

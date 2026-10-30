@@ -1,6 +1,8 @@
 # HTTP request-модели
 
-Отдельные request-типы описывают настройки объектов, пользователей, видимость и Telegram bindings.
+CancelPendingRequest содержит только новый OperationId отмены. Target загружается сервером из защищённой local Pending; actor, payload, digest и provenance из запроса не принимать.
+
+Отдельные request-типы описывают настройки объектов, пользователей и Telegram bindings; resource permissions отсутствуют.
 
 Настройки контейнера передают nullable `ServerId` (null снимает связь), настройки сервера — optional `ContainerLinks` с версиями и выбранностью контейнеров. Старый вложенный POST и новый общий POST контейнеров используют одну Application-команду.
 

@@ -1,5 +1,7 @@
 # Изолированные проверки cluster hosting
 
+- Administration HTTP/security/diagnostic tests вызывают production API/filter/read models с реальными MVC options и изолированными хранилищем/health. Проверять 202 как local queue, closed auth, safe conflict variants, stale Telegram и различие peer outage/локальная БД/follower; не называть это browser или peer-network acceptance.
+
 - Monitoring revision boundary проверяет совпадение storage generation с authenticated peer до dispatch; composition tests должны разрешать новые worker/pump/coordinator без host/WAL/HTTP, сохраняя закрытые gates.
 - В итоговом Web graph разрешается DeliverySenderConsensus; самостоятельный Infrastructure module сохраняет UnavailableSenderConsensus. Проверять отсутствие DI цикла writer/runtime/gate и сохранение закрытых readiness dependencies.
 

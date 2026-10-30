@@ -1,5 +1,10 @@
 # Доменная модель
 
+## Представления интерфейса (08)
+
+Новых доменных сущностей и инвариантов хранения нет. Application Administration DTO отделяют accepted configuration, local Pending, controls/results и safe conflict variants. Account self/last-admin, tombstones, observer поколения, delivery history и recovery entitlements остаются в существующем reducer/домене; UI их не обходит.
+
+
 ## Реальная история доставки (07)
 
 DeliveryIntent.RestoreAttempts восстанавливает состояние из непрерывной истории настоящих DeliveryAttempt с номерами 1–5: AttemptCount и ActiveAttemptId выводятся из неё. Success, retry deadline, terminal completion и summary suppression должны соответствовать истории. Application DeliveryProjection использует этот контракт вместо фиктивных BeginAttempt для счётчика.

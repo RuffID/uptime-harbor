@@ -104,6 +104,8 @@ public class SharedAccountFixture
     public class MemoryPending : IPendingControlUnitOfWork, IPendingOperationRepository
     {
         public Dictionary<Guid, PendingOperation> Items { get; } = [];
+        public int PageReads { get; private set; }
+        public Action? BeforePage { get; set; }
         public IPendingOperationRepository PendingOperations => this;
 
         public Task<PendingOperation?> GetAsync(Guid operationId, CancellationToken cancellationToken = default)
@@ -119,6 +121,8 @@ public class SharedAccountFixture
         public Task<IReadOnlyList<PendingOperation>> GetPageAsync(int offset, int limit, bool readyOnly,
             CancellationToken cancellationToken = default)
         {
+            PageReads++;
+            BeforePage?.Invoke();
             return Task.FromResult<IReadOnlyList<PendingOperation>>(Items.Values.Skip(offset).Take(limit).ToArray());
         }
 

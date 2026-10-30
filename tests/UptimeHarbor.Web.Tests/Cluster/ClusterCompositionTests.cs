@@ -74,6 +74,7 @@ public class ClusterCompositionTests
         services.AddScoped<IUserAccessContext, UnknownUser>();
         services.AddScoped<IAdministratorAccessPolicy, AcceptedAdministratorAccessPolicy>();
         services.AddScoped<IAccountCredentialService, UnusedCredentials>();
+        services.AddScoped<ClusterAdministrationAccess>();
         services.AddClusterInfrastructure(new ConfigurationBuilder().Build());
         services.AddClusterWeb();
         using ServiceProvider provider = services.BuildServiceProvider(new ServiceProviderOptions
@@ -86,6 +87,7 @@ public class ClusterCompositionTests
         ClusterPeerRuntime runtime = provider.GetRequiredService<ClusterPeerRuntime>();
         IClusterStateView state = provider.GetRequiredService<IClusterStateView>();
         MembershipCoordinator coordinator = scope.ServiceProvider.GetRequiredService<MembershipCoordinator>();
+        ClusterBrowserDiagnostics diagnostics = scope.ServiceProvider.GetRequiredService<ClusterBrowserDiagnostics>();
 
         // Assert
         Assert.Null(runtime.Raft);
@@ -93,6 +95,7 @@ public class ClusterCompositionTests
         Assert.False(state.Accepted.AccountStateConfirmed);
         Assert.False(provider.GetRequiredService<NodeReadiness>().CanSend(state));
         Assert.NotNull(coordinator);
+        Assert.False(diagnostics.Read().Success);
         Assert.IsType<RevisionClusterRecovery>(provider.GetRequiredService<IClusterRecovery>());
         Assert.IsType<UnavailableRecoveryAdmission>(provider.GetRequiredService<IRecoveryAdmission>());
         Assert.IsType<DeliverySenderConsensus>(provider.GetRequiredService<ISenderConsensus>());

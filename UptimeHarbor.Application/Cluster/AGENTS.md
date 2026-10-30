@@ -1,5 +1,9 @@
 # Cluster application
 
+- Browser read models — только Administration* DTO через ClusterAdministrationAccess: whitelist accepted/Pending/conflict, без внутренних image/command/credentials. После async чтения Pending повторять accepted authorization; известный result перекрывает stale local/held state без освобождения неизвестной заявки.
+- ClusterConfigurationCommands готовит типизированные настройки и использует существующие Pending/Replace/Cancel. Retry сохраняет исходные ID/timestamp/generation; глобальное удаление требует явного подтверждения. Held допускает безопасный Cancel; подтверждение актуальности создаёт Replace с текущей base revision. Победивший commit не откатывается.
+- AdministrationMonitoring читает свежесть принятых фактов по observers, включая узлы; чтение не создаёт evaluations/incidents. Metadata и uptime разных NodeId не сводить в одно значение.
+
 - Monitoring-команды имеют отдельный закрытый SystemSource и admitted NodeId/storage generation; не подставлять Administrator. Coordinator требует реальный локальный leader/term/catch-up, пользовательские команды сохраняют прежнюю авторизацию.
 - Capture/sequence — одна локальная транзакция через существующий UoW и singleton gate. Reducer принимает raw facts/frontiers, сводит availability отдельно от coverage и создаёт incident/event/intents одним write set; clock/gap/stale evidence не доказывает outage/recovery.
 - DeliveryReducer принимает RenewSender/BeginDelivery/RecordDelivery/AbandonDelivery тем же журналом, с internal provenance и admitted storage generation. DeliveryProjection восстанавливает счётчик только из настоящей непрерывной истории attempts; не создавать синтетические BeginAttempt или success.

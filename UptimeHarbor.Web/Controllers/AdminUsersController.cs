@@ -13,6 +13,8 @@ namespace UptimeHarbor.Web.Controllers;
 [ApiController]
 [Route("api/admin/users")]
 [Authorize(Roles = ApplicationRoles.ADMINISTRATOR)]
+[ServiceFilter(typeof(UptimeHarbor.Web.Security.ClusterLegacyWriterFilter))]
+[ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
 public class AdminUsersController(IUserManagementService userManagementService,
     SharedUserManagementService sharedUsers, IOptions<ClusterOptions> cluster) : ControllerBase
 {

@@ -64,7 +64,8 @@ public class PendingCommandService(IPendingControlUnitOfWork work, IUserAccessCo
                 }
 
                 EnsureDigest(target.Digest, RevisionCodec.Digest(command.Target));
-                if (target.State == PendingState.NeedsUserConfirmation && confirmedTargetId != target.Id)
+                if (target.State == PendingState.NeedsUserConfirmation && confirmedTargetId != target.Id
+                    && command.Action != "Cancel")
                 {
                     throw new InvalidOperationException("PendingRequiresReconciliation");
                 }

@@ -43,7 +43,8 @@ public class SharedUserManagementService(IUserAccessContext user, IAdministrator
         {
             return ServiceResult<AccountOperationDto>.Fail(ServiceErrorType.Forbidden, "Требуется активный принятый администратор.");
         }
-        catch (InvalidOperationException exception) when (exception.Message is "PendingQueueFull" or "IdempotencyKeyReuse")
+        catch (InvalidOperationException exception) when (exception.Message is "PendingQueueFull" or "IdempotencyKeyReuse"
+            or "PendingTargetMissing" or "PendingRequiresReconciliation" or "StaleConfirmation" or "ExplicitReplacementRequired")
         {
             return ServiceResult<AccountOperationDto>.Fail(ServiceErrorType.Conflict, "Заявка не сохранена: очередь заполнена или OperationId уже используется.");
         }
@@ -59,7 +60,12 @@ public class SharedUserManagementService(IUserAccessContext user, IAdministrator
         }
 
         if (request.OperationId == Guid.Empty || request.UserId == Guid.Empty || nodeId == Guid.Empty
-            || request.BaseRevision < 0 || request.Action is not ("Create" or "Update" or "Password" or "SetEnabled" or "Delete"))
+            || request.BaseRevision < 0 || request.Action is not ("Create" or "Update" or "Password" or "SetEnabled" or "Delete")
+            || request.TargetOperationId.HasValue != request.ControlOperationId.HasValue
+            || request.TargetOperationId == Guid.Empty || request.ControlOperationId == Guid.Empty
+            || request.TargetOperationId == request.OperationId || request.ControlOperationId == request.OperationId
+            || request.TargetOperationId.HasValue && request.TargetOperationId == request.ControlOperationId
+            || request.ConfirmRestored && !request.TargetOperationId.HasValue)
         {
             return InvalidRequest();
         }
@@ -73,11 +79,14 @@ public class SharedUserManagementService(IUserAccessContext user, IAdministrator
         }
 
         // Retry читает уже подготовленный защищённый вариант: hash salt и timestamp не генерируются заново.
-        PendingOperation? existing = await work.PendingOperations.GetAsync(request.OperationId, token);
+        Guid submissionId = request.ControlOperationId ?? request.OperationId;
+        PendingOperation? existing = await work.PendingOperations.GetAsync(submissionId, token);
         if (existing is not null)
         {
             RevisionCommand original = RevisionCodec.Decode(protection.Unprotect(existing.ProtectedPayload));
-            if (!Matches(request, original) || original.ActorUserId != user.UserId || original.OriginNodeId != nodeId)
+            RevisionCommand valueCommand = original.Replacement ?? original;
+            if (!Matches(request, valueCommand) || original.Target?.OperationId != request.TargetOperationId
+                || original.ActorUserId != user.UserId || original.OriginNodeId != nodeId)
             {
                 return ServiceResult<AccountOperationDto>.Fail(ServiceErrorType.Conflict, "Идентификатор операции уже используется.");
             }
@@ -87,12 +96,12 @@ public class SharedUserManagementService(IUserAccessContext user, IAdministrator
                 return ServiceResult<AccountOperationDto>.Fail(ServiceErrorType.Conflict, "Заявка требует подтверждения после восстановления.");
             }
 
-            SubmissionReceipt retry = await pending.SubmitAsync(original, nodeId, token);
+            SubmissionReceipt retry = await SubmitPreparedAsync(original, request, nodeId, token);
             return Result(request.UserId, retry);
         }
 
         RevisionImage image = state.Current!;
-        if (image.Results.ContainsKey(request.OperationId))
+        if (image.Results.ContainsKey(submissionId))
         {
             // Результат чужой/утраченной локальной заявки читается отдельно; не создаём новый payload с прежним ID.
             return ServiceResult<AccountOperationDto>.Fail(ServiceErrorType.Conflict, "Операция уже решена. Запросите её результат.");
@@ -213,10 +222,41 @@ public class SharedUserManagementService(IUserAccessContext user, IAdministrator
             ClusterId = image.ClusterId, ClusterGeneration = image.Generation, OperationId = request.OperationId,
             OriginNodeId = nodeId, ActorUserId = user.UserId, ActorRevision = state.Find(user.UserId)!.Revision,
             EntityId = request.UserId, EntityKind = DeletedEntityKind.Account, BaseRevision = request.BaseRevision,
-            Action = action, AccountAction = request.Action, Value = payload, CreatedAtUtc = time.GetUtcNow()
+            Action = action, AccountAction = request.Action, Value = payload, CreatedAtUtc = time.GetUtcNow(),
+            ResolvesConflictId = request.ResolvesConflictId
         };
-        SubmissionReceipt receipt = await pending.SubmitAsync(command, nodeId, token);
+        if (request.TargetOperationId is Guid targetId)
+        {
+            PendingOperation? target = await work.PendingOperations.GetAsync(targetId, token);
+            if (target is null)
+            {
+                return ServiceResult<AccountOperationDto>.Fail(ServiceErrorType.NotFound, "Локальная заявка не найдена.");
+            }
+
+            RevisionCommand original = RevisionCodec.Decode(protection.Unprotect(target.ProtectedPayload));
+            if (original.EntityId != request.UserId || original.EntityKind != DeletedEntityKind.Account
+                || original.Action is not ("Upsert" or "Delete"))
+            {
+                return InvalidRequest();
+            }
+
+            command = command with { OperationId = request.ControlOperationId!.Value, Action = "Replace", Value = null,
+                ResolvesConflictId = null, Target = original, Replacement = command };
+        }
+
+        SubmissionReceipt receipt = await SubmitPreparedAsync(command, request, nodeId, token);
         return Result(request.UserId, receipt);
+    }
+
+    private async Task<SubmissionReceipt> SubmitPreparedAsync(RevisionCommand command, AccountChangeRequest request,
+        Guid nodeId, CancellationToken token)
+    {
+        if (request.ConfirmRestored)
+        {
+            return await pending.ConfirmRestoredAsync(request.TargetOperationId!.Value, command, nodeId, token);
+        }
+
+        return await pending.SubmitAsync(command, nodeId, token);
     }
 
     public ServiceResult<AccountOperationDto> Find(Guid operationId)
@@ -239,7 +279,8 @@ public class SharedUserManagementService(IUserAccessContext user, IAdministrator
     private bool Matches(AccountChangeRequest request, RevisionCommand original)
     {
         if (original.EntityKind != DeletedEntityKind.Account || original.AccountAction != request.Action || original.EntityId != request.UserId
-            || original.BaseRevision != request.BaseRevision)
+            || original.BaseRevision != request.BaseRevision || original.ResolvesConflictId != request.ResolvesConflictId
+            || original.OperationId != request.OperationId)
         {
             return false;
         }
@@ -305,7 +346,7 @@ public class SharedUserManagementService(IUserAccessContext user, IAdministrator
         return ServiceResult<AccountOperationDto>.Fail(ServiceErrorType.Validation, "Некорректная команда пользователя.");
     }
 
-    private static ServiceResult<AccountOperationDto> Result(Guid userId, SubmissionReceipt receipt)
+    private ServiceResult<AccountOperationDto> Result(Guid userId, SubmissionReceipt receipt)
     {
         string status = "Pending";
         if (receipt.Result is not null)
@@ -314,6 +355,9 @@ public class SharedUserManagementService(IUserAccessContext user, IAdministrator
         }
 
         return ServiceResult<AccountOperationDto>.Ok(new AccountOperationDto(receipt.OperationId, userId,
-            status, receipt.Result?.AppliedRevision, receipt.Result?.ConflictId));
+            status, receipt.Result?.AppliedRevision, receipt.Result?.ConflictId)
+        {
+            Outcome = AdministrationMapping.Operation(receipt, state.Current!)
+        });
     }
 }

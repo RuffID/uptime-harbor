@@ -1,5 +1,7 @@
 # Cluster application tests
 
+- Administration tests вызывают production query/factory/Pending/reducer: whitelist, auth до/после I/O, same resources, retry/lost response, controls/acceptance race, held backup, global delete, conflict rebase, observers и отдельные NodeChatRoute. Эти doubles не доказывают SQL locking/транзакции.
+
 - В сценариях bind/unbind/delete проверять Committed у самой подготовительной команды до проверки последствий: иначе rejected prerequisite может дать ложный успех проверки recovery/отсутствия отправки.
 
 - Monitoring/delivery tests используют фактические reducer/write set: независимые observer thresholds, generation/gap/dedup, coverage отдельно от outage, metadata по узлам, node routes, стабильные events/intents и offline summaries. Delivery proof в fixtures создаётся через реальные BeginDelivery/RecordDelivery; production confirmation не подделывать.

@@ -1,5 +1,12 @@
 # Telegram-уведомления
 
+## Управление и результаты в UI (08)
+
+Каждый активный принятый Administrator управляет общими Chat/Binding и независимыми NodeChatRoute по NodeId через typed Pending-команды. UI поясняет текущую проблему при новой привязке, отмену не начатого outage при unbind и заслуженный final recovery после успешного/позднего in-flight outage. Глобальное удаление показывает зависимости и требует подтверждения.
+
+Test-send с любого узла сохраняет стабильный OperationId и подаётся в принятую очередь главного; HTTP 202 означает local Pending, Committed — принятие команды очереди. Доставка видна отдельно по accepted intent/настоящим attempts. Terminal Failed и безопасная категория причины остаются в журнале; ручного retry нет. Telegram readiness Available/Unavailable/Unknown с известной причиной/возрастом отделена от ошибки отдельного чата и coverage. Новых sender-вызовов, proof или открытых gates UI не создаёт.
+
+
 ## Принятая доставка этапа 07
 
 Enabled-путь восстанавливает очередь непосредственно из принятого MonitoringImage: incidents, events, recipients/intents, immutable summaries и полная история attempts/results. Локальный legacy outbox и его claim не участвуют. DeliveryQueue.Validate проверяет историю до renewal; известный accepted success, Cancelled и terminal Failed не становятся due. Logical key incident + kind + chat сохраняется при rebind; Update дополнительно различает event. BindingGeneration проверяется отдельно. Инцидент Node использует принятые NodeChatRoute именно своего NodeId.

@@ -14,6 +14,19 @@ public class ClusterHealthWorker(IOptions<ClusterOptions> options, ClusterDataba
 {
     private readonly Dictionary<Guid, (HealthResult Result, long At)> connections = new();
     private readonly object sync = new();
+    private readonly Dictionary<Guid, (PeerHealthSnapshot Health, long At)> peers = new();
+
+    public IReadOnlyDictionary<Guid, ObservedPeerHealth> Peers
+    {
+        get
+        {
+            lock (sync)
+            {
+                return peers.ToDictionary(entry => entry.Key, entry =>
+                    new ObservedPeerHealth(entry.Value.Health, timeProvider.GetElapsedTime(entry.Value.At)));
+            }
+        }
+    }
 
     public IReadOnlyDictionary<Guid, HealthResult> Connections
     {
@@ -106,6 +119,11 @@ public class ClusterHealthWorker(IOptions<ClusterOptions> options, ClusterDataba
 
             failureWindow.ObserveAuthenticated(health);
             observed = health;
+            lock (sync)
+            {
+                peers[peer.NodeId] = (health, timeProvider.GetTimestamp());
+            }
+
             RecordConnection(peer.NodeId, new("Ready", "PeerReachable", TimeSpan.Zero));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

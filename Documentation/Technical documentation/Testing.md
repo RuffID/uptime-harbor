@@ -1,5 +1,39 @@
 # Тестирование
 
+## Проверка этапа 08
+
+2026-10-29 реализованы 08.1–08.5; согласованный минимальный порядок этапа 10 использован внутри 08. Самостоятельные 09/10 не начинались. Четыре production-проекта отдельно и последовательно собраны Debug --no-restore: 0 предупреждений и ошибок. Web target компилировал Razor и строгий TypeScript без hosting. Test builds общих проектов также последовательны.
+
+| Набор | Успешно | Ошибки | Пропуски |
+| --- | --- | --- | --- |
+| Domain, весь изолированный проект | 36 | 0 | 0 |
+| Application, весь изолированный проект | 215 | 0 | 0 |
+| Infrastructure, выбранные ниже классы | 165 | 0 | 0 |
+| Web, выбранные ниже классы | 88 | 0 | 0 |
+| Frontend, два файла ниже | 15 | 0 | 0 |
+
+Статическая проверка: 102 новых/изменённых файла проверены строгим UTF-8 decoder; нет U+FFFD, последовательностей из четырёх вопросительных знаков и обнаруженных признаков mojibake. Исходные BOM и LF/CRLF сохранены. Новые/изменённые C#/TypeScript-файлы меньше 20000 байт. Проверены 177 файловых ссылок и 38 anchors изменённой документации; все 81 Markdown-документ включены в solution items, отсутствующих файлов нет. 34 документа завершённых этапов 01–07 и 13 документов 09–10 побайтово совпадают с исходным снимком. Удалённых файлов нет; solution, migrations и конфигурационные примеры не менялись.
+
+Всего 504 .NET и 15 frontend тестов; предыдущие этапы отдельно не суммируются. Новые Administration tests проверяют реальные query/factory/Pending/reducer, safe MVC DTO, active/anonymous/disabled API до I/O и после async read, одинаковые ресурсы, distinct accepted/Pending, retry/lost response, Replace/Cancel race и replacement outcome, held backup, fresh base/conflict resolution, глобальное удаление, observers и NodeChatRoute. Account controls проверяют новые credentials и прежние guards. HTTP 202 проверен прямым вызовом контроллера как durable очередь без sender success. Диагностика отличает follower/локальную БД/потерю peers, stale Telegram и утрату актуального leader.
+
+Frontend вызывает production editor/draft/refresh с DOM stubs и compiled API с fake fetch: неизменный OperationId, сохранение ввода при ошибке сети/конфликте/потере ответа, явный rebase, held confirmation, пароль только в памяти, stale responses и повторные защищённые reads после reconnect, antiforgery/202/403. Регрессии 04–07 включают авторизацию/session epoch/RecoveryVersion/latched fault, accepted delivery gate/историю/retry/late success/replay.
+
+Финальные команды из корня репозитория:
+
+```powershell
+dotnet build .\UptimeHarbor.Domain\UptimeHarbor.Domain.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\domain\
+dotnet build .\UptimeHarbor.Application\UptimeHarbor.Application.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\application\
+dotnet build .\UptimeHarbor.Infrastructure\UptimeHarbor.Infrastructure.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\infrastructure\
+dotnet build .\UptimeHarbor.Web\UptimeHarbor.Web.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\web\
+dotnet test --project .\tests\UptimeHarbor.Domain.Tests\UptimeHarbor.Domain.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\domain-tests\
+dotnet test --project .\tests\UptimeHarbor.Application.Tests\UptimeHarbor.Application.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\application-tests\
+dotnet test --project .\tests\UptimeHarbor.Infrastructure.Tests\UptimeHarbor.Infrastructure.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\infrastructure-tests\ -- --filter-class UptimeHarbor.Tests.Infrastructure.Identity.AcceptedSignInTests --filter-class UptimeHarbor.Tests.Infrastructure.Identity.AcceptedCookieTests --filter-class UptimeHarbor.Tests.Infrastructure.Identity.AccountBootstrapTests --filter-class UptimeHarbor.Tests.Infrastructure.Cluster.* --filter-class UptimeHarbor.Tests.Infrastructure.Persistence.ProjectionTransactionTests --filter-class UptimeHarbor.Tests.Infrastructure.Persistence.SharedStorageModelTests --filter-class UptimeHarbor.Tests.Infrastructure.Persistence.SharedStorageMigrationTests --filter-class UptimeHarbor.Tests.Infrastructure.Persistence.SharedStorageRegistrationTests --filter-class UptimeHarbor.Tests.Infrastructure.Monitoring.HttpMonitoringEndpointCheckerTests --filter-class UptimeHarbor.Tests.Infrastructure.Monitoring.MonitoringCycleRunnerTests --filter-class UptimeHarbor.Tests.Infrastructure.Telegram.TelegramHttpNotificationSenderTests
+dotnet test --project .\tests\UptimeHarbor.Web.Tests\UptimeHarbor.Web.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\web-tests\ -- --filter-class UptimeHarbor.Tests.Web.Cluster.* --filter-class UptimeHarbor.Tests.Web.DependencyInjection.* --filter-class UptimeHarbor.Tests.Web.AdminUsersControllerAuthorizationTests --filter-class UptimeHarbor.Tests.Web.AdminNotificationsControllerAuthorizationTests --filter-class UptimeHarbor.Tests.Web.ReadContractSecurityTests --filter-class UptimeHarbor.Tests.Web.WebPerimeterSecurityTests --filter-class UptimeHarbor.Tests.Web.DashboardSignalRTests --filter-class UptimeHarbor.Tests.Web.ModelStateErrorContractTests --filter-class UptimeHarbor.Tests.Web.JsonResultMapperTests --filter-class UptimeHarbor.Tests.Web.HttpClientContractTests
+node --experimental-strip-types --test tests/Frontend/clusterAdministration.test.mts tests/Frontend/searchableSelects.test.mts
+```
+
+Новой migration нет; исторические migrations/designer/snapshot не изменялись, обе подготовленные migrations не применялись. Default Disabled и admission/trust/activation/manual-enable/sender/delivery gates сохранены. Git, SQL/БД (включая SQLite), provider tests, приложение/hosting, Docker, реальные peers/monitoring endpoints/Telegram и deployment не запускались. Bootstrap/mobile/CSP/WebSocket/browser acceptance, SQL transaction semantics/locking, crash/fsync/живая сеть и exactly-once не подтверждены. Часовой догон трёх узлов/около 30 приложений остаётся целью отдельного наблюдения.
+
 ## Проверка этапа 07
 
 Статическая проверка: 94 новых/изменённых файла проверены строгим UTF-8 decoder; нет U+FFFD, последовательностей из четырёх знаков вопроса и обнаруженных признаков mojibake. Исходные LF/CRLF и BOM сохранены без массовой нормализации; новые/изменённые C# файлы меньше 20000 байт. Проверены Markdown-документы (81) и файловые ссылки (782), битых ссылок/отсутствующих solution items/не включённых документов нет. 29 документов завершённых этапов 01–06 и 19 документов 08–10 побайтово совпадают с исходным снимком задачи. Новых документов нет; solution items не менялись.

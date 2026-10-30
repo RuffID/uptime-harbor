@@ -1,5 +1,12 @@
 # Связь узлов, Raft и готовность
 
+## Безопасная диагностика в браузере (08)
+
+ClusterBrowserDiagnostics проверяет accepted Administrator и проецирует только явный ClusterDiagnosticDto: текущий узел/главный, роль/majority, applied/commit/lag, local Pending/held/delivery backlog, БД и Telegram readiness. ClusterHealthWorker хранит последний authenticated health и monotonic возраст в одном singleton, используемом hosted polling и query; browser GET не вызывает сеть/БД. Сырые Components и health payload не сериализуются.
+
+Follower, исправная локальная БД без peer-связи и известная неисправность БД показаны раздельно. Нет свежего matching term/membership health главного — Telegram Unknown; свежая проверка Telegram без sender readiness не означает Available. Причины — закрытый набор, без exception/секретов/обещанного срока. Majority подтверждается текущим локальным лидерским consensus; у follower без такого доказательства Unknown. UI не подтверждает activation/delivery или controlled enable; gates этапов 03–07 сохранены.
+
+
 ## Sender lifecycle этапа 07
 
 Web регистрирует production DeliverySenderConsensus, AcceptedDeliveryDispatcher и ClusterDeliveryWorker рядом с существующим журналом. Самостоятельный AddClusterInfrastructure сохраняет UnavailableSenderConsensus до сборки Web graph. ClusterRaftHandle хранит текущий native экземпляр для writer, устраняя цикл runtime → gate → dispatcher → writer → runtime; наличие handle не означает readiness.

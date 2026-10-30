@@ -12,6 +12,7 @@ namespace UptimeHarbor.Web.Controllers;
 [ApiController]
 [Route("api/admin/notifications")]
 [Authorize(Roles = ApplicationRoles.ADMINISTRATOR)]
+[ServiceFilter(typeof(UptimeHarbor.Web.Security.ClusterLegacyWriterFilter))]
 public class AdminNotificationsController(INotificationAdministrationService administrationService,
     IAcceptedTestDelivery? acceptedDelivery = null)
     : ControllerBase

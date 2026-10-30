@@ -53,6 +53,7 @@ public static class ServiceCollectionExtensions
         });
         services.AddHttpContextAccessor();
         services.AddScoped<IUserAccessContext, CurrentUserAccessContext>();
+        services.AddScoped<ClusterLegacyWriterFilter>();
         services.AddScoped<IObjectAdministrationChangePublisher, SignalRObjectAdministrationChangePublisher>();
         services.AddScoped<IMonitoringEventHandler, SignalRMonitoringEventHandler>();
 

@@ -1,5 +1,10 @@
 # Миграции SQL Server
 
+## Схема этапа 08
+
+Интерфейс/read DTO и controls используют существующие таблицы и protected Pending; новая migration не требуется. Historical migrations/designer/model snapshot не изменялись. Подготовленные 20261029053354_AddSharedClusterStorage и 20261029075201_AllowUniquenessConflictRevisions к БД в этой задаче не применялись.
+
+
 ## Схема этапа 07
 
 Production attempts/results, retry deadline, test actor, recovery entitlement и immutable summaries используют существующие таблицы/поля схемы 02. Изменён accepted image/projection contract, новая EF migration не требуется. Исторические migrations, generated designer/model snapshot не редактировались; 20261029053354_AddSharedClusterStorage и 20261029075201_AllowUniquenessConflictRevisions к БД не применялись.

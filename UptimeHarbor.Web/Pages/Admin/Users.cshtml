@@ -1,12 +1,19 @@
 @page
 @model UptimeHarbor.Web.Pages.Admin.UsersModel
 @inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@inject Microsoft.Extensions.Options.IOptions<UptimeHarbor.Infrastructure.Cluster.ClusterOptions> Cluster
 @{
     ViewData["Title"] = "Пользователи";
     string requestVerificationToken = Antiforgery.GetAndStoreTokens(ViewContext.HttpContext).RequestToken
         ?? throw new InvalidOperationException("Не удалось создать antiforgery token.");
 }
 
+@if (Cluster.Value.Enabled)
+{
+    <partial name="_ClusterAdministration" model='@("Account")' />
+}
+else
+{
 <meta name="request-verification-token" content="@requestVerificationToken" />
 <meta name="current-user-id" content="@User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value" />
 
@@ -52,9 +59,6 @@
                         <input class="form-check-input" id="userEnabled" name="isEnabled" type="checkbox" role="switch" data-animated-switch data-user-enabled />
                         <label class="form-check-label" for="userEnabled">Учётная запись включена</label>
                     </div>
-                    <hr class="border-secondary-subtle my-4" />
-                    <h3 class="h6 mb-3">Доступ к объектам <span data-visibility-help></span></h3>
-                    <div class="d-flex flex-column gap-2 mb-3" data-visibility-list></div>
                 </div>
                 <div class="modal-footer justify-content-between">
                     <button type="button" class="btn btn-outline-danger" data-action="delete-user">Удалить</button>
@@ -96,6 +100,14 @@
     </div>
 </div>
 
+}
 @section Scripts {
-    <script type="module" src="~/dist/pages/admin/users.js" asp-append-version="true"></script>
+    @if (Cluster.Value.Enabled)
+    {
+        <partial name="_ClusterScripts" />
+    }
+    else
+    {
+        <script type="module" src="~/dist/pages/admin/users.js" asp-append-version="true"></script>
+    }
 }

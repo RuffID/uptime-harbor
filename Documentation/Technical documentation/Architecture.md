@@ -1,5 +1,10 @@
 # Архитектура решения
 
+## Интерфейс общих данных (08)
+
+Application предоставляет ClusterAdministrationAccess, безопасные Administration DTO, accepted read model и typed команды поверх существующих Pending/controls/reducer. Web выбирает общий cluster UI для Index/Admin в enabled-режиме. SQL read/write legacy dashboard/объектов/чатов в этом режиме отклоняется фильтром; общие account endpoints и accepted test-send сохранены. Нового consensus, WAL, хранилища или схемы нет. Admission/trust/activation/manual-enable/delivery gates остаются закрытыми. Детали — [Web application.md](Web%20application.md#интерфейс-и-api-этапа-08).
+
+
 ## Поток принятой Telegram-доставки (07)
 
 Accepted incident/event/intent → восстановленная DeliveryQueue → SenderAuthorityGate → принятый BeginDelivery → внешний Telegram transport → локальный result UoW → существующий revision transport → RecordDelivery/reducer → общий projection commit → accepted result. RenewSender использует тот же DotNext consensus/WAL. Отдельной репликации или расширения legacy outbox нет.
@@ -10,7 +15,7 @@ Application владеет eligibility/retry/message/projection, Infrastructure 
 
 Endpoint/peer fact → локальный capture/sequence UoW → bounded revision transport → существующий RevisionReducer → monitoring write set → RevisionApplyEngine/SQL projection commit → accepted image. Raft log + snapshot сохраняют единственную принятую историю. Application рассчитывает доступность/coverage, incidents/events/intents и состав backlog без I/O; Infrastructure проверяет endpoint и хранит capture; Web собирает worker/pump/coordinator с transport/dispatcher.
 
-System monitoring commands имеют отдельную внутреннюю provenance, не фиктивного Administrator. Неизвестные recovery/activation/delivery порты не открываются. Sender/attempt producer подключён в 07; новый UI и controlled enable остаются 08/09. См. [Monitoring.md](Monitoring.md#распределённый-путь-этапа-06).
+System monitoring commands имеют отдельную внутреннюю provenance, не фиктивного Administrator. Неизвестные recovery/activation/delivery порты не открываются. Sender/attempt producer подключён в 07; общий UI реализован в 08; controlled enable остаётся этапом 09. См. [Monitoring.md](Monitoring.md#распределённый-путь-этапа-06).
 
 ## Текущее состояние
 
@@ -70,7 +75,7 @@ Application получает сведения о текущем пользова
 
 `MonitoringService` получает независимые результаты server/container endpoint, повторно проверяет актуальность включённого объекта и endpoint, вызывает доменные переходы и сохраняет через `IMonitoringUnitOfWork`. Optimistic concurrency отклоняет stale write. Outage/recovery payload добавляется в durable outbox в том же `SaveChangesAsync`, а `MonitoringStateChangedEvent` для SignalR публикуется только после успешного сохранения. HTTP, JSON, monitoring worker, Telegram outbox dispatcher и keyed-координация остаются в Infrastructure.
 
-`DashboardQuery` зависит от `IDashboardSnapshotReadQuery`, `IUserAccessContext` и `TimeProvider`. Infrastructure query проецирует materialized read records без endpoint URL; Application применяет сохранённую чистую `ObjectVisibilityPolicy`, выполняет поиск и рассчитывает uptime относительно UTC-времени snapshot. Администратор получает все цели; неадминистративный compatibility-вызов — пустой набор. `MonitoringEventRecipientResolver` использует `IMonitoringRecipientReadQuery`: users и Administrator читаются одним запросом, коллекции прежних permissions пусты. Таблиц и рабочих repository/UoW/API resource permissions нет. Старые UI/пустые compatibility DTO-поля ещё не переработаны; это будущий пользовательский сценарий.
+`DashboardQuery` зависит от `IDashboardSnapshotReadQuery`, `IUserAccessContext` и `TimeProvider`. Infrastructure query проецирует materialized read records без endpoint URL; Application применяет сохранённую чистую `ObjectVisibilityPolicy`, выполняет поиск и рассчитывает uptime относительно UTC-времени snapshot. Администратор получает все цели; неадминистративный compatibility-вызов — пустой набор. `MonitoringEventRecipientResolver` использует `IMonitoringRecipientReadQuery`: users и Administrator читаются одним запросом, коллекции прежних permissions пусты. Таблиц и рабочих repository/UoW/API resource permissions нет. Users permissions UI удалён в 08; пустые compatibility DTO-поля не предоставляют прав.
 
 Web-обработчик внутреннего monitoring event определяет разрешённые Identity user-id в Application, а через SignalR отправляет только тип и GUID изменившегося объекта. Клиент использует событие как сигнал перечитать защищённые данные из SQL. Существующие однопроцессные workers продолжают локальный поток; для принятых общих данных источник истины — Raft log + snapshot, SQL-проекция сама принятие не подтверждает.
 

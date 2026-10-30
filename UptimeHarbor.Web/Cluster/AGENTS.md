@@ -1,5 +1,7 @@
 # Peer perimeter and Raft hosting
 
+- ClusterBrowserDiagnostics выполняет accepted authorization перед безопасной проекцией authenticated health. Leader/majority, локальная БД, свежесть peer/contact/lag и Telegram readiness — отдельные поля. Stale/несовпадающий term/membership не подтверждает готовность; raw Components/payload/секреты в браузер не передавать. HealthWorker — один singleton для hosted polling и read snapshot, без дополнительного poll из API.
+
 - AddClusterWeb собирает monitoring worker/pump/coordinator с revision transport/dispatcher; Infrastructure регистрирует scoped capture рядом с его UoW. Проверять и самостоятельные DI modules, и итоговый граф без запуска host.
 - Monitoring payload storage generation должен совпадать с authenticated peer envelope до dispatch всего batch. Health отдаёт только safe MonitoringProgress; UI/SignalR payload не расширять внутренним image.
 - ClusterMonitoringWorker и ClusterDeliveryWorker ничего не делают в Disabled; enabled проверки не обходят readiness/recovery/activation. Delivery worker восстанавливает очередь перед renewal и обновляет authority независимо от in-flight transport.

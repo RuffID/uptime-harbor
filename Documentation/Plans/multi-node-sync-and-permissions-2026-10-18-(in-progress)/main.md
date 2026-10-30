@@ -32,7 +32,7 @@
 
 Подтверждающие исходники: [ObjectVisibilityPolicy](../../../UptimeHarbor.Application/Visibility/ObjectVisibilityPolicy.cs), [MonitoringService](../../../UptimeHarbor.Application/Monitoring/MonitoringService.cs), [MonitoringCycleRunner](../../../UptimeHarbor.Infrastructure/Monitoring/MonitoringCycleRunner.cs), [NotificationOutboxStore](../../../UptimeHarbor.Infrastructure/Telegram/NotificationOutboxStore.cs), [NotificationAdministrationService](../../../UptimeHarbor.Application/Notifications/NotificationAdministrationService.cs), [MonitoredObject](../../../UptimeHarbor.Domain/Monitoring/MonitoredObject.cs), [Program.cs](../../../UptimeHarbor.Web/Program.cs).
 
-Текущее описание: [мониторинг](../../Technical%20documentation/Monitoring.md), [уведомления](../../Technical%20documentation/Notifications.md), [аутентификация и видимость](../../Technical%20documentation/Authentication%20and%20visibility.md), [бизнес-требования v1](../../Business%20logic/Business%20requirements.md). Технические документы актуализированы по изменениям 02–07; неподключённое поведение остаётся в плане.
+Текущее описание: [мониторинг](../../Technical%20documentation/Monitoring.md), [уведомления](../../Technical%20documentation/Notifications.md), [аутентификация и видимость](../../Technical%20documentation/Authentication%20and%20visibility.md), [бизнес-требования v1](../../Business%20logic/Business%20requirements.md). Технические документы актуализированы по изменениям 02–08; неподключённое поведение остаётся в плане.
 
 ## Границы
 
@@ -59,7 +59,7 @@
 | 05 | Общие пользователи и единственная роль администратора | completed | 02 для 05.1; 04 для 05.2–05.4 | [Пользователи и общий вход](05-permissions-and-ownership/main.md) |
 | 06 | Взаимный мониторинг и согласованные инциденты | completed | 03, 04 | [Мониторинг и инциденты](06-monitoring-and-incidents/main.md) |
 | 07 | Отправка главным и восстановление состояния Telegram-доставки | completed | 05, 06 | [Telegram](07-leader-notifications/main.md) |
-| 08 | Управление через любой узел, общие аккаунты, Pending и конфликты | not-started | 05, 07 | [Web и интерфейс](08-web-and-administration/main.md) |
+| 08 | Управление через любой узел, общие аккаунты, Pending и конфликты | completed | 05, 07 | [Web и интерфейс](08-web-and-administration/main.md) |
 | 09 | Первый запуск новой модели, восстановление и эксплуатация | not-started | 02–08 | [Ввод и восстановление](09-migration-and-operations/main.md) |
 | 10 | Минимальные изолированные проверки и самостоятельная приёмка пользователем | not-started | 01–09 | [Приёмка](10-verification-and-acceptance/main.md) |
 
@@ -135,11 +135,11 @@
 
 | Подэтап | Результат | Статус | Зависимости | Документ |
 | --- | --- | --- | --- | --- |
-| 08.1 | Страницы и API дают полный доступ активному администратору и защищают секретные поля. | not-started | 05, 07 | [API, DTO и страницы администратора](08-web-and-administration/08.1-api-dto-and-resource-pages.md) |
-| 08.2 | Редактор отличает accepted configuration от Pending и показывает результат глобального удаления. | not-started | 08.1 | [Редакторы ожидающих изменений и удаления](08-web-and-administration/08.2-pending-editors-and-deletion.md) |
-| 08.3 | Администратор управляет общими аккаунтами и всеми привязками без формы отдельных прав. | not-started | 08.2 | [Общие пользователи и настройки уведомлений](08-web-and-administration/08.3-access-and-owner-management.md) |
-| 08.4 | Все активные администраторы видят варианты и подают новое решение с актуальной версией. | not-started | 08.3 | [Разбор и согласование конфликтов](08-web-and-administration/08.4-conflict-resolution.md) |
-| 08.5 | Показаны роль/большинство/отставание и partial; reconnect и отключение аккаунта обновляют открытые представления. | not-started | 08.4 | [Диагностика сетки и обновления](08-web-and-administration/08.5-cluster-diagnostics-and-refresh.md) |
+| 08.1 | Страницы и API дают полный доступ активному администратору и защищают секретные поля. | completed | 05, 07 | [API, DTO и страницы администратора](08-web-and-administration/08.1-api-dto-and-resource-pages.md) |
+| 08.2 | Редактор отличает accepted configuration от Pending и показывает результат глобального удаления. | completed | 08.1 | [Редакторы ожидающих изменений и удаления](08-web-and-administration/08.2-pending-editors-and-deletion.md) |
+| 08.3 | Администратор управляет общими аккаунтами и всеми привязками без формы отдельных прав. | completed | 08.2 | [Общие пользователи и настройки уведомлений](08-web-and-administration/08.3-access-and-owner-management.md) |
+| 08.4 | Все активные администраторы видят варианты и подают новое решение с актуальной версией. | completed | 08.3 | [Разбор и согласование конфликтов](08-web-and-administration/08.4-conflict-resolution.md) |
+| 08.5 | Показаны роль/большинство/отставание и partial; reconnect и отключение аккаунта обновляют открытые представления. | completed | 08.4 | [Диагностика сетки и обновления](08-web-and-administration/08.5-cluster-diagnostics-and-refresh.md) |
 
 ### 09. Первый запуск и эксплуатация
 
@@ -221,4 +221,6 @@
 
 2026-10-29 завершены [07.1–07.4](07-leader-notifications/main.md): восстановленная очередь, единый gate, реальные attempts/results и per-chat retry/recovery, follower test-send, отмены и поздний success. Четыре production builds без предупреждений/ошибок; Domain 36, Application 200, выбранные Infrastructure 165, Web 55 — всего 456 успешных тестов без пропусков. [Проверки и ограничения](../../Technical%20documentation/Testing.md#проверка-этапа-07).
 
-Дата создания 2026-10-18 и папка `multi-node-sync-and-permissions-2026-10-18-(in-progress)` сохранены. Общий план — in-progress; 01–07 — completed; 08–10 — not-started, 09.2/09.3 — cancelled. UI и controlled enable не реализованы; общие gates и admission/trust/activation/delivery proof закрыты, default Disabled сохранён. SQL/provider tests, приложение/hosting, Docker, реальные peers/monitoring/Telegram/deployment и Git не запускались. Миграции 02/04 не применялись; новой migration в 07 нет. Часовой догон, SQL atomicity, crash/fsync и внешняя приёмка не подтверждены. После 07.4 работа остановлена; порядок минимальных проверок 10 использован внутри 07 без самостоятельного начала 10.
+2026-10-29 завершены [08.1–08.5](08-web-and-administration/main.md): safe accepted/Pending/conflict API/UI, общие account/chat/observer/NodeChatRoute команды, controls/results и диагностика/reconnect. Четыре production builds без предупреждений/ошибок; 504 .NET и 15 frontend tests успешны, без пропусков. [Проверки и ограничения](../../Technical%20documentation/Testing.md#проверка-этапа-08).
+
+Дата создания 2026-10-18 и папка multi-node-sync-and-permissions-2026-10-18-(in-progress) сохранены. Общий план — in-progress; 01–08 — completed; 09/10 — not-started, 09.2/09.3 — cancelled. Controlled enable/provisioning/fencing не реализованы; общие gates и admission/trust/activation/manual-enable/sender/delivery proof закрыты, default Disabled сохранён. SQL/provider tests, приложение/hosting, Docker, реальные peers/monitoring/Telegram/browser/deployment и Git не запускались. Миграции 02/04 не применялись; новой migration в 08 нет. Часовой догон, SQL atomicity/locking, crash/fsync/живая сеть и внешняя приёмка не подтверждены. После 08.5 работа остановлена; порядок минимальных проверок 10 использован внутри 08 без самостоятельного начала 10.

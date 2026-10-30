@@ -1,5 +1,10 @@
 # Движок мониторинга
 
+## Браузерное представление (08)
+
+AdministrationMonitoring строит read-only представление свежести принятых observations для целей и зарегистрированных узлов. Availability Available/Partial/Unavailable/Unknown отделена от coverage Complete/Initializing/Degraded/Lost. У каждого назначенного observer показаны статус, время последней проверки, безопасная категория ошибки, его metadata и расчёт uptime с указанием исходного startedAtUtc/metadata timestamp. Missing/Stale не объявляются успешным coverage. Отличающиеся name/startedAtUtc отмечены, общего имени/uptime из них нет. Чтение не принимает новый факт, evaluation или incident; запись observers проходит существующий Pending pipeline.
+
+
 ## Доставка принятой истории (07)
 
 История этапа 06 является источником очереди DeliveryQueue. Реальные BeginDelivery/RecordDelivery/AbandonDelivery обновляют attempts, intents и accepted evidence тем же reducer/apply; прежний guard DeliveryAttemptProjectionRequired не обходится синтетическими попытками. Late outage success после unbind сохраняет право на один recovery, а superseded/deleted target блокирует новые вызовы. Состав сводки и исходные события сохраняются после success/replay.

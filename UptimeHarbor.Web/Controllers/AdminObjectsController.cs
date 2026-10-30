@@ -11,6 +11,7 @@ namespace UptimeHarbor.Web.Controllers;
 [ApiController]
 [Route("api/admin/objects")]
 [Authorize(Roles = ApplicationRoles.ADMINISTRATOR)]
+[ServiceFilter(typeof(UptimeHarbor.Web.Security.ClusterLegacyWriterFilter))]
 public class AdminObjectsController(IObjectAdministrationService administrationService) : ControllerBase
 {
     [HttpGet("servers")]

@@ -10,6 +10,7 @@ namespace UptimeHarbor.Web.Controllers;
 [ApiController]
 [Route("api/dashboard")]
 [Authorize]
+[ServiceFilter(typeof(UptimeHarbor.Web.Security.ClusterLegacyWriterFilter))]
 public class DashboardController(IDashboardQuery dashboardQuery) : ControllerBase
 {
     [HttpGet]

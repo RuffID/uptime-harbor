@@ -1,5 +1,10 @@
 # Persistence и транзакции
 
+## Границы интерфейса (08)
+
+Typed команды UI используют существующий IPendingControlUnitOfWork и PendingCommandService; никаких прямых enabled legacy CRUD/Identity writers нет. Replace и Cancel сохраняют настоящее намерение, результат читается из принятой истории. Явный Cancel разрешён для held Pending без его выпуска; ConfirmRestored требует нового Replace и актуальной base revision. Accepted исход всегда выигрывает read reconciliation старой local записи. Нового UoW, таблиц или транзакционного механизма нет; изолированные doubles не подтверждают SQL semantics/locking.
+
+
 ## Attempt/result apply (07)
 
 DeliveryProjection формирует настоящие DeliveryAttempt и восстанавливает DeliveryIntent из всей принятой истории. MonitoringProjection добавляет их и RecoveryEntitlement в тот же projection write set с receipt/cursor; публикация образа происходит после commit. Known success монотонен, повтор результата/replay не создаёт новый attempt или success-аудит.

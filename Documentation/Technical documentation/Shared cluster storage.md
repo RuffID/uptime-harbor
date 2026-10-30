@@ -1,5 +1,10 @@
 # Хранение общих данных сетки
 
+## Read models и controls интерфейса (08)
+
+Схема не расширялась. Accepted browser DTO строится из RevisionStateStore; local Pending читается существующим IPendingControlUnitOfWork страницами по 100. ProtectedPayload декодируется только внутри Application и проецируется whitelist mapping. Известный общий result перекрывает устаревшее local/held состояние при чтении, без автоматического выпуска неизвестных заявок. Edit/Cancel используют существующие controls, account resolution — тот же account pipeline. SQL остаётся проекцией; новой migration и второго журнала нет.
+
+
 ## Delivery ledger этапа 07
 
 MonitoringImage включает реальные Attempts, ActorUserId тестовой доставки и NextAttemptAtUtc intent. Projection write set сохраняет DeliveryIntent/DeliveryAttempt/RecoveryEntitlement вместе с decision/receipt/cursor. Snapshot и recovery проверяют полную историю попыток, exact sets и поля projections; evidence требует соответствующего успешного accepted attempt. Authority из snapshot не восстанавливает локальное разрешение sender.

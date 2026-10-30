@@ -1,5 +1,10 @@
 # Конфигурация и запуск
 
+## Интерфейс сетки (08)
+
+Новых options и локальных секретов не добавлено. ClusterOptions.Enabled выбирает общий cluster UI; default Mode=Disabled сохранён. DI регистрирует один ClusterHealthWorker для hosted polling и diagnostics query. Сборка Razor/TypeScript использует существующий Web target; hosting и runtime не требуются для compile-check. UI не открывает admission/trust/activation/manual-enable/sender/delivery gates; controlled enable остаётся этапом 09.
+
+
 ## Настройки доставки этапа 07
 
 Новых operational settings и секретов не добавлено. BotToken остаётся локальным TelegramOptions; transport использует существующий HTTP timeout 30 секунд. Retry ограничен пятью attempts и учитывает безопасный retry_after. Authority renewal выполняется примерно раз в 5 секунд при сроке 10 секунд и drain 12 секунд.

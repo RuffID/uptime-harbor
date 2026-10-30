@@ -1,5 +1,4 @@
 import { createDataTable, createTableAction, matchesSearch } from "../../shared/dataTable.js";
-import { renderHelpTooltip } from "../../shared/helpTooltip.js";
 import { createSearchableRadioSelect } from "../../shared/searchableRadioSelect.js";
 import {
     ApiError,
@@ -15,20 +14,15 @@ interface UserAccount {
     login: string;
     isEnabled: boolean;
     isAdministrator: boolean;
-    serverIds: string[];
-    containerIds: string[];
 }
 
-interface Server { id: string; name: string; endpointUrl: string; lastKnownName: string | null; }
-interface Container { id: string; serverId: string | null; endpointUrl: string; lastKnownName: string | null; }
-interface ServerWithContainers extends Server { containers: Container[]; }
 interface BootstrapModalInstance { show(): void; hide(): void; }
 interface BootstrapWindow extends Window {
     bootstrap?: { Modal: { getOrCreateInstance(element: Element): BootstrapModalInstance } };
 }
 
-const state: { users: UserAccount[]; servers: ServerWithContainers[]; selectedUserId: string | null; saving: boolean } = {
-    users: [], servers: [], selectedUserId: null, saving: false
+const state: { users: UserAccount[]; selectedUserId: string | null; saving: boolean } = {
+    users: [], selectedUserId: null, saving: false
 };
 
 const page = requireElement<HTMLElement>("[data-users-page]");
@@ -47,12 +41,10 @@ const createGeneralError = requireElement<HTMLElement>("[data-create-general-err
 const userTitle = requireElement<HTMLElement>("[data-user-title]");
 const userRole = requireElement<HTMLElement>("[data-user-role]");
 const userEnabled = requireElement<HTMLInputElement>("[data-user-enabled]");
-const visibilityList = requireElement<HTMLElement>("[data-visibility-list]");
 const currentUserId = document.querySelector<HTMLMetaElement>('meta[name="current-user-id"]')?.content ?? "";
 const userSearch = requireElement<HTMLInputElement>("[data-user-search]");
 const userStateFilter = requireElement<HTMLSelectElement>("[data-user-state-filter]");
 let usersTable: ReturnType<typeof createDataTable>;
-let visibilityTable: ReturnType<typeof createDataTable>;
 const temporarilyDisabled = new Set<HTMLButtonElement | HTMLInputElement | HTMLSelectElement>();
 
 document.addEventListener("DOMContentLoaded", () => { void initUsersPage(); });
@@ -61,22 +53,10 @@ async function initUsersPage(): Promise<void> {
     createSearchableRadioSelect(requireElement<HTMLSelectElement>("[data-user-state-filter]"));
     usersTable = createDataTable(userList, "users", "Учётные записи", [
         { key: "login", title: "Логин", width: 240 },
-        { key: "role", title: "Роль", width: 220, help: "Администратор управляет настройками; пользователю показываются разрешённые объекты мониторинга." },
+        { key: "role", title: "Роль", width: 220, help: "Единственная роль Administrator даёт полный доступ ко всем объектам." },
         { key: "enabled", title: "Состояние", width: 170 },
-        { key: "servers", title: "Серверы", width: 140, help: "Число явно разрешённых серверов. Администратор имеет полный доступ." },
-        { key: "containers", title: "Контейнеры", width: 160, help: "Число явно разрешённых контейнеров. Администратор имеет полный доступ." },
         { key: "actions", title: "Действия", width: 140 }
     ]);
-    visibilityTable = createDataTable(visibilityList, "visibility", "Доступ пользователя к объектам", [
-        { key: "object", title: "Объект", width: 260 },
-        { key: "kind", title: "Тип", width: 150 },
-        { key: "server", title: "Сервер", width: 240 },
-        { key: "access", title: "Доступ", width: 180, help: "Чтобы разрешить контейнер, сначала разрешите его сервер. Снятие доступа к серверу снимает выбор его контейнеров." }
-    ]);
-    renderHelpTooltip(requireElement<HTMLElement>("[data-visibility-help]"), {
-        title: "Доступ к объектам",
-        text: "Сначала разрешите сервер, затем нужные контейнеры. Изменения применяются кнопкой «Сохранить». Администратор видит все объекты независимо от списка разрешений."
-    });
     userSearch.addEventListener("input", renderUsersTable);
     userStateFilter.addEventListener("change", renderUsersTable);
     page.addEventListener("click", handleClick);
@@ -85,10 +65,9 @@ async function initUsersPage(): Promise<void> {
     createModal.addEventListener("shown.bs.modal", () => createLogin.focus());
     editForm.addEventListener("submit", event => {
         event.preventDefault();
-        void runEditCommand(saveVisibility);
+        void runEditCommand(saveAccount);
     });
     editModal.addEventListener("shown.bs.modal", () => {
-        visibilityTable.refresh();
         userTitle.focus();
     });
     editModal.addEventListener("hide.bs.modal", event => {
@@ -106,12 +85,6 @@ async function initUsersPage(): Promise<void> {
 async function loadData(): Promise<void> {
     const usersResponse = await sendJsonRequest<ServiceResultWithData<UserAccount[]>>("/api/admin/users");
     state.users = unwrapServiceResult(usersResponse);
-    const serversResponse = await sendJsonRequest<ServiceResultWithData<Server[]>>("/api/admin/objects/servers");
-    const servers = unwrapServiceResult(serversResponse);
-    state.servers = await Promise.all(servers.map(async server => {
-        const response = await sendJsonRequest<ServiceResultWithData<Container[]>>(`/api/admin/objects/servers/${server.id}/containers`);
-        return { ...server, containers: unwrapServiceResult(response) };
-    }));
     if (state.selectedUserId !== null && !state.users.some(user => user.id === state.selectedUserId)) state.selectedUserId = null;
     render();
 }
@@ -127,9 +100,7 @@ function renderUsersTable(): void {
         status.classList.add("badge", user.isEnabled ? "text-bg-success" : "text-bg-secondary");
         status.textContent = user.isEnabled ? "Включён" : "Отключён";
         return usersTable.row([
-            user.login, user.isAdministrator ? "Администратор" : "Пользователь", status,
-            user.isAdministrator ? "Все" : String(user.serverIds.length),
-            user.isAdministrator ? "Все" : String(user.containerIds.length), button
+            user.login, "Administrator", status, button
         ], user.id === state.selectedUserId);
     });
     usersTable.body.replaceChildren(...rows);
@@ -143,44 +114,15 @@ function render(): void {
     const selected = state.selectedUserId === null ? null : requireUser(state.selectedUserId);
     if (selected) {
         userTitle.textContent = `Изменить пользователя: ${selected.login}`;
-        userRole.textContent = selected.isAdministrator ? "Администратор" : "Пользователь";
+        userRole.textContent = "Administrator";
         userRole.classList.remove("text-bg-info", "text-bg-secondary");
         userRole.classList.add(selected.isAdministrator ? "text-bg-info" : "text-bg-secondary");
         userEnabled.checked = selected.isEnabled;
-        userEnabled.disabled = selected.isAdministrator || selected.id === currentUserId;
-        requireElement<HTMLElement>('[data-action="delete-user"]').classList.toggle("d-none", selected.isAdministrator || selected.id === currentUserId);
-        renderVisibility(selected);
+        const lastActive = selected.isEnabled && state.users.filter(user => user.isEnabled).length <= 1;
+        userEnabled.disabled = lastActive || selected.id === currentUserId;
+        requireElement<HTMLElement>('[data-action="delete-user"]').classList.toggle("d-none", lastActive || selected.id === currentUserId);
     }
     setSaving(state.saving);
-}
-
-function renderVisibility(user: UserAccount): void {
-    const rows: HTMLTableRowElement[] = [];
-    for (const server of state.servers) {
-        const serverInput = document.createElement("input");
-        serverInput.type = "checkbox"; serverInput.id = `server_${server.id}`; serverInput.name = "serverIds"; serverInput.value = server.id;
-        serverInput.checked = user.serverIds.includes(server.id); serverInput.dataset.serverId = server.id; serverInput.classList.add("form-check-input");
-        const serverLabel = document.createElement("label"); serverLabel.htmlFor = serverInput.id; serverLabel.classList.add("form-check-label", "fw-semibold");
-        serverLabel.textContent = "Разрешить";
-        const serverAccess = document.createElement("div"); serverAccess.classList.add("form-check"); serverAccess.append(serverInput, serverLabel);
-        rows.push(visibilityTable.row([server.name, "Сервер", "—", serverAccess]));
-        const containerInputs: HTMLInputElement[] = [];
-        for (const container of server.containers) {
-            const access = document.createElement("div"); access.classList.add("form-check");
-            const input = document.createElement("input"); input.type = "checkbox"; input.id = `container_${container.id}`; input.name = "containerIds"; input.value = container.id; input.dataset.parentServerId = server.id; input.checked = user.containerIds.includes(container.id); input.disabled = !serverInput.checked; input.classList.add("form-check-input");
-            const label = document.createElement("label"); label.htmlFor = input.id; label.classList.add("form-check-label"); label.textContent = "Разрешить";
-            access.append(input, label); containerInputs.push(input);
-            rows.push(visibilityTable.row([container.lastKnownName ?? container.endpointUrl, "Контейнер", server.name, access]));
-        }
-        serverInput.addEventListener("change", () => {
-            for (const input of containerInputs) {
-                input.disabled = !serverInput.checked;
-                if (!serverInput.checked) input.checked = false;
-            }
-        });
-    }
-    visibilityTable.body.replaceChildren(...rows);
-    visibilityTable.refresh();
 }
 
 async function createUser(event: SubmitEvent): Promise<void> {
@@ -204,17 +146,13 @@ async function createUser(event: SubmitEvent): Promise<void> {
     });
 }
 
-async function saveVisibility(): Promise<void> {
+async function saveAccount(): Promise<void> {
     const user = requireSelectedUser();
     await runSavingCommand(async () => {
-        const serverIds = Array.from(visibilityList.querySelectorAll<HTMLInputElement>('input[name="serverIds"]:checked')).map(input => input.value);
-        const containerIds = Array.from(visibilityList.querySelectorAll<HTMLInputElement>('input[name="containerIds"]:checked')).map(input => input.value);
         if (userEnabled.checked !== user.isEnabled) {
             const enabledResponse = await sendJsonRequest<ServiceResult>(`/api/admin/users/${user.id}/enabled`, "PUT", { isEnabled: userEnabled.checked });
             unwrapServiceSuccess(enabledResponse);
         }
-        const visibilityResponse = await sendJsonRequest<ServiceResult>(`/api/admin/users/${user.id}/visibility`, "PUT", { serverIds, containerIds });
-        unwrapServiceSuccess(visibilityResponse);
         await loadData();
     });
     hideModal(editModal);
@@ -223,8 +161,8 @@ async function saveVisibility(): Promise<void> {
 
 async function deleteUser(): Promise<void> {
     const user = requireSelectedUser();
-    if (user.isAdministrator || user.id === currentUserId) throw new Error("Эту учётную запись нельзя удалить.");
-    if (!window.confirm(`Удалить пользователя «${user.login}» и его права?`)) return;
+    if (user.id === currentUserId) throw new Error("Нельзя удалить собственную учётную запись.");
+    if (!window.confirm(`Удалить пользователя «${user.login}»?`)) return;
     await runSavingCommand(async () => { const response = await sendJsonRequest<ServiceResult>(`/api/admin/users/${user.id}`, "DELETE"); unwrapServiceSuccess(response); state.selectedUserId = null; await loadData(); });
     hideModal(editModal);
     showSuccess("Пользователь удалён.");
@@ -253,7 +191,6 @@ async function runEditCommand(command: () => Promise<void>): Promise<void> {
     catch (error: unknown) {
         editError.textContent = error instanceof Error ? error.message : "Не удалось изменить пользователя.";
         editError.classList.remove("d-none");
-        visibilityTable.refresh();
     }
 }
 function clearEditError(): void { editError.textContent = ""; editError.classList.add("d-none"); }

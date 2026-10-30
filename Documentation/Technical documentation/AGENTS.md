@@ -9,6 +9,7 @@
 ## Правила
 
 - Отделять текущее реализованное состояние от целевого решения следующих этапов.
+- `Web application.md` владеет безопасным accepted/Pending/conflict UI/API и lifecycle; сборка не подтверждает browser acceptance или controlled enable.
 - `Shared cluster storage.md` владеет моделью и SQL storage общих данных; наличие схемы не означает работающие consensus, replication, общий вход или sender.
 - `Cluster runtime.md` владеет peer/mTLS, DotNext WAL/lifecycle, очередью, snapshot/replay, readiness и sender authority. `Notifications.md` описывает accepted delivery ledger/dispatcher рядом с legacy Disabled-путём. Реализованные компоненты отделять от закрытых admission/trust/activation/delivery proof; результаты изолированных API/store тестов не выдавать за выборы/crash recovery.
 - Приводить имена проектов, типов и контрактов только там, где они помогают сопровождению.

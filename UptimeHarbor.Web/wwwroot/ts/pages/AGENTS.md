@@ -1,5 +1,7 @@
 # Клиент главной панели
 
+В enabled-режиме Index использует admin/cluster.ts: accepted API и per-observer availability/coverage/metadata вместо legacy aggregate dashboard. Disabled сохраняет dashboard.ts. Ни один UI-модуль не открывает server readiness gates.
+
 `dashboard.ts` загружает snapshot и управляет поиском, фильтром статуса, табличным отображением серверов/контейнеров, uptime и SignalR lifecycle; `admin` содержит независимые административные модули. Связь контейнера с сервером показывать отдельной колонкой; общую таблицу не пересоздавать при SignalR refresh, чтобы сохранить scroll и ширину колонок.
 
 Сохранять окно объединения сигналов 200 мс, отмену прежнего fetch и немедленное обновление после reconnect. Штатный `AbortError` не показывать как сбой; server-side visibility остаётся обязательной.
