@@ -1,5 +1,9 @@
 # Миграции SQL Server
 
+## Эксплуатация этапа 09
+
+Новой migration нет. `20261029053354_AddSharedClusterStorage` и `20261029075201_AllowUniquenessConflictRevisions` подготовлены ранее, к БД в этой задаче не применялись. ClusterDatabaseProbe проверяет CanConnect и отсутствие pending migrations перед readiness, сам миграции не применяет. Startup migration/backup — отдельное внешнее действие с разрешением; оно не даёт admission/activation/enable. Rollback учитывает всю принятую историю и поддержку новых команд бинарником; downgrade одной SQL-проекции в работающей сетке не поддерживается. [Порядок обслуживания](Cluster%20operations.md#обслуживание-обновление-и-rollback).
+
 ## Схема этапа 08
 
 Интерфейс/read DTO и controls используют существующие таблицы и protected Pending; новая migration не требуется. Historical migrations/designer/model snapshot не изменялись. Подготовленные 20261029053354_AddSharedClusterStorage и 20261029075201_AllowUniquenessConflictRevisions к БД в этой задаче не применялись.
@@ -59,7 +63,7 @@ Baseline рассчитана на пустую базу SQL Server. Если в
 
 ## Обновление production
 
-Эти правила описывают прежний однопроцессный startup. Подготовка этапа 02 не разрешает запуск новой общей модели; cluster bootstrap/join и эксплуатационные процедуры ещё не реализованы.
+Эти правила описывают прежний однопроцессный startup. Подготовка схемы сама по себе не разрешает запуск общей модели; реализованные cluster bootstrap/join и эксплуатационные процедуры описаны в [Cluster operations.md](Cluster%20operations.md).
 
 1. Остановить прежний экземпляр и убедиться, что новый Web запускается в одном экземпляре.
 2. Обеспечить SQL Server доступность и права на создание backup в server-side каталоге.

@@ -47,10 +47,20 @@ public class SnapshotProjectionUnitOfWork(IUptimeHarborDbContextSession session,
     {
         if (image.Index == 0)
         {
-            if (await context.Set<ProjectionCursor>().AnyAsync(cursor => cursor.Id == nodeId, token))
+            if (await context.Set<ProjectionCursor>().AnyAsync(token))
             {
                 throw new InvalidDataException("UnexpectedProjectionCheckpoint");
             }
+
+            foreach (IEntityType type in SnapshotSchema.Entities(context))
+            {
+                if ((await SnapshotSchema.ReadAsync(context, type.ClrType, token)).Count != 0)
+                {
+                    throw new InvalidDataException("NonemptyGenesisProjection");
+                }
+            }
+
+            return;
         }
         else
         {

@@ -15,7 +15,7 @@
 ## Планы и история
 
 - [Plans/README.md](Plans/README.md) — активные планы и правила их оформления.
-- [Несколько узлов, синхронизация и общие администраторы](Plans/multi-node-sync-and-permissions-2026-10-18-%28in-progress%29/main.md) — `in-progress`: завершены 01–07; 08–10 не начаты, 09.2/09.3 cancelled. Реализованы accepted account/session/monitoring pipeline, восстановленная Telegram queue, реальные attempts/results, единый gate и per-chat retry/recovery. Admission/trust/activation/delivery proof остаются закрытыми, default Disabled сохранён; UI и controlled enable — будущие 08/09. Схема не применялась, реальные SQL/peers/endpoints/Telegram/browser не запускались; изолированные тесты не подтверждают SQL locking, crash/fsync или часовую цель догона. После 07.4 работа остановлена.
+- [Несколько узлов, синхронизация и общие администраторы](Plans/multi-node-sync-and-permissions-2026-10-18-%28in-progress%29/main.md) — `in-progress`: 01–09 completed с cancelled 09.2/09.3; 10 not-started. Реализованы accepted pipeline/UI и production controlled enable, membership/trust, ручная аварийная подготовка, maintenance и safe diagnostics. [Первый запуск/обслуживание](Technical%20documentation/Cluster%20operations.md), [recovery](Technical%20documentation/Cluster%20recovery.md), [control-файлы](Technical%20documentation/Cluster%20control%20files.md). Default Disabled сохранён; текущая установка не включалась. 582 .NET и 18 frontend tests успешны, внешняя приёмка отдельно. После 09 работа остановлена.
 - [Первичное техническое ревью v1](Technical%20documentation/V1%20Technical%20Review%20Findings.md).
 - [Повторное техническое ревью v1](Technical%20documentation/V1%20Follow-up%20Technical%20Review.md).
 

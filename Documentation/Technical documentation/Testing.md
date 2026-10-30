@@ -1,5 +1,58 @@
 # Тестирование
 
+## Проверка этапа 09
+
+2026-10-30 завершены только активные 09.1/09.4/09.5. Согласованный минимальный порядок 10 использован внутри 09; 10 отдельно не начинался. Перед изменениями выполнены все разрешённые изолированные наборы: Domain 36, Application 215, выбранные Infrastructure 165, весь Web 115 (531 .NET), все три frontend-файла (18). Ошибок и пропусков исходной проверки не было. Полный Infrastructure с provider tests не запускался по ограничению задачи.
+
+Итоговые четыре production-проекта собраны **отдельно, последовательно**, Debug --no-restore: 0 предупреждений/ошибок. Web target компилировал Razor/TypeScript; приложения/host не запускались. Test builds общих проектов тоже последовательны: BaseOutputPath не изолирует общий obj.
+
+| Набор | Успешно | Ошибки | Пропуски |
+| --- | --- | --- | --- |
+| Domain, весь изолированный проект | 36 | 0 | 0 |
+| Application, весь изолированный проект | 225 | 0 | 0 |
+| Infrastructure, только классы ниже | 198 | 0 | 0 |
+| Web, весь изолированный проект | 123 | 0 | 0 |
+| Frontend, все три файла | 18 | 0 | 0 |
+
+Всего **582 .NET и 18 frontend**, предыдущие прогоны не суммируются. Расширенная регрессия обнаружила введённый дефект раннего decode в DotNextConsensusAdapter при закрытой readiness — исправлен порядок проверки accepted/health до decode, исходное ожидание теста сохранено. Configuration example test обновлён для нового согласованного ClusterControl и проверяет отсутствие private key/default Disabled; старый whitelist секций больше не соответствовал реализации.
+
+Проверены production reducer/dispatcher/Pending/UoW boundaries и crypto/control с изолированными transport/time/storage/Telegram. Минимальный объём:
+
+- точный singleton bootstrap и отказ независимого Join/Restart bootstrap; общие account/role/password credentials через snapshot/replay, whitelist без переноса локальных sessions/keys;
+- foreign nonempty join projection rejected без install/account access, clone NodeId, точные native voters/version первого Join для 1/3 voters и запрет перезаписи непустого store;
+- signature/CA/SAN/pin, новый process challenge, stale/tampered/revoked grants, RecoveryVersion/latched apply fault, реальные runtime dependency gates до/после подтверждений;
+- accepted Administrator/actor revision/internal provenance/storage boundary, membership reauthorization, last voter и сохранение accounts/history при удалении; точный известный native переход сохраняет доступ прежних активированных узлов к reauthorization, посторонний voter закрывает его, sender не открывается; majority остаётся native DotNext dependency;
+- retained snapshot/compaction/replay, quarantined catch-up старого префикса без account/work proof до minimum index; старые hash/stamps/delete не возвращаются, known/unknown backup Pending и held lifecycle Replace/Cancel;
+- выбранный отставший срез трёх прежних узлов, отказ от loss acknowledgement, пароль/полнота manual isolation/token/trust prerequisites, новая quarantined identity, отклонение прежних IDs; сохранение настоящих attempts/results и reconcile неизвестного attempt без переписывания original authority;
+- настоящий свежий временный DotNext WAL из emergency snapshot с term floor через IPersistentState, без native Start/сети;
+- maintenance более двух лет искусственного времени/restart без автоматического Enable, отдельный ResumeConsensus, новый Enable; safe API 202/401/403 и отказ internal lifecycle до dispatch;
+- регрессии accepted/config/account/session/SignalR/monitoring/delivery 04–08 и frontend input/OperationId/stale response/reconnect/antiforgery, включая lifecycle Cancel API.
+
+Команды выполнялись из корня репозитория. Production builds (каждая отдельно):
+
+```powershell
+dotnet build .\UptimeHarbor.Domain\UptimeHarbor.Domain.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\domain\
+dotnet build .\UptimeHarbor.Application\UptimeHarbor.Application.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\application\
+dotnet build .\UptimeHarbor.Infrastructure\UptimeHarbor.Infrastructure.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\infrastructure\
+dotnet build .\UptimeHarbor.Web\UptimeHarbor.Web.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\web\
+```
+
+Все изолированные тесты после изменений:
+
+```powershell
+dotnet test --project .\tests\UptimeHarbor.Domain.Tests\UptimeHarbor.Domain.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\domain-tests\
+dotnet test --project .\tests\UptimeHarbor.Application.Tests\UptimeHarbor.Application.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\application-tests\
+dotnet test --project .\tests\UptimeHarbor.Infrastructure.Tests\UptimeHarbor.Infrastructure.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\infrastructure-tests\ -- --filter-class UptimeHarbor.Tests.Infrastructure.Identity.AcceptedSignInTests --filter-class UptimeHarbor.Tests.Infrastructure.Identity.AcceptedCookieTests --filter-class UptimeHarbor.Tests.Infrastructure.Identity.AccountBootstrapTests --filter-class UptimeHarbor.Tests.Infrastructure.Cluster.* --filter-class UptimeHarbor.Tests.Infrastructure.Persistence.ProjectionTransactionTests --filter-class UptimeHarbor.Tests.Infrastructure.Persistence.SharedStorageModelTests --filter-class UptimeHarbor.Tests.Infrastructure.Persistence.SharedStorageMigrationTests --filter-class UptimeHarbor.Tests.Infrastructure.Persistence.SharedStorageRegistrationTests --filter-class UptimeHarbor.Tests.Infrastructure.Monitoring.HttpMonitoringEndpointCheckerTests --filter-class UptimeHarbor.Tests.Infrastructure.Monitoring.MonitoringCycleRunnerTests --filter-class UptimeHarbor.Tests.Infrastructure.Telegram.TelegramHttpNotificationSenderTests
+dotnet test --project .\tests\UptimeHarbor.Web.Tests\UptimeHarbor.Web.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\web-tests\
+node --experimental-strip-types --test tests/Frontend/*.test.mts
+```
+
+Внешняя приёмка отдельно: SQL/schema application/transaction semantics/locking, hosting/Docker, реальные peers/elections/HTTP/TLS/CRL, endpoints/Telegram/browser, внешний backup/restore/provisioning/deployment/rollback не запускались. Подготовленные migrations не применялись, новой migration нет; Git не выполнялся. Runbook-команды только описаны. Fake storage не доказывает SQL semantics, локальный WAL — crash/fsync/живую сеть, fake sender — exactly-once. Ручная isolation attestation проверяется программой как подписанное полное подтверждение специалиста; фактическое питание/autostart/firewall/отзыв токенов программа независимо не проверяет. Часовая цель догона трёх узлов/около 30 приложений не измерялась. Текущая установка не включена, default Disabled сохранён.
+
+Статическая сверка: файловые ссылки и anchors изменённых Markdown разрешаются, все 84 документа Documentation включены в solution items; отсутствующих файлов нет. Строгий UTF-8 decoder не обнаружил ошибок, U+FFFD, четырёх вопросительных знаков или проверенных признаков mojibake. Исходные BOM/типы окончаний строк сохранены, массовой нормализации не было; новые/изменённые C#/TypeScript меньше 20000 байт. Все 49 документов завершённых 01–08, отменённых 09.2/09.3 и не начатого 10 побайтово совпадают с исходным снимком. Удалённых исходных файлов нет, migrations/generated model не менялись.
+
+Актуальные процедуры: [первый запуск и обслуживание](Cluster%20operations.md), [recovery](Cluster%20recovery.md), [control files](Cluster%20control%20files.md). Статические проверки не являются runtime acceptance.
+
 ## Проверка этапа 08
 
 2026-10-29 реализованы 08.1–08.5; согласованный минимальный порядок этапа 10 использован внутри 08. Самостоятельные 09/10 не начинались. Четыре production-проекта отдельно и последовательно собраны Debug --no-restore: 0 предупреждений и ошибок. Web target компилировал Razor и строгий TypeScript без hosting. Test builds общих проектов также последовательны.

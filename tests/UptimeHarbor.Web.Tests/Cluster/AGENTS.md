@@ -1,5 +1,7 @@
 # Изолированные проверки cluster hosting
 
+- Lifecycle HTTP tests проверяют actual accepted actor, protected Pending/held Replace и 202 без запуска host. Peer boundary отвергает internal lifecycle/foreign storage до dispatch. PersistentMembershipTests вызывает production ClusterJoinMembership с настоящим временным native store, исключая joining nonvoter и повторную запись; это не live join/elections.
+
 - Administration HTTP/security/diagnostic tests вызывают production API/filter/read models с реальными MVC options и изолированными хранилищем/health. Проверять 202 как local queue, closed auth, safe conflict variants, stale Telegram и различие peer outage/локальная БД/follower; не называть это browser или peer-network acceptance.
 
 - Monitoring revision boundary проверяет совпадение storage generation с authenticated peer до dispatch; composition tests должны разрешать новые worker/pump/coordinator без host/WAL/HTTP, сохраняя закрытые gates.

@@ -1,5 +1,11 @@
 # Хранение общих данных сетки
 
+## Эксплуатационный образ (09)
+
+RevisionImage.Operations хранит nodes/public trust, membership intents/results, activation, MaintenanceId, BotId и sender epoch в том же log/snapshot. ClusterOperationsProjection использует существующие ClusterMember/PeerTrustCredential/MembershipChange; новой migration нет. Pending Node.* идёт приоритетным существующим путём, с прежними лимитами 10000/1000 и Data Protection. Lifecycle held confirmation сверяет OperationsRevision и создаёт Replace, не выпускает исходный backup Pending.
+
+RecoveryBaseline фиксирует выбранный прежний cut и оригинальные authority настоящих attempts, не переписывая историю доставки. SQL остаётся восстанавливаемой проекцией; LocalNodeState и локальные captures/keys не становятся общими. [Restore/retention](Cluster%20recovery.md), [SQL границы](Persistence.md).
+
 ## Read models и controls интерфейса (08)
 
 Схема не расширялась. Accepted browser DTO строится из RevisionStateStore; local Pending читается существующим IPendingControlUnitOfWork страницами по 100. ProtectedPayload декодируется только внутри Application и проецируется whitelist mapping. Известный общий result перекрывает устаревшее local/held состояние при чтении, без автоматического выпуска неизвестных заявок. Edit/Cancel используют существующие controls, account resolution — тот же account pipeline. SQL остаётся проекцией; новой migration и второго журнала нет.

@@ -15,6 +15,9 @@
     <File Path="Documentation/Technical documentation/Authentication and visibility.md" />
     <File Path="Documentation/Technical documentation/Configuration.md" />
     <File Path="Documentation/Technical documentation/Cluster runtime.md" />
+    <File Path="Documentation/Technical documentation/Cluster operations.md" />
+    <File Path="Documentation/Technical documentation/Cluster recovery.md" />
+    <File Path="Documentation/Technical documentation/Cluster control files.md" />
     <File Path="Documentation/Technical documentation/Database migrations.md" />
     <File Path="Documentation/Technical documentation/Deployment.md" />
     <File Path="Documentation/Technical documentation/Domain model.md" />

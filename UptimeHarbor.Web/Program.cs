@@ -7,6 +7,11 @@ using UptimeHarbor.Web.Security;
 using Serilog;
 using UptimeHarbor.Web.Cluster;
 
+if (await ClusterControlTool.TryExecuteAsync(args))
+{
+    return;
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration.AddJsonFile("Config/config.json", optional: false, reloadOnChange: false);

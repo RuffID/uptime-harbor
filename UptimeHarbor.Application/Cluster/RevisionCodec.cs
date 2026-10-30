@@ -58,7 +58,7 @@ public static class RevisionCodec
         {
             RevisionCommand target = command.Target ?? throw new InvalidDataException("MissingControlTarget");
             ValidateLeaf(target);
-            if (target.Action is not ("Upsert" or "Delete") || target.Target is not null || target.Replacement is not null
+            if (!CanControl(target) || target.Target is not null || target.Replacement is not null
                 || target.ClusterId != command.ClusterId || target.ClusterGeneration != command.ClusterGeneration
                 || target.OperationId == command.OperationId || target.EntityId != command.EntityId
                 || target.EntityKind != command.EntityKind)
@@ -70,7 +70,7 @@ public static class RevisionCodec
             {
                 RevisionCommand replacement = command.Replacement ?? throw new InvalidDataException("MissingReplacement");
                 ValidateLeaf(replacement);
-                if (replacement.Action is not ("Upsert" or "Delete") || replacement.Target is not null
+                if (!CanControl(replacement) || replacement.Target is not null
                     || replacement.Replacement is not null || replacement.OperationId == target.OperationId
                     || replacement.OperationId == command.OperationId || replacement.EntityId != target.EntityId
                     || replacement.EntityKind != target.EntityKind || replacement.ClusterId != command.ClusterId
@@ -91,10 +91,17 @@ public static class RevisionCodec
         }
     }
 
+    private static bool CanControl(RevisionCommand command)
+    {
+        return command.Action is "Upsert" or "Delete"
+            || ClusterOperationValidation.IsOperation(command) && !ClusterOperationValidation.IsInternal(command);
+    }
+
     private static void ValidateLeaf(RevisionCommand command)
     {
         bool delivery = DeliveryCommands.IsSystem(command);
-        bool system = MonitoringCommandValidation.IsSystem(command) || delivery;
+        bool operation = ClusterOperationValidation.IsOperation(command);
+        bool system = MonitoringCommandValidation.IsSystem(command) || delivery || operation;
         if (command.Schema != 1 || !system && command.Action is not ("Upsert" or "Delete" or "Cancel" or "Replace" or "BootstrapAccount" or "TestDelivery")
             || !Enum.IsDefined(command.EntityKind))
         {
@@ -110,6 +117,12 @@ public static class RevisionCodec
         StorageGuards.Utc(command.CreatedAtUtc);
         if (system)
         {
+            if (operation)
+            {
+                ClusterOperationValidation.Validate(command);
+                return;
+            }
+
             if (delivery)
             {
                 DeliveryCommands.Validate(command);
@@ -122,7 +135,8 @@ public static class RevisionCodec
 
         StorageGuards.Id(command.ActorUserId, nameof(command.ActorUserId));
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(command.ActorRevision);
-        if (command.SystemSource is not null || command.Monitoring is not null || command.Delivery is not null)
+        if (command.SystemSource is not null || command.Monitoring is not null || command.Delivery is not null
+            || command.Operation is not null)
         {
             throw new InvalidDataException("UnexpectedSystemSource");
         }

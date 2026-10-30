@@ -1,5 +1,9 @@
 # Persistence и транзакции
 
+## Первый запуск и восстановление (09)
+
+ClusterLocalInitializationUnitOfWork в существующей транзакционной сессии создаёт только точную LocalNodeState: чужие shared rows/cursor и identity/WAL mismatch отвергаются, локальные accounts не создаются. Genesis verification проверяет пустые общие наборы до создания JournalPosition; SnapshotProjectionUnitOfWork продолжает whitelist install только общей проекции. Lifecycle records входят в тот же atomic projection write set/cursor/receipt. Emergency offline-tool использует только EF metadata для проверки snapshot, не SQL connection. Fake UoW/model tests не доказывают SQL isolation/locking/commit; реальная provider-проверка не проводилась. [Процедуры](Cluster%20recovery.md).
+
 ## Границы интерфейса (08)
 
 Typed команды UI используют существующий IPendingControlUnitOfWork и PendingCommandService; никаких прямых enabled legacy CRUD/Identity writers нет. Replace и Cancel сохраняют настоящее намерение, результат читается из принятой истории. Явный Cancel разрешён для held Pending без его выпуска; ConfirmRestored требует нового Replace и актуальной base revision. Accepted исход всегда выигрывает read reconciliation старой local записи. Нового UoW, таблиц или транзакционного механизма нет; изолированные doubles не подтверждают SQL semantics/locking.

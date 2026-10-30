@@ -1,5 +1,11 @@
 # Web-приложение
 
+## Эксплуатационные команды (09)
+
+ClusterOperationsController GET/POST `/api/admin/cluster/lifecycle` требует accepted Administrator; POST — antiforgery, 202 — durable Pending. GET возвращает safe registry без public certificate/payload/hash/stamps. Internal lifecycle запрещён на browser/peer boundary. ClusterOperationsAdministration регистрируется в полном Web presentation graph, не в автономном Infrastructure module. Node Pending отображается отдельно от редакторов ресурсов, Cancel идёт через lifecycle API с сохранённым request/OperationId; held renewal выполняется явным typed API Replace с текущей OperationsRevision.
+
+Диагностика дополнена term/membership/maintenance, OperationsRevision, conflicts/terminal delivery errors, возрастом проекции и последней подтверждённой синхронизацией команд. Эти поля не означают полного догона peers или срока возобновления Telegram. ClusterControlTool обрабатывает только явный `--cluster-control` до builder и не запускает host. [Форматы](Cluster%20control%20files.md).
+
 ## Интерфейс и API этапа 08
 
 В enabled-режиме Index, Objects, Containers, Users и Notifications выбирают `_ClusterAdministration` и единственный `cluster.ts`. Общие таблицы отдельно показывают accepted configuration, durable local Pending, безопасные варианты конфликтов, availability/coverage, metadata каждого observer, диагностику и историю доставок. Typed Bootstrap modal поддерживает Server/Container/Chat/Binding/NodeChatRoute и Account; роли, владельцы и resource permissions отсутствуют. Disabled сохраняет прежние страницы без Users permissions UI. PageModel не загружает коллекции.
@@ -10,7 +16,7 @@
 
 `clusterApi` использует существующий HTTP helper; DOM строится DOM API. `clusterRefresh` отменяет и отбрасывает устаревшие чтения. Раз в 10 секунд, после reconnect и по сигналам с coalescing 200 мс заново загружаются защищённые accepted/Pending/diagnostics; refresh не пересоздаёт modal. 401/403 очищает защищённые списки и редактор, закрывает SignalR. Серверный accepted session/RecoveryVersion контроль продолжает отзывать доступ после apply/fault.
 
-В браузер не сериализуются ConfigurationValue/RevisionCommand/ConflictVariant/RevisionImage, hash/stamps/credentials, raw JSON и сообщения Telegram. Account settings показывают только login/Enabled. Test-send использует устойчивый ID и принятую очередь: 202 и Committed команды не означают доставку. Terminal failure остаётся видимой без ручного retry/countdown. Browser gate и provisioning/controlled enable не открывались; compilation и stubs не являются browser acceptance.
+В браузер не сериализуются ConfigurationValue/RevisionCommand/ConflictVariant/RevisionImage, hash/stamps/credentials, raw JSON и сообщения Telegram. Account settings показывают только login/Enabled. Test-send использует устойчивый ID и принятую очередь: 202 и Committed команды не означают доставку. Terminal failure остаётся видимой без ручного retry/countdown. Фактического controlled enable установки не было; compilation и stubs не являются browser acceptance.
 
 
 ## Сборка sender-компонентов (07)
@@ -23,7 +29,7 @@ Peer revision boundary проверяет storage generation также для d
 
 AddClusterWeb регистрирует ObservationReplicationPump/MonitoringCoordinator рядом с RevisionDispatcher и IRevisionTransport; Infrastructure регистрирует cycle/peer capture, а scoped ObservationCaptureService — рядом с его persistence UoW. ClusterMonitoringWorker завершает работу без действий в Disabled; enabled требует действительных readiness/recovery/activation proof.
 
-Peer batch до dispatch сверяет storage generation monitoring payload с аутентифицированным envelope. Пользовательская Administrator authorization отделена от внутреннего monitoring source; browser routes не получили обход gate. Peer health возвращает только безопасный MonitoringProgress. Sender/attempt lifecycle подключён в 07; общий UI реализован в 08; controlled enable остаётся этапом 09. Регрессия DI разрешает граф без старта host/WAL/HTTP; это не browser acceptance.
+Peer batch до dispatch сверяет storage generation monitoring/delivery/lifecycle payload с аутентифицированным envelope и отвергает internal lifecycle. Пользовательская Administrator authorization отделена от системного source; browser routes не получили обход gate. Peer health возвращает только безопасный MonitoringProgress. Sender/attempt lifecycle подключён в 07; общий UI — в 08, controlled enable — в 09. Регрессия DI разрешает граф без старта host/WAL/HTTP; это не browser acceptance.
 
 ## Граница 05.1 и этапа 04
 

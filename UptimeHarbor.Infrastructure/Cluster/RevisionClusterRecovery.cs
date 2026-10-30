@@ -9,7 +9,7 @@ namespace UptimeHarbor.Infrastructure.Cluster;
 
 public class RevisionClusterRecovery(IRecoveryAdmission admissionSource, RevisionStateStore state,
     RevisionApplyEngine engine, IRevisionProjectionStore projection, RevisionSnapshotStore snapshots,
-    IServiceScopeFactory scopes, IOptions<ClusterOptions> configured) : IClusterRecovery
+    IServiceScopeFactory scopes, IOptions<ClusterOptions> configured, IClusterLocalInitialization? initialization = null) : IClusterRecovery
 {
     private RecoveryAdmission? admission;
     private bool replayConfirmed;
@@ -17,6 +17,7 @@ public class RevisionClusterRecovery(IRecoveryAdmission admissionSource, Revisio
     private bool backupReconciled;
     private long provenAppliedIndex;
     private long membershipVersion = -1;
+    private long verifiedNativeMembership = -1;
     public ClusterSnapshot? Snapshot => snapshots.Current?.AsRaftSnapshot();
 
     public AcceptedClusterState Accepted
@@ -48,6 +49,11 @@ public class RevisionClusterRecovery(IRecoveryAdmission admissionSource, Revisio
         }
 
         admission = proof;
+        if (initialization is not null)
+        {
+            await initialization.InitializeAsync(proof, token);
+        }
+
         if (proof.MonitoringNodes.Any(node => node.Key == Guid.Empty || node.Value == Guid.Empty))
         {
             throw new InvalidDataException("MonitoringAdmissionInvalid");
@@ -55,7 +61,8 @@ public class RevisionClusterRecovery(IRecoveryAdmission admissionSource, Revisio
 
         RevisionImage checkpoint = new(clusterId, generation)
         {
-            Monitoring = new MonitoringImage { Nodes = proof.MonitoringNodes }
+            Monitoring = new MonitoringImage { Nodes = proof.MonitoringNodes },
+            Operations = proof.Operations
         };
         if (proof.BootstrapAccount is not null)
         {
@@ -84,6 +91,16 @@ public class RevisionClusterRecovery(IRecoveryAdmission admissionSource, Revisio
 
             PublishedRevisionSnapshot snapshot = await snapshots.LoadAsync(proof.SnapshotId.Value, proof.SnapshotDigest, token);
             checkpoint = snapshot.Image;
+            if (checkpoint.RecoveryBaseline is not null)
+            {
+                string manifestPath = Path.Combine(configured.Value.StoragePath, "manifest.json");
+                ClusterDiskManifest? manifest = System.Text.Json.JsonSerializer.Deserialize<ClusterDiskManifest>(await File.ReadAllBytesAsync(manifestPath, token));
+                if (manifest?.RecoveryId != checkpoint.RecoveryBaseline.RecoveryId
+                    || checkpoint.RecoveryBaseline.PreviousClusterId == clusterId)
+                {
+                    throw new InvalidDataException("RecoveryBaselineProvenanceMismatch");
+                }
+            }
             if (!checkpoint.Monitoring.Nodes.OrderBy(node => node.Key).SequenceEqual(proof.MonitoringNodes.OrderBy(node => node.Key)))
             {
                 throw new InvalidDataException("MonitoringAdmissionMismatch");
@@ -163,7 +180,7 @@ public class RevisionClusterRecovery(IRecoveryAdmission admissionSource, Revisio
         replayConfirmed = false;
         if (!restored || admission is null || committedIndex < admission.MinimumCommittedIndex
             || appliedIndex != committedIndex
-            || persistedMembershipVersion != admission.MembershipVersion)
+            || !MembershipMatches(persistedMembershipVersion))
         {
             state.Invalidate();
             return false;
@@ -202,6 +219,70 @@ public class RevisionClusterRecovery(IRecoveryAdmission admissionSource, Revisio
         provenAppliedIndex = appliedIndex;
         replayConfirmed = true;
         return true;
+    }
+
+    private bool MembershipMatches(long persisted)
+    {
+        return persisted == admission!.MembershipVersion || persisted == verifiedNativeMembership;
+    }
+
+    public async Task<bool> VerifyCatchUpStartAsync(long committedIndex, long appliedIndex, long persistedMembershipVersion,
+        CancellationToken token)
+    {
+        RevisionImage? image = state.Current;
+        long version = state.RecoveryVersion;
+        if (!restored || admission is null || image is null || appliedIndex != committedIndex
+            || image.Index > appliedIndex || committedIndex >= admission.MinimumCommittedIndex
+            || !MembershipMatches(persistedMembershipVersion))
+        {
+            return false;
+        }
+
+        // До native Start нет concurrent apply. Проверка разрешает только догон,
+        // не публикует аккаунты, readiness или рабочее право.
+        await projection.VerifyAsync(image, token);
+        return ReferenceEquals(image, state.Current) && version == state.RecoveryVersion;
+    }
+
+    public bool VerifyNativeMembership(long version, IReadOnlySet<Guid> voters, bool initialEmpty)
+    {
+        verifiedNativeMembership = -1;
+        ClusterOperationsImage? operations = state.Current?.Operations;
+        if (admission is null || operations is null || version < admission.MembershipVersion)
+        {
+            return false;
+        }
+
+        HashSet<Guid> expected = operations.Nodes.Values.Where(node => node.Voting && !node.Removed)
+            .Select(node => node.NodeId).ToHashSet();
+        bool matches = expected.SetEquals(voters) && version == operations.MembershipVersion;
+        if (initialEmpty && voters.Count == 0 && version == admission.MembershipVersion)
+        {
+            // До ColdStart/Join native storage пуст; это не подтверждает рабочий состав.
+            return true;
+        }
+
+        MembershipOperation? pending = operations.Changes.Values.SingleOrDefault(change => !change.ConfirmedVersion.HasValue);
+        if (pending is not null && version > pending.ExpectedVersion)
+        {
+            if (pending.Remove)
+            {
+                expected.Remove(pending.NodeId);
+            }
+            else
+            {
+                expected.Add(pending.NodeId);
+            }
+
+            matches = expected.SetEquals(voters);
+        }
+
+        if (matches)
+        {
+            verifiedNativeMembership = version;
+        }
+
+        return matches;
     }
 
     private async Task ReconcileBackupAsync(RevisionImage image, CancellationToken token)

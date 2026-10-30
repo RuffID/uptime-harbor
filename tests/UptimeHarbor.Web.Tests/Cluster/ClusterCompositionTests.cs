@@ -97,7 +97,7 @@ public class ClusterCompositionTests
         Assert.NotNull(coordinator);
         Assert.False(diagnostics.Read().Success);
         Assert.IsType<RevisionClusterRecovery>(provider.GetRequiredService<IClusterRecovery>());
-        Assert.IsType<UnavailableRecoveryAdmission>(provider.GetRequiredService<IRecoveryAdmission>());
+        Assert.IsType<SignedRecoveryAdmission>(provider.GetRequiredService<IRecoveryAdmission>());
         Assert.IsType<DeliverySenderConsensus>(provider.GetRequiredService<ISenderConsensus>());
     }
 

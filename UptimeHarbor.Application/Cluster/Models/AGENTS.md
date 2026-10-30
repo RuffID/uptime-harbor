@@ -1,5 +1,7 @@
 # Cluster contracts
 
+- ClusterOperationsImage/RecoveryBaseline — внутренние snapshot-контракты. Browser получает только ClusterOperationsStatus/ClusterTrustStatus без публичного сертификата, protected command и account credentials. RequestedAtUtc membership сохраняет время принятой заявки при поздней сверке admission.
+
 - Administration* и Cluster*DiagnosticDto — явные браузерные whitelist-контракты. Account settings содержат только login/Enabled; не добавлять hash/stamps, protected/raw payload или delivery message. ConfigurationChangeRequest не принимает actor/origin/system provenance; IDs controls относятся к настоящему local Pending.
 
 - MonitoringImage является частью того же accepted snapshot: raw observations, отдельная acceptance provenance, streams, live/history, incidents/events/intents/summaries и реальные delivery evidence. Metadata остаются по observer; diagnostic MonitoringProgress не содержит payload.

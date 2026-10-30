@@ -1,5 +1,7 @@
 # Technical documentation
 
+- Cluster operations.md владеет первым запуском/join/membership/TLS/maintenance/rollback, Cluster recovery.md — backup/rejoin/ручным аварийным выбором, Cluster control files.md — офлайн-командами и подписанными форматами. Не выдавать ручную isolation attestation за автоматическую проверку питания/firewall; commands только описывать, внешнюю приёмку учитывать отдельно.
+
 ## Назначение
 
 Файлы этого каталога описывают фактическое техническое устройство UptimeHarbor по отдельным подсистемам.

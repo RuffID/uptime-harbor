@@ -17,7 +17,7 @@ public class DotNextConsensusAdapter(IRaftCluster cluster, IClusterStateView sta
             throw new InvalidOperationException("Cluster writer is not ready.");
         }
 
-        if (!readiness.CanWork(state) && !CanBootstrapAccount(payload))
+        if (!readiness.CanWork(state) && !CanBootstrapAccount(payload) && !CanControl(payload))
         {
             throw new InvalidOperationException("Cluster writer is not ready.");
         }
@@ -37,6 +37,30 @@ public class DotNextConsensusAdapter(IRaftCluster cluster, IClusterStateView sta
         long index = await applied.Task.WaitAsync(cancellation.Token);
         await cluster.AuditTrail.WaitForApplyAsync(index, cancellation.Token);
         return index;
+    }
+
+    private bool CanControl(ReadOnlyMemory<byte> payload)
+    {
+        if (accepted?.Available != true)
+        {
+            return false;
+        }
+
+        ConsensusStatus? status = state.Consensus;
+        AcceptedClusterState proof = state.Accepted;
+        bool leader = status is not null && status.IsLeader && !status.LeadershipToken.IsCancellationRequested
+            && !status.ConsensusToken.IsCancellationRequested;
+        bool recovered = proof.CaughtUp && proof.SnapshotConfirmed && proof.AccountStateConfirmed
+            && proof.AppliedIndex >= status?.CommittedIndex && proof.MembershipVersion == status?.MembershipVersion;
+        bool healthy = readiness.Get("Database").Status == "Ready" && readiness.Get("Projection").Status == "Ready"
+            && readiness.Get("Storage").Status == "Ready" && readiness.Get("Clock").Status == "Ready";
+        if (!leader || !recovered || !healthy)
+        {
+            return false;
+        }
+
+        RevisionCommand command = RevisionCodec.Decode(payload.Span);
+        return ClusterOperationValidation.IsOperation(command) && command.Operation!.MembershipVersion == status!.MembershipVersion;
     }
 
     private bool CanBootstrapAccount(ReadOnlyMemory<byte> payload)

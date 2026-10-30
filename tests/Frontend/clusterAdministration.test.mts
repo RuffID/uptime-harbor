@@ -230,6 +230,12 @@ test("compiled API uses common antiforgery HTTP helper; HTTP 202 remains queued 
     assert.match(operationText(result), /Ожидает синхронизации/);
     assert.equal((calls[0].options.headers as Record<string, string>).RequestVerificationToken, "test-antiforgery");
     assert.equal(JSON.parse(calls[0].options.body as string).operationId, "stable-operation");
+    const lifecycle = { operationId: "cancel-id", action: "Cancel" as const, nodeId: "node", baseRevision: 9,
+        membershipVersion: 3, targetOperationId: "held-node-operation" };
+    assert.equal((await clusterApi.lifecycle(lifecycle)).status, "LocalPending");
+    assert.equal(calls[1].url, "/api/admin/cluster/lifecycle");
+    assert.deepEqual(JSON.parse(calls[1].options.body as string), lifecycle);
+    assert.equal((calls[1].options.headers as Record<string, string>).RequestVerificationToken, "test-antiforgery");
     Object.assign(globalThis, { fetch: async () => new Response(JSON.stringify({ success: false, message: "Account disabled" }), { status: 403 }) });
     await assert.rejects(clusterApi.change(body), error => (error as { status: number }).status === 403);
 });

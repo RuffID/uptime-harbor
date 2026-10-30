@@ -15,7 +15,7 @@ Dispatcher не запускает endpoint checks и не меняет расч
 
 Старое наблюдение допускается в historical-only evidence только по реально принятой версии конфигурации, где источник был назначенным observer. Неизвестное поколение или выдуманное прежнее назначение отвергаются. Unbind/delete отзывает неотправленную summary part без изменения её принятого состава, остальные источники возвращаются для нового плана.
 
-В enabled-режиме `ClusterMonitoringWorker` вызывает bounded cycle, durable observation pump и coordinator. Все рабочие проверки требуют настоящих `NodeReadiness.CanWork`, recovery и доступного accepted image. `Disabled` завершает новый worker без действий и сохраняет прежний однопроцессный путь ниже. Activation, browser и sender gates не открывались.
+В enabled-режиме `ClusterMonitoringWorker` вызывает bounded cycle, durable observation pump и coordinator. Все рабочие проверки требуют настоящих `NodeReadiness.CanWork`, recovery и доступного accepted image. `Disabled` завершает новый worker без действий и сохраняет прежний однопроцессный путь ниже. Lifecycle 09 открывает gates только после реальных предпосылок и отдельного подписанного ручного enable; фактического включения не было. Maintenance закрывает UI/checks/sender и остаётся latched после restart. [Процедура](Cluster%20operations.md#обслуживание-обновление-и-rollback).
 
 `ConfigurationValue.ObserverNodes`, CheckGeneration, ConfigRevision, failure threshold и interval/timeout принадлежат принятой конфигурации цели. Endpoint/enable/набор observers/порог/периоды требуют нового CheckGeneration; изменение metadata или родительской связи сохраняет поколение. Проверяются только назначенные observers; пропавший observer автоматически не исключается. До восьми независимых server/container checks выполняются параллельно, каждый capture имеет отдельный DI scope; отказ сервера не останавливает контейнер. HTTP/JSON-валидация остаётся общей с Disabled.
 
@@ -33,7 +33,7 @@ Incident/event/intents и cursor/receipt входят в один существ
 
 До состава backlog требуется восстановленная история и независимое DeliveryStateConfirmed. Завершённые неуведомлённые аварии входят в durable summaries без отсечения по возрасту; открытые и обычный recovery ранее уведомлённых чатов сохраняются отдельно. Исходные events/intents остаются, источники сводки получают SuppressedBySummary. Поздняя порция backlog в том же term создаёт новый состав. Производитель attempts и dispatcher подключены в 07; реальные внешние отправки не проверялись.
 
-`MonitoringDiagnostics` возвращает только index, число streams/незавершённых historical assemblies, время/возраст и safe reason. Полное покрытие не объявляется при недогоне или отсутствующих целях. DTO включён только в защищённый peer health; UI 08 не реализован. Часовой догон при трёх узлах/около 30 приложений остаётся целью самостоятельного наблюдения, без обязательной нагрузки. Результаты и пределы — [Testing.md](Testing.md#проверка-этапа-06).
+`MonitoringDiagnostics` возвращает только index, число streams/незавершённых historical assemblies, время/возраст и safe reason. Полное покрытие не объявляется при недогоне или отсутствующих целях. Safe UI показывает availability отдельно от coverage и metadata каждого observer. Часовой догон при трёх узлах/около 30 приложений остаётся неизмеренной целью самостоятельного наблюдения, без обязательной нагрузки. Результаты и пределы — [Testing.md](Testing.md#проверка-этапа-09).
 
 ## Режим сетки после этапа 06
 

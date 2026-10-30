@@ -1,5 +1,10 @@
 # Cluster infrastructure
 
+- SignedRecoveryAdmission проверяет pinned signature/process challenge/freshness, ручную isolation attestation и настоящий локальный cert/key/CA/SAN/pin. Подпись удостоверяет ручную проверку специалиста, не физическое fencing самим кодом; неполный proof оставляет карантин закрытым.
+- ClusterLocalControl хранит durable maintenance latch; restart/таймер не возобновляют работу. ResumeConsensus разрешает только consensus, новый Enable — отдельный шаг по текущим RecoveryVersion/OperationsRevision.
+- Accepted trust/administration используют тот же принятый образ. ClusterOperationsAdministration требует настоящий IUserAccessContext, полный Web graph и существующий Pending UoW; DTO реестра не раскрывает сертификат/payload.
+- EmergencyRecoveryOrchestrator только офлайн готовит quarantined новую identity после loss acknowledgement/reauth/manual isolation. Сохранять original attempt authority, accepted results/controls и safe audit выбора/отказа/результата. Автоматическое уменьшение состава или запуск запрещены.
+
 - AcceptedDeliveryDispatcher восстанавливает очередь из accepted image, затем использует SenderAuthorityGate и принятый BeginDelivery перед transport. Локальный outbox/claim не даёт права отправки. Все initial/retry/recovery/summary/test проходят этот путь; неизвестный proof остаётся закрытым.
 - Результат транспорта сохранять локальным DeliveryResultUnitOfWork и передавать существующим revision transport, независимо от отменённого leadership token. Неопределённая попытка допускает bounded retry и поздний success; SQL capture не является accepted success. Ошибка отдельного чата не запускает resign.
 

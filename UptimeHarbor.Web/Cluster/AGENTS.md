@@ -1,5 +1,9 @@
 # Peer perimeter and Raft hosting
 
+- ClusterControlTool обрабатывает только явный --cluster-control до builder/host/config secrets. Provision/checkpoint/sign/bootstrap/recover работают офлайн с файлами/crypto/metadata; не вызывать startup services, SQL или сеть. Runtime grants — pinned signature + текущий process challenge.
+- ClusterLifecycleWorker проверяет strong read barrier/current term перед internal command. ClusterJoinMembership заполняет только пустой native store точными voters/version проверенного checkpoint; локальный nonvoter не добавлять без принятого membership.
+- Maintenance закрывает native runtime и workers; восстановление consensus по ручному ResumeConsensus не означает Enable. Реальное native membership и local prefix проверять до Start, неполный prefix разрешает только quarantined catch-up.
+
 - ClusterBrowserDiagnostics выполняет accepted authorization перед безопасной проекцией authenticated health. Leader/majority, локальная БД, свежесть peer/contact/lag и Telegram readiness — отдельные поля. Stale/несовпадающий term/membership не подтверждает готовность; raw Components/payload/секреты в браузер не передавать. HealthWorker — один singleton для hosted polling и read snapshot, без дополнительного poll из API.
 
 - AddClusterWeb собирает monitoring worker/pump/coordinator с revision transport/dispatcher; Infrastructure регистрирует scoped capture рядом с его UoW. Проверять и самостоятельные DI modules, и итоговый граф без запуска host.

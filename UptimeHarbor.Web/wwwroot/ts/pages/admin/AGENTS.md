@@ -1,5 +1,7 @@
 # Административные TypeScript-модули
 
+Node Pending — эксплуатационная заявка, не ресурсный редактор: показывать только безопасные поля/результат. Cancel использует lifecycle API и сохраняет весь запрос вместе с OperationId при retry; held renewal — явный typed Replace с текущей OperationsRevision. Diagnostic term/membership/ages/terminal errors/maintenance не являются доказательством readiness или countdown Telegram.
+
 `objects.ts`, `containers.ts`, `users.ts` и `notifications.ts` обслуживают свои Razor Pages через MVC API, modal-формы и динамический DOM.
 
 В enabled-режиме эти страницы и Index подключают только cluster.ts. clusterApi использует shared HTTP; clusterDraft/clusterRefresh удерживают отправленный request и отбрасывают stale responses; clusterViews рисует безопасные DTO, clusterEditor управляет typed modal без raw JSON. Pending и accepted не смешивать. После reconnect перечитывать защищённые accepted/Pending/diagnostics; 401/403 очищает редактор и закрывает SignalR. Ввод, включая новый пароль, хранится только в памяти. Новая команда/rebase — явное действие; повтор исходной отправки сохраняет ID и payload.

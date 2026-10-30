@@ -24,12 +24,12 @@ public class PendingOperationRepository(
         query = query.Where(item => item.NextAttemptAtUtc == null || item.NextAttemptAtUtc <= nowUtc);
         if (priority)
         {
-            query = query.Where(item => item.Kind.StartsWith("Account.") || item.Kind.EndsWith(".Delete")
+            query = query.Where(item => item.Kind.StartsWith("Account.") || item.Kind.StartsWith("Node.") || item.Kind.EndsWith(".Delete")
                 || item.Kind.EndsWith(".Cancel") || item.Kind.EndsWith(".Replace"));
         }
         else
         {
-            query = query.Where(item => !item.Kind.StartsWith("Account.") && !item.Kind.EndsWith(".Delete")
+            query = query.Where(item => !item.Kind.StartsWith("Account.") && !item.Kind.StartsWith("Node.") && !item.Kind.EndsWith(".Delete")
                 && !item.Kind.EndsWith(".Cancel") && !item.Kind.EndsWith(".Replace"));
         }
 

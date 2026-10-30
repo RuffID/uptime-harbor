@@ -5,7 +5,7 @@ import { AdministrationRefresh } from "./clusterRefresh.js";
 import { ClusterEditor } from "./clusterEditor.js";
 import { ClusterViews } from "./clusterViews.js";
 import { kindNames, operationText, delegateActions } from "./clusterDom.js";
-import type { AccountChange, Change, Diagnostic, EntityKind, Pending, Snapshot } from "./clusterModels.js";
+import type { AccountChange, Change, Diagnostic, EntityKind, Pending, Snapshot, LifecycleChange } from "./clusterModels.js";
 
 interface BootstrapWindow extends Window {
     bootstrap?: { Modal: { getOrCreateInstance(element: Element): { show(): void; hide(): void } } };
@@ -32,6 +32,7 @@ function initialize(): void {
     const latest = new LatestRequest();
     const refreshRequests = new AdministrationRefresh(clusterApi);
     const cancelIds = new Map<string, string>();
+    const lifecycleCancels = new Map<string, LifecycleChange>();
     let snapshot: Snapshot | null = null;
     let pending: Pending[] = [];
     let diagnostic: Diagnostic | null = null;
@@ -103,7 +104,21 @@ function initialize(): void {
             let id = cancelIds.get(row.operationId);
             if (!id) { id = crypto.randomUUID(); cancelIds.set(row.operationId, id); }
             const request = latest.begin();
-            void clusterApi.cancel(row.operationId, id).then(result => {
+            if (row.kind === "Node" && (!diagnostic || diagnostic.membershipVersion === null)) {
+                failure(new Error("Сначала обновите диагностику состава сетки.")); return;
+            }
+            let submission;
+            if (row.kind === "Node") {
+                let body = lifecycleCancels.get(row.operationId);
+                if (!body) {
+                    body = { operationId: id, action: "Cancel", nodeId: row.entityId,
+                        baseRevision: diagnostic!.operationsRevision, membershipVersion: diagnostic!.membershipVersion!, targetOperationId: row.operationId };
+                    lifecycleCancels.set(row.operationId, body);
+                }
+                submission = clusterApi.lifecycle(body);
+            }
+            else submission = clusterApi.cancel(row.operationId, id);
+            void submission.then(result => {
                 if (denied || stopped || !latest.isCurrent(request.version)) return;
                 outcome.textContent = operationText(result); quietRefresh();
             }).catch(value => { if (latest.isCurrent(request.version)) failure(value); });
@@ -148,7 +163,7 @@ function initialize(): void {
         catch (value: unknown) { if (!stopped && !denied) { quietRefresh(); } }
     };
     window.addEventListener("pagehide", () => {
-        stopped = true; latest.invalidate(); refreshRequests.invalidate(); editor.close(); cancelIds.clear();
+        stopped = true; latest.invalidate(); refreshRequests.invalidate(); editor.close(); cancelIds.clear(); lifecycleCancels.clear();
         if (timer) clearTimeout(timer);
         void hub?.stop();
     });

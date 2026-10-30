@@ -53,6 +53,12 @@
     "NativeMaxBytes": 67108864,
     "ReplayCapacity": 10000
   },
+  "ClusterControl": {
+    "Directory": "C:/UptimeHarbor/control",
+    "PublicKeyPath": "C:/UptimeHarbor/control-trust/operator-public.pem",
+    "PublicKeyDigest": "replace-with-64-hex-operator-spki-digest",
+    "KeyRingDirectory": "C:/UptimeHarbor/local-control-keys"
+  },
   "ForwardedHeaders": {
     "KnownNetworks": [
       "172.20.0.0/16"

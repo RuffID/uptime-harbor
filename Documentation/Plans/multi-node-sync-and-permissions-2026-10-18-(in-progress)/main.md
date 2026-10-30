@@ -60,7 +60,7 @@
 | 06 | Взаимный мониторинг и согласованные инциденты | completed | 03, 04 | [Мониторинг и инциденты](06-monitoring-and-incidents/main.md) |
 | 07 | Отправка главным и восстановление состояния Telegram-доставки | completed | 05, 06 | [Telegram](07-leader-notifications/main.md) |
 | 08 | Управление через любой узел, общие аккаунты, Pending и конфликты | completed | 05, 07 | [Web и интерфейс](08-web-and-administration/main.md) |
-| 09 | Первый запуск новой модели, восстановление и эксплуатация | not-started | 02–08 | [Ввод и восстановление](09-migration-and-operations/main.md) |
+| 09 | Первый запуск новой модели, восстановление и эксплуатация | completed | 02–08 | [Ввод и восстановление](09-migration-and-operations/main.md) |
 | 10 | Минимальные изолированные проверки и самостоятельная приёмка пользователем | not-started | 01–09 | [Приёмка](10-verification-and-acceptance/main.md) |
 
 ## Подэтапы и структура папок
@@ -145,11 +145,11 @@
 
 | Подэтап | Результат | Статус | Зависимости | Документ |
 | --- | --- | --- | --- | --- |
-| 09.1 | Готова последовательность controlled enable и пустого join на базе механизмов 03/04. | not-started | 02, 03, 04, 05, 06, 07, 08 | [Пустая сетка и присоединение пустого узла](09-migration-and-operations/09.1-empty-bootstrap-and-join.md) |
+| 09.1 | Готова последовательность controlled enable и пустого join на базе механизмов 03/04. | completed | 02, 03, 04, 05, 06, 07, 08 | [Пустая сетка и присоединение пустого узла](09-migration-and-operations/09.1-empty-bootstrap-and-join.md) |
 | 09.2 | Исключён: нет прежних установок для импорта. | cancelled | Не применимо | [Предварительный разбор непустого импорта](09-migration-and-operations/09.2-nonempty-import-preflight.md) |
 | 09.3 | Исключён: перенос v1, backfill и переключение не требуются. | cancelled | Не применимо | [Импорт, backfill и переключение workers](09-migration-and-operations/09.3-import-backfill-and-cutover.md) |
-| 09.4 | Есть процедуры догона или snapshot-rejoin старой копии и безопасного изменения состава. | not-started | 09.1 | [Возврат узла, restore и состав сетки](09-migration-and-operations/09.4-rejoin-restore-and-membership.md) |
-| 09.5 | Подготовлены эксплуатационные инструкции, диагностика и допустимые точки восстановления. | not-started | 09.1, 09.4 | [Rollback, диагностика и инструкции](09-migration-and-operations/09.5-rollback-diagnostics-and-runbooks.md) |
+| 09.4 | Есть процедуры догона или snapshot-rejoin старой копии и безопасного изменения состава. | completed | 09.1 | [Возврат узла, restore и состав сетки](09-migration-and-operations/09.4-rejoin-restore-and-membership.md) |
+| 09.5 | Подготовлены эксплуатационные инструкции, диагностика и допустимые точки восстановления. | completed | 09.1, 09.4 | [Rollback, диагностика и инструкции](09-migration-and-operations/09.5-rollback-diagnostics-and-runbooks.md) |
 
 ### 10. Проверка и приёмка сетки
 
@@ -223,4 +223,4 @@
 
 2026-10-29 завершены [08.1–08.5](08-web-and-administration/main.md): safe accepted/Pending/conflict API/UI, общие account/chat/observer/NodeChatRoute команды, controls/results и диагностика/reconnect. Четыре production builds без предупреждений/ошибок; 504 .NET и 15 frontend tests успешны, без пропусков. [Проверки и ограничения](../../Technical%20documentation/Testing.md#проверка-этапа-08).
 
-Дата создания 2026-10-18 и папка multi-node-sync-and-permissions-2026-10-18-(in-progress) сохранены. Общий план — in-progress; 01–08 — completed; 09/10 — not-started, 09.2/09.3 — cancelled. Controlled enable/provisioning/fencing не реализованы; общие gates и admission/trust/activation/manual-enable/sender/delivery proof закрыты, default Disabled сохранён. SQL/provider tests, приложение/hosting, Docker, реальные peers/monitoring/Telegram/browser/deployment и Git не запускались. Миграции 02/04 не применялись; новой migration в 08 нет. Часовой догон, SQL atomicity/locking, crash/fsync/живая сеть и внешняя приёмка не подтверждены. После 08.5 работа остановлена; порядок минимальных проверок 10 использован внутри 08 без самостоятельного начала 10.
+Дата создания 2026-10-18 и папка multi-node-sync-and-permissions-2026-10-18-(in-progress) сохранены. Общий план — in-progress; 01–09 — completed с отменёнными 09.2/09.3; 10 — not-started. В 09 реализованы controlled enable, пустой join, membership/trust/activation/sender зависимости, quarantined rejoin и ручная аварийная подготовка выбранной копии с подтверждением специалистом изоляции старых узлов, durable maintenance и эксплуатационные runbooks. Default Disabled сохранён, текущая установка не включалась. Четыре production builds — 0 предупреждений/ошибок; Domain 36, Application 225, выбранные Infrastructure 198, весь Web 123: всего 582 .NET, frontend 18, без ошибок/пропусков. [Проверки и ограничения](../../Technical%20documentation/Testing.md#проверка-этапа-09). Исторические документы 01–08 не переписывались; 09.2/09.3 остаются cancelled, import/backfill/v1 не реализованы. SQL/provider tests, приложение/hosting, Docker, реальные peers/monitoring/Telegram/browser/deployment и Git не запускались. Миграции 02/04 не применялись, новой migration нет. SQL atomicity/locking, crash/fsync/живая сеть, физическое fencing и часовая цель не подтверждены. Минимальные проверки 10 использованы внутри 09 без самостоятельного начала 10; после активных подэтапов 09 работа остановлена.

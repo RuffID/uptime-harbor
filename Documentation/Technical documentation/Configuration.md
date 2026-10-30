@@ -1,8 +1,12 @@
 # Конфигурация и запуск
 
+## Локальное управление (09)
+
+`ClusterControl` в config.example.json содержит Directory, PublicKeyPath, PublicKeyDigest (uppercase SHA256 SPKI) и отдельный KeyRingDirectory для защищённой bootstrap-команды. Пути абсолютные; приватный operator key вне узлов, node/Telegram secrets локальны и не реплицируются. Safe status/challenge публикуются в control directory даже при закрытом browser. Пустая/неверная конфигурация или отсутствующее доказательство не открывает gate. Default Disabled сохранён. [Форматы и точные команды](Cluster%20control%20files.md), [первый запуск/сертификаты/обслуживание](Cluster%20operations.md).
+
 ## Интерфейс сетки (08)
 
-Новых options и локальных секретов не добавлено. ClusterOptions.Enabled выбирает общий cluster UI; default Mode=Disabled сохранён. DI регистрирует один ClusterHealthWorker для hosted polling и diagnostics query. Сборка Razor/TypeScript использует существующий Web target; hosting и runtime не требуются для compile-check. UI не открывает admission/trust/activation/manual-enable/sender/delivery gates; controlled enable остаётся этапом 09.
+ClusterOptions.Enabled выбирает общий cluster UI; default Mode=Disabled сохранён. DI регистрирует один ClusterHealthWorker для hosted polling и diagnostics query. Сборка Razor/TypeScript использует существующий Web target; hosting и runtime не требуются для compile-check. UI не открывает admission/trust/activation/manual-enable/sender/delivery gates; controlled enable собирается отдельным lifecycle 09.
 
 
 ## Настройки доставки этапа 07
@@ -100,4 +104,4 @@ Application регистрирует `TimeProvider.System`. Сценарии, з
 
 Enabled-регистрации выбирают accepted sign-in/account store; ключи Data Protection остаются в локальной SQL таблице и исключены из shared snapshot. Application discriminator имеет вид `UptimeHarbor/{NodeId:N}`. Cookie дополнительно привязана к случайному process epoch, поэтому копия старой БД/ключей не возвращает старую сессию после restart. Lockout — пять ошибок/пять минут на одном узле; сброс/rehash не передаётся общим журналом.
 
-`BootstrapAdmin` используется только однопроцессным Disabled startup. Для аккаунтного cluster bootstrap нужны точная prepared команда и независимое подтверждение RecoveryAdmission; ни Mode=Bootstrap, ни секрет в config не создают proof. Provisioning/fencing/controlled enable остаются этапом 09, новых публичных bootstrap endpoints/секретных config полей в 05 не добавлено. Default Mode остаётся Disabled.
+`BootstrapAdmin` используется только однопроцессным Disabled startup. Для аккаунтного cluster bootstrap нужны точная защищённая prepared команда и подписанный RecoveryAdmission; ни Mode=Bootstrap, ни секрет в config не создают proof. Provisioning/control и ручное подтверждение изоляции реализованы в 09; публичного bootstrap endpoint нет. Default Mode остаётся Disabled.

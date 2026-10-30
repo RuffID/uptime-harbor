@@ -1,5 +1,9 @@
 # Аутентификация и видимость
 
+## Эксплуатационная авторизация (09)
+
+Membership/trust/maintenance доступны любому активному принятому Administrator через antiforgery API; local cookie и устаревшая actor revision не заменяют accepted account. Internal lifecycle не получает фиктивного Administrator и не принимается через peer batch. Join/Restart восстанавливают общие accounts/hash/stamps/роль snapshot/replay, без нового локального account. Emergency selection требует пароль активного Administrator выбранного среза и отдельное ручное подтверждение изоляции специалистом. Сессии/lockout/keyrings остаются локальными; RecoveryVersion и отзыв доступа сохранены. [Порядок](Cluster%20operations.md), [restore](Cluster%20recovery.md).
+
 ## Browser authorization этапа 08
 
 ClusterAdministrationAccess требует активного принятого Administrator для accepted read models, Pending, controls, conflict resolution и диагностики. Pending повторяет проверку после async чтения. Два администратора получают одинаковые общие ресурсы; owner/resource filters отсутствуют. ClusterLegacyWriterFilter запрещает enabled legacy read/write обход accepted API. Новые POST требуют antiforgery, model-state ошибки используют прежний безопасный envelope.
@@ -39,7 +43,7 @@ Identity-типы остаются в Infrastructure. Чистый Domain `Share
 - Заблокированный пользователь не должен продолжать получать доступ после завершения или инвалидации сессии.
 - Пять последовательных неудачных проверок пароля временно блокируют Identity-вход на пять минут; успешный вход до порога сбрасывает счётчик.
 
-Прежний `InitialAdministratorBootstrapper` теперь создаёт только Administrator. Его остальные однопроцессные правила пока сохранены: создание при отсутствии аккаунта, включение существующего disabled administrator без смены пароля, options только при необходимости. В enabled-режимах этот bootstrap не вызывается. `ClusterAccountBootstrapper` принимает первый аккаунт только в новой сетке по точному digest подготовленной команды из trusted RecoveryAdmission; Join/Restart не создают аккаунтов или ролей. Сохранение prepared command, внешнее fencing и controlled enable остаются этапом 09, admission по умолчанию закрыт.
+Прежний `InitialAdministratorBootstrapper` теперь создаёт только Administrator. Его остальные однопроцессные правила пока сохранены: создание при отсутствии аккаунта, включение существующего disabled administrator без смены пароля, options только при необходимости. В enabled-режимах этот bootstrap не вызывается. `ClusterAccountBootstrapper` принимает первый аккаунт только в новой сетке по точному digest подготовленной команды из trusted RecoveryAdmission; Join/Restart не создают аккаунтов или ролей. Prepared command защищён отдельным локальным DP keyring; подписанный control требует ручной проверки изоляции специалистом. Без неё admission закрыт. [Процедура 09](Cluster%20operations.md).
 
 Web pipeline вызывает authentication до authorization. Cookie имеет `HttpOnly`, `SameSite=Lax` и `Secure=Always`. Security stamp проверяется на каждом запросе. Блокировка меняет `IsEnabled`, обновляет security stamp, а cookie validator немедленно отклоняет сессию заблокированного пользователя.
 

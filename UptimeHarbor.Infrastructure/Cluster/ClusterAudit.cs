@@ -7,7 +7,7 @@ public class ClusterAudit(ILogger<ClusterAudit> logger) : IClusterAudit
 {
     public void Membership(Guid userId, Guid nodeId, Guid changeId, string outcome)
     {
-        if (outcome is not ("Denied" or "Unconfirmed" or "Unknown" or "Committed" or "Cancelled"))
+        if (outcome is not ("Denied" or "Unconfirmed" or "Unknown" or "Committed" or "Cancelled" or "Reconciled"))
         {
             throw new ArgumentException("Unknown membership outcome.", nameof(outcome));
         }

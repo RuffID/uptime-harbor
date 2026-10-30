@@ -1,5 +1,9 @@
 # Сборка и развёртывание
 
+## Эксплуатация распределённого режима
+
+Точные процедуры, предпосылки, условия остановки и границы разрешений: [первый узел/join/membership/TLS/maintenance/rollback](Cluster%20operations.md), [backup/rejoin/ручная авария](Cluster%20recovery.md), [офлайн-команды и control files](Cluster%20control%20files.md). Production dependencies реализованы, default Disabled сохранён; текущая установка не включалась. Интернет-связь допускается по доменным HTTPS-адресам без обязательного VPN. Выпуск/renew сертификатов и локальные секреты принадлежат окружению, а ручное подтверждение специалиста не является автоматической проверкой питания/firewall.
+
 ## Состояние реализации
 
 В Web-проекте есть multi-stage Dockerfile, который восстанавливает и собирает Domain, Application, Infrastructure и Web, копирует локальные DLL из `libs` и запускает `UptimeHarbor.Web.dll` на ASP.NET runtime image. Deployment-шаблоны, Nginx-конфигурация, Docker Compose и orchestration не входят в требования первой версии и в репозитории не поставляются.

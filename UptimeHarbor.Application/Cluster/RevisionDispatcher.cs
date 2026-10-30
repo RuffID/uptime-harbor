@@ -36,6 +36,19 @@ public class RevisionDispatcher(IConsensusWriter consensus, RevisionStateStore a
             throw new InvalidDataException("ClusterMismatch");
         }
 
+        if (ClusterOperationValidation.IsInternal(command))
+        {
+            ConsensusStatus? status = view?.Consensus;
+            bool leader = status is not null && status.IsLeader && status.NodeId == trustedOriginNodeId
+                && !status.LeadershipToken.IsCancellationRequested && !status.ConsensusToken.IsCancellationRequested;
+            bool recovered = view?.Accepted.CaughtUp == true && view.Accepted.SnapshotConfirmed;
+            if (!leader || !recovered || command.Operation!.MembershipVersion != status!.MembershipVersion
+                || command.Operation.CoordinatorTerm != status.Term)
+            {
+                throw new UnauthorizedAccessException("LifecycleLeaderUnconfirmed");
+            }
+        }
+
         if (DeliveryCommands.IsSystem(command))
         {
             DeliveryCommand delivery = command.Delivery!;

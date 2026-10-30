@@ -16,6 +16,75 @@ namespace UptimeHarbor.Tests.Infrastructure.Cluster;
 public class RevisionRecoveryTests
 {
     [Fact]
+    public async Task UnrelatedNonemptyJoinProjectionIsRejectedWithoutInstallOrAccountAccess()
+    {
+        // Arrange
+        using ClusterTestDirectory directory = new();
+        RevisionFixture fixture = new();
+        ClusterOptions options = fixture.Options(directory.Location);
+        options.Mode = "Join";
+        RevisionSnapshotStore snapshots = new(Options.Create(options));
+        PublishedRevisionSnapshot snapshot = await snapshots.PublishAsync(fixture.WithProjectionRows(), TestContext.Current.CancellationToken);
+        RecoveryAdmission proof = new(options.ClusterId, 1, options.NodeId, options.StorageGeneration,
+            true, false, snapshot.Manifest.SnapshotId, snapshot.Digest, snapshot.Image.Index, 1);
+        Projection foreign = new(fixture.Baseline with { ClusterId = Guid.NewGuid() });
+        using ServiceProvider scopes = new ServiceCollection().BuildServiceProvider();
+        var runtime = Create(proof, foreign, snapshots, scopes.GetRequiredService<IServiceScopeFactory>(), options);
+
+        // Act
+        Exception? failure = await Record.ExceptionAsync(async () => await runtime.Machine.RestoreAsync(options, TestContext.Current.CancellationToken));
+
+        // Assert
+        Assert.IsType<InvalidDataException>(failure);
+        Assert.Equal(0, foreign.Installs);
+        Assert.Null(runtime.State.Find(fixture.Actor));
+        Assert.False(runtime.Recovery.Accepted.CaughtUp);
+    }
+
+    [Fact]
+    public async Task VerifiedOlderPrefixMayCatchUpWhileAccountsAndWorkingProofRemainClosed()
+    {
+        // Arrange
+        using ClusterTestDirectory directory = new();
+        RevisionFixture fixture = new();
+        ClusterOptions options = fixture.Options(directory.Location);
+        RevisionSnapshotStore snapshots = new(Options.Create(options));
+        PublishedRevisionSnapshot snapshot = await snapshots.PublishAsync(fixture.WithProjectionRows(), TestContext.Current.CancellationToken);
+        RecoveryAdmission proof = new(options.ClusterId, 1, options.NodeId, options.StorageGeneration,
+            true, false, snapshot.Manifest.SnapshotId, snapshot.Digest, snapshot.Image.Index + 1, 1);
+        Projection projection = new(fixture.Baseline);
+        using ServiceProvider scopes = new ServiceCollection().BuildServiceProvider();
+        var runtime = Create(proof, projection, snapshots, scopes.GetRequiredService<IServiceScopeFactory>(), options);
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await runtime.Machine.RestoreAsync(options, token);
+        await using WriteAheadLog wal = new(WalOptions(Path.Combine(directory.Location, "wal")), runtime.Machine);
+        await wal.InitializeAsync(token);
+
+        // Act
+        bool behind = await runtime.Recovery.ConfirmLocalReplayAsync(wal.LastCommittedEntryIndex, wal.LastAppliedIndex, 1, token);
+        bool catchUp = await runtime.Recovery.VerifyCatchUpStartAsync(wal.LastCommittedEntryIndex, wal.LastAppliedIndex, 1, token);
+
+        // Assert
+        Assert.False(behind);
+        Assert.True(catchUp);
+        Assert.Null(runtime.State.Find(fixture.Actor));
+        Assert.False(runtime.Recovery.Accepted.CaughtUp);
+
+        // Act
+        long index = await wal.AppendAsync(new BinaryLogEntry { Term = 2, CommandId = RevisionCodec.COMMAND_ID,
+            Content = RevisionCodec.Encode(fixture.Server()) }, token);
+        await wal.CommitAsync(index, token);
+        await wal.WaitForApplyAsync(index, token);
+        bool confirmed = await runtime.Recovery.ConfirmLocalReplayAsync(wal.LastCommittedEntryIndex, wal.LastAppliedIndex, 1, token);
+
+        // Assert
+        Assert.True(confirmed);
+        Assert.NotNull(runtime.State.Find(fixture.Actor));
+        Assert.False(runtime.Recovery.Accepted.Activated);
+        Assert.False(runtime.Recovery.Accepted.ManuallyEnabled);
+    }
+
+    [Fact]
     public async Task AccountReplayAfterOlderSnapshotPreservesNewCredentialsAndDeletionBeforeReopeningAccess()
     {
         // Arrange
@@ -219,7 +288,7 @@ public class RevisionRecoveryTests
         }
     }
 
-    private class Projection(RevisionImage initial) : IRevisionProjectionStore
+    internal class Projection(RevisionImage initial) : IRevisionProjectionStore
     {
         private ProjectionHead head = new(initial.ClusterId, initial.Generation, initial.Index, initial.Term, initial.Digest);
         private readonly Dictionary<long, string> receipts = [];

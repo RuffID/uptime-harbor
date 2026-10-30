@@ -17,7 +17,11 @@ public static class ClusterServiceCollectionExtensions
         services.TryAddSingleton(TimeProvider.System);
         services.AddOptions<ClusterOptions>().Bind(configuration.GetSection(ClusterOptions.SECTION_NAME)).ValidateOnStart();
         services.AddSingleton<IValidateOptions<ClusterOptions>, ClusterOptionsValidator>();
-        services.TryAddSingleton<IRecoveryAdmission, UnavailableRecoveryAdmission>();
+        services.AddOptions<ClusterControlOptions>().Bind(configuration.GetSection("ClusterControl"));
+        services.TryAddSingleton<ClusterLocalControl>();
+        services.AddDataProtection();
+        services.TryAddSingleton<IRecoveryAdmission, SignedRecoveryAdmission>();
+        services.TryAddSingleton<IClusterLocalInitialization, ClusterLocalInitialization>();
         services.TryAddSingleton<RevisionStateStore>();
         services.TryAddSingleton<IAcceptedAccountReader>(provider => provider.GetRequiredService<RevisionStateStore>());
         services.TryAddSingleton<RevisionReducer>();
@@ -29,9 +33,8 @@ public static class ClusterServiceCollectionExtensions
         services.TryAddSingleton<IRevisionAudit, RevisionAudit>();
         services.TryAddSingleton<IMonitoringAudit, MonitoringAudit>();
         services.TryAddSingleton<IDeliveryAudit, DeliveryAudit>();
-        services.TryAddSingleton<IPeerTrustSource, UnavailablePeerTrustSource>();
+        services.TryAddSingleton<IPeerTrustSource, AcceptedPeerTrustSource>();
         services.TryAddSingleton<ISenderConsensus, UnavailableSenderConsensus>();
-        services.TryAddSingleton<IClusterAdministrationState, UnavailableClusterAdministrationState>();
         services.AddSingleton<IClusterAudit, ClusterAudit>();
         services.AddSingleton<NodeReadiness>();
         services.AddSingleton<SenderAuthorityGate>();

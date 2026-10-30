@@ -15,7 +15,8 @@ namespace UptimeHarbor.Web.Cluster;
 public class ClusterPeerRuntime(IServiceProvider services, IOptions<ClusterOptions> configured,
     ClusterStateMachine machine, ClusterRuntimeState state, NodeReadiness readiness,
     SenderAuthorityGate gate, LeaderFailureWindow failureWindow, TimeProvider timeProvider,
-    IPeerTrustSource trust, ILogger<ClusterPeerRuntime> logger, ClusterRaftHandle handle) : BackgroundService
+    IPeerTrustSource trust, ILogger<ClusterPeerRuntime> logger, ClusterRaftHandle handle,
+    ClusterLocalControl? control = null, RevisionStateStore? revisions = null) : BackgroundService
 {
     private readonly SemaphoreSlim lifecycle = new(1, 1);
     private ServiceProvider? nodeServices;
@@ -66,6 +67,29 @@ public class ClusterPeerRuntime(IServiceProvider services, IOptions<ClusterOptio
             {
                 clock.Sample();
                 gate.Tick();
+                Guid maintenance = revisions?.Current?.Operations.MaintenanceId ?? Guid.Empty;
+                string role = "Unknown";
+                if (state.Consensus is not null)
+                {
+                    role = "Follower";
+                    if (state.Consensus.IsLeader)
+                    {
+                        role = "Leader";
+                    }
+                }
+
+                control?.PublishStatus(revisions?.Current?.Operations.Revision ?? 0, maintenance, role,
+                    state.Consensus?.Term, state.Consensus?.MembershipVersion);
+                if (control is not null && !control.CanRunConsensus(maintenance))
+                {
+                    if (raft is not null)
+                    {
+                        await StopNodeAsync(stoppingToken);
+                    }
+
+                    continue;
+                }
+
                 bool localHealthy = readiness.Get("Database").Status == "Ready"
                     && readiness.Get("Clock").Status == "Ready" && (!machine.Failed || raft is null);
                 if (!localHealthy)
@@ -149,21 +173,67 @@ public class ClusterPeerRuntime(IServiceProvider services, IOptions<ClusterOptio
                 return;
             }
 
+            if (control is not null && !control.CanRunConsensus(revisions?.Current?.Operations.MaintenanceId ?? Guid.Empty))
+            {
+                return;
+            }
+
             lease = new(options);
             // Отдельный контейнер не запускается как host: DotNext стартует только ниже.
             nodeServices = DotNextNodeServices.Create(services, machine, options, lease.ColdStart);
+            if (lease.FirstStart && options.Mode == "Join")
+            {
+                RevisionImage image = revisions?.Current ?? throw new InvalidDataException("JoinCheckpointMissing");
+                IClusterConfigurationStorage<UriEndPoint> membership = nodeServices.GetRequiredService<IClusterConfigurationStorage<UriEndPoint>>();
+                await ClusterJoinMembership.PrepareAsync(membership, image, cancellationToken);
+            }
+
             IRaftHttpCluster candidate = nodeServices.GetRequiredService<IRaftHttpCluster>();
             await candidate.AuditTrail.InitializeAsync(cancellationToken);
-            IClusterConfigurationStorage configurationStorage = nodeServices.GetRequiredService<IClusterConfigurationStorage<UriEndPoint>>();
+            if (lease.ColdStart && revisions?.Current?.RecoveryBaseline is not null
+                && candidate.AuditTrail.Term < revisions.Current.Term)
+            {
+                // Новый WAL не копирует прежний vote; term floor сохраняет порядок исторических revisions.
+                await candidate.AuditTrail.UpdateTermAsync(revisions.Current.Term, true, cancellationToken);
+            }
+            IClusterConfigurationStorage<UriEndPoint> typedStorage = nodeServices.GetRequiredService<IClusterConfigurationStorage<UriEndPoint>>();
+            IClusterConfigurationStorage configurationStorage = typedStorage;
             var saved = await configurationStorage.LoadConfigurationAsync(cancellationToken);
             WriteAheadLog wal = (WriteAheadLog)candidate.AuditTrail;
             IClusterRecovery recovery = services.GetRequiredService<IClusterRecovery>();
+            if (recovery is RevisionClusterRecovery revisionRecovery && revisions?.Current is not null)
+            {
+                IClusterConfiguration<UriEndPoint> configuration = await typedStorage.LoadConfigurationAsync(cancellationToken);
+                HashSet<Guid> voters = [];
+                foreach (UriEndPoint member in configuration.Members)
+                {
+                    OperationalNode? node = revisions.Current.Operations.Nodes.Values.SingleOrDefault(item => !item.Removed && item.Address == member.Uri.AbsoluteUri);
+                    if (node is null || !voters.Add(node.NodeId))
+                    {
+                        await DisposeNodeAsync();
+                        return;
+                    }
+                }
+
+                if (!revisionRecovery.VerifyNativeMembership(saved.Version, voters, lease.ColdStart || options.Mode == "Join"))
+                {
+                    await DisposeNodeAsync();
+                    return;
+                }
+            }
+
             bool replayConfirmed = await recovery.ConfirmLocalReplayAsync(wal.LastCommittedEntryIndex,
                 wal.LastAppliedIndex, saved.Version, cancellationToken);
             if (!replayConfirmed)
             {
-                await DisposeNodeAsync();
-                return;
+                bool catchUp = recovery is RevisionClusterRecovery pendingRecovery
+                    && await pendingRecovery.VerifyCatchUpStartAsync(wal.LastCommittedEntryIndex,
+                        wal.LastAppliedIndex, saved.Version, cancellationToken);
+                if (!catchUp)
+                {
+                    await DisposeNodeAsync();
+                    return;
+                }
             }
 
             machine.ConfirmReplay(replayConfirmed);
@@ -248,6 +318,15 @@ public class ClusterPeerRuntime(IServiceProvider services, IOptions<ClusterOptio
         bool localLeader = raft.Leader?.IsRemote == false;
         IClusterRecovery recovery = services.GetRequiredService<IClusterRecovery>();
         WriteAheadLog wal = (WriteAheadLog)raft.AuditTrail;
+        if (recovery is RevisionClusterRecovery revisionRecovery
+            && !revisionRecovery.VerifyNativeMembership(persisted.Version, voters, false))
+        {
+            machine.ConfirmReplay(false);
+            state.Publish(null);
+            gate.Close();
+            return;
+        }
+
         bool replayConfirmed = await recovery.ConfirmLocalReplayAsync(wal.LastCommittedEntryIndex, wal.LastAppliedIndex,
             persisted.Version, cancellationToken);
         machine.ConfirmReplay(replayConfirmed);
@@ -374,7 +453,10 @@ public class ClusterPeerRuntime(IServiceProvider services, IOptions<ClusterOptio
             status?.MembershipVersion ?? -1, status?.CommittedIndex ?? 0, state.Accepted.AppliedIndex,
             ready, failureWindow.SecondsWithoutReady, components, failureWindow.ConfirmedPeers(),
             services.GetService<PendingReplicationPump>()?.Progress,
-            MonitoringDiagnostics.Read(services.GetRequiredService<RevisionStateStore>(), state.Accepted.CaughtUp, timeProvider.GetUtcNow()));
+            MonitoringDiagnostics.Read(services.GetRequiredService<RevisionStateStore>(), state.Accepted.CaughtUp, timeProvider.GetUtcNow()))
+        {
+            ActivationRequested = control?.ActivationRequested(revisions?.Current?.Operations.Revision ?? 0) == true
+        };
     }
 
     public async Task WriteHealthAsync(HttpContext context, PeerEnvelope envelope)

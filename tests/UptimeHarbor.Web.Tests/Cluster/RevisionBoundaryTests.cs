@@ -14,6 +14,44 @@ namespace UptimeHarbor.Tests.Web.Cluster;
 public class RevisionBoundaryTests
 {
     [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task PeerCannotDispatchInternalLifecycleOrForeignStorage(bool internalAction)
+    {
+        // Arrange
+        Guid cluster = Guid.NewGuid();
+        Guid node = Guid.NewGuid();
+        Guid storage = Guid.NewGuid();
+        RevisionCommand command = new()
+        {
+            ClusterId = cluster, ClusterGeneration = 1, OperationId = Guid.NewGuid(), OriginNodeId = node,
+            ActorUserId = Guid.NewGuid(), ActorRevision = 1, EntityId = node, EntityKind = DeletedEntityKind.Node,
+            Action = "EnterMaintenance", BaseRevision = 0, CreatedAtUtc = DateTimeOffset.UnixEpoch,
+            Operation = new() { StorageGeneration = Guid.NewGuid(), MaintenanceId = Guid.NewGuid() }
+        };
+        if (internalAction)
+        {
+            command = ClusterLifecycleCommands.Create(new(cluster, 1), node, storage, "ActivateNode", node, new(), DateTimeOffset.UnixEpoch);
+        }
+        DefaultHttpContext context = new();
+        context.Request.Body = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(new[] { command }));
+        context.Items[typeof(PeerEnvelope)] = new PeerEnvelope(cluster, 1, node, storage, Guid.NewGuid(),
+            Guid.NewGuid(), Guid.NewGuid(), DateTimeOffset.UnixEpoch, "1.0/1/1/1/1/6.10.0", Guid.NewGuid());
+        Consensus consensus = new();
+        ClusterRevisionController controller = new(new(consensus, new()), Options.Create(new ClusterOptions()))
+        {
+            ControllerContext = new() { HttpContext = context }
+        };
+
+        // Act
+        IActionResult response = await controller.SubmitAsync(TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(403, Assert.IsType<StatusCodeResult>(response).StatusCode);
+        Assert.Equal(0, consensus.Calls);
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task InternalStorageMustMatchAuthenticatedPeerBeforeDispatch(bool delivery)

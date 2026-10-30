@@ -4,7 +4,7 @@
 
 ## Активные планы
 
-- [Несколько узлов, синхронизация и общие администраторы](multi-node-sync-and-permissions-2026-10-18-%28in-progress%29/main.md) — `in-progress`: 01–08 completed; 09/10 not-started, 09.2/09.3 cancelled. Общий accepted/Pending/conflict UI/API, account/observer/chat/NodeChatRoute команды и безопасная диагностика подключены; gates/proofs закрыты, default Disabled сохранён. Реальные SQL/peers/endpoints/Telegram/browser не запускались. 504 .NET и 15 frontend tests успешны; это не SQL/crash/fsync/browser acceptance и не измерение часового догона. После 08.5 работа остановлена.
+- [Несколько узлов, синхронизация и общие администраторы](multi-node-sync-and-permissions-2026-10-18-%28in-progress%29/main.md) — `in-progress`: 01–09 completed с cancelled 09.2/09.3; 10 not-started. Controlled enable, lifecycle/membership/trust, ручная аварийная подготовка, maintenance, диагностика и runbooks реализованы. Default Disabled сохранён, текущая установка не включалась. 582 .NET и 18 frontend tests успешны; внешние SQL/peers/endpoints/Telegram/browser/restore/deployment, crash/fsync и часовой догон не проверены. После 09 работа остановлена.
 
 ## Новые самостоятельные планы
 

@@ -1,5 +1,7 @@
 # Архитектура решения
 
+Эксплуатационный lifecycle 09 использует существующий Raft/reducer/UoW: общие решения хранятся в принятом образе, локальные подписанные grants управляют карантином/ручным enable. Офлайн ClusterControlTool исполняется до создания host; схема данных не менялась. [Runbooks](Cluster%20operations.md), [recovery](Cluster%20recovery.md).
+
 ## Интерфейс общих данных (08)
 
 Application предоставляет ClusterAdministrationAccess, безопасные Administration DTO, accepted read model и typed команды поверх существующих Pending/controls/reducer. Web выбирает общий cluster UI для Index/Admin в enabled-режиме. SQL read/write legacy dashboard/объектов/чатов в этом режиме отклоняется фильтром; общие account endpoints и accepted test-send сохранены. Нового consensus, WAL, хранилища или схемы нет. Admission/trust/activation/manual-enable/delivery gates остаются закрытыми. Детали — [Web application.md](Web%20application.md#интерфейс-и-api-этапа-08).
@@ -9,7 +11,7 @@ Application предоставляет ClusterAdministrationAccess, безопа
 
 Accepted incident/event/intent → восстановленная DeliveryQueue → SenderAuthorityGate → принятый BeginDelivery → внешний Telegram transport → локальный result UoW → существующий revision transport → RecordDelivery/reducer → общий projection commit → accepted result. RenewSender использует тот же DotNext consensus/WAL. Отдельной репликации или расширения legacy outbox нет.
 
-Application владеет eligibility/retry/message/projection, Infrastructure — dispatcher/transport/capture и internal provenance, Web — lifecycle и сборкой graph. Test-send с follower проходит durable Pending и повторную accepted Administrator authorization. Независимые readiness dependencies остаются закрытыми; UI/controlled enable 08/09 не реализованы. [Детали](Notifications.md#принятая-доставка-этапа-07).
+Application владеет eligibility/retry/message/projection, Infrastructure — dispatcher/transport/capture и internal provenance, Web — lifecycle и сборкой graph. Test-send с follower проходит durable Pending и повторную accepted Administrator authorization. UI и controlled enable реализованы; неизвестные readiness dependencies оставляют работу закрытой. [Детали](Notifications.md#принятая-доставка-этапа-07).
 
 ## Поток распределённого мониторинга (06)
 

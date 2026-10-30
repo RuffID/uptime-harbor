@@ -11,14 +11,14 @@ namespace UptimeHarbor.Web.Cluster;
 public class PeerBoundaryMiddleware(RequestDelegate next, IOptions<ClusterOptions> configured)
 {
     public async Task InvokeAsync(HttpContext context, IPeerTrustSource trust,
-        NodeReadiness readiness, TimeProvider timeProvider, ClusterPeerRuntime runtime)
+        NodeReadiness readiness, TimeProvider timeProvider, ClusterPeerRuntime runtime, IClusterStateView? state = null)
     {
         ClusterOptions options = configured.Value;
         bool peerPath = context.Request.Path.StartsWithSegments("/internal");
         bool peerListener = options.Enabled && context.Connection.LocalPort == options.PeerListenPort;
         if (!peerPath && !peerListener)
         {
-            if (options.Enabled)
+            if (options.Enabled && (state is null || !readiness.CanWork(state)))
             {
                 context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
                 return;

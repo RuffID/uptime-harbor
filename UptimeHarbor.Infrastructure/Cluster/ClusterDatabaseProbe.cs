@@ -17,6 +17,11 @@ public class ClusterDatabaseProbe(IServiceScopeFactory scopes, NodeReadiness rea
             using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeout.CancelAfter(TimeSpan.FromSeconds(3));
             healthy = await context.Database.CanConnectAsync(timeout.Token);
+            if (healthy)
+            {
+                // Connectivity не подтверждает совместимость схемы; migration здесь не выполняется.
+                healthy = !(await context.Database.GetPendingMigrationsAsync(timeout.Token)).Any();
+            }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

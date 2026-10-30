@@ -7,6 +7,7 @@ public class ClusterStorageLease : IDisposable
 {
     private readonly FileStream file;
     public bool ColdStart { get; }
+    public bool FirstStart { get; }
 
     public ClusterStorageLease(ClusterOptions options)
     {
@@ -43,6 +44,7 @@ public class ClusterStorageLease : IDisposable
             }
             else
             {
+                FirstStart = true;
                 if (options.Mode == "Restart" || File.Exists(state) || File.Exists(membership))
                 {
                     throw new InvalidDataException("Cluster startup marker is missing.");

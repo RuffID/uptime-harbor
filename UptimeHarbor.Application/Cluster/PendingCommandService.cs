@@ -72,7 +72,7 @@ public class PendingCommandService(IPendingControlUnitOfWork work, IUserAccessCo
 
                 if (confirmedTargetId.HasValue)
                 {
-                    long revision = accepted.Current!.Values.GetValueOrDefault(target.EntityId)?.Revision ?? 0;
+                    long revision = CurrentRevision(accepted.Current!, command.Replacement!);
                     if (target.State != PendingState.NeedsUserConfirmation || command.Action != "Replace"
                         || command.Replacement?.BaseRevision != revision)
                     {
@@ -204,7 +204,7 @@ public class PendingCommandService(IPendingControlUnitOfWork work, IUserAccessCo
             throw new InvalidOperationException("ExplicitReplacementRequired");
         }
 
-        long currentRevision = image.Values.GetValueOrDefault(old.EntityId)?.Revision ?? 0;
+        long currentRevision = CurrentRevision(image, renewed.Replacement);
         if (renewed.Replacement.BaseRevision != currentRevision)
         {
             throw new InvalidOperationException("StaleConfirmation");
@@ -212,6 +212,16 @@ public class PendingCommandService(IPendingControlUnitOfWork work, IUserAccessCo
 
         // Исходная копия остаётся удержанной; control и новое значение сохраняются одной транзакцией.
         return await SubmitCoreAsync(renewed, localNodeId, oldOperationId, cancellationToken);
+    }
+
+    private static long CurrentRevision(RevisionImage image, RevisionCommand command)
+    {
+        if (ClusterOperationValidation.IsOperation(command))
+        {
+            return image.Operations.Revision;
+        }
+
+        return image.Values.GetValueOrDefault(command.EntityId)?.Revision ?? 0;
     }
 
     private void RequireAdministrator(Guid? operationId = null, Guid? localNodeId = null)

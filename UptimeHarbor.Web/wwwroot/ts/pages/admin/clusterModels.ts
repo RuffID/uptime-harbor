@@ -10,7 +10,7 @@ export interface Operation {
     replacedBy: string | null; message: string | null; replacementResult: Operation | null;
 }
 export interface Pending {
-    operationId: string; entityId: string; kind: EntityKind; action: string; baseRevision: number;
+    operationId: string; entityId: string; kind: EntityKind | "Node"; action: string; baseRevision: number;
     state: string; createdAtUtc: string; settings: Settings | null; requestedControlId: string | null;
     replacementOperationId: string | null; result: Operation | null; accountAction: string | null;
 }
@@ -40,10 +40,17 @@ export interface NodeDiagnostic {
     database: string; role: string; appliedIndex: number | null; lag: number | null;
 }
 export interface Diagnostic {
+    term: number | null; membershipVersion: number | null; operationsRevision: number; maintenanceId: string;
+    conflicts: number; terminalDeliveryErrors: number; lastSuccessfulSynchronizationAtUtc: string | null;
+    projectionAgeSeconds: number | null;
     nodeId: string; leaderNodeId: string | null; role: string; majority: string; votingNodes: number;
     requiredMajority: number; appliedIndex: number; committedIndex: number | null; lag: number | null;
     pending: number; heldPending: number; deliveryBacklog: number; localDatabase: string;
     telegram: string; telegramReason: string; telegramAgeSeconds: number | null; atUtc: string; nodes: NodeDiagnostic[];
+}
+export interface LifecycleChange {
+    operationId: string; action: "Cancel"; nodeId: string; baseRevision: number;
+    membershipVersion: number; targetOperationId: string;
 }
 export interface Change {
     operationId: string; entityId: string; kind: EntityKind; baseRevision: number; action: string;

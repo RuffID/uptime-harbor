@@ -31,7 +31,9 @@ public static class DeliveryQueue
         foreach (AcceptedDeliveryAttempt attempt in image.Monitoring.Attempts.Values)
         {
             SenderAuthorityKey key = attempt.Authority;
-            if (key.ClusterId != image.ClusterId || key.Generation != image.Generation || key.Term <= 0
+            bool currentIdentity = key.ClusterId == image.ClusterId && key.Generation == image.Generation;
+            bool selectedHistory = IsSelectedHistory(image.RecoveryBaseline, attempt);
+            if ((!currentIdentity && !selectedHistory) || key.Term <= 0
                 || key.Term > attempt.Term || key.MembershipVersion < 0
                 || attempt.Outcome == AttemptOutcome.Unknown && (attempt.CompletedAtUtc.HasValue
                     || attempt.TelegramMessageId.HasValue || attempt.FailureKind is not null))
@@ -78,5 +80,22 @@ public static class DeliveryQueue
         {
             throw new InvalidDataException("DeliveryHistoryMismatch");
         }
+    }
+
+    private static bool IsSelectedHistory(RecoveryBaseline? baseline, AcceptedDeliveryAttempt attempt)
+    {
+        if (baseline is null)
+        {
+            return false;
+        }
+
+        RecoveredAttemptIdentity? original = baseline.Attempts.GetValueOrDefault(attempt.Id);
+        if (original is not null && original.IntentId == attempt.IntentId && original.Number == attempt.Number
+            && original.Authority == attempt.Authority && original.StartedAtUtc == attempt.StartedAtUtc)
+        {
+            return true;
+        }
+
+        return false;
     }
 }

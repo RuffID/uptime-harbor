@@ -144,7 +144,16 @@ public class ClusterBrowserDiagnostics(ClusterAdministrationAccess access, IOpti
             consensus?.VotingNodes.Count ?? 0, (consensus?.VotingNodes.Count ?? 0) / 2 + 1,
             state.Accepted.AppliedIndex, consensus?.CommittedIndex, Lag(consensus?.CommittedIndex, state.Accepted.AppliedIndex),
             progress.Pending, progress.AwaitingConfirmation, backlog, readiness.Get("Database").Status,
-            sending, reason, telegram.Age?.TotalSeconds, now, nodes);
+            sending, reason, telegram.Age?.TotalSeconds, now, nodes)
+        {
+            Term = consensus?.Term, MembershipVersion = consensus?.MembershipVersion,
+            OperationsRevision = image.Operations.Revision, MaintenanceId = image.Operations.MaintenanceId,
+            Conflicts = image.Conflicts.Values.LongCount(conflict => !conflict.ResolvedAtUtc.HasValue),
+            TerminalDeliveryErrors = image.Monitoring.Intents.Values.LongCount(intent => intent.State is
+                UptimeHarbor.Domain.Cluster.DeliveryState.Failed),
+            LastSuccessfulSynchronizationAtUtc = progress.LastSuccessfulSynchronizationAtUtc,
+            ProjectionAgeSeconds = readiness.Get("Projection").Age?.TotalSeconds
+        };
     }
 
     private static long? Lag(long? committed, long? applied)

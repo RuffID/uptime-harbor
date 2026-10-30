@@ -17,6 +17,7 @@ public class PendingReplicationPump(IServiceScopeFactory scopes, IRevisionTransp
     private long? lastConfigurationCycle;
     private int reconciliationOffset;
     private string? delayReason;
+    private DateTimeOffset? lastSuccessfulSynchronizationAtUtc;
     private ReplicationProgress progress = new(0, 0, 0, 0, 0, 0, null, "RecoveryUnconfirmed");
     public ReplicationProgress Progress => Volatile.Read(ref progress);
 
@@ -165,6 +166,7 @@ public class PendingReplicationPump(IServiceScopeFactory scopes, IRevisionTransp
         }
 
         delayReason = null;
+        lastSuccessfulSynchronizationAtUtc = timeProvider.GetUtcNow();
     }
 
     private async Task ResolveAsync(IPendingControlUnitOfWork work, PendingOperation pending,
@@ -227,6 +229,9 @@ public class PendingReplicationPump(IServiceScopeFactory scopes, IRevisionTransp
         long committed = runtime.Consensus?.CommittedIndex ?? applied;
         long rejected = image?.Results.Values.LongCount(result => result.Outcome is OperationOutcome.Rejected or OperationOutcome.Conflict) ?? 0;
         Volatile.Write(ref progress, new(backlog.Pending, backlog.Confirmation, rejected, applied, committed,
-            Math.Max(0, committed - applied), backlog.OldestAtUtc, reason));
+            Math.Max(0, committed - applied), backlog.OldestAtUtc, reason)
+        {
+            LastSuccessfulSynchronizationAtUtc = lastSuccessfulSynchronizationAtUtc
+        });
     }
 }

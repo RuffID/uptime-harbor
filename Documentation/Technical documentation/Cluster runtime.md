@@ -1,5 +1,13 @@
 # Связь узлов, Raft и готовность
 
+## Controlled enable и эксплуатация (09)
+
+SignedRecoveryAdmission проверяет локальную ECDSA-подпись/pinned SPKI, process challenge, UTC freshness, manifest и настоящий client certificate/private key/CA/SAN/pin. Bootstrap разрешает только точную защищённую команду singleton account; Join использует принятый snapshot без независимого аккаунта. AcceptedPeerTrustSource читает общий публичный реестр с отзывом/expiry. ClusterDatabaseProbe требует CanConnect и отсутствия pending migrations, ничего не применяет.
+
+ClusterOperationReducer принимает lifecycle-команды в том же Raft log/SQL projection: admitted nodes/trust, serialized membership intents/results, activation, maintenance и sender epoch. User actions требуют актуального accepted Administrator; internal actions — настоящего local recovered leader/term/storage provenance, peer batch их отвергает. Перед native Start сверяются durable membership и принятый набор; первый Join инициализирует native voters/version из проверенного snapshot. Проверенный старый prefix допускает только catch-up без доступа до minimum committed index. ClusterRuntimeState добавляет operational proof лишь поверх реального recovery, точного native/accepted состава и DeliveryQueue.Validate; один RevisionClusterRecovery.Accepted работу не открывает.
+
+Signed Activate и отдельный Enable связаны с текущими версиями. Точный переход native состава, соответствующий одному принятому membership intent, сохраняет доступ уже активированных узлов для повторной авторизации результата; посторонний voter закрывает работу, sender остаётся закрытым до подтверждения перехода. Maintenance durable, останавливает native runtime и рабочие роли; restart/таймер его не снимают. ResumeConsensus разработчика разрешает только восстановление consensus, затем accepted LeaveMaintenance и новый Enable. EmergencyRecoveryOrchestrator готовит карантинную новую identity из явно выбранного среза с ручным isolation attestation, reauthentication и loss acknowledgement; второй consensus и SQL WAL не создаются. [Runbooks](Cluster%20operations.md), [recovery и границы ручного fencing](Cluster%20recovery.md), [файлы и команды](Cluster%20control%20files.md).
+
 ## Безопасная диагностика в браузере (08)
 
 ClusterBrowserDiagnostics проверяет accepted Administrator и проецирует только явный ClusterDiagnosticDto: текущий узел/главный, роль/majority, applied/commit/lag, local Pending/held/delivery backlog, БД и Telegram readiness. ClusterHealthWorker хранит последний authenticated health и monotonic возраст в одном singleton, используемом hosted polling и query; browser GET не вызывает сеть/БД. Сырые Components и health payload не сериализуются.
@@ -13,13 +21,13 @@ Web регистрирует production DeliverySenderConsensus, AcceptedDeliver
 
 Worker ничего не делает в Disabled. Enabled сначала проверяет восстановленную очередь по accepted image, затем независимо обновляет authority примерно раз в 5 секунд и запускает dispatcher. Перед transport повторяются проверки SenderAuthorityGate, RecoveryVersion, cancellation и текущего intent/configuration; неизвестные условия закрывают gate. Реальные renewal/attempt решения принимаются существующим DotNext writer, а transport results передаются через тот же revision transport.
 
-RevisionClusterRecovery по-прежнему не подтверждает activation/manual enable/sender epoch/delivery proof. Provisioning/fencing/controlled enable остаются 09, общий gate ради изолированных тестов не открыт. [Контракт доставки](Notifications.md#принятая-доставка-этапа-07), [проверки](Testing.md#проверка-этапа-07).
+RevisionClusterRecovery самостоятельно не подтверждает activation/manual enable/sender epoch/delivery proof. Эти зависимости собирает production lifecycle 09 только по проверенным предпосылкам; фактического включения установки не было. [Контракт доставки](Notifications.md#принятая-доставка-этапа-07), [проверки](Testing.md#проверка-этапа-09).
 
 ## Monitoring reconciliation (06)
 
 `ObservationReplicationPump` и `MonitoringCoordinator` используют существующие RevisionDispatcher/transport/DotNext apply. Первый передаёт durable capture по принятому sequence ACK; второй допускается только локальным текущим leader с актуальным term и uncancelled leadership/consensus tokens после recovery/catch-up. История до watermark обрабатывается bounded и с ротацией целей, затем принимается live evaluation и состав backlog. DeliveryStateConfirmed проверяется отдельно до summary planning; неизвестный порт не заменяется Ready.
 
-Внутренняя monitoring provenance имеет admitted OriginNodeId/storage generation и системный source, без Administrator actor. Пользовательские команды сохраняют accepted Administrator authorization. Trusted RecoveryAdmission содержит MonitoringNodes; snapshot должен совпадать с ним, SQL recovery дополнительно сверяет ClusterMember и monitoring projections. Membership provisioning по-прежнему не подключён.
+Внутренняя monitoring provenance имеет admitted OriginNodeId/storage generation и системный source, без Administrator actor. Пользовательские команды сохраняют accepted Administrator authorization. Trusted RecoveryAdmission содержит MonitoringNodes; snapshot должен совпадать с ним, SQL recovery дополнительно сверяет ClusterMember и monitoring projections. Membership provisioning и подтверждение native результата подключены через lifecycle 09.
 
 `ClusterMonitoringWorker` зарегистрирован в Web composition root; cycle/capture имеют инфраструктурные scoped границы. Peer health включает безопасный MonitoringProgress без payload. Capture не требует главного, рабочие checks требуют CanWork и сохраняют RecoveryVersion. Успешный CanConnect или replay без ConfirmRecovery не снимает latched apply fault. Disabled завершает новый worker без действий. Общие activation/browser/sender gates остаются закрытыми; детали — [Monitoring.md](Monitoring.md#распределённый-путь-этапа-06).
 

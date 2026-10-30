@@ -82,15 +82,20 @@ export class ClusterViews {
             if (row.result) actions.append(element("p", operationText(row.result), "small mb-0"));
             else actions.append(button("Проверить принятый результат", () => this.actions.find(row.operationId)));
             const editable = !row.result && row.state !== "Resolved" && !row.requestedControlId && (row.action === "Upsert" || row.action === "Delete");
-            if (editable) {
+            if (editable && row.kind !== "Node") {
+                const kind = row.kind;
                 actions.append(button(row.state === "NeedsUserConfirmation" ? "Сверить и подтвердить новую заявку" : "Редактировать заявку",
-                    () => this.actions.edit(row.kind, current, row.action, row)));
+                    () => this.actions.edit(kind, current, row.action, row)));
                 actions.append(button("Запросить отмену", () => this.actions.cancel(row), true));
+            }
+            if (row.kind === "Node" && !row.result && row.state !== "Resolved" && !row.requestedControlId && row.action !== "Cancel" && row.action !== "Replace") {
+                actions.append(button("Запросить отмену", () => this.actions.cancel(row), true));
+                if (row.state === "NeedsUserConfirmation") actions.append(element("p", "Для подтверждения нужна новая эксплуатационная заявка с актуальной ревизией и явным ConfirmRestored.", "small"));
             }
             if (row.requestedControlId) actions.append(button(`Результат control ${row.requestedControlId}`, () => this.actions.find(row.requestedControlId!)));
             return this.pending.row([`${row.operationId} / ${row.entityId} · ${row.action} · base ${row.baseRevision}`,
                 `${row.state} · ${date(row.createdAtUtc)}${row.state === "NeedsUserConfirmation" ? " · удержано после восстановления" : ""}`,
-                settingsText(row.settings, row.kind), actions]);
+                row.kind === "Node" ? `Управление сеткой: ${row.action}` : settingsText(row.settings, row.kind), actions]);
         }));
         this.pending.refresh();
     }
@@ -117,6 +122,8 @@ export class ClusterViews {
 
     private renderDiagnostics(value: Diagnostic): void {
         this.summary.replaceChildren(
+            element("p", `Term: ${value.term ?? "неизвестен"}; membership: ${value.membershipVersion ?? "неизвестен"}; эксплуатационная ревизия: ${value.operationsRevision}. Maintenance: ${value.maintenanceId}.`),
+            element("p", `Конфликты: ${value.conflicts}; terminal delivery errors: ${value.terminalDeliveryErrors}. Последняя успешная синхронизация команды: ${date(value.lastSuccessfulSynchronizationAtUtc)}. Возраст проекции: ${value.projectionAgeSeconds ?? "неизвестен"} с.`),
             element("p", `На ${date(value.atUtc)}. Текущий узел: ${value.nodeId}. Роль: ${value.role}. Главный: ${value.leaderNodeId ?? "неизвестен"}. Majority: ${value.majority} (${value.requiredMajority} из ${value.votingNodes}).`),
             element("p", `Локальная БД: ${value.localDatabase}. Applied: ${value.appliedIndex}; commit: ${value.committedIndex ?? "неизвестно"}; lag: ${value.lag ?? "неизвестно"}. Pending: ${value.pending}; удержано: ${value.heldPending}; доставка backlog: ${value.deliveryBacklog}.`),
             element("p", `Telegram readiness: ${value.telegram}; причина: ${value.telegramReason}; возраст проверки: ${value.telegramAgeSeconds === null ? "неизвестен" : `${Math.floor(value.telegramAgeSeconds)} с`}. Ошибка отдельного чата показана в журнале доставок и не означает потерю coverage.`)

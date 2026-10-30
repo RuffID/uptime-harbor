@@ -10,6 +10,7 @@ public record RecoveryAdmission(Guid ClusterId, long Generation, Guid NodeId, Gu
     // Только внешний проверенный provenance. Пароль в открытом виде здесь недопустим.
     public RevisionCommand? BootstrapAccount { get; init; }
     public ImmutableDictionary<Guid, Guid> MonitoringNodes { get; init; } = ImmutableDictionary<Guid, Guid>.Empty;
+    public ClusterOperationsImage Operations { get; init; } = new();
 
     public override string ToString()
     {

@@ -15,9 +15,11 @@ public static class ClusterWebExtensions
         services.AddHostedService(provider => provider.GetRequiredService<ClusterHealthWorker>());
         services.AddScoped<ClusterBrowserDiagnostics>();
         services.AddScoped<MembershipCoordinator>();
+        services.AddSingleton<IClusterAdministrationState, AcceptedClusterAdministrationState>();
         services.AddSingleton<IMembershipProtocol, DotNextMembershipProtocol>();
         services.AddSingleton<IConsensusWriter, ClusterConsensusWriter>();
         services.AddSingleton<RevisionDispatcher>();
+        services.AddHostedService<ClusterLifecycleWorker>();
         services.AddSingleton<ISenderConsensus, DeliverySenderConsensus>();
         services.AddSingleton<AcceptedDeliveryDispatcher>();
         services.AddHostedService<ClusterDeliveryWorker>();

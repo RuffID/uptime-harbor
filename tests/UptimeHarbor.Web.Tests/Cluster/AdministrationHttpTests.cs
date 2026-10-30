@@ -17,6 +17,63 @@ namespace UptimeHarbor.Tests.Web.Cluster;
 public class AdministrationHttpTests
 {
     [Theory]
+    [InlineData(true, true, 202)]
+    [InlineData(false, true, 401)]
+    [InlineData(true, false, 403)]
+    public async Task LifecycleUsesActualAcceptedActorAndProtectedPending(bool authenticated, bool enabled, int status)
+    {
+        // Arrange
+        Fixture fixture = new(authenticated, enabled);
+        ClusterOperationRequest request = new(Guid.NewGuid(), "EnterMaintenance", fixture.Actor, 0, 0)
+        {
+            MaintenanceId = Guid.NewGuid()
+        };
+
+        // Act
+        JsonResult response = await fixture.Lifecycle.SubmitAsync(request, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(status, response.StatusCode);
+        if (status == 202)
+        {
+            PendingOperation stored = Assert.Single(fixture.Work.Items.Values);
+            RevisionCommand command = RevisionCodec.Decode(Convert.FromBase64String(stored.ProtectedPayload));
+            Assert.Equal(fixture.Actor, command.ActorUserId);
+            Assert.Null(command.SystemSource);
+            Assert.Equal(request.MaintenanceId, command.Operation!.MaintenanceId);
+        }
+        else Assert.Empty(fixture.Work.Items);
+    }
+
+    [Fact]
+    public async Task HeldLifecycleNeedsExplicitReplacementAndKeepsOriginalHeld()
+    {
+        // Arrange
+        Fixture fixture = new(true, true);
+        ClusterOperationRequest original = new(Guid.NewGuid(), "EnterMaintenance", fixture.Actor, 0, 0) { MaintenanceId = Guid.NewGuid() };
+        await fixture.Lifecycle.SubmitAsync(original, TestContext.Current.CancellationToken);
+        PendingOperation held = fixture.Work.Items[original.OperationId];
+        held.RequireConfirmationAfterRestore();
+        ClusterOperationRequest replacement = original with
+        {
+            OperationId = Guid.NewGuid(), Action = "Replace", ReplacementAction = "EnterMaintenance",
+            TargetOperationId = original.OperationId, ReplacementOperationId = Guid.NewGuid(), ConfirmRestored = true
+        };
+
+        // Act
+        JsonResult response = await fixture.Lifecycle.SubmitAsync(replacement, TestContext.Current.CancellationToken);
+        JsonResult retry = await fixture.Lifecycle.SubmitAsync(replacement, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(202, response.StatusCode);
+        Assert.Equal(202, retry.StatusCode);
+        Assert.Equal(2, fixture.Work.Items.Count);
+        Assert.Equal(PendingState.NeedsUserConfirmation, held.State);
+        Assert.Equal(replacement.OperationId, held.RequestedControlId);
+        Assert.Equal(replacement.ReplacementOperationId, held.ReplacementOperationId);
+    }
+
+    [Theory]
     [InlineData(true, true, 200)]
     [InlineData(false, true, 401)]
     [InlineData(true, false, 403)]
@@ -76,6 +133,7 @@ public class AdministrationHttpTests
         public RevisionStateStore State { get; } = new();
         public MemoryPending Work { get; } = new();
         public ClusterAdministrationController Controller { get; }
+        public ClusterOperationsController Lifecycle { get; }
 
         public Fixture(bool authenticated, bool enabled)
         {
@@ -89,6 +147,8 @@ public class AdministrationHttpTests
             Protection protection = new();
             PendingCommandService pending = new(Work, user, policy, State, protection, new Audit(), new PendingAdmissionGate());
             ClusterConfigurationCommands commands = new(access, State, pending, Work, protection, TimeProvider.System);
+            var options = Options.Create(new ClusterOptions { Mode = "Restart", NodeId = Guid.NewGuid(), StorageGeneration = Guid.NewGuid() });
+            Lifecycle = new(new(access, State, pending, Work, protection, options, TimeProvider.System, user), options);
             Controller = new(new(access, State, user, TimeProvider.System), new(access, State, Work, protection), commands,
                 new ClusterBrowserDiagnostics(access, null!, null!, null!, null!, null!, null!, null!, null!),
                 Options.Create(new ClusterOptions { Mode = "Restart", NodeId = Guid.NewGuid() }));

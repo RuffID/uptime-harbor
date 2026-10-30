@@ -43,6 +43,21 @@ public static class SnapshotImageValidation
             ids.Add(record.Id);
         }
 
+        foreach (ProjectionRecord record in ClusterOperationsProjection.Changes(empty, image))
+        {
+            Type recordType = record.GetType();
+            string[] fields = SnapshotSchema.Fields(context.Model.FindEntityType(recordType)!)
+                .Select(field => field.Name).Where(field => field is not ("LogIndex" or "Term")).ToArray();
+            Compare(context, image, record, fields);
+            if (!expected.TryGetValue(recordType, out HashSet<Guid>? ids))
+            {
+                ids = [];
+                expected.Add(recordType, ids);
+            }
+
+            ids.Add(record.Id);
+        }
+
         foreach (MonitoringDeliveryEvidence evidence in image.Monitoring.ConfirmedDeliveries.Values)
         {
             DeliveryAttempt attempt = MonitoringRecipients.AcceptedAttempt(image, evidence);
@@ -98,6 +113,10 @@ public static class SnapshotImageValidation
             typeof(TelegramChat), typeof(NotificationBinding), typeof(ObserverAssignment), typeof(NodeChatRoute),
             typeof(ObserverResult), typeof(ObservationFrontier), typeof(TargetObservationState), typeof(SharedIncident),
             typeof(IncidentEvent), typeof(DeliveryIntent), typeof(DeliveryAttempt), typeof(RecoveryEntitlement), typeof(DeliverySummary), typeof(SummarySource)];
+        if (!image.Operations.Nodes.IsEmpty)
+        {
+            configurationTypes = [.. configurationTypes, typeof(ClusterMember), typeof(PeerTrustCredential), typeof(MembershipChange)];
+        }
         foreach (Type type in configurationTypes)
         {
             HashSet<Guid> ids = expected.GetValueOrDefault(type) ?? [];

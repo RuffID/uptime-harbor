@@ -51,6 +51,11 @@ public class RevisionReducer
             return DeliveryReducer.Apply(state, command);
         }
 
+        if (ClusterOperationValidation.IsOperation(command))
+        {
+            return ClusterOperationReducer.Apply(state, command);
+        }
+
         if (MonitoringCommandValidation.IsSystem(command))
         {
             return MonitoringReducer.Apply(state, command);

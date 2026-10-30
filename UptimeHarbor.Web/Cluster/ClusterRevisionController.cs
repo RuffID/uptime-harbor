@@ -23,9 +23,11 @@ public class ClusterRevisionController(RevisionDispatcher dispatcher, IOptions<C
         {
             byte[] bytes = await RevisionBatchCodec.ReadAsync(Request.Body, options.Value.BatchMaxBytes, cancellationToken);
             IReadOnlyList<RevisionCommand> commands = RevisionBatchCodec.Decode(bytes, options.Value);
-            if (commands.Any(command => command.OriginNodeId != peer.FromNodeId
+            if (commands.Any(command => ClusterOperationValidation.IsInternal(command)
+                || command.OriginNodeId != peer.FromNodeId
                 || command.Monitoring is not null && command.Monitoring.StorageGeneration != peer.StorageGeneration
-                || command.Delivery is not null && command.Delivery.StorageGeneration != peer.StorageGeneration))
+                || command.Delivery is not null && command.Delivery.StorageGeneration != peer.StorageGeneration
+                || command.Operation is not null && command.Operation.StorageGeneration != peer.StorageGeneration))
             {
                 return StatusCode(StatusCodes.Status403Forbidden);
             }
