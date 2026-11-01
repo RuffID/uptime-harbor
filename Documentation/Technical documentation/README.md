@@ -14,6 +14,7 @@
 | Миграции и startup backup | [Database migrations.md](Database%20migrations.md) |
 | Endpoint-проверки и monitoring worker | [Monitoring.md](Monitoring.md) |
 | Подготовка Ubuntu: HTTPS на 43871 в существующем nginx с готовым сертификатом Let's Encrypt, время загрузки в UTC | [Ubuntu server monitoring.md](Ubuntu%20server%20monitoring.md) |
+| Подключение контейнеров: JSON endpoint ASP.NET Core, nginx и добавление в проект | [ASP.NET Core container monitoring.md](ASP.NET%20Core%20container%20monitoring.md) |
 | Telegram, accepted delivery ledger и локальный outbox | [Notifications.md](Notifications.md) |
 | Razor Pages, API, TypeScript и SignalR | [Web application.md](Web%20application.md) |
 | Внешняя конфигурация и секреты | [Configuration.md](Configuration.md) |
@@ -22,12 +23,5 @@
 | Самостоятельная проверка ПК → production, первый запуск, join, membership, TLS, обслуживание и rollback | [Cluster operations.md](Cluster%20operations.md) |
 | Backup/rejoin и ручное аварийное восстановление | [Cluster recovery.md](Cluster%20recovery.md) |
 | Офлайн-инструмент и подписанные control-файлы | [Cluster control files.md](Cluster%20control%20files.md) |
-
-## Исторические технические ревью
-
-- [Первичное ревью первой версии](V1%20Technical%20Review%20Findings.md).
-- [Повторное ревью первой версии](V1%20Follow-up%20Technical%20Review.md).
-
-Ревью сохраняют выводы и результаты на момент проверки. Их исторические списки дефектов и счётчики тестов не заменяют актуальные тематические документы.
 
 Сборки и тесты не означают готовность к runtime-релизу. Каждый документ должен отделять подтверждённые исходниками контракты от проверок реального окружения.

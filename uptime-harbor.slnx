@@ -24,13 +24,12 @@
     <File Path="Documentation/Technical documentation/Libraries.md" />
     <File Path="Documentation/Technical documentation/Monitoring.md" />
     <File Path="Documentation/Technical documentation/Ubuntu server monitoring.md" />
+    <File Path="Documentation/Technical documentation/ASP.NET Core container monitoring.md" />
     <File Path="Documentation/Technical documentation/Notifications.md" />
     <File Path="Documentation/Technical documentation/Persistence.md" />
     <File Path="Documentation/Technical documentation/Shared cluster storage.md" />
     <File Path="Documentation/Technical documentation/Testing.md" />
     <File Path="Documentation/Technical documentation/Web application.md" />
-    <File Path="Documentation/Technical documentation/V1 Technical Review Findings.md" />
-    <File Path="Documentation/Technical documentation/V1 Follow-up Technical Review.md" />
   </Folder>
   <Folder Name="/Documentation/Plans/">
     <File Path="Documentation/Plans/README.md" />

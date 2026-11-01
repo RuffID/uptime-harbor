@@ -7,7 +7,7 @@
 - `Business logic` — пользовательские правила и бизнес-требования; основной документ — `Business requirements.md`;
 - `Technical documentation` — фактическое техническое устройство проекта;
 - `Plans` — последовательность активных работ и исторический результат завершённых этапов.
-- `README.md` — общая навигация; `Business logic/README.md`, `Technical documentation/README.md` и `Plans/README.md` — тематические оглавления. Исторические отчёты `V1 ... Review ...` находятся в `Technical documentation`.
+- `README.md` — общая навигация; `Business logic/README.md`, `Technical documentation/README.md` и `Plans/README.md` — тематические оглавления.
 
 ## Правила актуализации
 
