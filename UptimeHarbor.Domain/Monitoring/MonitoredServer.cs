@@ -21,6 +21,8 @@ public class MonitoredServer : MonitoredObject
 
     public string Name { get; private set; } = string.Empty;
 
+    public DateTimeOffset? StartedAtUtc { get; private set; }
+
     private string NormalizedName { get; set; } = string.Empty;
 
     public MonitoringTransition UpdateSettings(
@@ -39,9 +41,28 @@ public class MonitoredServer : MonitoredObject
         return transition;
     }
 
-    public MonitoringTransition RecordSuccessfulCheck(string name, DateTimeOffset checkedAtUtc)
+    public MonitoringTransition RecordSuccessfulCheck(
+        string name,
+        DateTimeOffset startedAtUtc,
+        DateTimeOffset checkedAtUtc)
     {
-        return ApplySuccessfulCheck(name, checkedAtUtc);
+        EnsureUtc(startedAtUtc, nameof(startedAtUtc));
+
+        if (startedAtUtc > checkedAtUtc)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(startedAtUtc),
+                "Время запуска сервера не может находиться в будущем.");
+        }
+
+        MonitoringTransition transition = ApplySuccessfulCheck(name, checkedAtUtc);
+        StartedAtUtc = startedAtUtc;
+        return transition;
+    }
+
+    protected override void ResetEndpointSpecificState()
+    {
+        StartedAtUtc = null;
     }
 
     public void RecordContainerLinksChanged()

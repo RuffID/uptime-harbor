@@ -13,6 +13,8 @@ public class MonitoredServerConfiguration : MonitoredObjectConfiguration<Monitor
     {
         base.Configure(builder);
 
+        builder.Property(server => server.StartedAtUtc);
+
         builder.Property(server => server.Name)
             .HasMaxLength(ModelConstraints.OBJECT_NAME_MAX_LENGTH)
             .IsRequired();

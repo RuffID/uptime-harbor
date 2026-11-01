@@ -9,4 +9,6 @@ public record DashboardServerDto(
     string? Description,
     MonitoringStatus Status,
     DateTimeOffset? LastCheckedAtUtc,
+    DateTimeOffset? StartedAtUtc,
+    long? UptimeSeconds,
     IReadOnlyList<DashboardContainerDto> Containers);

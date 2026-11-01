@@ -109,7 +109,7 @@ public class ClusterMonitoringCycle(RevisionStateStore accepted, IClusterStateVi
             observation = new(Guid.NewGuid(), cell.Id, options.Value.NodeId, options.Value.StorageGeneration,
                 target.CheckGeneration, target.ConfigRevision, 1, result.CheckedAtUtc,
                 (long)time.GetElapsedTime(start).TotalMilliseconds, result.Success, result.FailureKind?.ToString(),
-                result.Name, null, readiness.Get("Clock").Status == "Ready");
+                result.Name, result.StartedAtUtc, readiness.Get("Clock").Status == "Ready");
         }
         else
         {

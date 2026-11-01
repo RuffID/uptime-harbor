@@ -1,7 +1,6 @@
 using UptimeHarbor.Application.Common;
 using UptimeHarbor.Application.Dashboard.Models;
 using UptimeHarbor.Application.Security;
-using UptimeHarbor.Application.Visibility;
 
 namespace UptimeHarbor.Application.Dashboard;
 
@@ -79,6 +78,21 @@ public class DashboardQuery(
         DateTimeOffset generatedAtUtc)
     {
         EnsureUtc(server.LastCheckedAtUtc, nameof(server.LastCheckedAtUtc));
+        EnsureUtc(server.StartedAtUtc, nameof(server.StartedAtUtc));
+
+        long? uptimeSeconds = null;
+        if (server.StartedAtUtc is DateTimeOffset startedAtUtc)
+        {
+            TimeSpan uptime = generatedAtUtc - startedAtUtc;
+            if (uptime < TimeSpan.Zero)
+            {
+                throw new InvalidOperationException(
+                    "Время запуска сервера не может быть позже времени формирования панели.");
+            }
+
+            uptimeSeconds = checked((long)uptime.TotalSeconds);
+        }
+
         return new DashboardServerDto(
             server.Id,
             server.Name,
@@ -86,6 +100,8 @@ public class DashboardQuery(
             server.Description,
             server.Status,
             server.LastCheckedAtUtc,
+            server.StartedAtUtc,
+            uptimeSeconds,
             containers.Select(container => MapContainer(container, generatedAtUtc)).ToList());
     }
 

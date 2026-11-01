@@ -104,7 +104,9 @@ public class MonitoringRuntimeTests
 
         // Assert
         Assert.Equal(1, endpoint.Calls);
-        Assert.Single(runtime.Storage.Saved);
+        MonitoringObservation observation = JsonSerializer.Deserialize<MonitoringObservation>(Assert.Single(runtime.Storage.Saved).Payload)!;
+        Assert.True(observation.Succeeded);
+        Assert.Equal(DateTimeOffset.UnixEpoch, observation.StartedAtUtc);
         Assert.False(runtime.Readiness.CanWork(runtime));
 
         // Act
@@ -228,7 +230,10 @@ public class MonitoringRuntimeTests
         {
             Calls++;
             Assert.Null(request.Headers.Authorization);
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{\"name\":\"app\"}") });
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{\"name\":\"app\",\"startedAtUtc\":\"1970-01-01T00:00:00Z\"}")
+            });
         }
     }
 
@@ -252,7 +257,10 @@ public class MonitoringRuntimeTests
             }
 
             await Release.Task.WaitAsync(token);
-            return new(HttpStatusCode.OK) { Content = new StringContent("{\"name\":\"app\"}") };
+            return new(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{\"name\":\"app\",\"startedAtUtc\":\"1970-01-01T00:00:00Z\"}")
+            };
         }
     }
 }

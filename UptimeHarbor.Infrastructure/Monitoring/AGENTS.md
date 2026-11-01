@@ -9,6 +9,7 @@
 ## Правила
 
 - HTTP GET выполнять через `IHttpClientFactory` без заголовка авторизации.
+- Для server и container endpoint требовать `name` и `startedAtUtc` с явным UTC offset (`Z` или `+00:00`), не позже проверки. В cluster server capture сохранять это время в observation metadata.
 - Timeout и интервал получать только из валидированных `MonitoringOptions`; текущее время и таймеры — через `TimeProvider`.
 - Каждый объект проверять и сохранять в отдельном DI scope; не разделять `DbContext` между параллельными задачами.
 - Keyed-координацию освобождать в `finally`; одновременно разрешена только одна проверка пары «тип + идентификатор».

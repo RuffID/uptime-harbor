@@ -20,7 +20,8 @@ public class DashboardSnapshotReadQuery(UptimeHarborDbContext dbContext)
                 server.Description,
                 server.LastKnownName,
                 server.Status,
-                server.LastCheckedAtUtc))
+                server.LastCheckedAtUtc,
+                server.StartedAtUtc))
             .ToListAsync(cancellationToken);
         List<DashboardContainerReadRecord> containers = await dbContext.MonitoredContainers
             .AsNoTracking()

@@ -74,6 +74,10 @@ Persistence реализован в `UptimeHarbor.Infrastructure` на EF Core �
 
 Тот же технический Unit of Work отдельно классифицирует только SQL Server unique violations 2601/2627 для EF entries `TelegramChat` и `NotificationBinding`. Они преобразуются в provider-independent `PersistenceConflictException`; Application не зависит от EF Core или `Microsoft.Data.SqlClient`. Неизвестный номер, неизвестная сущность и произвольный `DbUpdateException` пробрасываются как непредвиденная ошибка. Unique indexes Telegram chat ID и пар chat/target имеют стабильные имена, совпадающие с SQL Server baseline.
 
+## Время загрузки сервера
+
+`MonitoredServer.StartedAtUtc` добавлено в текущую EF-модель как nullable UTC timestamp; оно включено в dashboard read projection. Migration `20261101102504_AddMonitoredServerStartedAtUtc` добавляет только nullable `datetime2` без default и backfill; designer и snapshot сгенерированы EF tooling. Старые строки получат `null` до первого успешного ответа с реальным временем загрузки. К БД migration не применялась. Исторические migrations вручную не изменялись. Подробности — [Database migrations.md](Database%20migrations.md#время-загрузки-сервера).
+
 ## Snapshot и повтор применения
 
 `RevisionWriteSetFactory` формирует ready projection changes; `ProjectionApplyUnitOfWork` одной транзакцией проверяет receipt/cursor и фиксирует аккаунт/роль, настройки, decisions/controls/conflicts/tombstones и позицию. Immutable accepted image публикуется после commit. Повтор после потерянного ответа сверяется по digest и возвращает исходное решение; SQL receipt без payload не является WAL.

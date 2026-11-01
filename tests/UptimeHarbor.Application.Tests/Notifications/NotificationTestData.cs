@@ -59,7 +59,7 @@ internal class NotificationTestData
             true);
         if (name is not null)
         {
-            server.RecordSuccessfulCheck(name, TimeProvider.GetUtcNow().AddMinutes(-1));
+            server.RecordSuccessfulCheck(name, TimeProvider.GetUtcNow().AddDays(-1), TimeProvider.GetUtcNow().AddMinutes(-1));
         }
         Servers.Items.Add(server);
         return server;

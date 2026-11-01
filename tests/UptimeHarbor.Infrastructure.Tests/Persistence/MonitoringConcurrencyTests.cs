@@ -18,6 +18,7 @@ public class MonitoringConcurrencyTests
     [Fact]
     public async Task MonitoringAgainstDisable_RejectsStaleMonitoringWrite()
     {
+        // Arrange
         await using SqliteConnection connection = await OpenDatabaseAsync();
         Guid serverId = await AddServerAsync(connection);
         await using UptimeHarborDbContext monitoringContext = CreateContext(connection);
@@ -29,10 +30,13 @@ public class MonitoringConcurrencyTests
 
         administrationServer.SetMonitoringEnabled(false);
         await administrationContext.SaveChangesAsync(TestContext.Current.CancellationToken);
-        monitoringServer.RecordSuccessfulCheck("stale", CHECKED_AT_UTC);
+        monitoringServer.RecordSuccessfulCheck("stale", CHECKED_AT_UTC.AddDays(-1), CHECKED_AT_UTC);
 
+        // Act
         await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() =>
             monitoringContext.SaveChangesAsync(TestContext.Current.CancellationToken));
+
+        // Assert
         await using UptimeHarborDbContext verificationContext = CreateContext(connection);
         MonitoredServer stored = await verificationContext.MonitoredServers.SingleAsync(
             server => server.Id == serverId,
@@ -45,6 +49,7 @@ public class MonitoringConcurrencyTests
     [Fact]
     public async Task MonitoringAgainstEndpointChange_RejectsStaleMonitoringWrite()
     {
+        // Arrange
         await using SqliteConnection connection = await OpenDatabaseAsync();
         await AddServerAsync(connection);
         await using UptimeHarborDbContext monitoringContext = CreateContext(connection);
@@ -56,10 +61,13 @@ public class MonitoringConcurrencyTests
 
         administrationServer.UpdateSettings("https://new.example/health", null, true);
         await administrationContext.SaveChangesAsync(TestContext.Current.CancellationToken);
-        monitoringServer.RecordSuccessfulCheck("stale", CHECKED_AT_UTC);
+        monitoringServer.RecordSuccessfulCheck("stale", CHECKED_AT_UTC.AddDays(-1), CHECKED_AT_UTC);
 
+        // Act
         await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() =>
             monitoringContext.SaveChangesAsync(TestContext.Current.CancellationToken));
+
+        // Assert
         await using UptimeHarborDbContext verificationContext = CreateContext(connection);
         MonitoredServer stored = await verificationContext.MonitoredServers.SingleAsync(
             TestContext.Current.CancellationToken);

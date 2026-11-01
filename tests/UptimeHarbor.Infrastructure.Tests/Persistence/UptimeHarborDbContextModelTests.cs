@@ -15,6 +15,22 @@ namespace UptimeHarbor.Tests.Infrastructure.Persistence;
 public class UptimeHarborDbContextModelTests
 {
     [Fact]
+    public void MonitoredServer_StoresNullableBootTimeWithUtcConversion()
+    {
+        // Arrange
+        using UptimeHarborDbContext context = CreateContext();
+
+        // Act
+        IProperty property = context.Model.FindEntityType(typeof(MonitoredServer))!
+            .FindProperty(nameof(MonitoredServer.StartedAtUtc))!;
+
+        // Assert
+        Assert.True(property.IsNullable);
+        Assert.Equal(typeof(DateTimeOffset?), property.ClrType);
+        Assert.IsType<UtcDateTimeOffsetConverter>(property.GetTypeMapping().Converter);
+    }
+
+    [Fact]
     public void MonitoringEntities_UseExplicitConcurrencyVersion()
     {
         using UptimeHarborDbContext context = CreateContext();

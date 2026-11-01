@@ -250,12 +250,15 @@ public class ObjectAdministrationServiceTests
     [Fact]
     public async Task UpdateServerAsync_ChangesSettingsAndClearsEndpointSpecificState()
     {
+        // Arrange
         TestData data = new();
         MonitoredServer server = data.AddServer(isMonitoringEnabled: true);
         server.RecordSuccessfulCheck(
             "old-server-name",
+            new DateTimeOffset(2026, 8, 24, 10, 0, 0, TimeSpan.Zero),
             new DateTimeOffset(2026, 8, 25, 10, 0, 0, TimeSpan.Zero));
 
+        // Act
         ServiceResult<AdminServerDto> result = await data.Service.UpdateServerAsync(
             server.Id,
             "Renamed server",
@@ -265,8 +268,10 @@ public class ObjectAdministrationServiceTests
             server.Version,
             TestContext.Current.CancellationToken);
 
+        // Assert
         Assert.True(result.Success);
         Assert.Null(result.Data!.LastKnownName);
+        Assert.Null(server.StartedAtUtc);
         Assert.Equal(MonitoringStatus.Unknown, result.Data.Status);
         Assert.Equal("Новое описание", result.Data.Description);
     }
@@ -399,13 +404,15 @@ public class ObjectAdministrationServiceTests
     [Fact]
     public async Task UpdateServerAsync_DisablingAfterRecovery_CancelsPendingRecoveryForIncident()
     {
+        // Arrange
         TestData data = new();
         MonitoredServer server = data.AddServer(isMonitoringEnabled: true);
         DateTimeOffset checkedAtUtc = new(2026, 8, 25, 10, 0, 0, TimeSpan.Zero);
         server.RecordFailedCheck(checkedAtUtc, failuresBeforeUnavailable: 1);
         Guid incidentId = server.CurrentIncidentId!.Value;
-        server.RecordSuccessfulCheck("server", checkedAtUtc.AddMinutes(1));
+        server.RecordSuccessfulCheck("server", checkedAtUtc.AddDays(-1), checkedAtUtc.AddMinutes(1));
 
+        // Act
         ServiceResult<AdminServerDto> result = await data.Service.UpdateServerAsync(
             server.Id,
             server.Name,
@@ -415,6 +422,7 @@ public class ObjectAdministrationServiceTests
             server.Version,
             TestContext.Current.CancellationToken);
 
+        // Assert
         Assert.True(result.Success);
         Assert.Equal(
             (MonitoringObjectKind.Server,

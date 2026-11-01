@@ -1,5 +1,11 @@
 # Миграции SQL Server
 
+## Время загрузки сервера
+
+Создана migration `20261101102504_AddMonitoredServerStartedAtUtc`, designer и model snapshot обновлены штатным EF tooling. `Up` добавляет только nullable колонку `StartedAtUtc` типа `datetime2` в `monitored_servers`, без default и backfill; `Down` удаляет только эту колонку. Существующим серверам нельзя приписывать время развёртывания или текущую дату: поле остаётся `NULL` до успешной проверки нового endpoint. Accepted observer metadata уже имеет своё поле времени запуска и не требует расширения.
+
+К БД migration не применялась; до запуска изменённой версии схему нужно обновить отдельной разрешённой операцией. Подключение к БД и её обновление требуют отдельного поручения. Откат удаляет сохранённые значения времени загрузки серверов.
+
 ## Эксплуатация этапа 09
 
 Новой migration нет. `20261029053354_AddSharedClusterStorage` и `20261029075201_AllowUniquenessConflictRevisions` подготовлены ранее, к БД в этой задаче не применялись. ClusterDatabaseProbe проверяет CanConnect и отсутствие pending migrations перед readiness, сам миграции не применяет. Startup migration/backup — отдельное внешнее действие с разрешением; оно не даёт admission/activation/enable. Rollback учитывает всю принятую историю и поддержку новых команд бинарником; downgrade одной SQL-проекции в работающей сетке не поддерживается. [Порядок обслуживания](Cluster%20operations.md#обслуживание-обновление-и-rollback).

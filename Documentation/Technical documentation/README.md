@@ -13,6 +13,7 @@
 | Локальные DLL, зависимости и обновление | [Libraries.md](Libraries.md) |
 | Миграции и startup backup | [Database migrations.md](Database%20migrations.md) |
 | Endpoint-проверки и monitoring worker | [Monitoring.md](Monitoring.md) |
+| Подготовка Ubuntu: открытый nginx endpoint и время загрузки в UTC | [Ubuntu server monitoring.md](Ubuntu%20server%20monitoring.md) |
 | Telegram, accepted delivery ledger и локальный outbox | [Notifications.md](Notifications.md) |
 | Razor Pages, API, TypeScript и SignalR | [Web application.md](Web%20application.md) |
 | Внешняя конфигурация и секреты | [Configuration.md](Configuration.md) |

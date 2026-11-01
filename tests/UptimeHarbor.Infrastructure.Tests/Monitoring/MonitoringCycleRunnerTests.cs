@@ -231,6 +231,7 @@ public class MonitoringCycleRunnerTests
             Interlocked.Decrement(ref activeCalls);
             return ServerEndpointCheckResult.Succeeded(
                 "server",
+                new DateTimeOffset(2026, 8, 24, 10, 0, 0, TimeSpan.Zero),
                 new DateTimeOffset(2026, 8, 25, 10, 0, 0, TimeSpan.Zero));
         }
     }
@@ -251,6 +252,7 @@ public class MonitoringCycleRunnerTests
 
             return Task.FromResult(ServerEndpointCheckResult.Succeeded(
                 "server",
+                new DateTimeOffset(2026, 8, 24, 10, 0, 0, TimeSpan.Zero),
                 new DateTimeOffset(2026, 8, 25, 10, 0, 0, TimeSpan.Zero)));
         }
     }
@@ -266,6 +268,7 @@ public class MonitoringCycleRunnerTests
             CallCount++;
             return Task.FromResult(ServerEndpointCheckResult.Succeeded(
                 "server",
+                new DateTimeOffset(2026, 8, 24, 10, 0, 0, TimeSpan.Zero),
                 new DateTimeOffset(2026, 8, 25, 10, 0, 0, TimeSpan.Zero)));
         }
     }

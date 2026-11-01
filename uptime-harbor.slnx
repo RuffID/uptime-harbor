@@ -23,6 +23,7 @@
     <File Path="Documentation/Technical documentation/Domain model.md" />
     <File Path="Documentation/Technical documentation/Libraries.md" />
     <File Path="Documentation/Technical documentation/Monitoring.md" />
+    <File Path="Documentation/Technical documentation/Ubuntu server monitoring.md" />
     <File Path="Documentation/Technical documentation/Notifications.md" />
     <File Path="Documentation/Technical documentation/Persistence.md" />
     <File Path="Documentation/Technical documentation/Shared cluster storage.md" />

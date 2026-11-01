@@ -49,9 +49,13 @@ Incident/event/intents и cursor/receipt входят в один существ
 
 Проверка выполняется HTTP GET без авторизации.
 
-Ответ сервера должен быть успешным JSON-документом с непустым `name`.
+Ответ сервера и контейнера должен быть успешным JSON-документом с непустым `name` и обязательным `startedAtUtc` в UTC. Для сервера это время загрузки ОС, для контейнера — время запуска приложения. Время запуска не может находиться в будущем относительно времени проверки.
 
-Ответ контейнера должен дополнительно содержать `startedAtUtc` в UTC. Время запуска не может находиться в будущем относительно времени проверки.
+```json
+{"name":"ubuntu-server-01","startedAtUtc":"2026-11-01T03:20:00Z"}
+```
+
+`Z` и `+00:00` обозначают нулевой часовой пояс и принимаются одинаково. Дата без явного часового пояса, с ненулевым смещением или отсутствующим полем даёт `InvalidStartedAtUtc`. Прежний серверный ответ только с `name` больше не является успешным. [Подготовка Ubuntu с nginx](Ubuntu%20server%20monitoring.md) описывает открытый endpoint без ограничения по IP и настройки UFW.
 
 Имя trim-ится, обязано быть непустым и не превышать `ModelConstraints.OBJECT_NAME_MAX_LENGTH`. `startedAtUtc` обязан быть JSON-строкой с нулевым UTC offset и не превышать время завершения проверки.
 
@@ -77,6 +81,8 @@ Incident/event/intents и cursor/receipt входят в один существ
 `MonitoringService` после HTTP-проверки заново загружает tracked объект через `IMonitoringUnitOfWork`. Результат игнорируется, если объект за время запроса удалён, выключен или его endpoint изменён. Иначе use case вызывает существующий доменный переход, добавляет outage/recovery payload в durable outbox и одним `SaveChangesAsync` сохраняет состояние и job.
 
 `MonitoringStateChangedEvent` содержит тип и ID объекта, parent server ID контейнера, описание, внутреннее имя из endpoint, status, transition, failure counter, времена, успешность и семантическую endpoint-ошибку. Административное имя сервера проверка не изменяет. `MonitoringEventPublisher` передаёт событие внутренним handlers только после успешного сохранения.
+
+Последнее успешное `StartedAtUtc` сервера сохраняется доменным методом и передаётся в событие; ошибка его не стирает, смена endpoint очищает. Cluster server capture включает это же время в `MonitoringObservation`, поэтому существующие per-observer metadata и uptime доступны для серверов. Legacy dashboard проецирует серверный `StartedAtUtc` и рассчитывает `UptimeSeconds` по времени snapshot; при неизвестном запуске оба значения равны `null`.
 
 SignalR handler реализован в Web. Он получает из Application список разрешённых включённых пользователей и отправляет им только `objectId` и `objectKind`; скрытые имя, описание, состояние и времена в push payload не попадают. Telegram не является synchronous handler: отдельный Infrastructure worker читает durable outbox. SQL Server остаётся источником истины.
 

@@ -5,3 +5,5 @@
 Ресурсных permissions в целевой модели нет. Не добавлять ACL-запросы для совместимых Application records. `HistoryRetentionQuery` только определяет защиту истории: незавершённая доставка, unknown attempts, recovery entitlement, ссылки сводки и открытая observation assembly; worker очистки здесь отсутствует.
 
 Результаты — независимые Application records, полностью материализованные здесь. Не выпускать `IQueryable` и EF entities за границу; сохранять no-tracking и отсутствие N+1.
+
+Dashboard server projection включает `StartedAtUtc`; вычисление uptime принадлежит Application и не переносится в SQL.

@@ -8,4 +8,5 @@ public record DashboardServerReadRecord(
     string? Description,
     string? InternalName,
     MonitoringStatus Status,
-    DateTimeOffset? LastCheckedAtUtc);
+    DateTimeOffset? LastCheckedAtUtc,
+    DateTimeOffset? StartedAtUtc);

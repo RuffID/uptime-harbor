@@ -190,6 +190,8 @@ public class DashboardQueryTests
         // Assert
         Assert.Equal(data.SecondServer.Name, server.Name);
         Assert.Null(server.InternalName);
+        Assert.Null(server.StartedAtUtc);
+        Assert.Null(server.UptimeSeconds);
     }
 
     [Fact]
@@ -209,6 +211,9 @@ public class DashboardQueryTests
         // Assert
         Assert.Equal(NOW_UTC.AddMinutes(-5), server.LastCheckedAtUtc);
         Assert.Equal(TimeSpan.Zero, server.LastCheckedAtUtc!.Value.Offset);
+        Assert.Equal(NOW_UTC.AddDays(-3), server.StartedAtUtc);
+        Assert.Equal(TimeSpan.Zero, server.StartedAtUtc!.Value.Offset);
+        Assert.Equal(259_200, server.UptimeSeconds);
         Assert.Equal(NOW_UTC.AddHours(-2), container.StartedAtUtc);
         Assert.Equal(7_200, container.UptimeSeconds);
     }
@@ -242,7 +247,7 @@ public class DashboardQueryTests
                 "https://primary.example/health",
                 "Production server",
                 true);
-            FirstServer.RecordSuccessfulCheck("Primary", NOW_UTC.AddMinutes(-5));
+            FirstServer.RecordSuccessfulCheck("Primary", NOW_UTC.AddDays(-3), NOW_UTC.AddMinutes(-5));
             SecondServer = new MonitoredServer(
                 Guid.NewGuid(),
                 "Secondary server",
@@ -340,7 +345,8 @@ public class DashboardQueryTests
                     server.Description,
                     server.LastKnownName,
                     server.Status,
-                    server.LastCheckedAtUtc)).ToList(),
+                    server.LastCheckedAtUtc,
+                    server.StartedAtUtc)).ToList(),
                 containers.Items.Select(container => new DashboardContainerReadRecord(
                     container.Id,
                     container.ServerId,

@@ -10,6 +10,7 @@
 - Модель EF настраивать под защищённую доменную модель, не ослабляя её публичный API. Compatibility permission-типы исключать до assembly scan, а их прежние конфигурации пропускать фильтром; не добавлять их явно с последующим Ignore.
 - Сохранять ограничения, индексы, каскады и UTC-конвертацию согласованными с доменными правилами. Связь server → containers использует `NoAction`, чтобы SQL Server не создавал multiple cascade paths; сценарий удаления сервера явно отвязывает загруженные контейнеры в той же транзакции, сохраняя контейнеры и их Telegram bindings. `ServerId` nullable; alternate key по паре server/container не используется. Ресурсные permissions исключены из целевой модели.
 - Существующие миграции вручную не редактировать; новые создаются отдельной командой после изменения модели.
+- Последнее время загрузки сервера хранится в nullable `MonitoredServer.StartedAtUtc` с общей UTC-конвертацией; изменение этой модели требует отдельной migration без выдуманного backfill времени запуска.
 - Pending migrations автоматически применяются единственным Web-процессом при старте только после успешного SQL Server backup и до Identity bootstrap; multi-instance migration coordination не реализована.
 - Design-time scaffolding использует `UptimeHarborDesignTimeDbContextFactory` без строки подключения и не открывает соединение с БД.
 - EF-конфигурации и миграции должны быть совместимы с Microsoft SQL Server; PostgreSQL-специфичные типы и SQL не использовать.

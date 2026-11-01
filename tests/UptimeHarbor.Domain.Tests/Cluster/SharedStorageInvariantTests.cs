@@ -68,7 +68,7 @@ public class SharedStorageInvariantTests
         server.AcceptConfigurationRevision(10, generation);
 
         // Act
-        server.RecordSuccessfulCheck("endpoint", NOW);
+        server.RecordSuccessfulCheck("endpoint", NOW.AddDays(-1), NOW);
         server.RecordFailedCheck(NOW.AddMinutes(1), 3);
 
         // Assert
