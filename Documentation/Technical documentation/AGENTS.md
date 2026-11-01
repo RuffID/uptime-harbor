@@ -8,7 +8,7 @@
 
 `README.md` содержит навигацию по областям; `Libraries.md` описывает локальную DLL-поставку, её зависимости, совместимость и границы проверки.
 
-`Ubuntu server monitoring.md` описывает настройку проверяемой Ubuntu, а не развёртывание UptimeHarbor: публичный nginx endpoint без IP allowlist/UFW, системное время загрузки в UTC, генератор JSON и systemd timer. Runtime-проверки Ubuntu отделять от проверок проекта.
+`Ubuntu server monitoring.md` описывает настройку проверяемой Ubuntu с уже работающими nginx, доменом и сертификатом Let's Encrypt: дополнительный HTTPS server-блок на 43871 в существующем конфиге, публичный endpoint без IP allowlist, правило с комментарием для TCP 43871 только при активном UFW, системное время загрузки в UTC, генератор JSON и systemd timer. Использовать пути сертификата из рабочего HTTPS-блока. Runtime-проверки Ubuntu отделять от проверок проекта.
 
 ## Правила
 
