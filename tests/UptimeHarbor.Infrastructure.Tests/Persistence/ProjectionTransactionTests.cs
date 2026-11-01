@@ -1,0 +1,409 @@
+using Microsoft.EntityFrameworkCore.Storage;
+using UptimeHarbor.Application.Abstractions.Persistence;
+using UptimeHarbor.Application.Cluster;
+using UptimeHarbor.Application.Cluster.Models;
+using System.Collections.Immutable;
+using UptimeHarbor.Domain.Cluster;
+using UptimeHarbor.Infrastructure.Persistence.UnitOfWork;
+using Xunit;
+
+namespace UptimeHarbor.Tests.Infrastructure.Persistence;
+
+public class ProjectionTransactionTests
+{
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task MonitoringIncidentEventAndIntentsCommitTogetherAndReplayOnce(bool afterCommit)
+    {
+        // Arrange
+        var (baseline, observation) = Cluster.ObservationCaptureTests.Scenario();
+        RevisionCommand observations = MonitoringCommands.Record(baseline, observation.ObserverNodeId, observation.StorageGeneration,
+            Enumerable.Range(1, 3).Select(number => observation with
+            {
+                Id = Guid.NewGuid(), Sequence = number, Succeeded = false, EndpointName = null,
+                FailureKind = "Timeout", CheckedAtUtc = observation.CheckedAtUtc.AddSeconds(number)
+            }).ToImmutableArray());
+        RevisionImage image = new RevisionReducer().Apply(baseline, observations, 4, 1);
+        Guid chatId = Guid.NewGuid();
+        AcceptedValue chat = new(chatId, DeletedEntityKind.Chat, 4, new ConfigurationValue { Name = "chat", TelegramChatId = 123 });
+        AcceptedValue binding = new(Guid.NewGuid(), DeletedEntityKind.Binding, 4, new ConfigurationValue
+        {
+            ParentId = observation.TargetId, ChatId = chatId, Generation = Guid.NewGuid()
+        });
+        image = image with { Values = image.Values.Add(chat.Id, chat).Add(binding.Id, binding) };
+        FakeProjection repository = new();
+        FakeSession session = new(repository);
+        ProjectionApplyUnitOfWork work = new(session, repository);
+        await work.ApplyAsync(new ProjectionWriteSet
+        {
+            NodeId = observation.ObserverNodeId, ExpectedCursorIndex = 0,
+            Receipt = new AppliedJournalReceipt(Guid.NewGuid(), new JournalPosition(new ClusterIdentity(image.ClusterId, image.Generation), 4, 1), image.Digest!)
+        }, TestContext.Current.CancellationToken);
+        RevisionStateStore state = new();
+        state.Publish(image);
+        ProductionStore store = new(work, repository) { FailAfterCommit = afterCommit };
+        RevisionApplyEngine engine = new(state, new(), store);
+        RevisionCommand evaluate = MonitoringCommands.Evaluate(image, MonitoringTargets.Find(image, observation.TargetId)!,
+            observation.ObserverNodeId, observation.StorageGeneration, 2, observation.CheckedAtUtc.AddSeconds(4), false, observation.CheckedAtUtc.AddSeconds(4));
+        session.FailOnSave = !afterCommit;
+
+        // Act
+        Exception? failure = await Record.ExceptionAsync(() => engine.ApplyAsync(evaluate, 5, 2, observation.ObserverNodeId, TestContext.Current.CancellationToken));
+
+        // Assert
+        Assert.NotNull(failure);
+        Assert.Empty(state.Current!.Monitoring.Incidents);
+        Assert.False(state.Available);
+        Assert.Equal(afterCommit ? 5 : 4, repository.SavedCursor!.LogIndex);
+
+        // Act
+        session.FailOnSave = false;
+        store.FailAfterCommit = false;
+        await engine.ApplyAsync(evaluate, 5, 2, observation.ObserverNodeId, TestContext.Current.CancellationToken);
+        var records = repository.SavedChanges!.Records;
+        await engine.ApplyAsync(evaluate, 6, 3, observation.ObserverNodeId, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Single(records.OfType<SharedIncident>());
+        Assert.Single(records.OfType<IncidentEvent>());
+        Assert.Single(records.OfType<DeliveryIntent>());
+        Assert.Single(state.Current!.Monitoring.Events);
+        Assert.Single(state.Current.Monitoring.Intents);
+        Assert.Empty(repository.SavedChanges!.Records.OfType<IncidentEvent>());
+        Assert.False(state.Available); // Replay сам по себе не снимает latched fault.
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ProductionReducerAndUnitOfWorkRecoverBeforeAndAfterCommit(bool afterCommit)
+    {
+        // Arrange
+        FakeProjection repository = new();
+        FakeSession session = new(repository);
+        ProjectionApplyUnitOfWork work = new(session, repository);
+        ProjectionWriteSet seed = Changes();
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await work.ApplyAsync(seed, token);
+        SharedAccount account = seed.Account!;
+        AcceptedValue actor = new(account.UserId, DeletedEntityKind.Account, 7, new ConfigurationValue
+        {
+            Name = account.Login, Enabled = true, RoleId = account.RoleId,
+            PasswordHash = account.Credential.PasswordHash, SecurityStamp = account.Credential.SecurityStamp,
+            ConcurrencyStamp = account.Credential.ConcurrencyStamp
+        });
+        RevisionImage baseline = new(seed.Receipt.ClusterId, seed.Receipt.ClusterGeneration)
+        {
+            Index = 7, Term = 1, Digest = seed.Receipt.Digest,
+            Values = ImmutableDictionary<Guid, AcceptedValue>.Empty.Add(actor.Id, actor)
+        };
+        RevisionStateStore state = new();
+        state.Publish(baseline);
+        ProductionStore store = new(work, repository) { FailAfterCommit = afterCommit };
+        RevisionApplyEngine engine = new(state, new RevisionReducer(), store);
+        RevisionCommand command = new()
+        {
+            ClusterId = baseline.ClusterId, ClusterGeneration = baseline.Generation, OperationId = Guid.NewGuid(),
+            ActorUserId = actor.Id, ActorRevision = 7, OriginNodeId = seed.NodeId, EntityId = Guid.NewGuid(),
+            EntityKind = DeletedEntityKind.Server, Action = "Upsert", BaseRevision = 0, CreatedAtUtc = DateTimeOffset.UnixEpoch,
+            Value = new ConfigurationValue { Name = "server", Endpoint = "https://test.invalid/health", Generation = Guid.NewGuid() }
+        };
+        session.FailOnSave = !afterCommit;
+
+        // Act
+        Exception? failure = await Record.ExceptionAsync(() => engine.ApplyAsync(command, 8, 2, seed.NodeId, token));
+
+        // Assert
+        Assert.IsType<InvalidOperationException>(failure);
+        Assert.False(state.Available);
+        Assert.Equal(7, state.Current!.Index);
+        Assert.Equal(afterCommit ? 8 : 7, repository.SavedCursor!.LogIndex);
+        Assert.DoesNotContain(state.Current.Results.Keys, id => id == command.OperationId);
+
+        // Act
+        session.FailOnSave = false;
+        store.FailAfterCommit = false;
+        await engine.ApplyAsync(command, 8, 2, seed.NodeId, token);
+        int stages = repository.StageCount;
+        await engine.ApplyAsync(command, 8, 2, seed.NodeId, token);
+        await engine.ApplyAsync(command, 9, 3, seed.NodeId, token);
+
+        // Assert
+        Assert.Equal(9, repository.SavedCursor!.LogIndex);
+        Assert.Equal(8, state.Current!.Values[command.EntityId].Revision);
+        Assert.Equal(8, Assert.Single(state.Current.Results.Values).AppliedRevision);
+        Assert.Empty(repository.SavedChanges!.Servers);
+        Assert.Equal(stages + 1, repository.StageCount);
+    }
+
+    private class ProductionStore(ProjectionApplyUnitOfWork work, FakeProjection repository) : IRevisionProjectionStore
+    {
+        public bool FailAfterCommit { get; set; }
+
+        public async Task ApplyAsync(ProjectionWriteSet changes, CancellationToken token)
+        {
+            await work.ApplyAsync(changes, token);
+            if (FailAfterCommit)
+            {
+                throw new InvalidOperationException("Injected lost commit response.");
+            }
+        }
+
+        public Task VerifyAsync(RevisionImage image, CancellationToken token)
+        {
+            Assert.Equal(image.Index, repository.SavedCursor!.LogIndex);
+            Assert.Equal(image.Digest, repository.SavedCursor.Digest);
+            return Task.CompletedTask;
+        }
+
+        public Task<ProjectionHead?> ReadHeadAsync(CancellationToken token)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task<RevisionImage> ExportAsync(RevisionImage image, CancellationToken token)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task InstallAsync(RevisionImage image, Guid snapshotId, string digest, CancellationToken token)
+        {
+            throw new NotSupportedException();
+        }
+
+        public Task CheckpointAsync(Guid snapshotId, string digest, long index, CancellationToken token)
+        {
+            throw new NotSupportedException();
+        }
+    }
+
+    [Fact]
+    public async Task CommitAndReplay_KeepOneProjectionAndStableCursor()
+    {
+        // Arrange
+        FakeProjection repository = new();
+        FakeSession session = new(repository);
+        ProjectionApplyUnitOfWork unitOfWork = new(session, repository);
+        ProjectionWriteSet changes = Changes();
+
+        // Act
+        bool first = await unitOfWork.ApplyAsync(changes, TestContext.Current.CancellationToken);
+        bool replay = await unitOfWork.ApplyAsync(changes, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.True(first);
+        Assert.False(replay);
+        Assert.Equal(1, repository.StageCount);
+        Assert.Equal(changes.Receipt.LogIndex, repository.SavedCursor!.LogIndex);
+        Assert.Same(changes, repository.SavedChanges);
+        Assert.Equal(["begin", "stage", "save", "commit", "begin", "save", "commit"], session.Events);
+    }
+
+    [Fact]
+    public async Task FailureBeforeCommit_RollsBackEffectsAndCursor_ThenRetrySucceeds()
+    {
+        // Arrange
+        FakeProjection repository = new();
+        FakeSession session = new(repository) { FailOnSave = true };
+        ProjectionApplyUnitOfWork unitOfWork = new(session, repository);
+        ProjectionWriteSet changes = Changes();
+
+        // Act
+        Exception? failure = await Record.ExceptionAsync(() => unitOfWork.ApplyAsync(changes, TestContext.Current.CancellationToken));
+
+        // Assert
+        Assert.IsType<InvalidOperationException>(failure);
+        Assert.Null(repository.SavedCursor);
+        Assert.Null(repository.SavedReceipt);
+        Assert.Null(repository.SavedChanges);
+        Assert.Equal(["begin", "stage", "save", "rollback", "clear"], session.Events);
+
+        // Act
+        session.FailOnSave = false;
+        bool retried = await unitOfWork.ApplyAsync(changes, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.True(retried);
+        Assert.Same(changes, repository.SavedChanges);
+        Assert.Equal(changes.Receipt.LogIndex, repository.SavedCursor!.LogIndex);
+    }
+
+    [Fact]
+    public async Task ReplayWithChangedDigest_FailsWithoutReapplying()
+    {
+        // Arrange
+        FakeProjection repository = new();
+        FakeSession session = new(repository);
+        ProjectionApplyUnitOfWork unitOfWork = new(session, repository);
+        ProjectionWriteSet changes = Changes();
+        await unitOfWork.ApplyAsync(changes, TestContext.Current.CancellationToken);
+        ProjectionWriteSet corrupt = new()
+        {
+            NodeId = changes.NodeId,
+            ExpectedCursorIndex = 0,
+            Receipt = new AppliedJournalReceipt(changes.Receipt.Id, changes.Receipt.GetPosition(), new string('B', 64))
+        };
+
+        // Act
+        Exception? failure = await Record.ExceptionAsync(() => unitOfWork.ApplyAsync(corrupt, TestContext.Current.CancellationToken));
+
+        // Assert
+        Assert.IsType<InvalidOperationException>(failure);
+        Assert.Equal(1, repository.StageCount);
+        Assert.Equal(changes.Receipt.Digest, repository.SavedReceipt!.Digest);
+    }
+
+    private static ProjectionWriteSet Changes()
+    {
+        JournalPosition position = new(new ClusterIdentity(Guid.NewGuid(), 1), 7, 1);
+        return new ProjectionWriteSet
+        {
+            NodeId = Guid.NewGuid(),
+            ExpectedCursorIndex = 0,
+            Receipt = new AppliedJournalReceipt(Guid.NewGuid(), position, new string('A', 64)),
+            Account = new SharedAccount(Guid.NewGuid(), Guid.NewGuid(), "admin",
+                new ProtectedCredential("hash", 1, "security", "concurrency"), true, 7)
+        };
+    }
+
+    private class FakeProjection : IProjectionRepository
+    {
+        public ProjectionCursor? SavedCursor { get; private set; }
+        public AppliedJournalReceipt? SavedReceipt { get; private set; }
+        public ProjectionWriteSet? SavedChanges { get; private set; }
+        public ProjectionCursor? WorkingCursor { get; private set; }
+        public AppliedJournalReceipt? WorkingReceipt { get; private set; }
+        public ProjectionWriteSet? WorkingChanges { get; private set; }
+        public List<string> Events { get; } = [];
+        public int StageCount { get; private set; }
+
+        public void Begin()
+        {
+            WorkingCursor = null;
+            if (SavedCursor is not null)
+            {
+                WorkingCursor = new ProjectionCursor(SavedCursor.Id,
+                    new ClusterIdentity(SavedCursor.ClusterId, SavedCursor.ClusterGeneration));
+                WorkingCursor.Advance(0, new JournalPosition(
+                    new ClusterIdentity(SavedCursor.ClusterId, SavedCursor.ClusterGeneration), SavedCursor.LogIndex, SavedCursor.Term),
+                    SavedCursor.Digest!);
+            }
+
+            WorkingReceipt = SavedReceipt;
+            WorkingChanges = SavedChanges;
+        }
+
+        public void Commit()
+        {
+            SavedCursor = WorkingCursor;
+            SavedReceipt = WorkingReceipt;
+            SavedChanges = WorkingChanges;
+        }
+
+        public Task<ProjectionCursor?> GetCursorAsync(Guid nodeId, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(WorkingCursor);
+        }
+
+        public Task<AppliedJournalReceipt?> GetReceiptAsync(JournalPosition position, CancellationToken cancellationToken = default)
+        {
+            if (WorkingReceipt?.LogIndex != position.LogIndex || WorkingReceipt.Term != position.Term)
+            {
+                return Task.FromResult<AppliedJournalReceipt?>(null);
+            }
+
+            return Task.FromResult<AppliedJournalReceipt?>(WorkingReceipt);
+        }
+
+        public Task<OperationDecision?> GetDecisionAsync(Guid operationId, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<OperationDecision?>(null);
+        }
+
+        public Task StageAsync(ProjectionWriteSet changes, CancellationToken cancellationToken = default)
+        {
+            Events.Add("stage");
+            StageCount++;
+            WorkingChanges = changes;
+            return Task.CompletedTask;
+        }
+
+        public void AddCursor(ProjectionCursor cursor)
+        {
+            WorkingCursor = cursor;
+        }
+
+        public void AddReceipt(AppliedJournalReceipt receipt)
+        {
+            WorkingReceipt = receipt;
+        }
+    }
+
+    private class FakeSession(FakeProjection repository) : IUptimeHarborDbContextSession
+    {
+        public bool FailOnSave { get; set; }
+        public List<string> Events { get; } = repository.Events;
+
+        public Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken cancellationToken)
+        {
+            Events.Add("begin");
+            repository.Begin();
+            return Task.FromResult<IDbContextTransaction>(new FakeTransaction(repository));
+        }
+
+        public Task<int> SaveChangesAsync(CancellationToken cancellationToken)
+        {
+            Events.Add("save");
+            if (FailOnSave)
+            {
+                throw new InvalidOperationException("Injected save failure.");
+            }
+
+            return Task.FromResult(1);
+        }
+
+        public void Clear()
+        {
+            Events.Add("clear");
+        }
+    }
+
+    private class FakeTransaction(FakeProjection repository) : IDbContextTransaction
+    {
+        public Guid TransactionId { get; } = Guid.NewGuid();
+
+        public void Commit()
+        {
+            repository.Events.Add("commit");
+            repository.Commit();
+        }
+
+        public Task CommitAsync(CancellationToken cancellationToken = default)
+        {
+            Commit();
+            return Task.CompletedTask;
+        }
+
+        public void Rollback()
+        {
+            repository.Events.Add("rollback");
+            repository.Begin();
+        }
+
+        public Task RollbackAsync(CancellationToken cancellationToken = default)
+        {
+            Rollback();
+            return Task.CompletedTask;
+        }
+
+        public void Dispose()
+        {
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            return ValueTask.CompletedTask;
+        }
+    }
+}

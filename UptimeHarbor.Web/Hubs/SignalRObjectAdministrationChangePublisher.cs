@@ -1,26 +1,35 @@
 using Microsoft.AspNetCore.SignalR;
 using UptimeHarbor.Application.ObjectAdministration;
+using Microsoft.Extensions.Options;
+using UptimeHarbor.Infrastructure.Cluster;
 
 namespace UptimeHarbor.Web.Hubs;
 
 public class SignalRObjectAdministrationChangePublisher(
     IHubContext<MonitoringHub> hubContext,
-    ILogger<SignalRObjectAdministrationChangePublisher> logger)
+    ILogger<SignalRObjectAdministrationChangePublisher> logger,
+    MonitoringConnections? connections = null,
+    IOptions<ClusterOptions>? cluster = null)
     : IObjectAdministrationChangePublisher
 {
     public async Task PublishObjectsChangedAsync(CancellationToken cancellationToken = default)
     {
         try
         {
-            await hubContext.Clients.All.SendAsync(
+            IClientProxy recipients = hubContext.Clients.All;
+            if (cluster?.Value.Enabled == true)
+            {
+                recipients = hubContext.Clients.Clients(connections!.AuthorizedIds());
+            }
+
+            await recipients.SendAsync(
                 "ObjectAdministrationChanged",
                 cancellationToken: cancellationToken);
         }
-        catch (Exception exception)
+        catch
         {
             logger.LogError(
-                exception,
-                "Не удалось отправить SignalR-сигнал обновления административных данных.");
+                "SignalR administration refresh failed.");
         }
     }
 }

@@ -48,6 +48,22 @@ public class NotificationBinding
 
     public Guid? RecoveryDeliveredIncidentId { get; private set; }
 
+    public long BindingRevision { get; private set; }
+
+    public Guid BindingGeneration { get; private set; }
+
+    public void AcceptBindingRevision(long revision, Guid generation)
+    {
+        EnsureValidId(generation, nameof(generation));
+        if (revision <= BindingRevision)
+        {
+            throw new ArgumentOutOfRangeException(nameof(revision));
+        }
+
+        BindingRevision = revision;
+        BindingGeneration = generation;
+    }
+
     public static NotificationBinding ForServer(Guid id, Guid telegramChatId, Guid serverId)
     {
         return new NotificationBinding(id, telegramChatId, serverId, null);

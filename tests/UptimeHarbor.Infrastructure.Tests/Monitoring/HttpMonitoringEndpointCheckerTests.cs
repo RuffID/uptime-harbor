@@ -26,19 +26,23 @@ public class HttpMonitoringEndpointCheckerTests
     [Fact]
     public async Task ServerCheck_WhenResponseIsValid_ReturnsNameAndUsesAnonymousGet()
     {
+        // Arrange
         HttpRequestMessage? capturedRequest = null;
         HttpMonitoringEndpointChecker checker = CreateChecker((request, _) =>
         {
             capturedRequest = request;
-            return Task.FromResult(JsonResponse("{\"name\":\" server-01 \"}"));
+            return Task.FromResult(JsonResponse("{\"name\":\" server-01 \",\"startedAtUtc\":\"2026-08-24T08:00:00Z\"}"));
         });
 
+        // Act
         ServerEndpointCheckResult result = await checker.CheckAsync(
             "https://server.example/health",
             TestContext.Current.CancellationToken);
 
+        // Assert
         Assert.True(result.Success);
         Assert.Equal("server-01", result.Name);
+        Assert.Equal(new DateTimeOffset(2026, 8, 24, 8, 0, 0, TimeSpan.Zero), result.StartedAtUtc);
         Assert.Equal(NOW_UTC, result.CheckedAtUtc);
         Assert.Equal(HttpMethod.Get, capturedRequest!.Method);
         Assert.Null(capturedRequest.Headers.Authorization);
@@ -298,6 +302,49 @@ public class HttpMonitoringEndpointCheckerTests
 
         Assert.False(result.Success);
         Assert.Equal(EndpointCheckFailureKind.InvalidStartedAtUtc, result.FailureKind);
+    }
+
+    [Theory]
+    [InlineData("2026-08-25T08:00:00Z", 8)]
+    [InlineData("2026-08-25T08:00:00+00:00", 8)]
+    [InlineData("2026-08-25T10:00:00Z", 10)]
+    public async Task ServerCheck_WhenBootTimeHasExplicitUtcOffset_AcceptsIt(string startedAtUtc, int expectedHour)
+    {
+        // Arrange
+        string json = "{\"name\":\"server\",\"startedAtUtc\":\"" + startedAtUtc + "\"}";
+        HttpMonitoringEndpointChecker checker = CreateChecker((_, _) => Task.FromResult(JsonResponse(json)));
+
+        // Act
+        ServerEndpointCheckResult result = await checker.CheckAsync(
+            "https://server.example/health", TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.True(result.Success);
+        Assert.Equal(new DateTimeOffset(2026, 8, 25, expectedHour, 0, 0, TimeSpan.Zero), result.StartedAtUtc);
+        Assert.Equal(TimeSpan.Zero, result.StartedAtUtc!.Value.Offset);
+    }
+
+    [Theory]
+    [InlineData("{\"name\":\"server\"}")]
+    [InlineData("{\"name\":\"server\",\"startedAtUtc\":null}")]
+    [InlineData("{\"name\":\"server\",\"startedAtUtc\":123}")]
+    [InlineData("{\"name\":\"server\",\"startedAtUtc\":\"not-a-date\"}")]
+    [InlineData("{\"name\":\"server\",\"startedAtUtc\":\"2026-08-25T08:00:00\"}")]
+    [InlineData("{\"name\":\"server\",\"startedAtUtc\":\"2026-08-25T08:00:00+07:00\"}")]
+    [InlineData("{\"name\":\"server\",\"startedAtUtc\":\"2026-08-25T10:00:01Z\"}")]
+    public async Task ServerCheck_WhenBootTimeIsMissingOrInvalid_ReturnsFailure(string json)
+    {
+        // Arrange
+        HttpMonitoringEndpointChecker checker = CreateChecker((_, _) => Task.FromResult(JsonResponse(json)));
+
+        // Act
+        ServerEndpointCheckResult result = await checker.CheckAsync(
+            "https://server.example/health", TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.False(result.Success);
+        Assert.Equal(EndpointCheckFailureKind.InvalidStartedAtUtc, result.FailureKind);
+        Assert.Null(result.StartedAtUtc);
     }
 
     private static HttpMonitoringEndpointChecker CreateChecker(

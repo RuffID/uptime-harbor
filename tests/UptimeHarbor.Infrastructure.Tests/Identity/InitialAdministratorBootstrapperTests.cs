@@ -11,12 +11,15 @@ public class InitialAdministratorBootstrapperTests
     [Fact]
     public async Task InitializeAsync_WhenStoreIsEmpty_CreatesRolesAndAdministrator()
     {
+        // Arrange
         FakeInitialAdministratorStore store = new();
         InitialAdministratorBootstrapper bootstrapper = CreateBootstrapper(store);
 
+        // Act
         await bootstrapper.InitializeAsync(TestContext.Current.CancellationToken);
 
-        Assert.Equal([ApplicationRoles.ADMINISTRATOR, ApplicationRoles.USER], store.EnsuredRoles);
+        // Assert
+        Assert.Equal([ApplicationRoles.ADMINISTRATOR], store.EnsuredRoles);
         Assert.Equal("admin", store.CreatedLogin);
         Assert.Equal("initial-password", store.CreatedPassword);
     }

@@ -7,6 +7,7 @@
 ## Правила
 
 - `Program.cs` содержит только builder, вызовы модульных DI-расширений, middleware и endpoint mapping.
+- `ConfigureClusterListeners` настраивает отдельные Browser/Peer endpoints, Direct требует client certificate; `UseClusterPeerBoundary` ставить до forwarded headers/cookies. Enabled-режим сохраняет browser routes закрытыми до готовности будущего lifecycle/activation; подключение Identity/account API/SignalR этапа 05 не открывает общий gate. Управляемый DotNext runtime не запускать через автоматический root hosted registration библиотеки до восстановления checkpoint/WAL.
 - `Program.cs` после создания builder загружает обязательный внешний `Config/config.json`, настраивает Serilog через host и только затем вызывает модульные DI-расширения.
 - `appsettings.json` содержит только Serilog; operational/security settings находятся в неотслеживаемом и не публикуемом `Config/config.json`, а безопасная полная структура — в `Config/config.example.json`.
 - HTTP API реализовывать контроллерами; не добавлять `MapGet`, `MapPost` и другие Minimal API handlers.

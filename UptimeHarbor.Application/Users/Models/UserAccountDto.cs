@@ -6,4 +6,7 @@ public record UserAccountDto(
     bool IsEnabled,
     bool IsAdministrator,
     IReadOnlyList<Guid> ServerIds,
-    IReadOnlyList<Guid> ContainerIds);
+    IReadOnlyList<Guid> ContainerIds)
+{
+    public long Revision { get; init; }
+}

@@ -17,7 +17,6 @@ public class PersistenceReadContractTests
         [
             typeof(IMonitoredServerRepository),
             typeof(IMonitoredContainerRepository),
-            typeof(IVisibilityPermissionRepository),
             typeof(ITelegramChatRepository),
             typeof(INotificationBindingRepository)
         ];

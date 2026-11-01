@@ -9,8 +9,6 @@ public interface IObjectAdministrationUnitOfWork : IUnitOfWorkScope
 
     IMonitoredContainerRepository MonitoredContainers { get; }
 
-    Task RemoveContainerPermissionsAsync(Guid containerId, CancellationToken cancellationToken = default);
-
     Task CancelPendingRecoveryNotificationsAsync(
         MonitoringObjectKind objectKind,
         Guid objectId,

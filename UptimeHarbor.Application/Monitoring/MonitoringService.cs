@@ -45,11 +45,18 @@ public class MonitoringService(
             return false;
         }
 
-        MonitoringTransition transition = result.Success
-            ? server!.RecordSuccessfulCheck(
+        MonitoringTransition transition;
+        if (result.Success)
+        {
+            transition = server!.RecordSuccessfulCheck(
                 result.Name ?? throw new InvalidOperationException("Успешная проверка сервера должна содержать имя."),
-                result.CheckedAtUtc)
-            : server!.RecordFailedCheck(result.CheckedAtUtc, failuresBeforeUnavailable);
+                result.StartedAtUtc ?? throw new InvalidOperationException("Успешная проверка сервера должна содержать время запуска."),
+                result.CheckedAtUtc);
+        }
+        else
+        {
+            transition = server!.RecordFailedCheck(result.CheckedAtUtc, failuresBeforeUnavailable);
+        }
 
         MonitoringStateChangedEvent monitoringEvent =
             CreateEvent(server, transition, result.Success, result.FailureKind);
@@ -142,7 +149,7 @@ public class MonitoringService(
             server.ConsecutiveFailures,
             server.LastCheckedAtUtc
                 ?? throw new InvalidOperationException("Сохранённый результат должен содержать время проверки."),
-            null,
+            server.StartedAtUtc,
             transition,
             checkSucceeded,
             failureKind);

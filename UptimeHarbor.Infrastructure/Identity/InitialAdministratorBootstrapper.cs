@@ -11,7 +11,6 @@ public class InitialAdministratorBootstrapper(
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
         await EnsureRoleAsync(ApplicationRoles.ADMINISTRATOR, cancellationToken);
-        await EnsureRoleAsync(ApplicationRoles.USER, cancellationToken);
 
         IReadOnlyList<UserAccountRecord> administrators =
             await store.GetAdministratorsAsync(cancellationToken);

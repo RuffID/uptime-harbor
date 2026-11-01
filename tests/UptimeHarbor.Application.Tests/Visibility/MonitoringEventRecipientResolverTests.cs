@@ -60,8 +60,9 @@ public class MonitoringEventRecipientResolverTests
     }
 
     [Fact]
-    public async Task GetRecipientUserIdsAsync_UserReceivesOnlyPermittedServer()
+    public async Task GetRecipientUserIdsAsync_NonAdministratorCannotUseServerAssignment()
     {
+        // Arrange
         TestData data = new();
         Guid permittedUserId = data.AddUser(isAdministrator: false);
         data.AddUser(isAdministrator: false);
@@ -69,13 +70,15 @@ public class MonitoringEventRecipientResolverTests
         data.Permissions.ServerPermissions.Add(
             new ServerVisibilityPermission(permittedUserId, serverId));
 
+        // Act
         IReadOnlyList<Guid> recipients = await data.Resolver.GetRecipientUserIdsAsync(
             MonitoringObjectKind.Server,
             serverId,
             null,
             TestContext.Current.CancellationToken);
 
-        Assert.Equal(permittedUserId, Assert.Single(recipients));
+        // Assert
+        Assert.Empty(recipients);
     }
 
     [Fact]
@@ -96,8 +99,9 @@ public class MonitoringEventRecipientResolverTests
     }
 
     [Fact]
-    public async Task GetRecipientUserIdsAsync_ContainerRequiresServerAndContainerPermissions()
+    public async Task GetRecipientUserIdsAsync_LegacyAssignmentsDoNotGrantContainerAccess()
     {
+        // Arrange
         TestData data = new();
         Guid userId = data.AddUser(isAdministrator: false);
         Guid serverId = Guid.NewGuid();
@@ -105,6 +109,7 @@ public class MonitoringEventRecipientResolverTests
         data.Permissions.ContainerPermissions.Add(
             new ContainerVisibilityPermission(userId, serverId, containerId));
 
+        // Act
         IReadOnlyList<Guid> withoutServer = await data.Resolver.GetRecipientUserIdsAsync(
             MonitoringObjectKind.Container,
             containerId,
@@ -117,8 +122,9 @@ public class MonitoringEventRecipientResolverTests
             serverId,
             TestContext.Current.CancellationToken);
 
+        // Assert
         Assert.Empty(withoutServer);
-        Assert.Equal(userId, Assert.Single(withBoth));
+        Assert.Empty(withBoth);
     }
 
     [Fact]
@@ -137,25 +143,28 @@ public class MonitoringEventRecipientResolverTests
     }
 
     [Fact]
-    public async Task GetRecipientUserIdsAsync_LoadsPermissionsInBatches()
+    public async Task GetRecipientUserIdsAsync_LoadsAdministratorsInOneBatch()
     {
+        // Arrange
         TestData data = new();
         Guid serverId = Guid.NewGuid();
         Guid containerId = Guid.NewGuid();
         foreach (int _ in Enumerable.Range(0, 3))
         {
-            Guid userId = data.AddUser(isAdministrator: false);
+            Guid userId = data.AddUser(isAdministrator: true);
             data.Permissions.ServerPermissions.Add(new ServerVisibilityPermission(userId, serverId));
             data.Permissions.ContainerPermissions.Add(
                 new ContainerVisibilityPermission(userId, serverId, containerId));
         }
 
+        // Act
         IReadOnlyList<Guid> recipients = await data.Resolver.GetRecipientUserIdsAsync(
             MonitoringObjectKind.Container,
             containerId,
             serverId,
             TestContext.Current.CancellationToken);
 
+        // Assert
         Assert.Equal(3, recipients.Count);
         Assert.Equal(1, data.ReadQuery.ReadCount);
     }
@@ -230,17 +239,6 @@ public class MonitoringEventRecipientResolverTests
             throw new NotSupportedException();
     }
 
-    private class FakeVisibilityUnitOfWork(IVisibilityPermissionRepository permissions)
-        : IVisibilitySettingsUnitOfWork
-    {
-        public IMonitoredServerRepository MonitoredServers { get; } = new EmptyServerRepository();
-        public IMonitoredContainerRepository MonitoredContainers { get; } = new EmptyContainerRepository();
-        public IVisibilityPermissionRepository VisibilityPermissions { get; } = permissions;
-        public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => Task.FromResult(0);
-        public Task ExecuteInTransactionAsync(Func<CancellationToken, Task> action, CancellationToken cancellationToken = default) =>
-            action(cancellationToken);
-    }
-
     private class EmptyServerRepository : IMonitoredServerRepository
     {
         public Task<IReadOnlyList<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MonitoredServer>>([]);
@@ -264,7 +262,7 @@ public class MonitoringEventRecipientResolverTests
         public void DeleteRange(IEnumerable<MonitoredContainer> entities) => throw new NotSupportedException();
     }
 
-    private class FakePermissionRepository : IVisibilityPermissionRepository
+    private class FakePermissionRepository
     {
         public List<ServerVisibilityPermission> ServerPermissions { get; } = [];
         public List<ContainerVisibilityPermission> ContainerPermissions { get; } = [];

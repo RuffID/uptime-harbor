@@ -64,8 +64,6 @@ public class ServiceCollectionExtensionsTests
             scope.ServiceProvider.GetRequiredService<IMonitoringUnitOfWork>();
         IObjectAdministrationUnitOfWork objectAdministration =
             scope.ServiceProvider.GetRequiredService<IObjectAdministrationUnitOfWork>();
-        IVisibilitySettingsUnitOfWork visibility =
-            scope.ServiceProvider.GetRequiredService<IVisibilitySettingsUnitOfWork>();
         INotificationSettingsUnitOfWork notifications =
             scope.ServiceProvider.GetRequiredService<INotificationSettingsUnitOfWork>();
         IDashboardSnapshotReadQuery dashboardReadQuery =
@@ -82,7 +80,6 @@ public class ServiceCollectionExtensionsTests
         Assert.NotNull(monitoring.MonitoredContainers);
         Assert.NotNull(objectAdministration.MonitoredServers);
         Assert.NotNull(objectAdministration.MonitoredContainers);
-        Assert.NotNull(visibility.VisibilityPermissions);
         Assert.NotNull(notifications.TelegramChats);
         Assert.NotNull(notifications.NotificationBindings);
         Assert.NotNull(dashboardReadQuery);

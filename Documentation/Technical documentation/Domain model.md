@@ -1,5 +1,22 @@
 # Доменная модель
 
+## Представления интерфейса (08)
+
+Новых доменных сущностей и инвариантов хранения нет. Application Administration DTO отделяют accepted configuration, local Pending, controls/results и safe conflict variants. Account self/last-admin, tombstones, observer поколения, delivery history и recovery entitlements остаются в существующем reducer/домене; UI их не обходит.
+
+
+## Реальная история доставки (07)
+
+DeliveryIntent.RestoreAttempts восстанавливает состояние из непрерывной истории настоящих DeliveryAttempt с номерами 1–5: AttemptCount и ActiveAttemptId выводятся из неё. Success, retry deadline, terminal completion и summary suppression должны соответствовать истории. Application DeliveryProjection использует этот контракт вместо фиктивных BeginAttempt для счётчика.
+
+AcceptedDeliveryAttempt хранит исходную authority и последний принятый результат; поздний success может завершить более старую попытку. RecoveryEntitlement связывает recovery с подтверждённым problem intent и потребляется при успехе recovery. Хранимые поля схемы не расширялись. [Доставка](Notifications.md#принятая-доставка-этапа-07).
+
+## Accepted monitoring (06)
+
+`ObserverResult`/frontier, `TargetObservationState`, `SharedIncident`/`IncidentEvent`, `DeliveryIntent`, `DeliverySummary`/`SummarySource` и `RecoveryEntitlement` существующей Domain/Cluster используются production reducer. Локальные sequence/capture отделены от принятых фактов. Application MonitoringImage содержит неизменяемые facts и provenance, оценки live/history, metadata по observer, incidents/events/intents, состав сводок и подтверждённые delivery evidence.
+
+Локальная ошибка/threshold observer не равна общему outage. Availability и coverage — разные состояния и истории; missing не закрывает аварию. IncidentKind.Node связан с NodeId и отдельными чатами, без подмены объектом server. Принятая успешная попытка — обязательное основание recovery entitlement; её production producer подключён в 07. Подробные алгоритмы — [Monitoring.md](Monitoring.md#распределённый-путь-этапа-06).
+
 ## Объекты мониторинга
 
 `MonitoredObject` содержит общее состояние сервера и контейнера:
@@ -13,6 +30,7 @@
 - время последней и последней успешной проверки;
 - идентификатор текущего инцидента, необходимый для идемпотентной доставки уведомлений;
 - явную монотонную `Version`, которая меняется при административной настройке и записи результата проверки.
+- отдельные принятые `ConfigRevision` и `CheckGeneration`, которые не изменяются результатами endpoint-проверок.
 
 `MonitoredServer` дополнительно хранит обязательное задаваемое администратором `Name` и добавляет операцию успешной проверки сервера. Полученное от endpoint внутреннее имя остаётся в общем `LastKnownName` и не заменяет административное имя. `MonitoredContainer` хранит необязательный `Guid? ServerId` и последнее время запуска `StartedAtUtc`. Контейнер связан с нулём или одним сервером; `Guid.Empty` запрещён. `AssignServer` меняет связь и увеличивает `Version`, сохраняя результат мониторинга и инцидент. `MonitoredServer.RecordContainerLinksChanged` увеличивает версию сервера при изменении связей, чтобы stale-редактор не перезаписывал актуальный набор.
 
@@ -24,7 +42,7 @@
 
 Каждая фактическая доменная мутация увеличивает `Version`. Infrastructure использует исходное значение как optimistic concurrency token, поэтому stale monitoring/admin write не может перезаписать более новое состояние.
 
-Смена endpoint очищает внутреннее имя и времена, полученные от предыдущего адреса, а также сбрасывает статус и инцидент. Административное имя сервера при этом сохраняется. Для контейнера дополнительно очищается `StartedAtUtc`.
+Смена endpoint очищает внутреннее имя и времена, полученные от предыдущего адреса, а также сбрасывает статус и инцидент. Административное имя сервера при этом сохраняется. Для сервера и контейнера дополнительно очищается `StartedAtUtc`.
 
 ## Переходы мониторинга
 
@@ -40,13 +58,19 @@
 
 ## Время
 
-Доменные методы принимают `DateTimeOffset` только с нулевым смещением. Время запуска контейнера не может быть позже времени проверки.
+Доменные методы принимают `DateTimeOffset` только с нулевым смещением. `MonitoredServer` и `MonitoredContainer` хранят nullable `StartedAtUtc`: до первой успешной проверки время запуска неизвестно. Успешная проверка требует время запуска не позже времени проверки и обновляет его, в том числе после перезагрузки. Ошибка сохраняет последние известные metadata. Неверное время отклоняется до изменения состояния.
 
 ## Уведомления и доступ
 
 `TelegramChat` хранит внутренний идентификатор, Telegram chat ID и отображаемое имя. `NotificationBinding` через фабрики создаёт связь ровно с сервером или контейнером. Для текущего инцидента каждая привязка отдельно хранит идентификаторы успешной outage- и recovery-доставки. Это позволяет повторять только неуспешные доставки и не подменять частичный результат глобальным флагом объекта.
 
-`ServerVisibilityPermission` и `ContainerVisibilityPermission` хранят идентификаторы пользователя и доступного объекта. Для container permission сохраняется FK на server permission и отдельный FK на ID контейнера. Совпадение текущего родителя со scope права проверяют use case и read queries; при смене или снятии родителя прежние permissions удаляются в той же транзакции. Контейнер без сервера виден только администратору.
+`ServerVisibilityPermission` и `ContainerVisibilityPermission` остаются только типами совместимости; рабочих ACL use case/repositories/API нет. Они исключены из целевой EF-модели; создавать ресурсные назначения больше нельзя. Контейнеры с родителем и без него доступны администраторам без отдельных назначений.
+
+## Общая модель сетки
+
+`Cluster` содержит идентичность/позиции, `SharedAccount` с единственной Administrator и защищёнными реквизитами, Pending/decisions/controls/conflicts/tombstones, observer streams, incidents и delivery ledger. Login нормализуется FormKC/Trim/uppercase. Self-disable/self-delete и удаление последнего активного администратора проверяются чистым методом по переданному принятому count; упорядоченная проверка нескольких аккаунтов выполняется production reducer 04.
+
+Состояние общего аккаунта, ConfigRevision, оперативные наблюдения и cursor разделены. Хранимые сводки ссылаются на исходные events/intents, recovery entitlement не зависит от существования binding. `HistoryRetention` защищает незавершённую работу и compact safety markers независимо от возраста. Подробная карта сущностей и реализованных границ — [Shared cluster storage.md](Shared%20cluster%20storage.md). Replay подключён в 04 через принятый log/snapshot; общий вход/сессии и команды аккаунтов подключены в 05.2–05.4; распределённый capture/reducer/incidents подключены в 06 за readiness gates, а delivery worker остаётся этапом 07. Conflicts сохраняют реальные competing revisions, которые могут быть старше базы другой сущности.
 
 ## Покрытие тестами
 

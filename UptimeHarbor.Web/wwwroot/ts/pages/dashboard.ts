@@ -31,6 +31,8 @@ interface DashboardServerDto {
     description: string | null;
     status: MonitoringStatus;
     lastCheckedAtUtc: string | null;
+    startedAtUtc: string | null;
+    uptimeSeconds: number | null;
     containers: DashboardContainerDto[];
 }
 
@@ -86,8 +88,8 @@ async function initDashboard(): Promise<void> {
         { key: "internalName", title: "Внутреннее имя", help: "Имя сервера, полученное при проверке. Заданное администратором имя показывается в колонке «Объект»." },
         { key: "status", title: "Статус", width: 160, help: "Результат мониторинга. «Неизвестно» означает, что актуального результата проверки ещё нет." },
         { key: "checked", title: "Последняя проверка", width: 220, help: "Время последней проверки в UTC." },
-        { key: "started", title: "Запущен", width: 220, help: "Время запуска, полученное от контейнера. Для сервера это значение не предоставляется." },
-        { key: "uptime", title: "Текущий uptime", width: 180, help: "Продолжительность работы контейнера с последнего запуска. Это не процент доступности за период." },
+        { key: "started", title: "Запущен", width: 220, help: "Время запуска сервера или контейнера в UTC, полученное при проверке." },
+        { key: "uptime", title: "Текущий uptime", width: 180, help: "Продолжительность работы сервера или контейнера с последнего запуска. Это не процент доступности за период." },
         { key: "description", title: "Описание", width: 260 }
     ]);
     statusFilter.addEventListener("change", () => {
@@ -248,7 +250,8 @@ function renderDashboard(snapshot: DashboardSnapshotDto): void {
         if (matchesStatus(server.status)) {
             rows.push(dashboardTable.row([
                 server.name, "Сервер", "—", server.internalName ?? "Нет данных", createStatusBadge(server.status),
-                formatUtc(server.lastCheckedAtUtc), "—", "—", server.description ?? "—"
+                formatUtc(server.lastCheckedAtUtc), formatUtc(server.startedAtUtc),
+                formatDuration(server.uptimeSeconds), server.description ?? "—"
             ]));
         }
         for (const container of server.containers) {

@@ -8,5 +8,7 @@ public class ApplicationRoleConfiguration : Microsoft.EntityFrameworkCore.IEntit
     public void Configure(EntityTypeBuilder<ApplicationRole> builder)
     {
         builder.Property(role => role.Id).ValueGeneratedNever();
+        builder.Property(role => role.Name).HasMaxLength(256).IsRequired();
+        builder.Property(role => role.NormalizedName).HasMaxLength(256).IsRequired();
     }
 }

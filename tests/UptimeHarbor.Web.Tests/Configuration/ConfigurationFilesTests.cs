@@ -197,6 +197,7 @@ public class ConfigurationFilesTests
     [Fact]
     public void ConfigurationExample_ContainsCompleteSafeStartupSettings()
     {
+        // Arrange
         string example = File.ReadAllText(GetRepositoryPath(
             "UptimeHarbor.Web",
             "Config",
@@ -208,17 +209,30 @@ public class ConfigurationFilesTests
         [
             "AllowedHosts",
             "BootstrapAdmin",
+            "Cluster",
+            "ClusterControl",
             "ConnectionStrings",
             "ForwardedHeaders",
             "Monitoring",
             "Telegram"
         ];
+
+        // Act
         string[] actualSections = root
             .EnumerateObject()
             .Select(property => property.Name)
             .Order(StringComparer.Ordinal)
             .ToArray();
+
+        // Assert
         Assert.Equal(expectedSections, actualSections);
+        Assert.Equal("Disabled", root.GetProperty("Cluster").GetProperty("Mode").GetString());
+        JsonElement control = root.GetProperty("ClusterControl");
+        Assert.Equal("replace-with-64-hex-operator-spki-digest", control.GetProperty("PublicKeyDigest").GetString());
+        Assert.EndsWith("operator-public.pem", control.GetProperty("PublicKeyPath").GetString());
+        Assert.False(string.IsNullOrWhiteSpace(control.GetProperty("Directory").GetString()));
+        Assert.False(string.IsNullOrWhiteSpace(control.GetProperty("KeyRingDirectory").GetString()));
+        Assert.False(control.TryGetProperty("PrivateKey", out _));
 
         JsonElement bootstrap = root.GetProperty("BootstrapAdmin");
         Assert.Equal("replace-me", bootstrap.GetProperty("Login").GetString());

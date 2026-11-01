@@ -1,14 +1,37 @@
 # Аутентификация и видимость
 
+## Эксплуатационная авторизация (09)
+
+Membership/trust/maintenance доступны любому активному принятому Administrator через antiforgery API; local cookie и устаревшая actor revision не заменяют accepted account. Internal lifecycle не получает фиктивного Administrator и не принимается через peer batch. Join/Restart восстанавливают общие accounts/hash/stamps/роль snapshot/replay, без нового локального account. Emergency selection требует пароль активного Administrator выбранного среза и отдельное ручное подтверждение изоляции специалистом. Сессии/lockout/keyrings остаются локальными; RecoveryVersion и отзыв доступа сохранены. [Порядок](Cluster%20operations.md), [restore](Cluster%20recovery.md).
+
+## Browser authorization этапа 08
+
+ClusterAdministrationAccess требует активного принятого Administrator для accepted read models, Pending, controls, conflict resolution и диагностики. Pending повторяет проверку после async чтения. Два администратора получают одинаковые общие ресурсы; owner/resource filters отсутствуют. ClusterLegacyWriterFilter запрещает enabled legacy read/write обход accepted API. Новые POST требуют antiforgery, model-state ошибки используют прежний безопасный envelope.
+
+Account конфликты/Pending проецируются whitelist mapping: только login/Enabled и безопасный результат, без пароля, hash, security/concurrency stamps или raw command/image. Replace/ConfirmRestored создаёт новую заявку с актуальной revision через тот же account pipeline. Reconnect повторяет защищённые чтения; 401/403 закрывает UI и SignalR. Cookie/session/lockout остаются локальными; RecoveryVersion и latched apply fault не ослаблены.
+
+
+## Авторизация доставки (07)
+
+RenewSender/BeginDelivery/AbandonDelivery имеют закрытый DeliveryCoordinator source, admitted NodeId/storage generation и подтверждённого локального leader/term/epoch. RecordDelivery имеет DeliveryTransport source и проверяет отправителя исходной попытки; поздний результат не требует сохранения прежней пользовательской сессии. Peer envelope storage generation проверяется до dispatch.
+
+ClusterTestDelivery сохраняет пользовательскую заявку через PendingCommandService. Активный принятый Administrator проверяется при подаче, на позиции принятия и перед sender; отключение/удаление до вызова запрещает transport. Background intents не зависят от cookie или видимости чата. Account/session/RecoveryVersion и latched apply fault не изменены. [Доставка](Notifications.md#принятая-доставка-этапа-07).
+
+## Внутренняя авторизация monitoring (06)
+
+RecordObservations требует admitted NodeId/storage generation, совпадающих с аутентифицированным peer envelope. EvaluateAvailability/PlanBacklogDelivery допускаются только текущим локальным leader с настоящим term/leadership/catch-up proof. Эти команды имеют ActorUserId=Empty/ActorRevision=0 и закрытый SystemSource; пользовательская команда не может использовать monitoring payload или system source.
+
+Изменение целей/observers/NodeChatRoute остаётся обычной принятой Administrator-командой. Service facts не используют пользователя, его cookie или фиктивную роль. Аудит переходов содержит system source и безопасные IDs после apply, без secrets/actor fabrication; account/session/recovery-version инварианты 05 сохранены.
+
 ## Состояние реализации
 
-Identity, cookie pipeline и адаптеры пользователей находятся в Infrastructure; application use case вычисляют доступ и управляют permissions; Web содержит страницы входа/выхода и защищённые MVC endpoints. Общая навигация показывает логин текущего пользователя перед POST-выходом. Административная страница `/Admin/Users` позволяет без перезагрузки создавать обычных пользователей, включать/блокировать, удалять и заменять видимость серверов и контейнеров. Контейнеры доступны в UI только при выбранном родительском сервере; текущий администратор не может отключить или удалить себя, а API не допускает отключение или удаление последнего включённого администратора.
+Identity, cookie pipeline и адаптеры пользователей находятся в Infrastructure; Web содержит прежние страницы входа/выхода и административные endpoints. Этапы 02/04 подготовили общие accounts/storage/reducer/snapshot, а ранний 05.1 — accepted account reader и Administrator policy. 05.2–05.4 подключили принятый sign-in, локальные сессии/lockout, безопасные команды пользователей и аккаунтный bootstrap/recovery. Единственная сохраняемая роль — Administrator; legacy создание аккаунта назначает эту роль. Permissions UI удалён в 08; SetVisibility API/request/use case и ACL repository/UoW отсутствуют.
 
 ## Identity-модель
 
-Пользователь и роль используют `Guid` как ключ. `ApplicationUser` дополнительно хранит `IsEnabled` и изменяет его только методами `Enable`/`Disable`.
+Пользователь и роль используют `Guid` как ключ. `ApplicationUser` хранит `IsEnabled`, `UserRevision`, `PasswordHashFormatVersion`, `DeletedAtUtc`. `ApplySharedAccount` переносит общий login/hash/stamps/активность, сохраняя локальные lockout counters. Новый projection UoW сохраняет account + Administrator membership + cursor одной транзакцией без UserManager autocommit.
 
-Identity-типы находятся в Infrastructure, потому что наследуют типы ASP.NET Core Identity. Domain хранит permissions только как независимые идентификаторы пользователя и объекта.
+Identity-типы остаются в Infrastructure. Чистый Domain `SharedAccount` задаёт FormKC/Trim/uppercase login и self/last-admin инвариант по принятому count. SQL normalized login обязателен и уникален; роль ограничена Administrator. Прежние Domain permission-типы и пустые DTO-поля сохранены для совместимости, EF их не хранит; права доступа ими не предоставляются. Детали и пределы — [Shared cluster storage.md](Shared%20cluster%20storage.md).
 
 ## Аутентификация
 
@@ -20,7 +43,7 @@ Identity-типы находятся в Infrastructure, потому что на
 - Заблокированный пользователь не должен продолжать получать доступ после завершения или инвалидации сессии.
 - Пять последовательных неудачных проверок пароля временно блокируют Identity-вход на пять минут; успешный вход до порога сбрасывает счётчик.
 
-`InitialAdministratorBootstrapper` идемпотентно создаёт роли `Administrator` и `User`, а администратора создаёт только при отсутствии пользователей в административной роли. Если существуют только disabled administrators, bootstrap включает одну существующую запись без создания дубликата и без смены пароля. `BootstrapAdminOptions` валидируются при фактической необходимости создать администратора; повторный запуск не меняет пароль существующего пользователя.
+Прежний `InitialAdministratorBootstrapper` теперь создаёт только Administrator. Его остальные однопроцессные правила пока сохранены: создание при отсутствии аккаунта, включение существующего disabled administrator без смены пароля, options только при необходимости. В enabled-режимах этот bootstrap не вызывается. `ClusterAccountBootstrapper` принимает первый аккаунт только в новой сетке по точному digest подготовленной команды из trusted RecoveryAdmission; Join/Restart не создают аккаунтов или ролей. Prepared command защищён отдельным локальным DP keyring; подписанный control требует ручной проверки изоляции специалистом. Без неё admission закрыт. [Процедура 09](Cluster%20operations.md).
 
 Web pipeline вызывает authentication до authorization. Cookie имеет `HttpOnly`, `SameSite=Lax` и `Secure=Always`. Security stamp проверяется на каждом запросе. Блокировка меняет `IsEnabled`, обновляет security stamp, а cookie validator немедленно отклоняет сессию заблокированного пользователя.
 
@@ -34,18 +57,18 @@ Web security headers применяются middleware до authentication/autho
 
 ## Видимость объектов
 
-`ServerVisibilityPermission` связывает пользователя и сервер. `ContainerVisibilityPermission` хранит пользователя, сервер и контейнер.
+Административные use case по-прежнему вызывают `IAdministratorAccessPolicy` до чтения и side effects. Controller role metadata — дополнительная Web-защита. Неаутентифицированный получает Unauthorized, отключённый или неадминистратор — Forbidden. Активные Administrator имеют полный доступ.
 
-Составные внешние ключи требуют, чтобы permission контейнера ссылался на permission того же пользователя к родительскому серверу и на контейнер этого сервера.
+`DashboardQuery` проверяет единую administrator policy до чтения, поиска и counts, затем возвращает все server/container records, включая контейнеры без родителя; ресурсной фильтрации нет. Endpoint URL в dashboard records/DTO не входит. В Disabled `MonitoringRecipientReadQuery` получает users/Administrator одним запросом; enabled `AcceptedMonitoringRecipients` читает принятых активных Administrator из immutable image. Publishers повторно проверяют локальные сессии и адресуют только разрешённые connection IDs.
 
-Application use case обязан фильтровать данные до формирования DTO. UI-скрытие не считается защитой. Те же правила применяются к controller endpoints и SignalR-событиям.
+`ObjectVisibilityPolicy` предоставляет доступ только Administrator, независимо от старых permission-наборов или родителя контейнера. ACL repositories/UoW, SetVisibility request/use case и controller endpoint удалены. Compatibility DTO-поля назначений возвращают пустые наборы; UI назначения прав удалён. Отдельных ролей, владельцев и операторов нет.
 
-Административные use case управления пользователями, объектами и уведомлениями вызывают единый `IAdministratorAccessPolicy` до чтения и любого side effect. Policy не зависит от ASP.NET Core, Identity, EF Core и HTTP: неаутентифицированный пользователь получает semantic `Unauthorized`, disabled и обычный пользователь — согласованный `Forbidden`. Controller role metadata остаётся дополнительной Web-защитой, а не заменой Application-проверки.
+`UserManagementService` сохраняет существующие self-disable/self-delete и last-enabled-admin проверки. Legacy Identity store повторяет last-admin guard в локальной транзакции с concurrency stamp роли. Это не доказательство упорядоченного согласования аккаунтов нескольких узлов. `AcceptedAdministratorAccessPolicy` в enabled-режиме получает `IAcceptedAccountReader.Find(UserId)` из принятого образа. Анонимный, unknown/unaccepted, disabled/deleted и неадминистратор получают отказ; claims роли/активности не заменяют accepted state. Во время replay чтение закрыто до подтверждения догона. Командный reducer повторяет авторизацию и actor revision, membership — после drain, test-send — непосредственно перед sender после чтения чата. В enabled-режиме `AcceptedUserSignInService` читает только принятые login/hash/stamps и роль; `LocalAccountLogin` сохраняет только локальные counters/lockout через узкий UoW. Pending пароль не используется, успешный вход не пишет общий журнал и не делает локальный rehash. `AcceptedAccountSession` связывает cookie с credential и локальным process epoch: restart, untrusted recovery, latched fault и apply смены hash/stamp/disable/delete отзывают прежнюю сессию. `MonitoringConnections` прекращает соответствующие SignalR-подписки. Обычный offline использует последнее достоверное принятое состояние; enabled browser gate пока закрыт до будущего controlled enable. Аккаунты используют общий log/snapshot, отдельного Identity replication нет.
 
-Администратор получает полный список без отдельных permissions. Обычный пользователь не получает контейнеры только на основании доступа к серверу.
+## Согласованные изменения пользователей
 
-`ObjectVisibilityPolicy` остаётся чистой синхронной политикой и единообразно требует server permission для сервера и одновременно server + container permissions для контейнера. `DashboardQuery` получает materialized records через отдельный `IDashboardSnapshotReadQuery` и применяет policy до формирования dashboard DTO. `MonitoringEventRecipientResolver` получает отдельный materialized набор кандидатов через `IMonitoringRecipientReadQuery`, применяет ту же policy и возвращает только разрешённые server-side SignalR user-id; администраторы получают события всех объектов, disabled users исключаются.
+`SharedUserManagementService` принимает Create, Update (login), Password, SetEnabled и Delete с явными общими UserId, OperationId и base revision. Только роль Administrator назначается из принятого образа. Проверки active actor, уникального нормализованного login (включая резерв tombstone), self-disable/self-delete и последнего активного администратора выполняются при подаче и повторяются reducer в порядке журнала. Отложенная команда отключённого или изменившего ревизию актора отвергается.
 
-Отдельного пользовательского `/api/objects` нет. Единственный v1 read-контракт обычного пользователя — защищённый dashboard snapshot без endpoint URL и административных полей; endpoint также отсутствует в промежуточных dashboard read records. Recipient query получает пользователей и признак Administrator одним materialized Identity query без per-user `IsInRoleAsync`, а server/container permissions обычных пользователей — пакетными materialized запросами без per-user N+1.
+`AccountCredentialService` использует Identity V3 PBKDF2/SHA512, 100000 iterations и password validators. Открытый пароль существует только на входе; durable Pending защищена локальной Data Protection. Retry сверяет исходный prepared hash, действие и ID, не создавая новую соль/временную метку. После потери ответа возвращается исходный accepted result; удержанная restore-заявка не подаётся молча. Пользователь получает только ID/status/revision/conflict, без вариантов credentials. Аудит различает LocalPending и подтверждённый terminal outcome с operation/actor/subject/node IDs; Resolved не пишет повторный успех.
 
-`UserManagementService` проверяет administrator access через общую policy внутри use case и поддерживает создание с начальным паролем, включение, блокировку, удаление и замену permissions. Self-disable/self-delete возвращают `Forbidden`, попытка убрать последнего enabled administrator — `Conflict`. Identity store повторяет last-admin guard внутри транзакции и изменяет concurrency stamp общей роли Administrator, чтобы две конкурентные операции над разными администраторами не могли оставить систему без enabled administrator. Контейнер проверяется вместе с родительским сервером до транзакционного изменения permissions. Удаление пользователя удаляет permissions каскадами БД.
+Общие аккаунты не принадлежат узлу создания. Snapshot/replay восстанавливают UserId/RoleId, credentials и tombstones; сессии, Data Protection keys и counters не копируются. Local process epoch дополнительно делает прежние cookies недействительными после restart/restore. Реальный ввод новой сетки и browser acceptance остаются отдельно от этих компонентов.

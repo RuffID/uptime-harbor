@@ -27,6 +27,7 @@ public static class ServiceCollectionExtensions
             options.Conventions.AllowAnonymousToPage("/Error");
         });
         services.AddSignalR();
+        services.AddSingleton<MonitoringConnections>();
         services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -52,6 +53,8 @@ public static class ServiceCollectionExtensions
         });
         services.AddHttpContextAccessor();
         services.AddScoped<IUserAccessContext, CurrentUserAccessContext>();
+        services.AddScoped<ClusterLegacyWriterFilter>();
+        services.AddScoped<UptimeHarbor.Infrastructure.Cluster.ClusterOperationsAdministration>();
         services.AddScoped<IObjectAdministrationChangePublisher, SignalRObjectAdministrationChangePublisher>();
         services.AddScoped<IMonitoringEventHandler, SignalRMonitoringEventHandler>();
 

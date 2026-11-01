@@ -27,52 +27,13 @@ public class MonitoringRecipientReadQuery(UptimeHarborDbContext dbContext)
                         && role.NormalizedName == normalizedAdministratorRole))
             })
             .ToListAsync(cancellationToken);
-        List<Guid> ordinaryUserIds = users
-            .Where(user => user.IsEnabled && !user.IsAdministrator)
-            .Select(user => user.Id)
-            .ToList();
-
-        var serverPermissions = await dbContext.ServerVisibilityPermissions
-            .AsNoTracking()
-            .Where(permission => ordinaryUserIds.Contains(permission.UserId))
-            .Select(permission => new
-            {
-                permission.UserId,
-                permission.ServerId
-            })
-            .ToListAsync(cancellationToken);
-        ILookup<Guid, Guid> serverPermissionsByUser = serverPermissions
-            .ToLookup(permission => permission.UserId, permission => permission.ServerId);
-        ILookup<Guid, Guid> containerPermissionsByUser;
-        if (objectKind == MonitoringObjectKind.Container)
-        {
-            var containerPermissions = await dbContext.ContainerVisibilityPermissions
-                .AsNoTracking()
-                .Where(permission => ordinaryUserIds.Contains(permission.UserId))
-                .Where(permission => dbContext.MonitoredContainers.Any(container =>
-                    container.Id == permission.ContainerId && container.ServerId == permission.ServerId))
-                .Select(permission => new
-                {
-                    permission.UserId,
-                    permission.ContainerId
-                })
-                .ToListAsync(cancellationToken);
-            containerPermissionsByUser = containerPermissions
-                .ToLookup(permission => permission.UserId, permission => permission.ContainerId);
-        }
-        else
-        {
-            containerPermissionsByUser = Array.Empty<(Guid UserId, Guid ContainerId)>()
-                .ToLookup(permission => permission.UserId, permission => permission.ContainerId);
-        }
-
         return users
             .Select(user => new MonitoringRecipientReadRecord(
                 user.Id,
                 user.IsEnabled,
                 user.IsAdministrator,
-                serverPermissionsByUser[user.Id].ToList(),
-                containerPermissionsByUser[user.Id].ToList()))
+                [],
+                []))
             .ToList();
     }
 }

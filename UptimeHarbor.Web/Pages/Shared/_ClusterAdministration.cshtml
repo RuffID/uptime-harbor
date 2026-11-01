@@ -1,0 +1,50 @@
+@model string
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@{
+    string token = Antiforgery.GetAndStoreTokens(ViewContext.HttpContext).RequestToken
+        ?? throw new InvalidOperationException("Не удалось создать antiforgery token.");
+}
+<meta name="request-verification-token" content="@token" />
+<section class="d-flex flex-column gap-3" data-cluster-page="@Model">
+    <h1 class="h3">Управление сеткой</h1>
+    <p class="small mb-0">Принятая конфигурация общая для всех узлов. Pending хранится на текущем узле и ещё не меняет действующие настройки. Во время отсутствия связи принятие не обещается.</p>
+    <p class="small mb-0" role="status" aria-live="polite" data-cluster-status>Повторно проверяем доступ и загружаем состояние…</p>
+    <p class="text-danger mb-0" role="alert" data-cluster-error></p>
+    <p class="mb-0" role="status" aria-live="polite" data-cluster-outcome></p>
+    <div class="d-flex flex-wrap align-items-end justify-content-between gap-2">
+        <div class="d-flex flex-wrap align-items-end gap-2">
+            <label class="form-label mb-0" for="clusterKind">Общие ресурсы
+                <select id="clusterKind" name="kind" class="form-select w-auto" data-cluster-kind></select>
+            </label>
+            <button type="button" class="btn btn-outline-secondary" data-cluster-refresh>Обновить</button>
+        </div>
+        <button type="button" class="btn btn-primary" disabled data-cluster-create>Создать заявку</button>
+    </div>
+    <h2 class="h5 mb-0">Принятая конфигурация</h2>
+    <div data-cluster-accepted></div>
+    <div class="modal fade" id="clusterEditorModal" tabindex="-1" aria-labelledby="cluster-editor-title" aria-hidden="true" data-cluster-modal>
+        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+            <div class="modal-content"><div class="modal-body" data-cluster-editor></div></div>
+        </div>
+    </div>
+    <h2 class="h5 mb-0">Durable local Pending и результаты</h2>
+    <p class="small mb-0">NeedsUserConfirmation после backup удерживается до явного подтверждения новой заявки с актуальной base revision. Известный принятый результат имеет приоритет. Отмена и замена тоже требуют принятия; победивший commit не откатывается.</p>
+    <div data-cluster-pending></div>
+    <div class="d-flex flex-wrap align-items-center gap-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary" disabled data-cluster-previous>Назад</button>
+        <span class="small" data-cluster-pager></span>
+        <button type="button" class="btn btn-sm btn-outline-secondary" disabled data-cluster-next>Далее</button>
+    </div>
+    <h2 class="h5 mb-0">Конфликты</h2>
+    <div data-cluster-conflicts></div>
+    <h2 class="h5 mb-0">Доступность и coverage</h2>
+    <p class="small mb-0">Availability описывает ответы цели, coverage — полноту наблюдений. Partial и потеря связи отдельного observer не означают полную аварию цели. Metadata и uptime показаны отдельно по NodeId; сверяйте время их получения.</p>
+    <div data-cluster-targets></div>
+    <div data-cluster-observers></div>
+    <h2 class="h5 mb-0">Диагностика узлов</h2>
+    <div class="small" data-cluster-diagnostic-summary></div>
+    <div data-cluster-nodes></div>
+    <h2 class="h5 mb-0">Принятая очередь и результаты доставок</h2>
+    <p class="small mb-0">202 / принятая тестовая команда означают очередь, а не доставку Telegram. Окончательная ошибка после пяти реальных попыток остаётся видимой. Ручного retry и обещанного времени восстановления нет.</p>
+    <div data-cluster-deliveries></div>
+</section>

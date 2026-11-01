@@ -369,7 +369,7 @@ public class TelegramOutboxDispatcherTests
             chat.Id,
             server.Id);
         binding.MarkOutageDelivered(incidentId);
-        server.RecordSuccessfulCheck("server", NOW_UTC.AddMinutes(1));
+        server.RecordSuccessfulCheck("server", NOW_UTC.AddDays(-1), NOW_UTC.AddMinutes(1));
         MonitoringStateChangedEvent monitoringEvent = new(
             server.Id,
             MonitoringObjectKind.Server,
@@ -716,8 +716,10 @@ public class TelegramOutboxDispatcherTests
     {
         public Task<ServerEndpointCheckResult> CheckAsync(
             string endpointUrl,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult(ServerEndpointCheckResult.Succeeded("server", NOW_UTC));
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(ServerEndpointCheckResult.Succeeded("server", NOW_UTC.AddDays(-1), NOW_UTC));
+        }
     }
 
     private class SuccessfulContainerChecker : IContainerEndpointChecker

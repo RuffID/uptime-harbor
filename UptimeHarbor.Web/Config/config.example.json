@@ -14,6 +14,51 @@
   "Telegram": {
     "BotToken": "000000000:replace-with-bot-token"
   },
+  "Cluster": {
+    "Mode": "Disabled",
+    "ClusterId": "00000000-0000-0000-0000-000000000000",
+    "Generation": 1,
+    "NodeId": "00000000-0000-0000-0000-000000000000",
+    "StorageGeneration": "00000000-0000-0000-0000-000000000000",
+    "CredentialId": "00000000-0000-0000-0000-000000000000",
+    "PublicUri": "https://peer.example.invalid/internal/raft",
+    "StoragePath": "C:/UptimeHarbor/cluster",
+    "PeerListenPort": 8443,
+    "TlsBoundary": "Direct",
+    "TrustedProxyAddresses": [],
+    "ClientCertificatePath": "C:/UptimeHarbor/keys/client.crt",
+    "ClientKeyPath": "C:/UptimeHarbor/keys/client.key",
+    "ClientCaPath": "C:/UptimeHarbor/keys/cluster-ca.crt",
+    "ClientCaFingerprint": "replace-with-64-hex-public-ca-fingerprint",
+    "ExpectedBotId": 0,
+    "HeartbeatSeconds": 5,
+    "HealthTimeoutSeconds": 3,
+    "FailureWindowSeconds": 30,
+    "HealthFreshSeconds": 10,
+    "CommandTimeoutSeconds": 10,
+    "ChunkTimeoutSeconds": 30,
+    "ConfigurationIntervalSeconds": 60,
+    "SnapshotIntervalSeconds": 300,
+    "ProtocolMajor": 1,
+    "ProtocolMinor": 0,
+    "CommandSchema": 1,
+    "SnapshotFormat": 1,
+    "SqlSchema": 1,
+    "PasswordHashFormat": 1,
+    "HealthMaxBytes": 65536,
+    "CommandMaxBytes": 262144,
+    "BatchMaxBytes": 1048576,
+    "BatchMaxEntries": 100,
+    "SnapshotChunkMaxBytes": 1048576,
+    "NativeMaxBytes": 67108864,
+    "ReplayCapacity": 10000
+  },
+  "ClusterControl": {
+    "Directory": "C:/UptimeHarbor/control",
+    "PublicKeyPath": "C:/UptimeHarbor/control-trust/operator-public.pem",
+    "PublicKeyDigest": "replace-with-64-hex-operator-spki-digest",
+    "KeyRingDirectory": "C:/UptimeHarbor/local-control-keys"
+  },
   "ForwardedHeaders": {
     "KnownNetworks": [
       "172.20.0.0/16"

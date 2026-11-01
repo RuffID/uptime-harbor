@@ -5,6 +5,7 @@ declare namespace signalR {
 
     interface HubConnection {
         start(): Promise<void>;
+        stop(): Promise<void>;
         on(methodName: string, handler: (...args: unknown[]) => void): void;
         onreconnecting(handler: (error?: Error) => void): void;
         onreconnected(handler: (connectionId?: string) => void): void;

@@ -82,7 +82,7 @@ public class IdentityUserAccountStore(
             return Failure(createResult);
         }
 
-        IdentityResult roleResult = await userManager.AddToRoleAsync(user, ApplicationRoles.USER);
+        IdentityResult roleResult = await userManager.AddToRoleAsync(user, ApplicationRoles.ADMINISTRATOR);
         if (!roleResult.Succeeded)
         {
             IdentityResult cleanupResult = await userManager.DeleteAsync(user);

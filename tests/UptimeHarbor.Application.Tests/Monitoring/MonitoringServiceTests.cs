@@ -31,38 +31,46 @@ public class MonitoringServiceTests
     [Fact]
     public async Task FailureSuccessFailure_DoesNotMakeServerUnavailable()
     {
+        // Arrange
         TestData data = new();
         MonitoredServer server = data.AddServer(isMonitoringEnabled: true);
 
+        // Act
         await data.RecordServerFailureAsync(server, CHECKED_AT_UTC);
         await data.Service.RecordServerResultAsync(
             server.Id,
             server.EndpointUrl,
-            ServerEndpointCheckResult.Succeeded("server-01", CHECKED_AT_UTC.AddSeconds(30)),
+            ServerEndpointCheckResult.Succeeded("server-01", CHECKED_AT_UTC.AddDays(-1), CHECKED_AT_UTC.AddSeconds(30)),
             3,
             TestContext.Current.CancellationToken);
         await data.RecordServerFailureAsync(server, CHECKED_AT_UTC.AddSeconds(60));
 
+        // Assert
         Assert.Equal(MonitoringStatus.Available, server.Status);
         Assert.Equal(1, server.ConsecutiveFailures);
+        Assert.Equal(CHECKED_AT_UTC.AddDays(-1), server.StartedAtUtc);
+        Assert.Equal(CHECKED_AT_UTC.AddDays(-1), data.Publisher.Events[^1].StartedAtUtc);
     }
 
     [Fact]
     public async Task SuccessAfterUnavailable_CreatesRecoveryTransition()
     {
+        // Arrange
         TestData data = new();
         MonitoredServer server = data.AddServer(isMonitoringEnabled: true);
         await data.RecordServerFailureAsync(server, CHECKED_AT_UTC);
         await data.RecordServerFailureAsync(server, CHECKED_AT_UTC.AddSeconds(30));
         await data.RecordServerFailureAsync(server, CHECKED_AT_UTC.AddSeconds(60));
 
+        // Act
         await data.Service.RecordServerResultAsync(
             server.Id,
             server.EndpointUrl,
-            ServerEndpointCheckResult.Succeeded("server-01", CHECKED_AT_UTC.AddSeconds(90)),
+            ServerEndpointCheckResult.Succeeded("server-01", CHECKED_AT_UTC.AddMinutes(1), CHECKED_AT_UTC.AddSeconds(90)),
             3,
             TestContext.Current.CancellationToken);
 
+        // Assert
         Assert.Equal(MonitoringStatus.Available, server.Status);
         Assert.Equal(0, server.ConsecutiveFailures);
         Assert.Equal(MonitoringTransition.Recovered, data.Publisher.Events[^1].Transition);
@@ -72,18 +80,21 @@ public class MonitoringServiceTests
     [Fact]
     public async Task DisabledObject_IsNotReturnedOrUpdated()
     {
+        // Arrange
         TestData data = new();
         MonitoredServer disabledServer = data.AddServer(isMonitoringEnabled: false);
 
+        // Act
         IReadOnlyList<MonitoringTargetDto> targets = await data.Service.GetEnabledTargetsAsync(
             TestContext.Current.CancellationToken);
         bool recorded = await data.Service.RecordServerResultAsync(
             disabledServer.Id,
             disabledServer.EndpointUrl,
-            ServerEndpointCheckResult.Succeeded("disabled", CHECKED_AT_UTC),
+            ServerEndpointCheckResult.Succeeded("disabled", CHECKED_AT_UTC.AddDays(-1), CHECKED_AT_UTC),
             3,
             TestContext.Current.CancellationToken);
 
+        // Assert
         Assert.Empty(targets);
         Assert.False(recorded);
         Assert.Equal(0, data.UnitOfWork.SaveCount);
@@ -118,19 +129,23 @@ public class MonitoringServiceTests
     [Fact]
     public async Task Result_WhenEndpointChangedDuringCheck_IsIgnored()
     {
+        // Arrange
         TestData data = new();
         MonitoredServer server = data.AddServer(isMonitoringEnabled: true);
         string oldEndpoint = server.EndpointUrl;
         server.UpdateSettings(server.Name, "https://new-server.example/health", null, true);
 
+        // Act
         bool recorded = await data.Service.RecordServerResultAsync(
             server.Id,
             oldEndpoint,
-            ServerEndpointCheckResult.Succeeded("stale-name", CHECKED_AT_UTC),
+            ServerEndpointCheckResult.Succeeded("stale-name", CHECKED_AT_UTC.AddDays(-1), CHECKED_AT_UTC),
             3,
             TestContext.Current.CancellationToken);
 
+        // Assert
         Assert.False(recorded);
+        Assert.Null(server.StartedAtUtc);
         Assert.Null(server.LastKnownName);
         Assert.Equal(0, data.UnitOfWork.SaveCount);
     }
@@ -138,28 +153,35 @@ public class MonitoringServiceTests
     [Fact]
     public async Task Event_IsPublishedOnlyAfterSuccessfulSave()
     {
+        // Arrange
         List<string> operations = [];
         TestData successfulData = new(operations: operations);
         MonitoredServer server = successfulData.AddServer(isMonitoringEnabled: true);
 
+        // Act
         await successfulData.Service.RecordServerResultAsync(
             server.Id,
             server.EndpointUrl,
-            ServerEndpointCheckResult.Succeeded("server-01", CHECKED_AT_UTC),
+            ServerEndpointCheckResult.Succeeded("server-01", CHECKED_AT_UTC.AddDays(-1), CHECKED_AT_UTC),
             3,
             TestContext.Current.CancellationToken);
 
+        // Assert
         Assert.Equal(["save", "publish"], operations);
 
+        // Arrange
         TestData failedData = new(throwOnSave: true);
         MonitoredServer failedServer = failedData.AddServer(isMonitoringEnabled: true);
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        // Act
+        Exception? error = await Record.ExceptionAsync(() =>
             failedData.Service.RecordServerResultAsync(
                 failedServer.Id,
                 failedServer.EndpointUrl,
-                ServerEndpointCheckResult.Succeeded("server-02", CHECKED_AT_UTC),
+                ServerEndpointCheckResult.Succeeded("server-02", CHECKED_AT_UTC.AddDays(-1), CHECKED_AT_UTC),
                 3,
                 TestContext.Current.CancellationToken));
+        // Assert
+        Assert.IsType<InvalidOperationException>(error);
         Assert.Empty(failedData.Publisher.Events);
     }
 

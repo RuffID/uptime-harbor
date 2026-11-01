@@ -1,5 +1,24 @@
 # Архитектура решения
 
+Эксплуатационный lifecycle 09 использует существующий Raft/reducer/UoW: общие решения хранятся в принятом образе, локальные подписанные grants управляют карантином/ручным enable. Офлайн ClusterControlTool исполняется до создания host; схема данных не менялась. [Runbooks](Cluster%20operations.md), [recovery](Cluster%20recovery.md).
+
+## Интерфейс общих данных (08)
+
+Application предоставляет ClusterAdministrationAccess, безопасные Administration DTO, accepted read model и typed команды поверх существующих Pending/controls/reducer. Web выбирает общий cluster UI для Index/Admin в enabled-режиме. SQL read/write legacy dashboard/объектов/чатов в этом режиме отклоняется фильтром; общие account endpoints и accepted test-send сохранены. Нового consensus, WAL, хранилища или схемы нет. Admission/trust/activation/manual-enable/delivery gates остаются закрытыми. Детали — [Web application.md](Web%20application.md#интерфейс-и-api-этапа-08).
+
+
+## Поток принятой Telegram-доставки (07)
+
+Accepted incident/event/intent → восстановленная DeliveryQueue → SenderAuthorityGate → принятый BeginDelivery → внешний Telegram transport → локальный result UoW → существующий revision transport → RecordDelivery/reducer → общий projection commit → accepted result. RenewSender использует тот же DotNext consensus/WAL. Отдельной репликации или расширения legacy outbox нет.
+
+Application владеет eligibility/retry/message/projection, Infrastructure — dispatcher/transport/capture и internal provenance, Web — lifecycle и сборкой graph. Test-send с follower проходит durable Pending и повторную accepted Administrator authorization. UI и controlled enable реализованы; неизвестные readiness dependencies оставляют работу закрытой. [Детали](Notifications.md#принятая-доставка-этапа-07).
+
+## Поток распределённого мониторинга (06)
+
+Endpoint/peer fact → локальный capture/sequence UoW → bounded revision transport → существующий RevisionReducer → monitoring write set → RevisionApplyEngine/SQL projection commit → accepted image. Raft log + snapshot сохраняют единственную принятую историю. Application рассчитывает доступность/coverage, incidents/events/intents и состав backlog без I/O; Infrastructure проверяет endpoint и хранит capture; Web собирает worker/pump/coordinator с transport/dispatcher.
+
+System monitoring commands имеют отдельную внутреннюю provenance, не фиктивного Administrator. Неизвестные recovery/activation/delivery порты не открываются. Sender/attempt producer подключён в 07; общий UI реализован в 08; controlled enable остаётся этапом 09. См. [Monitoring.md](Monitoring.md#распределённый-путь-этапа-06).
+
 ## Текущее состояние
 
 Решение состоит из восьми SDK-style проектов под `net10.0`:
@@ -50,15 +69,19 @@ Test-проекты ссылаются только на проверяемый 
 
 Identity-типы находятся в Infrastructure, потому что наследование от ASP.NET Core Identity является технической деталью хранения и аутентификации.
 
-Application получает сведения о текущем пользователе через независимый `IUserAccessContext`, а операции Identity — через `IUserAccountStore`. `IAdministratorAccessPolicy` единообразно возвращает semantic `Unauthorized`/`Forbidden` для `UserManagementService`, `ObjectAdministrationService` и `NotificationAdministrationService`; каждый use case вызывает policy до I/O. Ожидаемые ошибки сценариев описываются `ServiceResult` и переводятся в HTTP-статусы только в Web.
+Этап 02 добавил `Domain/Cluster`, storage-контракты и узкие UoW: SQL — восстанавливаемая проекция Raft log + snapshot. Общий аккаунт, роль Administrator и cursor сохраняются одним projection UoW; локальные Pending/capture/results отделены. Этап 03 подключил DotNext 6.10.0, отдельный peer-периметр, recovery/readiness и sender authority. Этап 04 реализовал Pending/controls/results, `RevisionReducer`/`RevisionApplyEngine`, `RevisionClusterRecovery`, bounded replication и streaming snapshot. Ранний 05.1 реализовал `IAcceptedAccountReader` и `AcceptedAdministratorAccessPolicy`. Admission/trust/activation/delivery proof остаются закрытыми до controlled enable; renewal/attempt decisions подключены в 07; общий вход/сессии и account commands реализованы в 05.2–05.4; monitoring capture/сведение/incidents подключены в 06 за readiness gates; delivery worker подключён в 07 за теми же gates. В enabled-режиме прежние workers, sender, UI и startup DB/bootstrap не выполняются. Схема — [Shared cluster storage.md](Shared%20cluster%20storage.md), порядок старта и протокол — [Cluster runtime.md](Cluster%20runtime.md).
+
+Application получает сведения о текущем пользователе через независимый `IUserAccessContext`, а операции Identity — через `IUserAccountStore`. `IAdministratorAccessPolicy` единообразно возвращает semantic `Unauthorized`/`Forbidden` для `UserManagementService`, `ObjectAdministrationService` и `NotificationAdministrationService`; каждый use case вызывает policy до I/O. В cluster mode policy читает принятый аккаунт по UserId, а не claims активности/роли. Reducer повторяет проверку на позиции принятия, membership — после drain, test-send — после чтения чата перед sender. Ожидаемые ошибки сценариев описываются `ServiceResult` и переводятся в HTTP-статусы только в Web.
 
 `ObjectAdministrationService` проверяет административный доступ через общую policy внутри каждого сценария и использует отдельный `IObjectAdministrationUnitOfWork`. После успешного сохранения он вызывает независимый `IObjectAdministrationChangePublisher`; Web-реализация best-effort отправляет обезличенный SignalR-сигнал, изолирует transport exception и не меняет уже успешный результат commit.
 
 `MonitoringService` получает независимые результаты server/container endpoint, повторно проверяет актуальность включённого объекта и endpoint, вызывает доменные переходы и сохраняет через `IMonitoringUnitOfWork`. Optimistic concurrency отклоняет stale write. Outage/recovery payload добавляется в durable outbox в том же `SaveChangesAsync`, а `MonitoringStateChangedEvent` для SignalR публикуется только после успешного сохранения. HTTP, JSON, monitoring worker, Telegram outbox dispatcher и keyed-координация остаются в Infrastructure.
 
-`DashboardQuery` зависит от `IDashboardSnapshotReadQuery`, `IUserAccessContext` и `TimeProvider`. Infrastructure query проецирует materialized read records без endpoint URL; Application применяет чистую `ObjectVisibilityPolicy` до формирования dashboard DTO, выполняет поиск только по доступному набору и рассчитывает uptime относительно UTC-времени snapshot. `MonitoringEventRecipientResolver` использует отдельный `IMonitoringRecipientReadQuery`: users и признак Administrator загружаются одним запросом, server/container permissions — пакетно, без per-user N+1. Dashboard и recipient contracts не объединены в универсальный visibility repository.
+`DashboardQuery` зависит от `IDashboardSnapshotReadQuery`, `IUserAccessContext` и `TimeProvider`. Infrastructure query проецирует materialized read records без endpoint URL; Application применяет сохранённую чистую `ObjectVisibilityPolicy`, выполняет поиск и рассчитывает uptime относительно UTC-времени snapshot. Администратор получает все цели; неадминистративный compatibility-вызов — пустой набор. `MonitoringEventRecipientResolver` использует `IMonitoringRecipientReadQuery`: users и Administrator читаются одним запросом, коллекции прежних permissions пусты. Таблиц и рабочих repository/UoW/API resource permissions нет. Users permissions UI удалён в 08; пустые compatibility DTO-поля не предоставляют прав.
 
-Web-обработчик внутреннего monitoring event определяет разрешённые Identity user-id в Application, а через SignalR отправляет только тип и GUID изменившегося объекта. Клиент использует событие как сигнал перечитать защищённый snapshot; SQL Server остаётся источником истины.
+Web-обработчик внутреннего monitoring event определяет разрешённые Identity user-id в Application, а через SignalR отправляет только тип и GUID изменившегося объекта. Клиент использует событие как сигнал перечитать защищённые данные из SQL. Существующие однопроцессные workers продолжают локальный поток; для принятых общих данных источник истины — Raft log + snapshot, SQL-проекция сама принятие не подтверждает.
+
+Общее состояние упорядочивает только DotNext log + snapshot; SQL — восстанавливаемая проекция. `RevisionWriteSetFactory` формирует changes/receipt/cursor, `IProjectionApplyUnitOfWork` сохраняет их атомарно; повтор OperationId не создаёт новую entity revision. Snapshot install имеет отдельную сценарную транзакцию, сохраняет локальные сессии/ключи/Pending. Детали отказов, старого backup и retention — в связанных документах runtime/storage.
 
 ## Правила сопровождения
 

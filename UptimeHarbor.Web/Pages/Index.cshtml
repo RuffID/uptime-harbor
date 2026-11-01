@@ -1,9 +1,16 @@
 ﻿@page
 @model IndexModel
+@inject Microsoft.Extensions.Options.IOptions<UptimeHarbor.Infrastructure.Cluster.ClusterOptions> Cluster
 @{
     ViewData["Title"] = "Панель мониторинга";
 }
 
+@if (Cluster.Value.Enabled)
+{
+    <partial name="_ClusterAdministration" model='@("Server")' />
+}
+else
+{
 <section data-dashboard-root>
     <header class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
         <h1 class="h3 mb-0">Панель мониторинга</h1>
@@ -47,8 +54,16 @@
 
     <div data-dashboard-content hidden></div>
 </section>
+}
 
 @section Scripts {
+    @if (Cluster.Value.Enabled)
+    {
+        <partial name="_ClusterScripts" />
+    }
+    else
+    {
     <script src="~/vendor/signalr/signalr.min.js" asp-append-version="true"></script>
     <script type="module" src="~/dist/pages/dashboard.js" asp-append-version="true"></script>
+    }
 }

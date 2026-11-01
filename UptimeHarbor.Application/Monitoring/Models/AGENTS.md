@@ -2,4 +2,4 @@
 
 DTO цели и результаты server/container endpoint отделяют транспортную проверку от `MonitoringService`; событие изменения состояния передаёт результат уже сохранённого перехода.
 
-Не добавлять `HttpResponseMessage`, JSON parser и EF-типы. Время передавать в UTC; server и container контракты сохраняют разные обязательные данные.
+Не добавлять `HttpResponseMessage`, JSON parser и EF-типы. Успешные server/container результаты содержат имя и обязательное `StartedAtUtc` в UTC; при отказе metadata отсутствует. Серверный результат не допускает запуск позже проверки.

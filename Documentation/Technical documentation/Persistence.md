@@ -1,14 +1,41 @@
 # Persistence и транзакции
 
+## Первый запуск и восстановление (09)
+
+ClusterLocalInitializationUnitOfWork в существующей транзакционной сессии создаёт только точную LocalNodeState: чужие shared rows/cursor и identity/WAL mismatch отвергаются, локальные accounts не создаются. Genesis verification проверяет пустые общие наборы до создания JournalPosition; SnapshotProjectionUnitOfWork продолжает whitelist install только общей проекции. Lifecycle records входят в тот же atomic projection write set/cursor/receipt. Emergency offline-tool использует только EF metadata для проверки snapshot, не SQL connection. Fake UoW/model tests не доказывают SQL isolation/locking/commit; реальная provider-проверка не проводилась. [Процедуры](Cluster%20recovery.md).
+
+## Границы интерфейса (08)
+
+Typed команды UI используют существующий IPendingControlUnitOfWork и PendingCommandService; никаких прямых enabled legacy CRUD/Identity writers нет. Replace и Cancel сохраняют настоящее намерение, результат читается из принятой истории. Явный Cancel разрешён для held Pending без его выпуска; ConfirmRestored требует нового Replace и актуальной base revision. Accepted исход всегда выигрывает read reconciliation старой local записи. Нового UoW, таблиц или транзакционного механизма нет; изолированные doubles не подтверждают SQL semantics/locking.
+
+
+## Attempt/result apply (07)
+
+DeliveryProjection формирует настоящие DeliveryAttempt и восстанавливает DeliveryIntent из всей принятой истории. MonitoringProjection добавляет их и RecoveryEntitlement в тот же projection write set с receipt/cursor; публикация образа происходит после commit. Known success монотонен, повтор результата/replay не создаёт новый attempt или success-аудит.
+
+Внешний HTTP и общий commit не атомарны. CapturedDeliveryResult сохраняется отдельным локальным IDeliveryResultUnitOfWork, затем передаётся в existing revision transport; ошибка после capture не теряет accepted intent. Capture не заменяет общий result. Новых таблиц, SQL WAL и global UoW нет. Fake storage проверки не подтверждают SQL transaction semantics/locking. [Хранение](Shared%20cluster%20storage.md#delivery-ledger-этапа-07).
+
+## Monitoring capture и apply (06)
+
+`ObservationCaptureService` использует существующий сценарный ObservationCaptureUnitOfWork: sequence reservation и CapturedObservation сохраняются одной транзакцией. Singleton gate сериализует локальные scopes; per-target endpoint scopes не разделяют DbContext. Capture retry сверяет ID/payload и не выделяет новый sequence. Bounded repository queries читают stream/result pages без tracking.
+
+`MonitoringProjection` добавляет observer results/frontiers, state, incidents/events/intents, assignments, entitlements и summaries/sources в общий projection write set с receipt/cursor. Ошибка до commit не публикует accepted image, потеря ответа после commit разрешается receipt/replay. Success-аудит выполняется после результата apply, без повторения на replay.
+
+Snapshot/recovery проверяют соответствие monitoring image и SQL rows, accepted delivery attempts и NodeId/storage generation реестра наряду с account/role/cursor. Это использует существующую схему; новая migration не нужна. Fake storage tests доказывают порядок вызовов/сценарные границы, SQL Server atomicity и unique/delete ordering не запускались. Подробности — [Shared cluster storage.md](Shared%20cluster%20storage.md#проекции-monitoring-этапа-06).
+
+## Граница кластерного режима
+
+Этап 03 хранит Raft WAL/term/vote/configuration на отдельном диске через DotNext 6.10.0; SQL остаётся восстанавливаемой проекцией. `ClusterStateMachine` передаёт committed records независимому recovery/reducer-порту и ждёт фактического apply; `RevisionClusterRecovery`/`RevisionApplyEngine` реализуют SQL replay и установку snapshot. Admission/fencing/checkpoint проверяются до создания WAL, чтение аккаунтов открывается после проверки догона. В enabled-режиме legacy startup migrations/bootstrap пропускаются; автоматического применения схемы новой сетки нет. Migration 04 `20261029075201_AllowUniquenessConflictRevisions` допускает реальную competing revision старше base другой сущности; к БД не применялась. Порядок восстановления, lock и защита от потери файлов — [Cluster runtime.md](Cluster%20runtime.md).
+
 ## Текущее состояние
 
 Persistence реализован в `UptimeHarbor.Infrastructure` на EF Core с провайдером Microsoft SQL Server. `UptimeHarbor.Application` содержит только контекстно-независимые интерфейсы.
 
-`UptimeHarborDbContext` наследует Identity DbContext с ключом `Guid` и одновременно реализует контекст хранения ключей Data Protection. В модель входят объекты мониторинга, permissions, Telegram-чаты, notification bindings с per-binding состоянием доставки текущего инцидента и durable notification outbox.
+`UptimeHarborDbContext` наследует Identity DbContext с ключом `Guid` и одновременно реализует контекст хранения ключей Data Protection. В модель входят объекты мониторинга, Telegram-чаты/bindings, прежний локальный outbox и storage общих данных сетки. Ресурсные назначения исключены. Таблицы/контракты нового хранения и границы будущих workers описаны в [Shared cluster storage.md](Shared%20cluster%20storage.md).
 
 ## EF-конфигурации
 
-Конфигурации находятся в `Persistence/Configurations` и применяются через `ApplyConfigurationsFromAssembly`.
+Конфигурации находятся в `Persistence/Configurations` и применяются через `ApplyConfigurationsFromAssembly`. Фильтр пропускает прежние `ServerVisibilityPermissionConfiguration` и `ContainerVisibilityPermissionConfiguration`; compatibility-типы игнорируются до scan. Они не добавляются явно с последующим Ignore, поэтому `MappedEntityTypeIgnoredWarning` не возникает. Итоговая схема не меняется.
 
 Они задают:
 
@@ -16,8 +43,8 @@ Persistence реализован в `UptimeHarbor.Infrastructure` на EF Core �
 - строковое хранение статуса и check constraints допустимых значений;
 - обязательные ключи и `ValueGeneratedNever` для идентификаторов приложения;
 - длины строк, индексы и уникальность связей;
-- nullable связь контейнера с сервером с `NoAction`: удаление сервера явно снимает связи и container permissions в одной транзакции, сохраняя контейнеры и их notification bindings;
-- составные ключи permissions, FK container permission → server permission и отдельный FK → container ID; Application и read queries проверяют соответствие scope права текущему серверу;
+- nullable связь контейнера с сервером с `NoAction`: удаление сервера явно снимает связи в одной транзакции, сохраняя контейнеры и их notification bindings;
+- отсутствие таблиц и рабочих repository/UoW/API permissions;
 - правило notification binding «ровно один target»;
 - хранение времён как UTC в столбцах SQL Server `datetime2`;
 - явный `Version` серверов и контейнеров как concurrency token;
@@ -27,7 +54,7 @@ Persistence реализован в `UptimeHarbor.Infrastructure` на EF Core �
 
 `UtcDateTimeOffsetConverter` преобразует `DateTimeOffset` в UTC `DateTime` провайдера и восстанавливает нулевое смещение при чтении.
 
-`ObjectAdministrationService` сохраняет настройки сервера и `ContainerLinkUpdate` одним commit. В запросе проверяются версии всех переданных контейнеров и полнота текущих связей; контейнер другого сервера через этот список не захватывается. Изменение/снятие связи удаляет прежние permissions и увеличивает версии контейнера и обоих затронутых серверов. Это защищает stale-редакторы и удаление сервера от конкурентного переноса.
+`ObjectAdministrationService` сохраняет настройки сервера и `ContainerLinkUpdate` одним commit. Проверяются версии всех переданных контейнеров и полнота текущих связей; контейнер другого сервера через этот список не захватывается. Изменение/снятие связи увеличивает версии контейнера и обоих затронутых серверов. Compatibility cleanup permissions удалён.
 
 ## EFCoreLibrary
 
@@ -37,7 +64,7 @@ Persistence реализован в `UptimeHarbor.Infrastructure` на EF Core �
 
 Все внешние списковые read-методы Application repositories возвращают `Task<IReadOnlyList<T>>`. Infrastructure по-прежнему materialize-ит запросы в конкретные `List<T>` через базовые list operations или `ToListAsync`; изменяемый тип не выходит через контракт. Запросы чтения выполняются no-tracking, запрос объекта для последующего изменения остаётся tracked. `IQueryable` не выходит из Infrastructure.
 
-`DashboardSnapshotReadQuery` отдельно проецирует server/container dashboard records без endpoint URL и permission IDs текущего пользователя. Для сервера проекция содержит заданное администратором имя и отдельно последнее внутреннее имя из endpoint. `MonitoringRecipientReadQuery` отдельно materialize-ит users с ролью Administrator и пакетные permission ID обычных пользователей: один server-permission query и, только для container event, один container-permission query. Оба контракта находятся в Application, реализации — в Infrastructure; EF entities, provider-типы и `IQueryable` наружу не выходят.
+`DashboardSnapshotReadQuery` проецирует server/container records без endpoint URL: администратору доступны все, неадминистративный compatibility-вызов получает пустой набор. `MonitoringRecipientReadQuery` materialize-ит пользователей/роль одним запросом, без permissions и N+1. Legacy visibility policy предоставляет доступ только Administrator; EF entities, provider-типы и `IQueryable` наружу не выходят.
 
 Для начала каждого monitoring cycle `GetEnabledAsync` фильтрует включённые серверы и контейнеры в БД и возвращает materialized no-tracking snapshot. Результат каждой параллельной проверки записывается в отдельном DI scope: объект повторно загружается tracked и сохраняется через scoped `IMonitoringUnitOfWork`.
 
@@ -47,6 +74,16 @@ Persistence реализован в `UptimeHarbor.Infrastructure` на EF Core �
 
 Тот же технический Unit of Work отдельно классифицирует только SQL Server unique violations 2601/2627 для EF entries `TelegramChat` и `NotificationBinding`. Они преобразуются в provider-independent `PersistenceConflictException`; Application не зависит от EF Core или `Microsoft.Data.SqlClient`. Неизвестный номер, неизвестная сущность и произвольный `DbUpdateException` пробрасываются как непредвиденная ошибка. Unique indexes Telegram chat ID и пар chat/target имеют стабильные имена, совпадающие с SQL Server baseline.
 
+## Время загрузки сервера
+
+`MonitoredServer.StartedAtUtc` добавлено в текущую EF-модель как nullable UTC timestamp; оно включено в dashboard read projection. Migration `20261101102504_AddMonitoredServerStartedAtUtc` добавляет только nullable `datetime2` без default и backfill; designer и snapshot сгенерированы EF tooling. Старые строки получат `null` до первого успешного ответа с реальным временем загрузки. К БД migration не применялась. Исторические migrations вручную не изменялись. Подробности — [Database migrations.md](Database%20migrations.md#время-загрузки-сервера).
+
+## Snapshot и повтор применения
+
+`RevisionWriteSetFactory` формирует ready projection changes; `ProjectionApplyUnitOfWork` одной транзакцией проверяет receipt/cursor и фиксирует аккаунт/роль, настройки, decisions/controls/conflicts/tombstones и позицию. Immutable accepted image публикуется после commit. Повтор после потерянного ответа сверяется по digest и возвращает исходное решение; SQL receipt без payload не является WAL.
+
+`SnapshotProjectionUnitOfWork` экспортирует shared whitelist с проверенным cursor. Install валидирует образ до SQL, отвергает stale account/cursor, удаляет/устанавливает общие rows и checkpoint одной внешней транзакцией (два SaveChanges, один commit). Локальные user lockout counters, SessionEpoch, сессии, ключи, секреты и Pending сохраняются. Соответствие SQL transaction semantics не доказано fake-тестами; реальная provider-проверка не проводилась.
+
 ## Сценарные Unit of Work
 
 Application определяет общий `IUnitOfWorkScope` только с `SaveChangesAsync` и выполнением действия в транзакции.
@@ -55,26 +92,28 @@ Application определяет общий `IUnitOfWorkScope` только с `
 
 - `IMonitoringUnitOfWork`;
 - `IObjectAdministrationUnitOfWork`;
-- `IVisibilitySettingsUnitOfWork`;
 - `INotificationSettingsUnitOfWork`.
+- `IProjectionApplyUnitOfWork`, `IPendingControlUnitOfWork`, `IObservationCaptureUnitOfWork`, `IDeliveryResultUnitOfWork` — независимые транзакционные границы общего storage и локального capture.
 
 Infrastructure использует одну scoped-сессию `IUptimeHarborDbContextSession`. `UptimeHarborDbUnitOfWork` реализует сохранение и транзакцию, а сценарные классы добавляют только нужные репозитории.
 
-`IObjectAdministrationUnitOfWork` раскрывает серверы и контейнеры, снятие container permissions и отдельную предметную операцию отмены recovery. Отключение мониторинга или смена endpoint атомарно фиксирует сброс объекта и отмену незавершённых recovery jobs прежнего incident. Отмена выполняется условным update существующих `PayloadJson`/`CompletedAtUtc`, сохраняет job и явную диагностическую причину и не меняет схему. Повторная отмена безопасна. Удаление сервера выполняется транзакционно после повторной проверки подтверждённого количества контейнеров: контейнеры отвязываются от сервера, прежние container permissions снимаются, сами контейнеры и их notification bindings сохраняются. Связь server → containers использует `NoAction`, чтобы схема SQL Server не содержала запрещённых multiple cascade paths.
+`IObjectAdministrationUnitOfWork` сохраняет серверы/контейнеры и отдельную предметную отмену recovery. Отключение мониторинга или смена endpoint атомарно фиксирует сброс объекта и отмену незавершённых прежних recovery jobs. Удаление сервера после проверки количества контейнеров отвязывает их, сохраняя контейнеры и bindings. Связь server → containers использует `NoAction`; метод cleanup permissions оставлен как совместимость без хранения.
 
 Транзакционный вызов открывает транзакцию, выполняет действие, один раз сохраняет изменения и делает commit. При исключении выполняется rollback, после чего исходное исключение передаётся вызывающему коду; отдельная ошибка rollback сохраняется в `Exception.Data` и не заменяет первопричину.
 
-Identity store использует тот же scoped `UptimeHarborDbContext`, что позволяет удалению пользователя и его permissions выполняться внутри сценарной транзакции видимости без глобального Unit of Work.
+Identity использует тот же scoped `UptimeHarborDbContext`. Новый projection adapter переносит account/роль/версию без UserManager autocommit и сохраняет их с cursor одной транзакцией. В enabled-режиме `SharedUserManagementService` использует durable Pending/reducer/apply, legacy account writers запрещены. `LocalLoginUnitOfWork` использует ту же scoped-сессию, сохраняя только локальные lockout counters, без UserManager.Update/autocommit общих credentials. Recovery сверяет account set, login/hash/format/stamps/revision/deletion и единственную role/membership с принятым образом до открытия входа.
 
 `IMonitoringUnitOfWork` атомарно сохраняет состояние объекта и outage/recovery outbox job. Отдельный dispatcher claim-ит due jobs коротким lease. Непосредственно перед sender он условно захватывает активную строку job в транзакции и удерживает её до terminal/retry update: это сериализует отправку с административной отменой. Подготовка списка Telegram-доставок выполняет no-tracking чтение привязок. После успешного transport-вызова конкретная привязка повторно загружается tracked и сохраняется через отдельный scope `INotificationSettingsUnitOfWork`, поэтому состояние одного получателя не объединяется с результатом другого.
 
 ## Миграции
 
-Для необязательного родителя создана migration `20261018104849_MakeContainerServerOptional`: удаляются составной FK permission → (ServerId, Id) и соответствующий alternate key контейнера, ServerId становится nullable, создаются обычный server index и FK permission → ContainerId. Существующие связи и данные сохраняются; designer и snapshot соответствуют текущей модели. Down требует предварительно связать контейнеры с null ServerId с существующими серверами: сгенерированный default Guid.Empty удалён по прямому разрешению пользователя, автоматического удаления данных нет. Миграция к БД не применялась.
+Для этапа 02 создана `20261029053354_AddSharedClusterStorage` с designer и обновлённым snapshot: новые storage-таблицы, ревизии и аккаунтные поля, исключение resource assignments. Предыдущие migrations сохранены. Snapshot соответствует текущей SQL Server design-time модели по изолированному model-diff тесту; реального применения/отката не было. Новая схема рассчитана на первый запуск без v1/backfill. Полная запись — [Database migrations.md](Database%20migrations.md).
+
+Для необязательного родителя создана migration `20261018104849_MakeContainerServerOptional`: удаляются составной FK permission → (ServerId, Id) и соответствующий alternate key контейнера, ServerId становится nullable, создаются обычный server index и FK permission → ContainerId. Существующие связи и данные сохраняются; designer фиксирует модель того этапа, текущий snapshot уже включает `AddSharedClusterStorage`. Down требует предварительно связать контейнеры с null ServerId с существующими серверами: сгенерированный default Guid.Empty удалён по прямому разрешению пользователя, автоматического удаления данных нет. Миграция к БД не применялась.
 
 
 Pending migrations применяются автоматически при старте единственного Web-процесса после проверки подключения и успешного SQL Server backup. Миграции завершаются до Identity bootstrap; ошибка останавливает запуск. Порядок создания и применения описан в [Database migrations.md](Database%20migrations.md).
 
 Для design-time scaffolding используется `UptimeHarborDesignTimeDbContextFactory`. Она настраивает провайдер SQL Server без строки подключения: построение модели и генерация миграции не требуют секрета и не открывают соединение с БД.
 
-Прежняя цепочка PostgreSQL-миграций удалена как несовместимая с новым провайдером. Создана новая baseline-миграция SQL Server `20260831015604_InitialSqlServerSchema`; она включает текущую модель целиком, включая Identity, Data Protection, concurrency columns и durable outbox. Recovery cancellation повторно использует существующие outbox columns и новой миграции не требует. Baseline не применялась и SQL Server runtime-поведение транзакционного gate/unique classifier не проверялось в этой задаче.
+Прежняя цепочка PostgreSQL-миграций удалена как несовместимая с новым провайдером. Baseline SQL Server `20260831015604_InitialSqlServerSchema` фиксирует исходную модель, включая Identity, Data Protection, concurrency columns и durable outbox; дальнейшие изменения добавлены отдельными migrations. Recovery cancellation повторно использует существующие outbox columns и новой миграции не требует. Baseline не применялась и SQL Server runtime-поведение транзакционного gate/unique classifier не проверялось в этой задаче.

@@ -25,6 +25,8 @@ using UptimeHarbor.Infrastructure.Telegram;
 using UptimeHarbor.Application.Dashboard;
 using UptimeHarbor.Application.Visibility;
 using UptimeHarbor.Infrastructure.Services.DataBase;
+using UptimeHarbor.Infrastructure.Cluster;
+using UptimeHarbor.Application.Security;
 
 namespace UptimeHarbor.Infrastructure;
 
@@ -38,6 +40,14 @@ public static class ServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         ArgumentNullException.ThrowIfNull(configuration);
+
+        services.AddClusterInfrastructure(configuration);
+        ClusterOptions clusterOptions = configuration.GetSection(ClusterOptions.SECTION_NAME).Get<ClusterOptions>() ?? new();
+        if (clusterOptions.Enabled)
+        {
+            services.AddScoped<IAdministratorAccessPolicy, AcceptedAdministratorAccessPolicy>();
+            services.AddScoped<IAcceptedTestDelivery, ClusterTestDelivery>();
+        }
 
         string? connectionString = configuration.GetConnectionString("SqlServer");
 
@@ -73,6 +83,11 @@ public static class ServiceCollectionExtensions
             .AddDefaultTokenProviders();
         services.Configure<SecurityStampValidatorOptions>(options =>
             options.ValidationInterval = TimeSpan.Zero);
+        services.Configure<PasswordHasherOptions>(options =>
+        {
+            options.CompatibilityMode = PasswordHasherCompatibilityMode.IdentityV3;
+            options.IterationCount = 100000;
+        });
         services.ConfigureApplicationCookie(options =>
         {
             options.LoginPath = "/Account/Login";
@@ -111,14 +126,25 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IMonitoredContainerRepository, MonitoredContainerRepository>();
         services.AddScoped<ITelegramChatRepository, TelegramChatRepository>();
         services.AddScoped<INotificationBindingRepository, NotificationBindingRepository>();
-        services.AddScoped<IVisibilityPermissionRepository, VisibilityPermissionRepository>();
         services.AddScoped<IDashboardSnapshotReadQuery, DashboardSnapshotReadQuery>();
         services.AddScoped<IMonitoringRecipientReadQuery, MonitoringRecipientReadQuery>();
         services.AddScoped<IUptimeHarborDbContextSession, UptimeHarborDbContextSession>();
         services.AddScoped<IMonitoringUnitOfWork, MonitoringUnitOfWork>();
         services.AddScoped<IObjectAdministrationUnitOfWork, ObjectAdministrationUnitOfWork>();
-        services.AddScoped<IVisibilitySettingsUnitOfWork, VisibilitySettingsUnitOfWork>();
         services.AddScoped<INotificationSettingsUnitOfWork, NotificationSettingsUnitOfWork>();
+        services.AddScoped<IProjectionRepository, ProjectionRepository>();
+        services.AddScoped<IPendingOperationRepository, PendingOperationRepository>();
+        services.AddScoped<IObservationCaptureRepository, ObservationCaptureRepository>();
+        services.AddScoped<IDeliveryResultRepository, DeliveryResultRepository>();
+        services.AddScoped<IProjectionApplyUnitOfWork, ProjectionApplyUnitOfWork>();
+        services.AddScoped<IPendingControlUnitOfWork, PendingControlUnitOfWork>();
+        services.AddScoped<UptimeHarbor.Application.Cluster.IRevisionPayloadProtection, RevisionPayloadProtection>();
+        services.AddScoped<SnapshotProjectionUnitOfWork>();
+        services.AddScoped<ClusterLocalInitializationUnitOfWork>();
+        services.AddScoped<IObservationCaptureUnitOfWork, ObservationCaptureUnitOfWork>();
+        services.AddScoped<UptimeHarbor.Application.Cluster.ObservationCaptureService>();
+        services.AddScoped<IDeliveryResultUnitOfWork, DeliveryResultUnitOfWork>();
+        services.AddScoped<IHistoryRetentionQuery, HistoryRetentionQuery>();
         services.AddScoped<IdentityUserAccountStore>();
         services.AddScoped<IUserAccountStore>(provider =>
             provider.GetRequiredService<IdentityUserAccountStore>());
@@ -126,6 +152,18 @@ public static class ServiceCollectionExtensions
             provider.GetRequiredService<IdentityUserAccountStore>());
         services.AddScoped<InitialAdministratorBootstrapper>();
         services.AddScoped<IUserSignInService, UserSignInService>();
+        services.AddScoped<IAccountCredentialService, AccountCredentialService>();
+        services.AddSingleton<AcceptedAccountSession>();
+        services.AddSingleton<LocalAccountLoginGate>();
+        services.AddScoped<ILocalAccountLogin, LocalAccountLogin>();
+        services.AddScoped<ILocalLoginUnitOfWork, LocalLoginUnitOfWork>();
+        if (clusterOptions.Enabled)
+        {
+            services.AddScoped<IUserAccountStore, AcceptedUserAccountStore>();
+            services.AddScoped<IUserSignInService, AcceptedUserSignInService>();
+            services.AddScoped<IMonitoringRecipientReadQuery, AcceptedMonitoringRecipients>();
+            services.AddDataProtection().SetApplicationName($"UptimeHarbor/{clusterOptions.NodeId:N}");
+        }
 
         services
             .AddDataProtection()
@@ -142,24 +180,45 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IContainerEndpointChecker>(provider =>
             provider.GetRequiredService<HttpMonitoringEndpointChecker>());
         services.AddSingleton<IMonitoringCycleRunner, MonitoringCycleRunner>();
-        services.AddHostedService<MonitoringWorker>();
+        if (!clusterOptions.Enabled)
+        {
+            services.AddHostedService<MonitoringWorker>();
+        }
 
         services.AddHttpClient<TelegramHttpNotificationSender>(client =>
         {
             client.BaseAddress = new Uri("https://api.telegram.org/");
             client.Timeout = TimeSpan.FromSeconds(30);
         }).RemoveAllLoggers();
-        services.AddScoped<INotificationSender>(provider =>
+        services.AddScoped<UptimeHarbor.Application.Cluster.IAcceptedTelegramTransport>(provider =>
             provider.GetRequiredService<TelegramHttpNotificationSender>());
+        services.AddScoped<INotificationSender, ClusterNotificationSender>();
         services.AddScoped<NotificationOutboxStore>();
         services.AddSingleton<TelegramOutboxDispatcher>();
-        services.AddHostedService<TelegramOutboxWorker>();
+        if (!clusterOptions.Enabled)
+        {
+            services.AddHostedService<TelegramOutboxWorker>();
+        }
 
         return services;
     }
 
     private static async Task ValidateEnabledUserAsync(CookieValidatePrincipalContext context)
     {
+        ClusterOptions cluster = context.HttpContext.RequestServices
+            .GetRequiredService<Microsoft.Extensions.Options.IOptions<ClusterOptions>>().Value;
+        if (cluster.Enabled)
+        {
+            AcceptedAccountSession sessions = context.HttpContext.RequestServices.GetRequiredService<AcceptedAccountSession>();
+            if (!sessions.IsValid(context.Principal))
+            {
+                context.RejectPrincipal();
+                await context.HttpContext.SignOutAsync(IdentityConstants.ApplicationScheme);
+            }
+
+            return;
+        }
+
         ISecurityStampValidator securityStampValidator = context.HttpContext.RequestServices
             .GetRequiredService<ISecurityStampValidator>();
         await securityStampValidator.ValidateAsync(context);

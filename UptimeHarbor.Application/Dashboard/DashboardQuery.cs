@@ -1,14 +1,14 @@
 using UptimeHarbor.Application.Common;
 using UptimeHarbor.Application.Dashboard.Models;
 using UptimeHarbor.Application.Security;
-using UptimeHarbor.Application.Visibility;
 
 namespace UptimeHarbor.Application.Dashboard;
 
 public class DashboardQuery(
     IUserAccessContext accessContext,
     IDashboardSnapshotReadQuery snapshotReadQuery,
-    TimeProvider timeProvider)
+    TimeProvider timeProvider,
+    IAdministratorAccessPolicy administratorPolicy)
     : IDashboardQuery
 {
     private const string MISSING_NAME = "Имя не получено";
@@ -17,7 +17,7 @@ public class DashboardQuery(
         string? search,
         CancellationToken cancellationToken = default)
     {
-        ServiceError? accessError = GetAccessError();
+        ServiceError? accessError = administratorPolicy.GetAccessError();
         if (accessError is not null)
         {
             return ServiceResult<DashboardSnapshotDto>.Fail(accessError);
@@ -25,24 +25,10 @@ public class DashboardQuery(
 
         DashboardReadSnapshot readSnapshot = await snapshotReadQuery.GetSnapshotAsync(
             accessContext.UserId,
-            accessContext.IsAdministrator,
+            true,
             cancellationToken);
-        HashSet<Guid> permittedServerIds = readSnapshot.PermittedServerIds.ToHashSet();
-        HashSet<Guid> permittedContainerIds = readSnapshot.PermittedContainerIds.ToHashSet();
-        List<DashboardServerReadRecord> accessibleServers = readSnapshot.Servers
-            .Where(server => ObjectVisibilityPolicy.CanAccessServer(
-                accessContext.IsAdministrator,
-                server.Id,
-                permittedServerIds))
-            .ToList();
-        List<DashboardContainerReadRecord> accessibleContainers = readSnapshot.Containers
-            .Where(container => ObjectVisibilityPolicy.CanAccessContainer(
-                accessContext.IsAdministrator,
-                container.ServerId,
-                container.Id,
-                permittedServerIds,
-                permittedContainerIds))
-            .ToList();
+        IReadOnlyList<DashboardServerReadRecord> accessibleServers = readSnapshot.Servers;
+        IReadOnlyList<DashboardContainerReadRecord> accessibleContainers = readSnapshot.Containers;
 
         string? normalizedSearch = null;
         if (!string.IsNullOrWhiteSpace(search))
@@ -86,24 +72,27 @@ public class DashboardQuery(
             new DashboardSnapshotDto(generatedAtUtc, servers, unassignedContainers));
     }
 
-    private ServiceError? GetAccessError()
-    {
-        if (!accessContext.IsAuthenticated)
-        {
-            return new ServiceError(ServiceErrorType.Unauthorized, "Требуется аутентификация.");
-        }
-
-        return !accessContext.IsEnabled
-            ? new ServiceError(ServiceErrorType.Forbidden, "Пользователь заблокирован.")
-            : null;
-    }
-
     private static DashboardServerDto MapServer(
         DashboardServerReadRecord server,
         IReadOnlyList<DashboardContainerReadRecord> containers,
         DateTimeOffset generatedAtUtc)
     {
         EnsureUtc(server.LastCheckedAtUtc, nameof(server.LastCheckedAtUtc));
+        EnsureUtc(server.StartedAtUtc, nameof(server.StartedAtUtc));
+
+        long? uptimeSeconds = null;
+        if (server.StartedAtUtc is DateTimeOffset startedAtUtc)
+        {
+            TimeSpan uptime = generatedAtUtc - startedAtUtc;
+            if (uptime < TimeSpan.Zero)
+            {
+                throw new InvalidOperationException(
+                    "Время запуска сервера не может быть позже времени формирования панели.");
+            }
+
+            uptimeSeconds = checked((long)uptime.TotalSeconds);
+        }
+
         return new DashboardServerDto(
             server.Id,
             server.Name,
@@ -111,6 +100,8 @@ public class DashboardQuery(
             server.Description,
             server.Status,
             server.LastCheckedAtUtc,
+            server.StartedAtUtc,
+            uptimeSeconds,
             containers.Select(container => MapContainer(container, generatedAtUtc)).ToList());
     }
 

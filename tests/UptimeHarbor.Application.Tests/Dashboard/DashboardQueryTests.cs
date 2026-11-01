@@ -29,14 +29,15 @@ public class DashboardQueryTests
             null, TestContext.Current.CancellationToken);
 
         // Assert
-        Assert.True(result.Success);
         if (isAdministrator)
         {
+            Assert.True(result.Success);
             Assert.Equal(data.FirstContainer.Id, Assert.Single(result.Data!.UnassignedContainers).Id);
         }
         else
         {
-            Assert.Empty(result.Data!.UnassignedContainers);
+            Assert.Equal(ServiceErrorType.Forbidden, result.Error!.Type);
+            Assert.Null(result.Data);
         }
     }
 
@@ -63,48 +64,56 @@ public class DashboardQueryTests
     }
 
     [Fact]
-    public async Task GetSnapshotAsync_ForUser_ReturnsOnlyPermittedServerAndContainer()
+    public async Task GetSnapshotAsync_NonAdministratorCannotUseResourceAssignments()
     {
+        // Arrange
         TestData data = new();
         data.AllowServer(data.FirstServer);
         data.AllowContainer(data.FirstContainer);
 
-        DashboardSnapshotDto snapshot = (await data
+        // Act
+        ServiceResult<DashboardSnapshotDto> result = await data
             .CreateQuery(isAdministrator: false)
-            .GetSnapshotAsync(null, TestContext.Current.CancellationToken)).Data!;
+            .GetSnapshotAsync(null, TestContext.Current.CancellationToken);
 
-        DashboardServerDto server = Assert.Single(snapshot.Servers);
-        Assert.Equal(data.FirstServer.Id, server.Id);
-        Assert.Equal(data.FirstContainer.Id, Assert.Single(server.Containers).Id);
+        // Assert
+        Assert.Equal(ServiceErrorType.Forbidden, result.Error!.Type);
+        Assert.Null(result.Data);
     }
 
     [Fact]
     public async Task GetSnapshotAsync_ServerPermissionDoesNotGrantContainers()
     {
+        // Arrange
         TestData data = new();
         data.AllowServer(data.FirstServer);
 
-        DashboardSnapshotDto snapshot = (await data
+        // Act
+        ServiceResult<DashboardSnapshotDto> result = await data
             .CreateQuery(isAdministrator: false)
-            .GetSnapshotAsync(null, TestContext.Current.CancellationToken)).Data!;
+            .GetSnapshotAsync(null, TestContext.Current.CancellationToken);
 
-        Assert.Empty(Assert.Single(snapshot.Servers).Containers);
+        // Assert
+        Assert.Equal(ServiceErrorType.Forbidden, result.Error!.Type);
+        Assert.Null(result.Data);
     }
 
     [Fact]
     public async Task GetSnapshotAsync_HiddenContainerIsAbsent()
     {
+        // Arrange
         TestData data = new();
         data.AllowServer(data.FirstServer);
         data.AllowContainer(data.FirstContainer);
 
-        DashboardSnapshotDto snapshot = (await data
+        // Act
+        ServiceResult<DashboardSnapshotDto> result = await data
             .CreateQuery(isAdministrator: false)
-            .GetSnapshotAsync(null, TestContext.Current.CancellationToken)).Data!;
+            .GetSnapshotAsync(null, TestContext.Current.CancellationToken);
 
-        Assert.DoesNotContain(
-            snapshot.Servers.SelectMany(server => server.Containers),
-            container => container.Id == data.SecondContainerOnFirstServer.Id);
+        // Assert
+        Assert.Equal(ServiceErrorType.Forbidden, result.Error!.Type);
+        Assert.Null(result.Data);
     }
 
     [Theory]
@@ -127,24 +136,30 @@ public class DashboardQueryTests
     [Fact]
     public async Task GetSnapshotAsync_SearchDoesNotReturnHiddenObject()
     {
+        // Arrange
         TestData data = new();
         data.AllowServer(data.FirstServer);
 
-        DashboardSnapshotDto snapshot = (await data
+        // Act
+        ServiceResult<DashboardSnapshotDto> result = await data
             .CreateQuery(isAdministrator: false)
-            .GetSnapshotAsync("secondary", TestContext.Current.CancellationToken)).Data!;
+            .GetSnapshotAsync("secondary", TestContext.Current.CancellationToken);
 
-        Assert.Empty(snapshot.Servers);
+        // Assert
+        Assert.Equal(ServiceErrorType.Forbidden, result.Error!.Type);
+        Assert.Null(result.Data);
     }
 
     [Fact]
     public async Task GetSnapshotAsync_EmptySearchReturnsAccessibleSnapshot()
     {
+        // Arrange
         TestData data = new();
         data.AllowServer(data.FirstServer);
         data.AllowContainer(data.FirstContainer);
-        DashboardQuery query = data.CreateQuery(isAdministrator: false);
+        DashboardQuery query = data.CreateQuery(isAdministrator: true);
 
+        // Act
         DashboardSnapshotDto withoutSearch = (await query.GetSnapshotAsync(
             null,
             TestContext.Current.CancellationToken)).Data!;
@@ -152,6 +167,7 @@ public class DashboardQueryTests
             "   ",
             TestContext.Current.CancellationToken)).Data!;
 
+        // Assert
         Assert.Equal(
             withoutSearch.Servers.Select(server => server.Id),
             withEmptySearch.Servers.Select(server => server.Id));
@@ -163,31 +179,41 @@ public class DashboardQueryTests
     [Fact]
     public async Task GetSnapshotAsync_ServerUsesConfiguredNameAndOmitsMissingInternalName()
     {
+        // Arrange
         TestData data = new();
-        data.AllowServer(data.SecondServer);
 
+        // Act
         DashboardServerDto server = Assert.Single((await data
-            .CreateQuery(isAdministrator: false)
-            .GetSnapshotAsync(null, TestContext.Current.CancellationToken)).Data!.Servers);
+            .CreateQuery(isAdministrator: true)
+            .GetSnapshotAsync("Secondary server", TestContext.Current.CancellationToken)).Data!.Servers);
 
+        // Assert
         Assert.Equal(data.SecondServer.Name, server.Name);
         Assert.Null(server.InternalName);
+        Assert.Null(server.StartedAtUtc);
+        Assert.Null(server.UptimeSeconds);
     }
 
     [Fact]
     public async Task GetSnapshotAsync_PreservesUtcLastCheckAndUsesTimeProviderForUptime()
     {
+        // Arrange
         TestData data = new();
         data.AllowServer(data.FirstServer);
         data.AllowContainer(data.FirstContainer);
 
+        // Act
         DashboardServerDto server = Assert.Single((await data
-            .CreateQuery(isAdministrator: false)
-            .GetSnapshotAsync(null, TestContext.Current.CancellationToken)).Data!.Servers);
+            .CreateQuery(isAdministrator: true)
+            .GetSnapshotAsync("payments", TestContext.Current.CancellationToken)).Data!.Servers);
         DashboardContainerDto container = Assert.Single(server.Containers);
 
+        // Assert
         Assert.Equal(NOW_UTC.AddMinutes(-5), server.LastCheckedAtUtc);
         Assert.Equal(TimeSpan.Zero, server.LastCheckedAtUtc!.Value.Offset);
+        Assert.Equal(NOW_UTC.AddDays(-3), server.StartedAtUtc);
+        Assert.Equal(TimeSpan.Zero, server.StartedAtUtc!.Value.Offset);
+        Assert.Equal(259_200, server.UptimeSeconds);
         Assert.Equal(NOW_UTC.AddHours(-2), container.StartedAtUtc);
         Assert.Equal(7_200, container.UptimeSeconds);
     }
@@ -195,15 +221,18 @@ public class DashboardQueryTests
     [Fact]
     public async Task GetSnapshotAsync_MissingStartedAtDoesNotCreateUptime()
     {
+        // Arrange
         TestData data = new();
         data.AllowServer(data.FirstServer);
         data.AllowContainer(data.SecondContainerOnFirstServer);
 
+        // Act
         DashboardContainerDto container = Assert.Single((await data
-            .CreateQuery(isAdministrator: false)
-            .GetSnapshotAsync(null, TestContext.Current.CancellationToken)).Data!
+            .CreateQuery(isAdministrator: true)
+            .GetSnapshotAsync("Background worker", TestContext.Current.CancellationToken)).Data!
             .Servers.Single().Containers);
 
+        // Assert
         Assert.Null(container.StartedAtUtc);
         Assert.Null(container.UptimeSeconds);
     }
@@ -218,7 +247,7 @@ public class DashboardQueryTests
                 "https://primary.example/health",
                 "Production server",
                 true);
-            FirstServer.RecordSuccessfulCheck("Primary", NOW_UTC.AddMinutes(-5));
+            FirstServer.RecordSuccessfulCheck("Primary", NOW_UTC.AddDays(-3), NOW_UTC.AddMinutes(-5));
             SecondServer = new MonitoredServer(
                 Guid.NewGuid(),
                 "Secondary server",
@@ -277,10 +306,11 @@ public class DashboardQueryTests
 
         public DashboardQuery CreateQuery(bool isAdministrator)
         {
+            FakeAccessContext context = new(UserId, isAdministrator);
             return new DashboardQuery(
-                new FakeAccessContext(UserId, isAdministrator),
+                context,
                 new FakeDashboardSnapshotReadQuery(Servers, Containers, Permissions),
-                new FixedTimeProvider(NOW_UTC));
+                new FixedTimeProvider(NOW_UTC), new AdministratorAccessPolicy(context));
         }
     }
 
@@ -315,7 +345,8 @@ public class DashboardQueryTests
                     server.Description,
                     server.LastKnownName,
                     server.Status,
-                    server.LastCheckedAtUtc)).ToList(),
+                    server.LastCheckedAtUtc,
+                    server.StartedAtUtc)).ToList(),
                 containers.Items.Select(container => new DashboardContainerReadRecord(
                     container.Id,
                     container.ServerId,
@@ -336,19 +367,6 @@ public class DashboardQueryTests
         }
     }
 
-    private class FakeVisibilityUnitOfWork(
-        IMonitoredServerRepository servers,
-        IMonitoredContainerRepository containers,
-        IVisibilityPermissionRepository permissions)
-        : IVisibilitySettingsUnitOfWork
-    {
-        public IMonitoredServerRepository MonitoredServers { get; } = servers;
-        public IMonitoredContainerRepository MonitoredContainers { get; } = containers;
-        public IVisibilityPermissionRepository VisibilityPermissions { get; } = permissions;
-        public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) => Task.FromResult(0);
-        public Task ExecuteInTransactionAsync(Func<CancellationToken, Task> action, CancellationToken cancellationToken = default) =>
-            action(cancellationToken);
-    }
 
     private class FakeServerRepository(List<MonitoredServer> items) : IMonitoredServerRepository
     {
@@ -391,7 +409,7 @@ public class DashboardQueryTests
         }
     }
 
-    private class FakePermissionRepository : IVisibilityPermissionRepository
+    private class FakePermissionRepository
     {
         public List<ServerVisibilityPermission> ServerPermissions { get; } = [];
         public List<ContainerVisibilityPermission> ContainerPermissions { get; } = [];

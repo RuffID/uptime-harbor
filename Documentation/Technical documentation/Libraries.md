@@ -1,5 +1,9 @@
 # Локальные библиотеки
 
+## DotNext для этапа 03
+
+Infrastructure ссылается на `DotNext.Net.Cluster` 6.10.0, Web — на `DotNext.AspNetCore.Cluster` 6.10.0. NuGet repository commit: `3499aedecf58b3c27a5d87af700d99e6b973cfde`; транзитивное семейство DotNext.IO/Threading/Unsafe/DotNext разрешено в 6.10.0. Это NuGet-интеграция, не новая локальная DLL. API/restore подтверждены сборкой; WAL/configuration — изолированными reopen-тестами. Выборы, fsync при crash и реальный peer transport не выдаются за проверенные. MIT notice `.NET Foundation and Contributors` находится в `UptimeHarbor.Web/ThirdPartyNotices.txt`, включён в build/publish. Устройство — [Cluster runtime.md](Cluster%20runtime.md).
+
 ## Назначение и граница
 
 `libs/EFCoreLibrary.dll` и `libs/HttpClientLibrary.dll` подключены файловыми `Reference` только в [Infrastructure.csproj](../../UptimeHarbor.Infrastructure/UptimeHarbor.Infrastructure.csproj). Domain и Application от них не зависят. Соседние исходники не подключаются через `ProjectReference` и не включаются в решение.

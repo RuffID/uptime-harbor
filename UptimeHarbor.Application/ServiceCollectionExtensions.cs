@@ -17,7 +17,15 @@ public static class ServiceCollectionExtensions
 
         services.AddSingleton(TimeProvider.System);
         services.AddScoped<IAdministratorAccessPolicy, AdministratorAccessPolicy>();
+        services.AddSingleton<Cluster.PendingAdmissionGate>();
+        services.AddScoped<Cluster.PendingCommandService>();
+        services.AddScoped<Cluster.ClusterAdministrationAccess>();
+        services.AddScoped<Cluster.ClusterAdministrationQuery>();
+        services.AddScoped<Cluster.ClusterConfigurationCommands>();
+        services.AddScoped<Cluster.ClusterPendingQuery>();
         services.AddScoped<IUserManagementService, UserManagementService>();
+        services.AddSingleton<AccountCommandGate>();
+        services.AddScoped<SharedUserManagementService>();
         services.AddScoped<IDashboardQuery, DashboardQuery>();
         services.AddScoped<IMonitoringEventRecipientResolver, MonitoringEventRecipientResolver>();
         services.AddScoped<IObjectAdministrationService, ObjectAdministrationService>();

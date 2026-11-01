@@ -56,6 +56,7 @@ public abstract class UptimeHarborDbUnitOfWork(IUptimeHarborDbContextSession ses
                 originalException.Data["RollbackException"] = rollbackException;
             }
 
+            session.Clear();
             throw;
         }
     }

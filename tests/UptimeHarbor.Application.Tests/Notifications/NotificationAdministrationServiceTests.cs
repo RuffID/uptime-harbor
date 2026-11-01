@@ -3,6 +3,7 @@ using UptimeHarbor.Application.Common;
 using UptimeHarbor.Application.Monitoring;
 using UptimeHarbor.Application.Notifications;
 using UptimeHarbor.Application.Notifications.Models;
+using UptimeHarbor.Application.Security;
 using UptimeHarbor.Domain.Monitoring;
 using UptimeHarbor.Domain.Notifications;
 using Xunit;
@@ -11,6 +12,38 @@ namespace UptimeHarbor.Tests.Application.Notifications;
 
 public class NotificationAdministrationServiceTests
 {
+    [Fact]
+    public async Task TestSendRechecksAcceptedAccountImmediatelyBeforeTransport()
+    {
+        // Arrange
+        NotificationTestData data = new();
+        var chat = data.AddChat(-100123, "Test");
+        NotificationTestData.AccessContext user = new(true);
+        ChangedAcceptedAccount accounts = new(user.UserId);
+        NotificationAdministrationService service = new(new AcceptedAdministratorAccessPolicy(user, accounts),
+            data.UnitOfWork, data.Sender);
+
+        // Act
+        ServiceResult result = await service.SendTestMessageAsync(chat.Id, TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.False(result.Success);
+        Assert.Equal(ServiceErrorType.Forbidden, result.Error!.Type);
+        Assert.Empty(data.Sender.Sent);
+        Assert.Equal(2, accounts.Reads);
+    }
+
+    private class ChangedAcceptedAccount(Guid id) : IAcceptedAccountReader
+    {
+        public int Reads { get; private set; }
+
+        public AcceptedAccount? Find(Guid userId)
+        {
+            Reads++;
+            return new(id, Reads, Reads == 1, true, false);
+        }
+    }
+
     [Fact]
     public async Task Administrator_CanManageChatsAndBindings()
     {

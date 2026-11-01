@@ -22,6 +22,7 @@ public class MaterializedReadQueryTests
     [Fact]
     public async Task DashboardQuery_MaterializesReadRecordsWithoutEndpointUrl()
     {
+        // Arrange
         await using SqliteConnection connection = new("Data Source=:memory:");
         await connection.OpenAsync(TestContext.Current.CancellationToken);
         DbContextOptions<UptimeHarborDbContext> options = new DbContextOptionsBuilder<UptimeHarborDbContext>()
@@ -54,23 +55,21 @@ public class MaterializedReadQueryTests
             context.Users.Add(new ApplicationUser(userId, "user"));
             context.MonitoredServers.AddRange(visibleServer, hiddenServer);
             context.MonitoredContainers.Add(visibleContainer);
-            context.ServerVisibilityPermissions.Add(
-                new ServerVisibilityPermission(userId, visibleServer.Id));
-            context.ContainerVisibilityPermissions.Add(
-                new ContainerVisibilityPermission(userId, visibleServer.Id, visibleContainer.Id));
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
             DashboardSnapshotReadQuery query = new(context);
+            // Act
             snapshot = await query.GetSnapshotAsync(
                 userId,
-                isAdministrator: false,
+                isAdministrator: true,
                 TestContext.Current.CancellationToken);
         }
 
+        // Assert
         Assert.Equal(2, snapshot.Servers.Count);
         Assert.Single(snapshot.Containers);
-        Assert.Equal(visibleServer.Id, Assert.Single(snapshot.PermittedServerIds));
-        Assert.Equal(visibleContainer.Id, Assert.Single(snapshot.PermittedContainerIds));
+        Assert.Empty(snapshot.PermittedServerIds);
+        Assert.Empty(snapshot.PermittedContainerIds);
         Assert.DoesNotContain(
             typeof(DashboardServerReadRecord).GetProperties(),
             property => property.Name.Contains("Endpoint", StringComparison.Ordinal));
@@ -80,8 +79,9 @@ public class MaterializedReadQueryTests
     }
 
     [Fact]
-    public async Task RecipientQuery_LoadsUsersRolesAndPermissionsInThreeBatchQueries()
+    public async Task RecipientQuery_LoadsAdministratorRecipientsInOneBatchQuery()
     {
+        // Arrange
         CountingCommandInterceptor interceptor = new();
         await using SqliteConnection connection = new("Data Source=:memory:");
         await connection.OpenAsync(TestContext.Current.CancellationToken);
@@ -119,45 +119,45 @@ public class MaterializedReadQueryTests
         };
         context.Users.AddRange(administrator, permittedUser, hiddenUser, disabledUser);
         context.Roles.Add(administratorRole);
-        context.UserRoles.Add(new IdentityUserRole<Guid>
+        foreach (Guid userId in new[] { administratorId, permittedUserId, hiddenUserId, disabledUserId })
         {
-            UserId = administratorId,
-            RoleId = administratorRole.Id
-        });
+            context.UserRoles.Add(new IdentityUserRole<Guid>
+            {
+                UserId = userId,
+                RoleId = administratorRole.Id
+            });
+        }
+
         context.MonitoredServers.Add(server);
         context.MonitoredContainers.Add(container);
-        context.ServerVisibilityPermissions.AddRange(
-            new ServerVisibilityPermission(permittedUserId, server.Id),
-            new ServerVisibilityPermission(disabledUserId, server.Id));
-        context.ContainerVisibilityPermissions.AddRange(
-            new ContainerVisibilityPermission(permittedUserId, server.Id, container.Id),
-            new ContainerVisibilityPermission(disabledUserId, server.Id, container.Id));
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         interceptor.Reset();
 
         MonitoringRecipientReadQuery query = new(context);
+        // Act
         IReadOnlyList<MonitoringRecipientReadRecord> candidates = await query.GetCandidatesAsync(
             MonitoringObjectKind.Container,
             TestContext.Current.CancellationToken);
 
-        Assert.Equal(3, interceptor.ReaderCommandCount);
+        // Assert
+        Assert.Equal(1, interceptor.ReaderCommandCount);
         Assert.Equal(4, candidates.Count);
         Assert.True(candidates.Single(candidate => candidate.UserId == administratorId).IsAdministrator);
-        Assert.Equal(
-            container.Id,
-            Assert.Single(candidates.Single(candidate => candidate.UserId == permittedUserId)
-                .PermittedContainerIds));
+        Assert.All(candidates, candidate => Assert.Empty(candidate.PermittedContainerIds));
 
+        // Arrange
         MonitoringEventRecipientResolver resolver = new(query);
+        // Act
         IReadOnlyList<Guid> recipients = await resolver.GetRecipientUserIdsAsync(
             MonitoringObjectKind.Container,
             container.Id,
             server.Id,
             TestContext.Current.CancellationToken);
 
+        // Assert
         Assert.Contains(administratorId, recipients);
         Assert.Contains(permittedUserId, recipients);
-        Assert.DoesNotContain(hiddenUserId, recipients);
+        Assert.Contains(hiddenUserId, recipients);
         Assert.DoesNotContain(disabledUserId, recipients);
     }
 

@@ -1,7 +1,9 @@
 # Снимок главной панели
 
-`DashboardQuery` получает materialized snapshot через `IDashboardSnapshotReadQuery`, применяет `ObjectVisibilityPolicy`, затем поиск и формирование DTO. Время snapshot и uptime определяются через `TimeProvider`.
+`DashboardQuery` проверяет единую `IAdministratorAccessPolicy` до чтения materialized snapshot через `IDashboardSnapshotReadQuery`, затем выполняет поиск и формирование DTO по всем объектам. Ресурсная ACL-фильтрация не используется. Время snapshot и uptime определяются через `TimeProvider`.
 
 Контейнеры без сервера возвращаются администратору отдельной коллекцией `UnassignedContainers`, с теми же поиском и UTC/uptime правилами.
+
+Серверы и контейнеры передают `StartedAtUtc` и uptime в секундах от времени snapshot. При отсутствии сведений о запуске оба значения остаются `null`; запуск из будущего не маскировать нулевым uptime.
 
 Не раскрывать endpoint URL. Поиск выполняется только по разрешённым объектам; заданное имя сервера и внутреннее имя остаются разными полями. Это read-only сценарий без искусственного Unit of Work.

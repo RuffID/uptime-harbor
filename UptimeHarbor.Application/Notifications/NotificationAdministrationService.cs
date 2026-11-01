@@ -13,7 +13,8 @@ namespace UptimeHarbor.Application.Notifications;
 public class NotificationAdministrationService(
     IAdministratorAccessPolicy administratorAccessPolicy,
     INotificationSettingsUnitOfWork unitOfWork,
-    INotificationSender sender)
+    INotificationSender sender,
+    IAcceptedTestDelivery? acceptedTestDelivery = null)
     : INotificationAdministrationService
 {
     public async Task<ServiceResult<NotificationSettingsDto>> GetSettingsAsync(
@@ -162,10 +163,21 @@ public class NotificationAdministrationService(
             return ServiceResult.Fail(accessError);
         }
 
+        if (acceptedTestDelivery is not null)
+        {
+            return await acceptedTestDelivery.SubmitAsync(chatId, cancellationToken);
+        }
+
         TelegramChat? chat = await unitOfWork.TelegramChats.GetItemByIdAsync(chatId, cancellationToken);
         if (chat is null)
         {
             return ServiceResult.Fail(ServiceErrorType.NotFound, "Telegram-чат не найден.");
+        }
+
+        accessError = administratorAccessPolicy.GetAccessError();
+        if (accessError is not null)
+        {
+            return ServiceResult.Fail(accessError);
         }
 
         try

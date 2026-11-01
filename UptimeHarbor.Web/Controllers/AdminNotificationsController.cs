@@ -12,7 +12,9 @@ namespace UptimeHarbor.Web.Controllers;
 [ApiController]
 [Route("api/admin/notifications")]
 [Authorize(Roles = ApplicationRoles.ADMINISTRATOR)]
-public class AdminNotificationsController(INotificationAdministrationService administrationService)
+[ServiceFilter(typeof(UptimeHarbor.Web.Security.ClusterLegacyWriterFilter))]
+public class AdminNotificationsController(INotificationAdministrationService administrationService,
+    IAcceptedTestDelivery? acceptedDelivery = null)
     : ControllerBase
 {
     [HttpGet]
@@ -68,7 +70,13 @@ public class AdminNotificationsController(INotificationAdministrationService adm
         CancellationToken cancellationToken)
     {
         ServiceResult result = await administrationService.SendTestMessageAsync(chatId, cancellationToken);
-        return JsonResultMapper.ToJsonResult(result);
+        JsonResult response = JsonResultMapper.ToJsonResult(result);
+        if (result.Success && acceptedDelivery is not null)
+        {
+            response.StatusCode = StatusCodes.Status202Accepted;
+        }
+
+        return response;
     }
 
     [HttpPost("bindings")]

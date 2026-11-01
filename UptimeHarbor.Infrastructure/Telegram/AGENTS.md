@@ -18,3 +18,5 @@
 - Отменённые jobs не удалять и не retry-ить; повторная обработка должна безопасно завершаться без sender.
 - После transport-успеха фиксировать конкретную привязку в отдельном DI scope.
 - HTTP adapter тестировать через fake `HttpMessageHandler`, не обращаясь к Telegram.
+- В enabled-режиме legacy worker не регистрируется, ClusterNotificationSender запрещает прежние вызовы без принятого AttemptId. AcceptedDeliveryDispatcher использует SenderAuthorityGate для всех отправок; health getMe не даёт права отправки, ошибка отдельного чата не означает общий outage.
+- Accepted transport требует положительный message_id, ограничивает response body 64 KiB и сохраняет только безопасную категорию/retry_after (1–86400 секунд). Открытый текст ошибок и transport exceptions не передаются в журнал или логи.

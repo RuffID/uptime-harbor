@@ -1,12 +1,19 @@
 @page
 @model UptimeHarbor.Web.Pages.Admin.ContainersModel
 @inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@inject Microsoft.Extensions.Options.IOptions<UptimeHarbor.Infrastructure.Cluster.ClusterOptions> Cluster
 @{
     ViewData["Title"] = "Контейнеры";
     string requestVerificationToken = Antiforgery.GetAndStoreTokens(ViewContext.HttpContext).RequestToken
         ?? throw new InvalidOperationException("Не удалось создать antiforgery token.");
 }
 
+@if (Cluster.Value.Enabled)
+{
+    <partial name="_ClusterAdministration" model='@("Container")' />
+}
+else
+{
 <meta name="request-verification-token" content="@requestVerificationToken" />
 
 <div class="d-flex flex-column gap-3" data-containers-page>
@@ -106,6 +113,14 @@
     </div>
 </div>
 
+}
 @section Scripts {
-    <script type="module" src="~/dist/pages/admin/containers.js" asp-append-version="true"></script>
+    @if (Cluster.Value.Enabled)
+    {
+        <partial name="_ClusterScripts" />
+    }
+    else
+    {
+        <script type="module" src="~/dist/pages/admin/containers.js" asp-append-version="true"></script>
+    }
 }

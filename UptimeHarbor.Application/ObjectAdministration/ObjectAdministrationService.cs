@@ -404,7 +404,6 @@ public class ObjectAdministrationService(
 
                     foreach (MonitoredContainer container in containers)
                     {
-                        await unitOfWork.RemoveContainerPermissionsAsync(container.Id, transactionCancellationToken);
                         container.AssignServer(null);
                     }
 
@@ -492,7 +491,6 @@ public class ObjectAdministrationService(
 
         await TouchServerAsync(container.ServerId, cancellationToken);
         await TouchServerAsync(serverId, cancellationToken);
-        await unitOfWork.RemoveContainerPermissionsAsync(container.Id, cancellationToken);
         container.AssignServer(serverId);
     }
 

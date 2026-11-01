@@ -1,5 +1,7 @@
 # Общий Razor layout
 
+_ClusterAdministration и _ClusterScripts задают общий статический UI enabled-режима: accepted/Pending/conflicts/observers/diagnostics/delivery и Bootstrap modal редактора. PageModel не загружает коллекции; antiforgery meta выдаётся partial, данные читает один cluster TypeScript entry point. Не подключать одновременно legacy module.
+
 `_Layout.cshtml` задаёт навигацию и подключает локальные Bootstrap CSS и JS bundle из `wwwroot/lib/bootstrap`. jQuery и плагины jQuery Validation не используются и не поставляются; partial для их подключения удалён.
 
 В административном меню «Сервера» ведёт на Objects, справа от него «Контейнеры» ведёт на Containers.

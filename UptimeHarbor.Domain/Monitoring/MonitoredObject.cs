@@ -27,6 +27,26 @@ public abstract class MonitoredObject
 
     public long Version { get; private set; }
 
+    public long ConfigRevision { get; private set; }
+
+    public Guid CheckGeneration { get; private set; }
+
+    public void AcceptConfigurationRevision(long revision, Guid checkGeneration)
+    {
+        if (revision <= ConfigRevision)
+        {
+            throw new ArgumentOutOfRangeException(nameof(revision));
+        }
+
+        if (checkGeneration == Guid.Empty)
+        {
+            throw new ArgumentException("A check generation is required.", nameof(checkGeneration));
+        }
+
+        ConfigRevision = revision;
+        CheckGeneration = checkGeneration;
+    }
+
     public string EndpointUrl { get; private set; } = string.Empty;
 
     public string? Description { get; private set; }

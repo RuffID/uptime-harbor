@@ -43,7 +43,17 @@ public class HttpMonitoringEndpointChecker(
                 payload.CheckedAtUtc);
         }
 
-        return ServerEndpointCheckResult.Succeeded(name, payload.CheckedAtUtc);
+        if (!TryReadStartedAtUtc(
+            document.RootElement,
+            payload.CheckedAtUtc,
+            out DateTimeOffset startedAtUtc))
+        {
+            return ServerEndpointCheckResult.Failed(
+                EndpointCheckFailureKind.InvalidStartedAtUtc,
+                payload.CheckedAtUtc);
+        }
+
+        return ServerEndpointCheckResult.Succeeded(name, startedAtUtc, payload.CheckedAtUtc);
     }
 
     async Task<ContainerEndpointCheckResult> IContainerEndpointChecker.CheckAsync(

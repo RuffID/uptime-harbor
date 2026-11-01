@@ -144,45 +144,1574 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                     b.ToTable("user_tokens", (string)null);
                 });
 
-            modelBuilder.Entity("UptimeHarbor.Domain.Access.ContainerVisibilityPermission", b =>
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.AppliedJournalReceipt", b =>
                 {
-                    b.Property<Guid>("UserId")
+                    b.Property<Guid>("Id")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("ContainerId")
+                    b.Property<long>("ClusterGeneration")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ClusterId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("ServerId")
-                        .HasColumnType("uniqueidentifier");
+                    b.Property<string>("Digest")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("char(64)")
+                        .IsFixedLength();
 
-                    b.HasKey("UserId", "ContainerId");
+                    b.Property<long>("LogIndex")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
 
-                    b.HasIndex("ContainerId");
+                    b.Property<long>("Term")
+                        .HasColumnType("bigint");
 
-                    b.HasIndex("UserId", "ServerId");
+                    b.HasKey("Id");
 
-                    b.ToTable("container_visibility_permissions", (string)null);
+                    b.HasIndex("ClusterId", "ClusterGeneration", "LogIndex")
+                        .IsUnique();
+
+                    b.ToTable("applied_journal_receipts", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_applied_journal_receipts_position", "[ClusterGeneration] > 0 AND [LogIndex] > 0 AND [Term] > 0");
+                        });
                 });
 
-            modelBuilder.Entity("UptimeHarbor.Domain.Access.ServerVisibilityPermission", b =>
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.CapturedDeliveryResult", b =>
                 {
-                    b.Property<Guid>("UserId")
+                    b.Property<Guid>("Id")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("ServerId")
+                    b.Property<DateTime>("CompletedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FailureKind")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<Guid>("OriginNodeId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.HasKey("UserId", "ServerId");
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
 
-                    b.HasIndex("ServerId");
+                    b.Property<long?>("TelegramMessageId")
+                        .HasColumnType("bigint");
 
-                    b.ToTable("server_visibility_permissions", (string)null);
+                    b.HasKey("Id");
+
+                    b.ToTable("local_delivery_results", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_local_delivery_results_outcome", "[Outcome] IN ('Succeeded','Failed','CancelledBeforeTransport')");
+                        });
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.CapturedObservation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long?>("AcceptedSequence")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CheckedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Digest")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("char(64)")
+                        .IsFixedLength();
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasMaxLength(262144)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<long>("Sequence")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("StreamId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StreamId", "Sequence")
+                        .IsUnique();
+
+                    b.ToTable("local_captured_observations", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_local_captured_observations_sequence", "[Sequence] > 0");
+                        });
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.ClusterMember", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("ClusterGeneration")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ClusterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsVoting")
+                        .HasColumnType("bit");
+
+                    b.Property<long>("LogIndex")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("MembershipVersion")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("PeerUri")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("nvarchar(2048)");
+
+                    b.Property<string>("RaftMemberId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(128)");
+
+                    b.Property<Guid>("StorageGeneration")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("Term")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RaftMemberId")
+                        .IsUnique();
+
+                    b.HasIndex("ClusterId", "ClusterGeneration", "LogIndex");
+
+                    b.ToTable("cluster_members", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_cluster_members_position", "[ClusterGeneration] > 0 AND [LogIndex] > 0 AND [Term] > 0");
+
+                            t.HasCheckConstraint("ck_cluster_members_version", "[MembershipVersion] >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.ClusterTrustRoot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("ClusterGeneration")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ClusterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Fingerprint")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("char(64)")
+                        .IsFixedLength();
+
+                    b.Property<long>("LogIndex")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("PublicCertificate")
+                        .IsRequired()
+                        .HasMaxLength(16384)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("RetiredAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long>("Term")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Fingerprint")
+                        .IsUnique();
+
+                    b.HasIndex("ClusterId", "ClusterGeneration", "LogIndex");
+
+                    b.ToTable("cluster_trust_roots", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_cluster_trust_roots_position", "[ClusterGeneration] > 0 AND [LogIndex] > 0 AND [Term] > 0");
+                        });
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.ConflictRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("BaseRevision")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("ClusterGeneration")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ClusterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("EntityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("FirstAcceptedRevision")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("LogIndex")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("OperationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ProtectedAcceptedPayload")
+                        .IsRequired()
+                        .HasMaxLength(262144)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ProtectedBasePayload")
+                        .IsRequired()
+                        .HasMaxLength(262144)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ProtectedProposedPayload")
+                        .IsRequired()
+                        .HasMaxLength(262144)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("ResolutionOperationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ResolvedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long>("Term")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OperationId")
+                        .IsUnique();
+
+                    b.HasIndex("ResolvedAtUtc");
+
+                    b.HasIndex("ClusterId", "ClusterGeneration", "LogIndex");
+
+                    b.ToTable("shared_conflicts", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_shared_conflicts_position", "[ClusterGeneration] > 0 AND [LogIndex] > 0 AND [Term] > 0");
+
+                            t.HasCheckConstraint("ck_shared_conflicts_revisions", "[BaseRevision] >= 0 AND [FirstAcceptedRevision] > 0");
+                        });
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.DeliveryAttempt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("ClusterGeneration")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ClusterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("CompletedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FailureKind")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<Guid>("IntentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("LogIndex")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<Guid>("SenderEpoch")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SenderNodeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("StartedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long?>("TelegramMessageId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("Term")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IntentId", "Number")
+                        .IsUnique();
+
+                    b.HasIndex("ClusterId", "ClusterGeneration", "LogIndex");
+
+                    b.ToTable("delivery_attempts", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_delivery_attempts_number", "[Number] BETWEEN 1 AND 5");
+
+                            t.HasCheckConstraint("ck_delivery_attempts_outcome", "[Outcome] IN ('Unknown','Succeeded','Failed','CancelledBeforeTransport')");
+
+                            t.HasCheckConstraint("ck_delivery_attempts_position", "[ClusterGeneration] > 0 AND [LogIndex] > 0 AND [Term] > 0");
+                        });
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.DeliveryIntent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ActiveAttemptId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ActorUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("BindingGeneration")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ChatId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("ClusterGeneration")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ClusterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("CompletedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("EventId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("IncidentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<long>("LogIndex")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("LogicalKey")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<DateTime?>("NextAttemptAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ProtectedPayload")
+                        .IsRequired()
+                        .HasMaxLength(262144)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("State")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<Guid?>("SummaryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("Term")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LogicalKey")
+                        .IsUnique();
+
+                    b.HasIndex("SummaryId");
+
+                    b.HasIndex("EventId", "IncidentId");
+
+                    b.HasIndex("State", "NextAttemptAtUtc");
+
+                    b.HasIndex("ClusterId", "ClusterGeneration", "LogIndex");
+
+                    b.HasIndex("EventId", "Kind", "ChatId")
+                        .IsUnique()
+                        .HasFilter("[EventId] IS NOT NULL");
+
+                    b.HasIndex("IncidentId", "Kind", "ChatId")
+                        .IsUnique()
+                        .HasFilter("[IncidentId] IS NOT NULL AND [Kind] IN ('Problem','Recovery')");
+
+                    b.ToTable("delivery_intents", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_delivery_intents_actor", "([Kind] = 'Test' AND [ActorUserId] IS NOT NULL) OR ([Kind] <> 'Test' AND [ActorUserId] IS NULL)");
+
+                            t.HasCheckConstraint("ck_delivery_intents_attempts", "[AttemptCount] BETWEEN 0 AND 5");
+
+                            t.HasCheckConstraint("ck_delivery_intents_event", "([Kind] IN ('Test','Summary') AND [IncidentId] IS NULL AND [EventId] IS NULL) OR ([Kind] IN ('Problem','Recovery','Update') AND [IncidentId] IS NOT NULL AND [EventId] IS NOT NULL)");
+
+                            t.HasCheckConstraint("ck_delivery_intents_kind", "[Kind] IN ('Problem','Recovery','Update','Summary','Test')");
+
+                            t.HasCheckConstraint("ck_delivery_intents_position", "[ClusterGeneration] > 0 AND [LogIndex] > 0 AND [Term] > 0");
+
+                            t.HasCheckConstraint("ck_delivery_intents_state", "[State] IN ('Planned','AttemptStarted','Succeeded','RetryDue','Failed','Cancelled','SuppressedBySummary')");
+                        });
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.DeliverySummary", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ChatId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("ClusterGeneration")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ClusterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("CutIndex")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("IntentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("LogIndex")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("PartNumber")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("PlanId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("Term")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(3500)
+                        .HasColumnType("nvarchar(3500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IntentId")
+                        .IsUnique();
+
+                    b.HasIndex("ClusterId", "ClusterGeneration", "LogIndex");
+
+                    b.HasIndex("PlanId", "ChatId", "PartNumber")
+                        .IsUnique();
+
+                    b.ToTable("delivery_summaries", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_delivery_summaries_part", "[PartNumber] > 0 AND [CutIndex] > 0 AND [CutIndex] <= [LogIndex]");
+
+                            t.HasCheckConstraint("ck_delivery_summaries_position", "[ClusterGeneration] > 0 AND [LogIndex] > 0 AND [Term] > 0");
+                        });
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.IncidentEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("ClusterGeneration")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ClusterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("FrontierDigest")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("char(64)")
+                        .IsFixedLength();
+
+                    b.Property<Guid>("IncidentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<long>("LogIndex")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("OccurredAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ProtectedPayload")
+                        .IsRequired()
+                        .HasMaxLength(262144)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<long>("Sequence")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("Term")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IncidentId", "Sequence")
+                        .IsUnique();
+
+                    b.HasIndex("ClusterId", "ClusterGeneration", "LogIndex");
+
+                    b.ToTable("incident_events", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_incident_events_position", "[ClusterGeneration] > 0 AND [LogIndex] > 0 AND [Term] > 0");
+
+                            t.HasCheckConstraint("ck_incident_events_sequence", "[Sequence] > 0");
+                        });
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.LocalNodeState", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("ClusterGeneration")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ClusterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("CommittedIndex")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("IsMaintenanceDisabled")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsQuarantined")
+                        .HasColumnType("bit");
+
+                    b.Property<long>("MinReplayIndex")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("ReceivedIndex")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid?>("RecoveryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SessionEpoch")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("SnapshotCutIndex")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("SnapshotDigest")
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("char(64)")
+                        .IsFixedLength();
+
+                    b.Property<Guid?>("SnapshotId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("StorageGeneration")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("WalStoreIdentity")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("local_node_state", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_local_node_state_indices", "[ClusterGeneration] > 0 AND [SnapshotCutIndex] >= 0 AND [ReceivedIndex] >= 0 AND [CommittedIndex] >= 0 AND [MinReplayIndex] >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.MembershipChange", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("ClusterGeneration")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ClusterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("ExpectedVersion")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("LogIndex")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("NodeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<long>("Term")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClusterId", "ClusterGeneration")
+                        .IsUnique()
+                        .HasFilter("[State] IN ('Requested','CatchingUp','ProtocolCommitted')");
+
+                    b.HasIndex("ClusterId", "ClusterGeneration", "LogIndex");
+
+                    b.ToTable("membership_changes", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_membership_changes_position", "[ClusterGeneration] > 0 AND [LogIndex] > 0 AND [Term] > 0");
+
+                            t.HasCheckConstraint("ck_membership_changes_state", "[State] IN ('Requested','CatchingUp','ProtocolCommitted','Activated','Removed') AND [ExpectedVersion] >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.NodeChatRoute", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ChatId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("ClusterGeneration")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ClusterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("LogIndex")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("NodeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("Term")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChatId");
+
+                    b.HasIndex("NodeId", "ChatId")
+                        .IsUnique();
+
+                    b.HasIndex("ClusterId", "ClusterGeneration", "LogIndex");
+
+                    b.ToTable("node_chat_routes", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_node_chat_routes_position", "[ClusterGeneration] > 0 AND [LogIndex] > 0 AND [Term] > 0");
+                        });
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.ObservationCaptureCursor", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CheckGeneration")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("LastSequence")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ObserverNodeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("StorageGeneration")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TargetId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TargetId", "ObserverNodeId", "StorageGeneration", "CheckGeneration")
+                        .IsUnique();
+
+                    b.ToTable("local_observation_cursors", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_local_observation_cursors_sequence", "[LastSequence] >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.ObservationFrontier", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("AcceptedSequence")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("BatchId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CheckGeneration")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CheckedWatermarkUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long>("ClusterGeneration")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ClusterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsHistoricalAssemblyOpen")
+                        .HasColumnType("bit");
+
+                    b.Property<long>("LogIndex")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ObserverNodeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("StorageGeneration")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TargetId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("Term")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClusterId", "ClusterGeneration", "LogIndex");
+
+                    b.HasIndex("TargetId", "ObserverNodeId", "StorageGeneration", "CheckGeneration")
+                        .IsUnique();
+
+                    b.ToTable("observation_frontiers", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_observation_frontiers_position", "[ClusterGeneration] > 0 AND [LogIndex] > 0 AND [Term] > 0");
+
+                            t.HasCheckConstraint("ck_observation_frontiers_sequence", "[AcceptedSequence] >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.ObserverAssignment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("AssignedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CheckGeneration")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("ClusterGeneration")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ClusterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("ConfigRevision")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("LogIndex")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ObserverNodeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TargetId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("Term")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ObserverNodeId");
+
+                    b.HasIndex("TargetId", "ObserverNodeId")
+                        .IsUnique();
+
+                    b.HasIndex("ClusterId", "ClusterGeneration", "LogIndex");
+
+                    b.ToTable("observer_assignments", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_observer_assignments_position", "[ClusterGeneration] > 0 AND [LogIndex] > 0 AND [Term] > 0");
+
+                            t.HasCheckConstraint("ck_observer_assignments_revision", "[ConfigRevision] > 0");
+                        });
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.ObserverResult", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CheckGeneration")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CheckedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long>("ClusterGeneration")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ClusterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("ConfigRevision")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("ConsecutiveFailures")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Digest")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("char(64)")
+                        .IsFixedLength();
+
+                    b.Property<long>("DurationMilliseconds")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("EndpointName")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("FailureKind")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<bool>("HistoricalOnly")
+                        .HasColumnType("bit");
+
+                    b.Property<long>("LogIndex")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ObserverNodeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("Sequence")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("StartedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("StorageGeneration")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Succeeded")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("TargetId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("Term")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClusterId", "ClusterGeneration", "LogIndex");
+
+                    b.HasIndex("TargetId", "CheckGeneration", "CheckedAtUtc");
+
+                    b.HasIndex("TargetId", "ObserverNodeId", "StorageGeneration", "CheckGeneration", "Sequence")
+                        .IsUnique();
+
+                    b.ToTable("observer_results", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_observer_results_position", "[ClusterGeneration] > 0 AND [LogIndex] > 0 AND [Term] > 0");
+
+                            t.HasCheckConstraint("ck_observer_results_values", "[ConfigRevision] > 0 AND [Sequence] > 0 AND [ConsecutiveFailures] >= 0 AND [DurationMilliseconds] >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.OperationControl", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("ClusterGeneration")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ClusterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ExpectedHead")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<long>("LogIndex")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid?>("ReplacementOperationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("TargetDigest")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("char(64)")
+                        .IsFixedLength();
+
+                    b.Property<Guid>("TargetOperationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("Term")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TargetOperationId")
+                        .IsUnique();
+
+                    b.HasIndex("ClusterId", "ClusterGeneration", "LogIndex");
+
+                    b.ToTable("operation_controls", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_operation_controls_position", "[ClusterGeneration] > 0 AND [LogIndex] > 0 AND [Term] > 0");
+
+                            t.HasCheckConstraint("ck_operation_controls_replacement", "([Kind] = 'Replace' AND [ReplacementOperationId] IS NOT NULL) OR ([Kind] = 'Cancel' AND [ReplacementOperationId] IS NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.OperationDecision", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long?>("AppliedRevision")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("ClusterGeneration")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ClusterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ConflictId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Digest")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("char(64)")
+                        .IsFixedLength();
+
+                    b.Property<long>("LogIndex")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("ReasonCode")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<Guid?>("ReplacedBy")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("Term")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClusterId", "ClusterGeneration", "LogIndex");
+
+                    b.ToTable("operation_decisions", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_operation_decisions_conflict", "([Outcome] = 'Conflict' AND [ConflictId] IS NOT NULL) OR ([Outcome] <> 'Conflict' AND [ConflictId] IS NULL)");
+
+                            t.HasCheckConstraint("ck_operation_decisions_outcome", "[Outcome] IN ('Committed','Conflict','Rejected','Cancelled','Replaced')");
+
+                            t.HasCheckConstraint("ck_operation_decisions_position", "[ClusterGeneration] > 0 AND [LogIndex] > 0 AND [Term] > 0");
+
+                            t.HasCheckConstraint("ck_operation_decisions_replacement", "([Outcome] = 'Replaced' AND [ReplacedBy] IS NOT NULL) OR ([Outcome] <> 'Replaced' AND [ReplacedBy] IS NULL)");
+                        });
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.PeerTrustCredential", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("AdmissionConsumedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("AdmissionExpiresAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("AdmissionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("ClusterGeneration")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ClusterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Fingerprint")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("char(64)")
+                        .IsFixedLength();
+
+                    b.Property<long>("LogIndex")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("NodeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("NotAfterUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PublicCertificate")
+                        .IsRequired()
+                        .HasMaxLength(16384)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<DateTime?>("RevokedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<long>("Term")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdmissionId")
+                        .IsUnique()
+                        .HasFilter("[AdmissionId] IS NOT NULL");
+
+                    b.HasIndex("Fingerprint")
+                        .IsUnique();
+
+                    b.HasIndex("NodeId");
+
+                    b.HasIndex("ClusterId", "ClusterGeneration", "LogIndex");
+
+                    b.ToTable("peer_trust_credentials", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_peer_trust_credentials_position", "[ClusterGeneration] > 0 AND [LogIndex] > 0 AND [Term] > 0");
+
+                            t.HasCheckConstraint("ck_peer_trust_credentials_purpose", "[Purpose] IN ('Admission','Active','Retired')");
+                        });
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.PendingOperation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ActorUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("ActorUserRevision")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("BaseRevision")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("ClusterGeneration")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ClusterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Digest")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("char(64)")
+                        .IsFixedLength();
+
+                    b.Property<Guid>("EntityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime?>("NextAttemptAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("OriginNodeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("PayloadVersion")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ProtectedPayload")
+                        .IsRequired()
+                        .HasMaxLength(262144)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("ProtocolVersion")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("ReplacementOperationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("RequestedControlId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("RequestedControlKind")
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<int>("SchemaVersion")
+                        .HasColumnType("int");
+
+                    b.Property<string>("State")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<int>("SubmissionAttempts")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SystemSource")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("State", "NextAttemptAtUtc");
+
+                    b.ToTable("local_pending_operations", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_local_pending_operations_actor", "([ActorUserId] IS NOT NULL AND [SystemSource] IS NULL) OR ([ActorUserId] IS NULL AND [SystemSource] IS NOT NULL)");
+
+                            t.HasCheckConstraint("ck_local_pending_operations_state", "[State] IN ('LocalPending','AwaitingDecision','NeedsUserConfirmation','Resolved')");
+
+                            t.HasCheckConstraint("ck_local_pending_operations_versions", "[ClusterGeneration] > 0 AND [BaseRevision] >= 0 AND [ActorUserRevision] >= 0 AND [SubmissionAttempts] >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.ProjectionCursor", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("ClusterGeneration")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ClusterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Digest")
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("char(64)")
+                        .IsFixedLength();
+
+                    b.Property<Guid?>("InstalledSnapshotId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("LogIndex")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("Term")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("projection_cursors", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_projection_cursors_position", "[ClusterGeneration] > 0 AND [LogIndex] >= 0 AND [Term] >= 0");
+                        });
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.RecoveryEntitlement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ChatId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("ClusterGeneration")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ClusterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ConsumedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("IncidentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("LogIndex")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ProblemIntentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("RecoveryIntentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("Term")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProblemIntentId");
+
+                    b.HasIndex("RecoveryIntentId");
+
+                    b.HasIndex("IncidentId", "ChatId")
+                        .IsUnique();
+
+                    b.HasIndex("ClusterId", "ClusterGeneration", "LogIndex");
+
+                    b.ToTable("recovery_entitlements", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_recovery_entitlements_position", "[ClusterGeneration] > 0 AND [LogIndex] > 0 AND [Term] > 0");
+                        });
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.RecoveryMarker", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("BaselineDigest")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("char(64)")
+                        .IsFixedLength();
+
+                    b.Property<Guid>("BaselineSnapshotId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("ClusterGeneration")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ClusterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("FencingConfirmed")
+                        .HasColumnType("bit");
+
+                    b.Property<long>("LogIndex")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("LossAcknowledged")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("MaintenanceDisabled")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("PreviousClusterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("Term")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClusterId", "ClusterGeneration", "LogIndex");
+
+                    b.ToTable("recovery_markers", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_recovery_markers_position", "[ClusterGeneration] > 0 AND [LogIndex] > 0 AND [Term] > 0");
+                        });
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.SharedIncident", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CheckGeneration")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("ClusterGeneration")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ClusterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("CompletedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Completion")
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<long>("LogIndex")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("OpenedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("TargetId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("Term")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("TransitionKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompletedAtUtc");
+
+                    b.HasIndex("ClusterId", "ClusterGeneration", "LogIndex");
+
+                    b.HasIndex("TargetId", "CheckGeneration", "Kind", "TransitionKey")
+                        .IsUnique();
+
+                    b.ToTable("shared_incidents", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_shared_incidents_completion", "([CompletedAtUtc] IS NULL AND [Completion] IS NULL) OR ([CompletedAtUtc] IS NOT NULL AND [Completion] IS NOT NULL AND [CompletedAtUtc] >= [OpenedAtUtc] AND [Completion] IN ('Recovered','SupersededConfiguration','Deleted'))");
+
+                            t.HasCheckConstraint("ck_shared_incidents_kind", "[Kind] IN ('Target','Coverage','Node')");
+
+                            t.HasCheckConstraint("ck_shared_incidents_position", "[ClusterGeneration] > 0 AND [LogIndex] > 0 AND [Term] > 0");
+                        });
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.SummarySource", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("ClusterGeneration")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ClusterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("LogIndex")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("SourceEventId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SourceIntentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SummaryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("Term")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SourceEventId");
+
+                    b.HasIndex("SourceIntentId")
+                        .IsUnique();
+
+                    b.HasIndex("ClusterId", "ClusterGeneration", "LogIndex");
+
+                    b.HasIndex("SummaryId", "SourceEventId", "SourceIntentId")
+                        .IsUnique();
+
+                    b.ToTable("summary_sources", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_summary_sources_position", "[ClusterGeneration] > 0 AND [LogIndex] > 0 AND [Term] > 0");
+                        });
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.TargetObservationState", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Availability")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<Guid>("CheckGeneration")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("ClusterGeneration")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ClusterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Coverage")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<DateTime>("EvaluationTimeUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FrontierDigest")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("char(64)")
+                        .IsFixedLength();
+
+                    b.Property<long>("LogIndex")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("ProblemDirectionsJson")
+                        .IsRequired()
+                        .HasMaxLength(262144)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<long>("Term")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClusterId", "ClusterGeneration", "LogIndex");
+
+                    b.ToTable("target_observation_states", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_target_observation_states_availability", "[Availability] IN ('Unknown','Available','Partial','Unavailable')");
+
+                            t.HasCheckConstraint("ck_target_observation_states_coverage", "[Coverage] IN ('Initializing','Complete','Degraded','Lost')");
+
+                            t.HasCheckConstraint("ck_target_observation_states_position", "[ClusterGeneration] > 0 AND [LogIndex] > 0 AND [Term] > 0");
+                        });
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.Tombstone", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("ClusterGeneration")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ClusterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("DeletedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<long>("LogIndex")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("Term")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClusterId", "ClusterGeneration", "LogIndex");
+
+                    b.ToTable("shared_tombstones", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_shared_tombstones_kind", "[Kind] IN ('Server','Container','Chat','Binding','Account','Node','ObserverAssignment','NodeChatRoute')");
+
+                            t.HasCheckConstraint("ck_shared_tombstones_position", "[ClusterGeneration] > 0 AND [LogIndex] > 0 AND [Term] > 0");
+                        });
                 });
 
             modelBuilder.Entity("UptimeHarbor.Domain.Monitoring.MonitoredContainer", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CheckGeneration")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("ConfigRevision")
+                        .HasColumnType("bigint");
 
                     b.Property<int>("ConsecutiveFailures")
                         .HasColumnType("int");
@@ -246,6 +1775,12 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid>("CheckGeneration")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("ConfigRevision")
+                        .HasColumnType("bigint");
+
                     b.Property<int>("ConsecutiveFailures")
                         .HasColumnType("int");
 
@@ -284,6 +1819,9 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
+                    b.Property<DateTime?>("StartedAtUtc")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -313,6 +1851,12 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BindingGeneration")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("BindingRevision")
+                        .HasColumnType("bigint");
 
                     b.Property<Guid?>("ContainerId")
                         .HasColumnType("uniqueidentifier");
@@ -356,6 +1900,9 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<long>("ConfigRevision")
+                        .HasColumnType("bigint");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -383,21 +1930,26 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Name")
+                        .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
                     b.Property<string>("NormalizedName")
+                        .IsRequired()
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
+                        .HasColumnType("nvarchar(256)")
+                        .UseCollation("Latin1_General_100_BIN2");
 
                     b.HasKey("Id");
 
                     b.HasIndex("NormalizedName")
                         .IsUnique()
-                        .HasDatabaseName("RoleNameIndex")
-                        .HasFilter("[NormalizedName] IS NOT NULL");
+                        .HasDatabaseName("RoleNameIndex");
 
-                    b.ToTable("roles", (string)null);
+                    b.ToTable("roles", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_roles_administrator", "[Name] = 'Administrator' AND [NormalizedName] = 'ADMINISTRATOR'");
+                        });
                 });
 
             modelBuilder.Entity("UptimeHarbor.Infrastructure.Identity.ApplicationUser", b =>
@@ -410,7 +1962,11 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<DateTime?>("DeletedAtUtc")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Email")
                         .HasMaxLength(256)
@@ -433,11 +1989,17 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(256)");
 
                     b.Property<string>("NormalizedUserName")
+                        .IsRequired()
                         .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
+                        .HasColumnType("nvarchar(256)")
+                        .UseCollation("Latin1_General_100_BIN2");
 
                     b.Property<string>("PasswordHash")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(2048)
+                        .HasColumnType("nvarchar(2048)");
+
+                    b.Property<int>("PasswordHashFormatVersion")
+                        .HasColumnType("int");
 
                     b.Property<string>("PhoneNumber")
                         .HasColumnType("nvarchar(max)");
@@ -446,14 +2008,20 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                         .HasColumnType("bit");
 
                     b.Property<string>("SecurityStamp")
-                        .HasColumnType("nvarchar(max)");
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
 
                     b.Property<bool>("TwoFactorEnabled")
                         .HasColumnType("bit");
 
                     b.Property<string>("UserName")
+                        .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
+
+                    b.Property<long>("UserRevision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
 
                     b.HasKey("Id");
 
@@ -462,10 +2030,14 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("NormalizedUserName")
                         .IsUnique()
-                        .HasDatabaseName("UserNameIndex")
-                        .HasFilter("[NormalizedUserName] IS NOT NULL");
+                        .HasDatabaseName("UserNameIndex");
 
-                    b.ToTable("users", (string)null);
+                    b.ToTable("users", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_users_deleted", "[DeletedAtUtc] IS NULL OR [IsEnabled] = 0");
+
+                            t.HasCheckConstraint("ck_users_revision", "[UserRevision] >= 0 AND [PasswordHashFormatVersion] = 1");
+                        });
                 });
 
             modelBuilder.Entity("UptimeHarbor.Infrastructure.Persistence.NotificationOutboxJob", b =>
@@ -553,33 +2125,118 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("UptimeHarbor.Domain.Access.ContainerVisibilityPermission", b =>
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.CapturedObservation", b =>
                 {
-                    b.HasOne("UptimeHarbor.Domain.Monitoring.MonitoredContainer", null)
+                    b.HasOne("UptimeHarbor.Domain.Cluster.ObservationCaptureCursor", null)
                         .WithMany()
-                        .HasForeignKey("ContainerId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("UptimeHarbor.Domain.Access.ServerVisibilityPermission", null)
-                        .WithMany()
-                        .HasForeignKey("UserId", "ServerId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasForeignKey("StreamId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("UptimeHarbor.Domain.Access.ServerVisibilityPermission", b =>
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.DeliveryAttempt", b =>
                 {
-                    b.HasOne("UptimeHarbor.Domain.Monitoring.MonitoredServer", null)
+                    b.HasOne("UptimeHarbor.Domain.Cluster.DeliveryIntent", null)
                         .WithMany()
-                        .HasForeignKey("ServerId")
+                        .HasForeignKey("IntentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.DeliveryIntent", b =>
+                {
+                    b.HasOne("UptimeHarbor.Domain.Cluster.DeliverySummary", null)
+                        .WithMany()
+                        .HasForeignKey("SummaryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("UptimeHarbor.Domain.Cluster.IncidentEvent", null)
+                        .WithMany()
+                        .HasForeignKey("EventId", "IncidentId")
+                        .HasPrincipalKey("Id", "IncidentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.DeliverySummary", b =>
+                {
+                    b.HasOne("UptimeHarbor.Domain.Cluster.DeliveryIntent", null)
+                        .WithMany()
+                        .HasForeignKey("IntentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.IncidentEvent", b =>
+                {
+                    b.HasOne("UptimeHarbor.Domain.Cluster.SharedIncident", null)
+                        .WithMany()
+                        .HasForeignKey("IncidentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.NodeChatRoute", b =>
+                {
+                    b.HasOne("UptimeHarbor.Domain.Notifications.TelegramChat", null)
+                        .WithMany()
+                        .HasForeignKey("ChatId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("UptimeHarbor.Infrastructure.Identity.ApplicationUser", null)
+                    b.HasOne("UptimeHarbor.Domain.Cluster.ClusterMember", null)
                         .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasForeignKey("NodeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.ObserverAssignment", b =>
+                {
+                    b.HasOne("UptimeHarbor.Domain.Cluster.ClusterMember", null)
+                        .WithMany()
+                        .HasForeignKey("ObserverNodeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.RecoveryEntitlement", b =>
+                {
+                    b.HasOne("UptimeHarbor.Domain.Cluster.SharedIncident", null)
+                        .WithMany()
+                        .HasForeignKey("IncidentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("UptimeHarbor.Domain.Cluster.DeliveryIntent", null)
+                        .WithMany()
+                        .HasForeignKey("ProblemIntentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("UptimeHarbor.Domain.Cluster.DeliveryIntent", null)
+                        .WithMany()
+                        .HasForeignKey("RecoveryIntentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.SummarySource", b =>
+                {
+                    b.HasOne("UptimeHarbor.Domain.Cluster.IncidentEvent", null)
+                        .WithMany()
+                        .HasForeignKey("SourceEventId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("UptimeHarbor.Domain.Cluster.DeliveryIntent", null)
+                        .WithMany()
+                        .HasForeignKey("SourceIntentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("UptimeHarbor.Domain.Cluster.DeliverySummary", null)
+                        .WithMany()
+                        .HasForeignKey("SummaryId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 

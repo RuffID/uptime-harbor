@@ -121,6 +121,53 @@ public class TelegramHttpNotificationSenderTests
         Assert.Null(handler.RequestUri);
     }
 
+    [Theory]
+    [InlineData("{\"ok\":true,\"result\":{\"message_id\":42}}", 42)]
+    [InlineData("{\"ok\":true}", 0)]
+    [InlineData("{\"ok\":true,\"result\":{\"message_id\":\"secret\"}}", 0)]
+    public async Task AcceptedTransportRequiresRealNumericMessageId(string body, long expected)
+    {
+        // Arrange
+        TelegramHttpNotificationSender sender = new(new HttpClient(new RecordingHandler(new(HttpStatusCode.OK)
+        {
+            Content = new StringContent(body)
+        })) { BaseAddress = new Uri("https://api.telegram.test/") }, Options.Create(new TelegramOptions { BotToken = TEST_TOKEN }));
+        NotificationRecipient recipient = new(Guid.NewGuid(), "-100123");
+
+        // Act / Assert
+        if (expected > 0)
+        {
+            Assert.Equal(expected, await sender.SendAcceptedAsync(recipient, "test", TestContext.Current.CancellationToken));
+        }
+        else
+        {
+            NotificationDeliveryException error = await Assert.ThrowsAsync<NotificationDeliveryException>(() =>
+                sender.SendAcceptedAsync(recipient, "test", TestContext.Current.CancellationToken));
+            Assert.Equal(NotificationDeliveryFailure.InvalidResponse, error.Failure);
+            Assert.DoesNotContain("secret", error.ToString(), StringComparison.Ordinal);
+        }
+    }
+
+    [Fact]
+    public async Task AcceptedTransportPreservesRetryAfterWithoutResponseText()
+    {
+        // Arrange
+        TelegramHttpNotificationSender sender = new(new HttpClient(new RecordingHandler(new(HttpStatusCode.TooManyRequests)
+        {
+            Content = new StringContent("{\"ok\":false,\"error_code\":429,\"description\":\"secret\",\"parameters\":{\"retry_after\":600}}")
+        })) { BaseAddress = new Uri("https://api.telegram.test/") }, Options.Create(new TelegramOptions { BotToken = TEST_TOKEN }));
+
+        // Act
+        NotificationDeliveryException error = await Assert.ThrowsAsync<NotificationDeliveryException>(() =>
+            sender.SendAcceptedAsync(new(Guid.NewGuid(), "-100123"), "test", TestContext.Current.CancellationToken));
+
+        // Assert
+        Assert.Equal(NotificationDeliveryFailure.RateLimited, error.Failure);
+        Assert.Equal(600, error.RetryAfterSeconds);
+        Assert.DoesNotContain("secret", error.ToString(), StringComparison.Ordinal);
+        Assert.DoesNotContain(TEST_TOKEN, error.ToString(), StringComparison.Ordinal);
+    }
+
     private class RecordingHandler(HttpResponseMessage response) : HttpMessageHandler
     {
         public HttpMethod? Method { get; private set; }

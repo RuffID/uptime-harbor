@@ -4,7 +4,6 @@ using UptimeHarbor.Application.Abstractions.UnitOfWork;
 using UptimeHarbor.Application.Monitoring;
 using UptimeHarbor.Application.Monitoring.Models;
 using UptimeHarbor.Domain.Monitoring;
-using UptimeHarbor.Domain.Access;
 
 namespace UptimeHarbor.Infrastructure.Persistence.UnitOfWork;
 
@@ -19,16 +18,6 @@ public class ObjectAdministrationUnitOfWork(
     public IMonitoredServerRepository MonitoredServers { get; } = monitoredServers;
 
     public IMonitoredContainerRepository MonitoredContainers { get; } = monitoredContainers;
-
-    public async Task RemoveContainerPermissionsAsync(
-        Guid containerId,
-        CancellationToken cancellationToken = default)
-    {
-        List<ContainerVisibilityPermission> permissions = await dbContext.ContainerVisibilityPermissions
-            .Where(permission => permission.ContainerId == containerId)
-            .ToListAsync(cancellationToken);
-        dbContext.ContainerVisibilityPermissions.RemoveRange(permissions);
-    }
 
     public async Task CancelPendingRecoveryNotificationsAsync(
         MonitoringObjectKind objectKind,

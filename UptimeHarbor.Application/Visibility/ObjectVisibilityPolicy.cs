@@ -8,7 +8,7 @@ public static class ObjectVisibilityPolicy
         IReadOnlySet<Guid> permittedServerIds)
     {
         ArgumentNullException.ThrowIfNull(permittedServerIds);
-        return isAdministrator || permittedServerIds.Contains(serverId);
+        return isAdministrator;
     }
 
     public static bool CanAccessContainer(
@@ -20,8 +20,6 @@ public static class ObjectVisibilityPolicy
     {
         ArgumentNullException.ThrowIfNull(permittedServerIds);
         ArgumentNullException.ThrowIfNull(permittedContainerIds);
-        return isAdministrator
-            || serverId is Guid parentId && permittedServerIds.Contains(parentId)
-            && permittedContainerIds.Contains(containerId);
+        return isAdministrator;
     }
 }
