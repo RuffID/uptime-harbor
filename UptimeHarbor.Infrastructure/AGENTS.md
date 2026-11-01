@@ -21,7 +21,7 @@
 - Backup и migration не должны логировать connection string, credentials или SQL command; имена pending migrations логировать разрешено.
 - Блокировка пользователя обязана обновлять security stamp, а cookie validator — проверять `IsEnabled` на каждом запросе.
 - Неудачные входы учитываются Identity lockout: пять ошибок дают временную блокировку на пять минут; `IsEnabled` и Identity lockout остаются разными состояниями.
-- Специализированные dashboard и recipient read queries materialize-ят Application read records; список пользователей для SignalR загружается одним query с признаком роли Administrator, без per-user `IsInRoleAsync`. Таблиц ресурсных permissions в целевой модели нет.
+- Специализированные dashboard и recipient read queries materialize-ят Application read records; список пользователей для SignalR загружается одним query с признаком роли Administrator, без per-user `IsInRoleAsync`. Таблиц ресурсных permissions в целевой модели нет; их прежние конфигурации исключены из assembly scan до построения модели.
 - HTTP-проверки мониторинга и hosted worker находятся в `Monitoring`; adapter использует `IHttpClientFactory`, а параллельные объекты обрабатываются в отдельных scopes.
 - Telegram transport, durable outbox dispatcher и worker находятся в `Telegram`; token получается только через `TelegramOptions`, стандартное HTTP-логирование клиента отключено, а ошибки чатов изолируются.
 - Telegram dispatcher и worker читают durable outbox независимо от monitoring worker; retry ограничен, а transport-семантика документирована как at-least-once.

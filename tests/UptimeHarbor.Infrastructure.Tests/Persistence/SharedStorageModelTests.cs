@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using UptimeHarbor.Domain.Cluster;
+using UptimeHarbor.Domain.Access;
 using UptimeHarbor.Infrastructure.Identity;
 using UptimeHarbor.Infrastructure.Persistence;
 using Xunit;
@@ -15,6 +17,25 @@ namespace UptimeHarbor.Tests.Infrastructure.Persistence;
 
 public class SharedStorageModelTests
 {
+    [Fact]
+    public void Model_ExcludesLegacyPermissions_WithoutMappingThenIgnoringThem()
+    {
+        // Arrange
+        DbContextOptions<UptimeHarborDbContext> options = new DbContextOptionsBuilder<UptimeHarborDbContext>()
+            .UseSqlServer()
+            .ConfigureWarnings(warnings => warnings.Throw(CoreEventId.MappedEntityTypeIgnoredWarning))
+            .Options;
+        using UptimeHarborDbContext context = new(options);
+
+        // Act
+        IModel model = context.Model;
+
+        // Assert
+        Assert.Null(model.FindEntityType(typeof(ServerVisibilityPermission)));
+        Assert.Null(model.FindEntityType(typeof(ContainerVisibilityPermission)));
+        Assert.NotNull(model.FindEntityType(typeof(ApplicationUser)));
+    }
+
     [Fact]
     public void Model_ContainsDurableSharedAndLocalRecords_WithUniqueOperationAndLoginKeys()
     {

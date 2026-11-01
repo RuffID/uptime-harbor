@@ -35,7 +35,7 @@ Persistence реализован в `UptimeHarbor.Infrastructure` на EF Core �
 
 ## EF-конфигурации
 
-Конфигурации находятся в `Persistence/Configurations` и применяются через `ApplyConfigurationsFromAssembly`.
+Конфигурации находятся в `Persistence/Configurations` и применяются через `ApplyConfigurationsFromAssembly`. Фильтр пропускает прежние `ServerVisibilityPermissionConfiguration` и `ContainerVisibilityPermissionConfiguration`; compatibility-типы игнорируются до scan. Они не добавляются явно с последующим Ignore, поэтому `MappedEntityTypeIgnoredWarning` не возникает. Итоговая схема не меняется.
 
 Они задают:
 

@@ -7,6 +7,7 @@ using UptimeHarbor.Domain.Cluster;
 using UptimeHarbor.Domain.Monitoring;
 using UptimeHarbor.Domain.Notifications;
 using UptimeHarbor.Infrastructure.Identity;
+using UptimeHarbor.Infrastructure.Persistence.Configurations;
 
 namespace UptimeHarbor.Infrastructure.Persistence;
 
@@ -52,11 +53,14 @@ public class UptimeHarborDbContext(
         builder.Ignore<MonitoredObject>();
         builder.Ignore<ProjectionRecord>();
 
-        builder.ApplyConfigurationsFromAssembly(typeof(UptimeHarborDbContext).Assembly);
-
-        // До этапа 05 остаются контракты совместимости; целевого хранения ресурсных назначений нет.
+        // Контракты совместимости не участвуют в модели и не подключают прежние конфигурации.
         builder.Ignore<ServerVisibilityPermission>();
         builder.Ignore<ContainerVisibilityPermission>();
+
+        builder.ApplyConfigurationsFromAssembly(
+            typeof(UptimeHarborDbContext).Assembly,
+            configurationType => configurationType != typeof(ServerVisibilityPermissionConfiguration)
+                && configurationType != typeof(ContainerVisibilityPermissionConfiguration));
 
         if (Database.IsSqlServer())
         {

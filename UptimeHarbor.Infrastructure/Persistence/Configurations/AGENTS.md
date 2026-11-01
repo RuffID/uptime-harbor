@@ -13,7 +13,7 @@
 - При изменении конфигураций обновлять model tests, этот файл и `Documentation/Technical documentation/Persistence.md`.
 - Состояние частичной доставки хранить на `NotificationBinding` по incident ID; не возвращать глобальный флаг объекту мониторинга.
 - Unique indexes Telegram chat ID и обеих chat/target пар имеют стабильные явные имена, используемые при сопровождении SQL Server conflict classification.
-- `MonitoredContainer.ServerId` nullable; server FK сохраняет `NoAction`. Nullable поле не включать в alternate key. Прежние permission configurations не включаются в целевую модель: DbContext исключает эти типы после assembly scan.
+- `MonitoredContainer.ServerId` nullable; server FK сохраняет `NoAction`. Nullable поле не включать в alternate key. Прежние permission configurations исключаются фильтром assembly scan; DbContext игнорирует compatibility-типы до подключения конфигураций, без временного явного mapping.
 - `MonitoredServer.Version` и `MonitoredContainer.Version` настраивать как optimistic concurrency token.
 - `MonitoredServer.Name` настраивать как обязательное поле с уникальным индексом `ux_monitored_servers_name`.
 - Outbox job не связывать внешним ключом с удаляемым объектом мониторинга: сохранённый payload должен переживать административное удаление.
