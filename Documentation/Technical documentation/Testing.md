@@ -363,7 +363,7 @@ Metadata-тест создаёт SQL Server options и читает EF model б�
 - административные Telegram use case, роль и antiforgery metadata MVC API, AJAX/DOM-инварианты frontend;
 - Telegram HTTP adapter через fake `HttpMessageHandler`, безопасные исключения и изоляция ошибки одного чата;
 - формат Telegram token, отказ до HTTP при заглушке, корректный относительный Bot API URI и классификацию HTTP/JSON ошибок; Application проверяет безопасные сообщения тестовой отправки без утечки исходного текста исключения;
-- геометрию ресайза через DOM-заглушку: номинальные ширины отличаются от фактических, pointerdown и повторный drag не меняют геометрию, дельта меняет только выбранную колонку, отмена восстанавливает ширину, клавиатура и минимальная ширина соблюдаются;
+- геометрию ресайза через DOM-заглушку: pointerdown и повторный drag не меняют геометрию, дельта перераспределяется между соседними колонками при постоянной ширине таблицы, отмена восстанавливает обе ширины, клавиатура и минимальные ширины соблюдаются; сохранённые значения адаптируются как пропорции к viewport, новые строки получают те же размеры, внешняя правая граница не перетаскивается;
 - durable outbox до/после нового DbContext, параллельное начало доставки чатов, независимость monitoring cycle и лимит пяти retry через управляемый `TimeProvider`;
 - provider-level SQLite-сценарии recovery: outage marker → recovery queued → disable/endpoint change → terminal cancellation без sender, обычная recovery-доставка и безопасный pre-send skip уже claimed job;
 - конкурентные duplicate chat/binding на двух SQLite `DbContext`, Application mapping независимого persistence conflict и безопасный HTTP 409 envelope без SQL/provider details;

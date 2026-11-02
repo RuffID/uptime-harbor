@@ -4,6 +4,7 @@ export interface SearchableRadioSelectOptions {
     emptyText?: string;
     noOptionsText?: string;
     maxListHeight?: string;
+    panelMinWidth?: string;
 }
 
 export interface SearchableRadioSelectController {
@@ -40,7 +41,9 @@ export function createSearchableRadioSelect(select: HTMLSelectElement, options: 
     for (const LABEL of Array.from(select.labels ?? [])) {
         LABEL.htmlFor = BUTTON.id;
     }
-    const PANEL = createPanel();
+    const MODAL = select.closest<HTMLElement>(".modal");
+    const PANEL = createPanel(MODAL !== null);
+    if (options.panelMinWidth) PANEL.style.minWidth = options.panelMinWidth;
     const SEARCH_INPUT = createSearchInput(select, options.searchPlaceholder ?? DEFAULT_SEARCH_PLACEHOLDER);
     const LIST = document.createElement("div");
     LIST.classList.add("overflow-auto");
@@ -51,8 +54,11 @@ export function createSearchableRadioSelect(select: HTMLSelectElement, options: 
     EMPTY.textContent = options.emptyText ?? DEFAULT_EMPTY_TEXT;
 
     PANEL.append(SEARCH_INPUT, LIST, EMPTY);
-    WRAPPER.append(BUTTON, PANEL);
+    WRAPPER.append(BUTTON);
+    // Остаёмся внутри focus trap modal, но вне обрезающей scroll-области.
+    (MODAL ?? WRAPPER).append(PANEL);
     select.insertAdjacentElement("afterend", WRAPPER);
+    MODAL?.addEventListener("hide.bs.modal", closePanel);
 
     const CONTROLLER: SearchableRadioSelectController = {
         close: closePanel,
@@ -104,14 +110,43 @@ export function createSearchableRadioSelect(select: HTMLSelectElement, options: 
         BUTTON.setAttribute("aria-expanded", "true");
         SEARCH_INPUT.value = "";
         filterOptions(SEARCH_INPUT, LIST, EMPTY);
+        if (MODAL) positionModalPanel();
         window.setTimeout(() => SEARCH_INPUT.focus(), 0);
         document.addEventListener("pointerdown", handleDocumentPointerDown, true);
+        if (MODAL) {
+            window.addEventListener("resize", closePanel);
+            document.addEventListener("scroll", handleDocumentScroll, true);
+        }
     }
 
     function closePanel(): void {
         PANEL.classList.add("d-none");
         BUTTON.setAttribute("aria-expanded", "false");
         document.removeEventListener("pointerdown", handleDocumentPointerDown, true);
+        window.removeEventListener("resize", closePanel);
+        document.removeEventListener("scroll", handleDocumentScroll, true);
+    }
+
+    function positionModalPanel(): void {
+        const RECT = BUTTON.getBoundingClientRect();
+        const MARGIN = 8;
+        const GAP = 4;
+        const WIDTH = Math.min(RECT.width, window.innerWidth - MARGIN * 2);
+        PANEL.style.width = `${WIDTH}px`;
+        PANEL.style.left = `${Math.max(MARGIN, Math.min(RECT.left, window.innerWidth - WIDTH - MARGIN))}px`;
+        LIST.style.maxHeight = options.maxListHeight ?? DEFAULT_MAX_LIST_HEIGHT;
+        const BELOW = window.innerHeight - RECT.bottom - GAP - MARGIN;
+        const ABOVE = RECT.top - GAP - MARGIN;
+        const OPEN_ABOVE = PANEL.offsetHeight > BELOW && ABOVE > BELOW;
+        const CHROME_HEIGHT = PANEL.offsetHeight - LIST.offsetHeight;
+        const AVAILABLE = Math.max(0, (OPEN_ABOVE ? ABOVE : BELOW) - CHROME_HEIGHT);
+        LIST.style.maxHeight = `min(${options.maxListHeight ?? DEFAULT_MAX_LIST_HEIGHT}, ${AVAILABLE}px)`;
+        PANEL.style.top = `${OPEN_ABOVE ? Math.max(MARGIN, RECT.top - PANEL.offsetHeight - GAP) : RECT.bottom + GAP}px`;
+    }
+
+    function handleDocumentScroll(event: Event): void {
+        if (event.target instanceof Node && PANEL.contains(event.target)) return;
+        closePanel();
     }
 
     function handleDocumentPointerDown(event: PointerEvent): void {
@@ -120,7 +155,7 @@ export function createSearchableRadioSelect(select: HTMLSelectElement, options: 
             return;
         }
 
-        if (WRAPPER.contains(TARGET)) {
+        if (WRAPPER.contains(TARGET) || PANEL.contains(TARGET)) {
             return;
         }
 
@@ -172,9 +207,11 @@ function createToggleButton(select: HTMLSelectElement, placeholder: string): HTM
     return BUTTON;
 }
 
-function createPanel(): HTMLElement {
+function createPanel(inModal: boolean): HTMLElement {
     const PANEL = document.createElement("div");
-    PANEL.classList.add("position-absolute", "start-0", "end-0", "mt-1", "border", "rounded-2", "shadow", "bg-body", "p-2", "d-none");
+    PANEL.classList.add("border", "rounded-2", "shadow", "bg-body", "p-2", "d-none");
+    if (inModal) PANEL.classList.add("position-fixed");
+    else PANEL.classList.add("position-absolute", "start-0", "end-0", "mt-1");
     PANEL.style.zIndex = "1050";
     return PANEL;
 }

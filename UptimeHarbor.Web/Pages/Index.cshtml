@@ -51,10 +51,9 @@ else
             </div>
         </div>
         <div class="d-flex gap-2">
-            <button class="btn btn-sm btn-outline-secondary" type="button" data-dashboard-refresh>Обновить</button>
             @if (User.IsInRole(UptimeHarbor.Application.Security.ApplicationRoles.ADMINISTRATOR))
             {
-                <button class="btn btn-sm btn-primary" type="button" data-monitoring-create>Создать</button>
+                <button class="btn btn-primary px-4" type="button" data-monitoring-create>Создать</button>
             }
         </div>
     </div>

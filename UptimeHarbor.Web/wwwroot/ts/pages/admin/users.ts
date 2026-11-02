@@ -50,7 +50,7 @@ const temporarilyDisabled = new Set<HTMLButtonElement | HTMLInputElement | HTMLS
 document.addEventListener("DOMContentLoaded", () => { void initUsersPage(); });
 
 async function initUsersPage(): Promise<void> {
-    createSearchableRadioSelect(requireElement<HTMLSelectElement>("[data-user-state-filter]"));
+    createSearchableRadioSelect(userStateFilter, { panelMinWidth: "14rem" });
     usersTable = createDataTable(userList, "users", "Учётные записи", [
         { key: "login", title: "Логин", width: 240 },
         { key: "role", title: "Роль", width: 220, help: "Единственная роль Administrator даёт полный доступ ко всем объектам." },

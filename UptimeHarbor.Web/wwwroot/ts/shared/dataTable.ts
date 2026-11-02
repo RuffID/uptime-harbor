@@ -9,8 +9,10 @@ export interface TableColumn {
 }
 
 export function createDataTable(host: HTMLElement, key: string, title: string, columns: TableColumn[]) {
+    host.classList.add("w-100", "mw-100");
+    host.style.minWidth = "0";
     const scroll = document.createElement("div");
-    scroll.classList.add("overflow-auto", "border", "border-secondary-subtle", "rounded");
+    scroll.classList.add("overflow-auto", "w-100", "mw-100", "border", "border-secondary-subtle", "rounded");
     scroll.tabIndex = 0;
     scroll.setAttribute("role", "region");
     scroll.setAttribute("aria-label", title);
@@ -21,7 +23,8 @@ export function createDataTable(host: HTMLElement, key: string, title: string, c
     table.dataset.tableKey = key;
     table.style.tableLayout = "fixed";
     table.style.minWidth = "100%";
-    table.style.width = `${columns.reduce((sum, column) => sum + (column.width ?? 180), 0)}px`;
+    table.style.width = "100%";
+    const totalWidth = columns.reduce((sum, column) => sum + (column.width ?? 180), 0);
     const caption = table.createCaption();
     caption.classList.add("visually-hidden");
     caption.textContent = title;
@@ -31,7 +34,8 @@ export function createDataTable(host: HTMLElement, key: string, title: string, c
         cell.scope = "col";
         cell.dataset.columnKey = column.key;
         cell.classList.add("sticky-top", "bg-body-tertiary", "px-3", "py-2");
-        cell.style.width = `${column.width ?? 180}px`;
+        cell.dataset.columnDefaultWidth = String(column.width ?? 180);
+        cell.style.width = `${(column.width ?? 180) / totalWidth * 100}%`;
         cell.append(document.createTextNode(column.title));
         if (column.help) {
             const help = document.createElement("span");

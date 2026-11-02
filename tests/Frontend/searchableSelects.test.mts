@@ -3,7 +3,7 @@ import { beforeEach, test } from "node:test";
 import { createSearchableMultiSelect } from "../../UptimeHarbor.Web/wwwroot/ts/shared/searchableMultiSelect.ts";
 import { createSearchableRadioSelect } from "../../UptimeHarbor.Web/wwwroot/ts/shared/searchableRadioSelect.ts";
 
-// Заглушка проверяет состояние и события; геометрию и Bootstrap проверяют в браузере.
+// Заглушка проверяет состояние, события и заданную геометрию; Bootstrap проверяют в браузере.
 class ElementStub extends EventTarget {
     children: ElementStub[] = [];
     parent: ElementStub | null = null;
@@ -31,6 +31,8 @@ class ElementStub extends EventTarget {
     labels: ElementStub[] = [];
     htmlFor = "";
     tag: string;
+    rect = { left: 100, top: 400, bottom: 440, width: 300 };
+    offsetHeight = 240;
 
     constructor(tag: string) { super(); this.tag = tag; }
     get selectedOptions() {
@@ -52,6 +54,12 @@ class ElementStub extends EventTarget {
     setAttribute(name: string, value: string) { this.attributes.set(name, value); }
     toggleAttribute(name: string, value: boolean) { if (name === "hidden") this.hidden = value; }
     focus() {}
+    closest(selector: string): ElementStub | null {
+        assert.equal(selector, ".modal");
+        if (this.classes.has("modal")) return this;
+        return this.parent?.closest(selector) ?? null;
+    }
+    getBoundingClientRect() { return this.rect; }
     contains(target: ElementStub): boolean { return this === target || this.descendants().includes(target); }
     descendants(): ElementStub[] { return this.children.flatMap(child => [child, ...child.descendants()]); }
     querySelector(selector: string) { return this.querySelectorAll(selector)[0] ?? null; }
@@ -74,7 +82,9 @@ beforeEach(() => {
         HTMLElement: ElementStub,
         HTMLButtonElement: ElementStub,
         document: Object.assign(new EventTarget(), { createElement: (tag: string) => new ElementStub(tag) }),
-        window: { setTimeout: (action: () => void) => action() }
+        window: Object.assign(new EventTarget(), {
+            setTimeout: (action: () => void) => action(), innerWidth: 1024, innerHeight: 768
+        })
     });
 });
 
@@ -101,6 +111,98 @@ function controls(select: ElementStub) {
     const wrapper = select.nextElementSibling!;
     return { wrapper, button: wrapper.children[0], panel: wrapper.children[1] };
 }
+
+test("radio: modal panel escapes the scrollable body and stays selectable above the footer", () => {
+    // Arrange
+    const select = source();
+    select.options = [option("server", "Сервер")];
+    const modal = new ElementStub("div");
+    modal.classList.add("modal");
+    modal.append(select.parent!);
+    const controller = createSearchableRadioSelect(select as unknown as HTMLSelectElement);
+    const button = select.nextElementSibling!.children[0];
+
+    // Act
+    button.dispatchEvent(new Event("click"));
+
+    // Assert
+    const panel = modal.children.find(child => child !== select.parent)!;
+    assert.ok(panel, "The panel must be outside the clipped modal body.");
+    assert.equal(panel.classList.contains("position-fixed"), true);
+    assert.equal(panel.classList.contains("d-none"), false);
+    assert.equal(panel.style.left, "100px");
+    assert.equal(panel.style.width, "300px");
+    assert.equal(panel.style.top, "444px");
+
+    // Act
+    const radio = panel.querySelectorAll("input[type='radio']")[0];
+    const pointerDown = new Event("pointerdown");
+    Object.defineProperty(pointerDown, "target", { value: radio });
+    document.dispatchEvent(pointerDown);
+
+    // Assert
+    assert.equal(panel.classList.contains("d-none"), false);
+
+    // Act
+    radio.checked = true;
+    radio.dispatchEvent(new Event("change"));
+
+    // Assert
+    assert.equal(select.value, "server");
+    assert.equal(panel.classList.contains("d-none"), true);
+
+    // Act
+    button.rect = { left: 100, top: 700, bottom: 740, width: 300 };
+    button.dispatchEvent(new Event("click"));
+
+    // Assert
+    assert.equal(panel.style.top, "456px");
+
+    // Act
+    window.dispatchEvent(new Event("resize"));
+
+    // Assert
+    assert.equal(panel.classList.contains("d-none"), true);
+
+    // Act
+    button.dispatchEvent(new Event("click"));
+    document.dispatchEvent(new Event("scroll"));
+
+    // Assert
+    assert.equal(panel.classList.contains("d-none"), true);
+
+    // Act
+    button.dispatchEvent(new Event("click"));
+    modal.dispatchEvent(new Event("hide.bs.modal"));
+
+    // Assert
+    assert.equal(panel.classList.contains("d-none"), true);
+    controller.close();
+});
+
+test("radio: filter panel can be wider without widening the toggle", () => {
+    // Arrange
+    const select = source();
+    select.options = [option("", "Все состояния"), option("enabled", "Включены")];
+
+    // Act
+    createSearchableRadioSelect(select as unknown as HTMLSelectElement, { panelMinWidth: "14rem" });
+    const { button, panel } = controls(select);
+    button.dispatchEvent(new Event("click"));
+
+    // Assert
+    assert.equal(panel.style.minWidth, "14rem");
+    assert.equal(button.style.minWidth, undefined);
+    assert.equal(panel.classList.contains("d-none"), false);
+
+    // Act
+    const pointerDown = new Event("pointerdown");
+    Object.defineProperty(pointerDown, "target", { value: new ElementStub("div") });
+    document.dispatchEvent(pointerDown);
+
+    // Assert
+    assert.equal(panel.classList.contains("d-none"), true);
+});
 
 test("radio: empty choices disable the field and show Нет объектов; refresh enables it", () => {
     const select = source();

@@ -57,7 +57,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 async function initDashboard(): Promise<void> {
     createSearchableRadioSelect(statusFilter);
-    createSearchableRadioSelect(typeFilter);
+    createSearchableRadioSelect(typeFilter, { panelMinWidth: "14rem" });
     monitoringEditor = initializeMonitoringEditor(() => loadSnapshot(false));
     document.querySelector<HTMLButtonElement>("[data-monitoring-create]")?.addEventListener("click", () => {
         void monitoringEditor?.open(null, typeFilter.value === "Application" ? "Application" : "Server");
@@ -88,12 +88,10 @@ async function initDashboard(): Promise<void> {
     typeFilter.addEventListener("change", () => {
         if (state.snapshot !== null) renderDashboard(state.snapshot);
     });
-    requireElement<HTMLButtonElement>("[data-dashboard-refresh]")
-        .addEventListener("click", () => void loadSnapshot(true));
     bindSearch();
     await loadSnapshot(true);
     if (typeof signalR === "undefined") {
-        setSignalState("disconnected", "Автообновление недоступно — нажмите «Обновить»");
+        setSignalState("disconnected", "Автообновление недоступно. Перезагрузите страницу.");
         return;
     }
 
@@ -132,12 +130,12 @@ function configureSignalR(hubConnection: signalR.HubConnection): void {
         setSignalState("reconnecting", "Восстанавливаем автообновление…");
     });
     hubConnection.onreconnected(() => {
-        setSignalState("connected", "Данные обновляются автоматически");
+        setSignalState("connected", "");
         cancelScheduledSnapshotRefresh();
         void loadSnapshot(false);
     });
     hubConnection.onclose(() => {
-        setSignalState("disconnected", "Автообновление недоступно — нажмите «Обновить»");
+        setSignalState("disconnected", "Автообновление недоступно. Повторяем подключение…");
         scheduleSignalRStart();
     });
 }
@@ -174,10 +172,10 @@ async function startSignalR(): Promise<void> {
 
     try {
         await connection.start();
-        setSignalState("connected", "Данные обновляются автоматически");
+        setSignalState("connected", "");
     }
     catch {
-        setSignalState("disconnected", "Автообновление недоступно — нажмите «Обновить»");
+        setSignalState("disconnected", "Автообновление недоступно. Повторяем подключение…");
         scheduleSignalRStart();
     }
 }
@@ -320,6 +318,7 @@ function renderMessage(kind: "loading" | "empty" | "no-results" | "error", messa
 
 function setSignalState(stateName: string, message: string): void {
     signalState.dataset.state = stateName;
+    signalState.classList.toggle("d-none", stateName === "connected");
     signalStateText.textContent = message;
     signalState.classList.remove("text-bg-success", "text-bg-warning", "text-bg-secondary");
 
@@ -345,8 +344,12 @@ function formatUtc(value: string | null): string {
     }
 
     return new Intl.DateTimeFormat("ru-RU", {
-        dateStyle: "medium",
-        timeStyle: "medium",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
         timeZone: "UTC"
     }).format(date) + " UTC";
 }

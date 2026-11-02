@@ -42,8 +42,11 @@ else
             </div>
         </div>
         <div data-chat-list></div>
-        <div class="card border-0 shadow-sm d-none" data-chat-empty>
-            <div class="card-body p-5 text-center text-body-secondary">Чатов пока нет.</div>
+        <div class="card border-0 bg-body-tertiary d-none" data-chat-empty role="status" aria-live="polite">
+            <div class="card-body d-flex flex-column align-items-center justify-content-center gap-2 px-3 py-5 text-center">
+                <p class="h5 mb-0" data-chat-empty-message>Чатов пока нет.</p>
+                <p class="text-body-secondary small mb-0">Здесь будут отображаться чаты Telegram и привязанные к ним объекты.</p>
+            </div>
         </div>
     </section>
 

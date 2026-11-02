@@ -9,7 +9,7 @@ export interface TableColumnResizingOptions {
 interface SynchronizedColumnWidths {
     widths: Map<string, number>;
     loadedKeys: Set<string>;
-    listeners: Set<(columnKey: string, width: number) => void>;
+    listeners: Set<() => void>;
 }
 
 const synchronizedWidths = new Map<string, SynchronizedColumnWidths>();
@@ -34,9 +34,7 @@ export function initTableColumnResizing(
         }
     }
     const widths = group?.widths ?? new Map<string, number>();
-    const minimumWidths = new Map<string, number>();
     const loadedKeys = group?.loadedKeys ?? new Set<string>();
-    let tableWidthAdjustment = 0;
 
     function freezeRenderedWidths(): void {
         const headers = Array.from(table.tHead!.querySelectorAll<HTMLTableCellElement>("th[data-column-key]"));
@@ -44,10 +42,7 @@ export function initTableColumnResizing(
             key: requireStableKey(header.dataset.columnKey, "колонки"),
             width: header.getBoundingClientRect().width
         }));
-        tableWidthAdjustment = table.getBoundingClientRect().width - measured.reduce((sum, column) => sum + column.width, 0);
-        table.style.minWidth = "0";
-        for (const column of measured) widths.set(column.key, column.width);
-        for (const column of measured) updateColumnWidth(column.key, column.width);
+        updateColumnWidths(measured.map(column => [column.key, column.width]));
     }
 
     function persistWidths(): void {
@@ -60,14 +55,14 @@ export function initTableColumnResizing(
         }
     }
 
-    function updateColumnWidth(columnKey: string, width: number): void {
-        widths.set(columnKey, width);
+    function updateColumnWidths(changes: Array<[string, number]>): void {
+        for (const [key, width] of changes) widths.set(key, width);
         if (group === undefined) {
-            applyColumnWidth(columnKey, width);
+            applyWidths();
             return;
         }
         for (const LISTENER of group.listeners) {
-            LISTENER(columnKey, width);
+            LISTENER();
         }
     }
 
@@ -77,20 +72,21 @@ export function initTableColumnResizing(
             return;
         }
 
-        const IS_VISIBLE = table.getClientRects().length > 0;
         const HEADERS = Array.from(HEAD.querySelectorAll<HTMLTableCellElement>("th[data-column-key]"));
-        for (const HEADER of HEADERS) {
+        for (const [INDEX, HEADER] of HEADERS.entries()) {
             const COLUMN_KEY = requireStableKey(HEADER.dataset.columnKey, "колонки");
             loadStoredWidth(COLUMN_KEY, HEADER.dataset.columnPersistWidth !== "false");
-            if (IS_VISIBLE && !minimumWidths.has(COLUMN_KEY)) {
-                minimumWidths.set(COLUMN_KEY, Math.min(readMinWidth(HEADER), HEADER.getBoundingClientRect().width));
+            if (!widths.has(COLUMN_KEY)) {
+                const DEFAULT_WIDTH = Number.parseFloat(HEADER.dataset.columnDefaultWidth ?? HEADER.style.width);
+                if (!Number.isFinite(DEFAULT_WIDTH) || DEFAULT_WIDTH <= 0) {
+                    throw new Error(`Некорректная начальная ширина колонки «${COLUMN_KEY}».`);
+                }
+                widths.set(COLUMN_KEY, DEFAULT_WIDTH);
             }
-            const WIDTH = widths.get(COLUMN_KEY);
-            if (IS_VISIBLE && WIDTH !== undefined) {
-                applyColumnWidth(COLUMN_KEY, WIDTH);
-            }
-            ensureResizeHandle(HEADER, COLUMN_KEY);
+            const NEIGHBOUR = HEADERS[INDEX + 1];
+            if (NEIGHBOUR) ensureResizeHandle(HEADER, COLUMN_KEY, NEIGHBOUR);
         }
+        applyWidths();
     }
 
     function loadStoredWidth(columnKey: string, persists: boolean): void {
@@ -112,7 +108,7 @@ export function initTableColumnResizing(
         loadedKeys.add(columnKey);
     }
 
-    function ensureResizeHandle(header: HTMLTableCellElement, columnKey: string): void {
+    function ensureResizeHandle(header: HTMLTableCellElement, columnKey: string, neighbour: HTMLTableCellElement): void {
         if (header.querySelector<HTMLElement>("[data-column-resize-handle]") !== null) {
             return;
         }
@@ -135,9 +131,9 @@ export function initTableColumnResizing(
             }
             EVENT.preventDefault();
             freezeRenderedWidths();
-            const WIDTH = Math.max(readMinWidth(header), Math.round(header.getBoundingClientRect().width)
-                + (EVENT.key === "ArrowRight" ? 16 : -16));
-            updateColumnWidth(columnKey, WIDTH);
+            const WIDTH = header.getBoundingClientRect().width;
+            const NEIGHBOUR_WIDTH = neighbour.getBoundingClientRect().width;
+            resizePair(header, neighbour, WIDTH, NEIGHBOUR_WIDTH, EVENT.key === "ArrowRight" ? 16 : -16);
             if (header.dataset.columnPersistWidth !== "false") {
                 persistWidths();
             }
@@ -150,7 +146,7 @@ export function initTableColumnResizing(
         });
         HANDLE.addEventListener("focus", () => setResizeHandleHighlighted(HANDLE, true));
         HANDLE.addEventListener("blur", () => setResizeHandleHighlighted(HANDLE, HANDLE.matches(":hover")));
-        HANDLE.addEventListener("pointerdown", EVENT => beginResize(EVENT, header, columnKey, HANDLE));
+        HANDLE.addEventListener("pointerdown", EVENT => beginResize(EVENT, header, columnKey, neighbour, HANDLE));
         header.append(HANDLE);
     }
 
@@ -158,6 +154,7 @@ export function initTableColumnResizing(
         event: PointerEvent,
         header: HTMLTableCellElement,
         columnKey: string,
+        neighbour: HTMLTableCellElement,
         handle: HTMLButtonElement
     ): void {
         if (event.button !== 0) {
@@ -169,8 +166,8 @@ export function initTableColumnResizing(
         freezeRenderedWidths();
         const START_X = event.clientX;
         const START_WIDTH = header.getBoundingClientRect().width;
-        const MIN_WIDTH = minimumWidths.get(columnKey) ?? Math.min(readMinWidth(header), START_WIDTH);
-        minimumWidths.set(columnKey, MIN_WIDTH);
+        const NEIGHBOUR_WIDTH = neighbour.getBoundingClientRect().width;
+        const NEIGHBOUR_KEY = requireStableKey(neighbour.dataset.columnKey, "соседней колонки");
         const PERSISTS = header.dataset.columnPersistWidth !== "false";
         handle.setPointerCapture(event.pointerId);
         setResizeHandleHighlighted(handle, true);
@@ -180,8 +177,7 @@ export function initTableColumnResizing(
             if (moveEvent.pointerId !== event.pointerId) {
                 return;
             }
-            const WIDTH = Math.max(MIN_WIDTH, START_WIDTH + moveEvent.clientX - START_X);
-            updateColumnWidth(columnKey, WIDTH);
+            resizePair(header, neighbour, START_WIDTH, NEIGHBOUR_WIDTH, moveEvent.clientX - START_X);
         };
 
         const finish = (endEvent: PointerEvent): void => {
@@ -204,7 +200,7 @@ export function initTableColumnResizing(
             if (cancelEvent.pointerId !== event.pointerId) {
                 return;
             }
-            updateColumnWidth(columnKey, START_WIDTH);
+            updateColumnWidths([[columnKey, START_WIDTH], [NEIGHBOUR_KEY, NEIGHBOUR_WIDTH]]);
             handle.removeEventListener("pointermove", resize);
             handle.removeEventListener("pointerup", finish);
             handle.removeEventListener("pointercancel", cancel);
@@ -219,24 +215,41 @@ export function initTableColumnResizing(
         handle.addEventListener("lostpointercapture", cancel);
     }
 
-    function applyColumnWidth(columnKey: string, width: number): void {
-        const WIDTH = `${width}px`;
+    function resizePair(
+        header: HTMLTableCellElement,
+        neighbour: HTMLTableCellElement,
+        startWidth: number,
+        neighbourWidth: number,
+        delta: number
+    ): void {
+        const MIN_WIDTH = Math.min(readMinWidth(header), startWidth);
+        const NEIGHBOUR_MIN = Math.min(readMinWidth(neighbour), neighbourWidth);
+        const DELTA = Math.max(MIN_WIDTH - startWidth, Math.min(delta, neighbourWidth - NEIGHBOUR_MIN));
+        updateColumnWidths([
+            [requireStableKey(header.dataset.columnKey, "колонки"), startWidth + DELTA],
+            [requireStableKey(neighbour.dataset.columnKey, "соседней колонки"), neighbourWidth - DELTA]
+        ]);
+    }
+
+    function applyWidths(): void {
+        const HEADERS = Array.from(table.tHead?.querySelectorAll<HTMLElement>("th[data-column-key]") ?? []);
+        const TOTAL_WIDTH = HEADERS.reduce((sum, cell) => sum + widths.get(cell.dataset.columnKey!)!, 0);
         const CELLS = table.querySelectorAll<HTMLElement>("[data-column-key]");
         for (const CELL of Array.from(CELLS)) {
-            if (CELL.closest("table") !== table || CELL.dataset.columnKey !== columnKey) {
+            if (CELL.closest("table") !== table) {
                 continue;
             }
-            CELL.style.width = WIDTH;
-            CELL.style.minWidth = WIDTH;
-            CELL.style.maxWidth = WIDTH;
+            CELL.style.width = `${widths.get(CELL.dataset.columnKey!)! / TOTAL_WIDTH * 100}%`;
+            CELL.style.minWidth = "";
+            CELL.style.maxWidth = "";
         }
-        const HEADERS = Array.from(table.tHead?.querySelectorAll<HTMLElement>("th[data-column-key]") ?? []);
-        table.style.width = `${tableWidthAdjustment + HEADERS.reduce((sum, cell) => sum + Number.parseFloat(cell.style.width), 0)}px`;
+        table.style.width = "100%";
+        table.style.minWidth = "100%";
     }
 
     refresh();
     if (group !== undefined) {
-        group.listeners.add(applyColumnWidth);
+        group.listeners.add(applyWidths);
         synchronizedWidths.set(GROUP_KEY, group);
     }
     const OBSERVER = new MutationObserver(() => queueMicrotask(refresh));
@@ -247,7 +260,7 @@ export function initTableColumnResizing(
     function destroy(): void {
         OBSERVER.disconnect();
         RESIZE_OBSERVER.disconnect();
-        group?.listeners.delete(applyColumnWidth);
+        group?.listeners.delete(applyWidths);
         if (group?.listeners.size === 0) {
             synchronizedWidths.delete(GROUP_KEY);
         }

@@ -65,6 +65,7 @@ const content = requireElement<HTMLElement>("[data-content]");
 const pageError = requireElement<HTMLElement>("[data-page-error]");
 const chatList = requireElement<HTMLElement>("[data-chat-list]");
 const chatEmpty = requireElement<HTMLElement>("[data-chat-empty]");
+const chatEmptyMessage = requireElement<HTMLElement>("[data-chat-empty-message]");
 const page = requireElement<HTMLElement>("[data-notifications-page]");
 const chatModal = requireElement<HTMLElement>("[data-chat-modal]");
 const chatForm = requireElement<HTMLFormElement>("[data-chat-form]");
@@ -163,7 +164,7 @@ function renderChats(): void {
     }
     chatsTable.body.replaceChildren(...rows);
     chatEmpty.classList.toggle("d-none", rows.length !== 0);
-    chatEmpty.textContent = state.chats.length === 0 ? "Чатов пока нет." : "По выбранному фильтру чаты и объекты не найдены.";
+    chatEmptyMessage.textContent = state.chats.length === 0 ? "Чатов пока нет." : "По выбранному фильтру чаты и объекты не найдены.";
     chatsTable.refresh();
 }
 
