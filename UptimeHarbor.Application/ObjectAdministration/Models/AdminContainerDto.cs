@@ -11,4 +11,5 @@ public record AdminContainerDto(
     string? LastKnownName,
     MonitoringStatus Status,
     int ConsecutiveFailures,
-    long Version);
+    long Version,
+    string? Name = null);

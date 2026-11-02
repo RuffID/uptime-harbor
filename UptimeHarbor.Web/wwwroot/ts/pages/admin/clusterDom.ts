@@ -1,7 +1,7 @@
 import type { EntityKind, Settings, Operation, Observer } from "./clusterModels.js";
 
 export const kindNames: Record<EntityKind, string> = {
-    Server: "Серверы", Container: "Контейнеры", Chat: "Telegram-чаты", Binding: "Привязки целей к чатам",
+    Server: "Сервер", Container: "Приложение", Chat: "Telegram-чаты", Binding: "Привязки целей к чатам",
     NodeChatRoute: "Маршруты узлов в чаты", Account: "Администраторы"
 };
 const actions = new WeakMap<HTMLButtonElement, () => void>();
@@ -49,7 +49,7 @@ export function settingsText(value: Settings | null, kind: EntityKind): string {
     if (value === null) return "Нет варианта настроек (удаление или команда без значения).";
     if (kind === "Account") return `Логин: ${value.name ?? "—"}; ${value.enabled ? "включён" : "отключён"}. Пароль и служебные реквизиты не отображаются.`;
     if (kind === "Chat") return `${value.name ?? "—"}; Chat ID: ${value.telegramChatId}`;
-    if (kind === "Binding") return `Цель: ${value.parentId}; чат: ${value.chatId}; тип: ${value.enabled ? "сервер" : "контейнер"}`;
+    if (kind === "Binding") return `Цель: ${value.parentId}; чат: ${value.chatId}; тип: ${value.enabled ? "сервер" : "приложение"}`;
     if (kind === "NodeChatRoute") return `NodeId: ${value.parentId}; чат: ${value.chatId}; ${value.enabled ? "включён" : "отключён"}`;
     return `${value.name ?? "—"}; ${value.endpoint ?? "—"}; ${value.enabled ? "включён" : "отключён"}; сервер: ${value.parentId ?? "нет"}; observers: ${value.observerNodes.join(", ") || "нет"}; интервал ${value.intervalSeconds} с, timeout ${value.timeoutSeconds} с, порог ${value.failureThreshold}. ${value.description ?? ""}`;
 }

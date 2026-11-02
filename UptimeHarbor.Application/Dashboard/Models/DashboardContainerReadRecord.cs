@@ -9,4 +9,5 @@ public record DashboardContainerReadRecord(
     string? LastKnownName,
     MonitoringStatus Status,
     DateTimeOffset? LastCheckedAtUtc,
-    DateTimeOffset? StartedAtUtc);
+    DateTimeOffset? StartedAtUtc,
+    string? Name = null);

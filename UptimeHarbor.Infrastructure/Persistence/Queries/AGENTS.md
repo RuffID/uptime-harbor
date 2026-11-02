@@ -7,3 +7,4 @@
 Результаты — независимые Application records, полностью материализованные здесь. Не выпускать `IQueryable` и EF entities за границу; сохранять no-tracking и отсутствие N+1.
 
 Dashboard server projection включает `StartedAtUtc`; вычисление uptime принадлежит Application и не переносится в SQL.
+Оба monitoring read-набора читаются из MonitoredServers с фильтрами Type. Приложения проецируют административное Name отдельно от LastKnownName; структура совместимого snapshot сохраняется.

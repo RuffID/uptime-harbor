@@ -17,6 +17,7 @@
 - Для сущностей без безопасного `IEntity<TId>` искать по идентификатору через predicate repository.
 - При изменении запросов или контрактов обновлять этот файл и `Documentation/Technical documentation/Persistence.md`.
 - `GetEnabledAsync` фильтрует включённые server/container цели в БД и materialize-ит их no-tracking для снимка цикла.
+- Оба monitoring repositories работают с единым MonitoredServer и monitored_servers; фильтр Type обязателен в каждом чтении, включая поиск по ID и родителю. ProjectionRepository сохраняет оба типа без смены Type и явно удаляет только bindings удаляемой цели.
 - Привязки для подготовки batch-доставки читать no-tracking, а конкретную привязку для фиксации успеха загружать tracked по ID.
 - Чтение пользователей и роли для SignalR выполняет отдельный recipient read query, а не per-user методы репозитория. Репозитория ресурсных прав нет.
 - `ProjectionRepository` получает уже решённый пакет принятого префикса и только подготавливает изменения одного tracker. Аккаунт/роль не сохраняются через отдельный auto-commit Identity store; сохранение принадлежит UoW вместе с cursor.

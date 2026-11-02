@@ -32,13 +32,42 @@ public class ObjectAdministrationServiceTests
     }
 
     [Fact]
+    public async Task CreateAndRenameApplication_PreservesTypeAndMonitoringWhenLinkedLater()
+    {
+        // Arrange
+        TestData data = new();
+        MonitoredServer host = data.AddServer(true);
+        ServiceResult<AdminContainerDto> created = await data.Service.CreateContainerAsync(
+            null, "https://orders.example/health", null, true,
+            TestContext.Current.CancellationToken, "Orders");
+        Assert.True(created.Success);
+        MonitoredServer application = Assert.Single(data.Containers.Items);
+        DateTimeOffset checkedAt = new(2026, 11, 1, 0, 0, 0, TimeSpan.Zero);
+        application.RecordSuccessfulCheck("orders-process", checkedAt.AddHours(-1), checkedAt);
+
+        // Act
+        ServiceResult<AdminContainerDto> updated = await data.Service.UpdateContainerAsync(
+            application.Id, application.EndpointUrl, "API", true, application.Version,
+            TestContext.Current.CancellationToken, new ContainerServerAssignment(host.Id), "Orders API");
+
+        // Assert
+        Assert.True(updated.Success);
+        Assert.Equal("Orders API", updated.Data!.Name);
+        Assert.Equal(ServerType.Application, application.Type);
+        Assert.Equal(host.Id, application.ServerId);
+        Assert.Equal("orders-process", application.LastKnownName);
+        Assert.Equal(MonitoringStatus.Available, application.Status);
+        Assert.Equal(checkedAt.AddHours(-1), application.StartedAtUtc);
+    }
+
+    [Fact]
     public async Task UpdateContainerAsync_CanDetachAndReassign_WithoutResourcePermissions()
     {
         // Arrange
         TestData data = new();
         MonitoredServer first = data.AddServer(true);
         MonitoredServer second = data.AddServer(true);
-        MonitoredContainer container = data.AddContainer(first, true);
+        MonitoredServer container = data.AddContainer(first, true);
         long firstVersion = first.Version;
 
         // Act
@@ -69,8 +98,8 @@ public class ObjectAdministrationServiceTests
         // Arrange
         TestData data = new();
         MonitoredServer server = data.AddServer(true);
-        MonitoredContainer linked = data.AddContainer(server, true);
-        MonitoredContainer free = new(Guid.NewGuid(), null, "https://free.example/health", null, true);
+        MonitoredServer linked = data.AddContainer(server, true);
+        MonitoredServer free = MonitoredServer.CreateApplication(Guid.NewGuid(), null, "https://free.example/health", null, true);
         data.Containers.Items.Add(free);
 
         // Act
@@ -96,7 +125,7 @@ public class ObjectAdministrationServiceTests
         TestData data = new();
         MonitoredServer server = data.AddServer(true);
         MonitoredServer other = data.AddServer(true);
-        MonitoredContainer container = data.AddContainer(other, true);
+        MonitoredServer container = data.AddContainer(other, true);
         long version = container.Version;
         if (stale)
         {
@@ -156,9 +185,11 @@ public class ObjectAdministrationServiceTests
     [Fact]
     public async Task CreateContainerAsync_ForExistingServer_AssignsGuidAndUnknownStatus()
     {
+        // Arrange
         TestData data = new();
         MonitoredServer server = data.AddServer(isMonitoringEnabled: true);
 
+        // Act
         ServiceResult<AdminContainerDto> result = await data.Service.CreateContainerAsync(
             server.Id,
             "https://container.example/health",
@@ -166,6 +197,7 @@ public class ObjectAdministrationServiceTests
             true,
             TestContext.Current.CancellationToken);
 
+        // Assert
         Assert.True(result.Success);
         Assert.NotEqual(Guid.Empty, result.Data!.Id);
         Assert.Equal(server.Id, result.Data.ServerId);
@@ -279,12 +311,14 @@ public class ObjectAdministrationServiceTests
     [Fact]
     public async Task UpdateContainerAsync_ChangesSettingsAndClearsEndpointSpecificState()
     {
+        // Arrange
         TestData data = new();
         MonitoredServer server = data.AddServer(isMonitoringEnabled: true);
-        MonitoredContainer container = data.AddContainer(server, isMonitoringEnabled: true);
+        MonitoredServer container = data.AddContainer(server, isMonitoringEnabled: true);
         DateTimeOffset checkedAtUtc = new(2026, 8, 25, 10, 0, 0, TimeSpan.Zero);
         container.RecordSuccessfulCheck("old-container-name", checkedAtUtc.AddHours(-1), checkedAtUtc);
 
+        // Act
         ServiceResult<AdminContainerDto> result = await data.Service.UpdateContainerAsync(
             container.Id,
             "https://new-container.example/health",
@@ -293,6 +327,7 @@ public class ObjectAdministrationServiceTests
             container.Version,
             TestContext.Current.CancellationToken);
 
+        // Assert
         Assert.True(result.Success);
         Assert.Null(result.Data!.LastKnownName);
         Assert.Null(container.StartedAtUtc);
@@ -302,10 +337,12 @@ public class ObjectAdministrationServiceTests
     [Fact]
     public async Task UpdateServerAsync_DisablingServerDoesNotDisableContainer()
     {
+        // Arrange
         TestData data = new();
         MonitoredServer server = data.AddServer(isMonitoringEnabled: true);
-        MonitoredContainer container = data.AddContainer(server, isMonitoringEnabled: true);
+        MonitoredServer container = data.AddContainer(server, isMonitoringEnabled: true);
 
+        // Act
         await data.Service.UpdateServerAsync(
             server.Id,
             server.Name,
@@ -315,6 +352,7 @@ public class ObjectAdministrationServiceTests
             server.Version,
             TestContext.Current.CancellationToken);
 
+        // Assert
         Assert.False(server.IsMonitoringEnabled);
         Assert.True(container.IsMonitoringEnabled);
     }
@@ -322,10 +360,12 @@ public class ObjectAdministrationServiceTests
     [Fact]
     public async Task UpdateContainerAsync_DisablingContainerDoesNotDisableServer()
     {
+        // Arrange
         TestData data = new();
         MonitoredServer server = data.AddServer(isMonitoringEnabled: true);
-        MonitoredContainer container = data.AddContainer(server, isMonitoringEnabled: true);
+        MonitoredServer container = data.AddContainer(server, isMonitoringEnabled: true);
 
+        // Act
         await data.Service.UpdateContainerAsync(
             container.Id,
             container.EndpointUrl,
@@ -334,6 +374,7 @@ public class ObjectAdministrationServiceTests
             container.Version,
             TestContext.Current.CancellationToken);
 
+        // Assert
         Assert.False(container.IsMonitoringEnabled);
         Assert.True(server.IsMonitoringEnabled);
     }
@@ -435,9 +476,10 @@ public class ObjectAdministrationServiceTests
     [Fact]
     public async Task UpdateContainerAsync_EndpointChangeAfterRecovery_CancelsPendingRecoveryForIncident()
     {
+        // Arrange
         TestData data = new();
         MonitoredServer server = data.AddServer(isMonitoringEnabled: true);
-        MonitoredContainer container = data.AddContainer(server, isMonitoringEnabled: true);
+        MonitoredServer container = data.AddContainer(server, isMonitoringEnabled: true);
         DateTimeOffset checkedAtUtc = new(2026, 8, 25, 10, 0, 0, TimeSpan.Zero);
         container.RecordFailedCheck(checkedAtUtc, failuresBeforeUnavailable: 1);
         Guid incidentId = container.CurrentIncidentId!.Value;
@@ -446,6 +488,7 @@ public class ObjectAdministrationServiceTests
             checkedAtUtc.AddHours(-1),
             checkedAtUtc.AddMinutes(1));
 
+        // Act
         ServiceResult<AdminContainerDto> result = await data.Service.UpdateContainerAsync(
             container.Id,
             "https://changed-container.example/health",
@@ -454,6 +497,7 @@ public class ObjectAdministrationServiceTests
             container.Version,
             TestContext.Current.CancellationToken);
 
+        // Assert
         Assert.True(result.Success);
         Assert.Equal(
             (MonitoringObjectKind.Container,
@@ -466,15 +510,18 @@ public class ObjectAdministrationServiceTests
     [Fact]
     public async Task DeleteContainerAsync_RemovesContainerAndPublishesChange()
     {
+        // Arrange
         TestData data = new();
         MonitoredServer server = data.AddServer(isMonitoringEnabled: true);
-        MonitoredContainer container = data.AddContainer(server, isMonitoringEnabled: true);
+        MonitoredServer container = data.AddContainer(server, isMonitoringEnabled: true);
 
+        // Act
         ServiceResult result = await data.Service.DeleteContainerAsync(
             container.Id,
             container.Version,
             TestContext.Current.CancellationToken);
 
+        // Assert
         Assert.True(result.Success);
         Assert.Empty(data.Containers.Items);
         Assert.Equal(1, data.Publisher.PublishCount);
@@ -486,7 +533,11 @@ public class ObjectAdministrationServiceTests
         // Arrange
         TestData data = new();
         MonitoredServer server = data.AddServer(isMonitoringEnabled: true);
-        MonitoredContainer container = data.AddContainer(server, isMonitoringEnabled: true);
+        MonitoredServer container = data.AddContainer(server, isMonitoringEnabled: true);
+        DateTimeOffset checkedAtUtc = new(2026, 11, 1, 0, 0, 0, TimeSpan.Zero);
+        container.RecordSuccessfulCheck("Orders", checkedAtUtc.AddHours(-1), checkedAtUtc);
+        container.RecordFailedCheck(checkedAtUtc.AddMinutes(1), 1);
+        Guid? incident = container.CurrentIncidentId;
 
         // Act
         ServiceResult result = await data.Service.DeleteServerAsync(
@@ -500,22 +551,29 @@ public class ObjectAdministrationServiceTests
         Assert.Empty(data.Servers.Items);
         Assert.Same(container, Assert.Single(data.Containers.Items));
         Assert.Null(container.ServerId);
+        Assert.Equal(MonitoringStatus.Unavailable, container.Status);
+        Assert.Equal(incident, container.CurrentIncidentId);
+        Assert.Equal(checkedAtUtc.AddHours(-1), container.StartedAtUtc);
+        Assert.Equal(server.Id, Assert.Single(data.UnitOfWork.RemovedBindingTargets));
         Assert.Equal(1, data.Publisher.PublishCount);
     }
 
     [Fact]
     public async Task DeleteServerAsync_WhenContainerCountChanged_ReturnsConflict()
     {
+        // Arrange
         TestData data = new();
         MonitoredServer server = data.AddServer(isMonitoringEnabled: true);
         data.AddContainer(server, isMonitoringEnabled: true);
 
+        // Act
         ServiceResult result = await data.Service.DeleteServerAsync(
             server.Id,
             expectedContainerCount: 0,
             expectedVersion: server.Version,
             TestContext.Current.CancellationToken);
 
+        // Assert
         Assert.False(result.Success);
         Assert.Equal(ServiceErrorType.Conflict, result.Error!.Type);
         Assert.Single(data.Servers.Items);
@@ -570,10 +628,12 @@ public class ObjectAdministrationServiceTests
     [InlineData("DeleteContainer")]
     public async Task AdministrativeUseCase_ForOrdinaryUser_ReturnsForbidden(string operation)
     {
+        // Arrange
         TestData data = new(isAdministrator: false);
         MonitoredServer server = data.AddServer(isMonitoringEnabled: true);
-        MonitoredContainer container = data.AddContainer(server, isMonitoringEnabled: true);
+        MonitoredServer container = data.AddContainer(server, isMonitoringEnabled: true);
 
+        // Act
         ServiceError error = operation switch
         {
             "GetServers" => (await data.Service.GetServersAsync(TestContext.Current.CancellationToken)).Error!,
@@ -588,6 +648,7 @@ public class ObjectAdministrationServiceTests
             _ => throw new ArgumentOutOfRangeException(nameof(operation), operation, "Неизвестная операция.")
         };
 
+        // Assert
         Assert.Equal(ServiceErrorType.Forbidden, error.Type);
         Assert.Equal(0, data.UnitOfWork.SaveCount);
         Assert.Equal(0, data.Publisher.PublishCount);
@@ -637,9 +698,9 @@ public class ObjectAdministrationServiceTests
             return server;
         }
 
-        public MonitoredContainer AddContainer(MonitoredServer server, bool isMonitoringEnabled)
+        public MonitoredServer AddContainer(MonitoredServer server, bool isMonitoringEnabled)
         {
-            MonitoredContainer container = new(
+            MonitoredServer container = MonitoredServer.CreateApplication(
                 Guid.NewGuid(),
                 server.Id,
                 $"https://container-{Containers.Items.Count}.example/health",
@@ -679,6 +740,14 @@ public class ObjectAdministrationServiceTests
         public IMonitoredServerRepository MonitoredServers { get; } = servers;
 
         public IMonitoredContainerRepository MonitoredContainers { get; } = containers;
+
+        public Task RemoveNotificationBindingsAsync(Guid targetId, CancellationToken cancellationToken = default)
+        {
+            RemovedBindingTargets.Add(targetId);
+            return Task.CompletedTask;
+        }
+
+        public List<Guid> RemovedBindingTargets { get; } = [];
 
         public int SaveCount { get; private set; }
 
@@ -729,23 +798,38 @@ public class ObjectAdministrationServiceTests
     {
         public List<MonitoredServer> Items { get; } = [];
 
-        public Task<IReadOnlyList<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<MonitoredServer>>(Items.ToList());
+        public Task<IReadOnlyList<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>(Items.ToList());
+        }
 
-        public Task<IReadOnlyList<MonitoredServer>> GetEnabledAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<MonitoredServer>>(
+        public Task<IReadOnlyList<MonitoredServer>> GetEnabledAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>(
                 Items.Where(item => item.IsMonitoringEnabled).ToList());
+        }
 
         public Task<MonitoredServer?> GetItemByIdAsync(
             Guid id,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult(Items.SingleOrDefault(item => item.Id == id));
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Items.SingleOrDefault(item => item.Id == id));
+        }
 
-        public void Create(MonitoredServer item) => Items.Add(item);
+        public void Create(MonitoredServer item)
+        {
+            Items.Add(item);
+        }
 
-        public void CreateRange(IEnumerable<MonitoredServer> entities) => Items.AddRange(entities);
+        public void CreateRange(IEnumerable<MonitoredServer> entities)
+        {
+            Items.AddRange(entities);
+        }
 
-        public void Delete(MonitoredServer item) => Items.Remove(item);
+        public void Delete(MonitoredServer item)
+        {
+            Items.Remove(item);
+        }
 
         public void DeleteRange(IEnumerable<MonitoredServer> entities)
         {
@@ -758,35 +842,52 @@ public class ObjectAdministrationServiceTests
 
     private class FakeContainerRepository : IMonitoredContainerRepository
     {
-        public List<MonitoredContainer> Items { get; } = [];
+        public List<MonitoredServer> Items { get; } = [];
 
-        public Task<IReadOnlyList<MonitoredContainer>> GetAllAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<MonitoredContainer>>(Items.ToList());
-
-        public Task<IReadOnlyList<MonitoredContainer>> GetEnabledAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<MonitoredContainer>>(
-                Items.Where(item => item.IsMonitoringEnabled).ToList());
-
-        public Task<IReadOnlyList<MonitoredContainer>> GetByServerIdAsync(
-            Guid serverId,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<MonitoredContainer>>(
-                Items.Where(item => item.ServerId == serverId).ToList());
-
-        public Task<MonitoredContainer?> GetItemByIdAsync(
-            Guid id,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult(Items.SingleOrDefault(item => item.Id == id));
-
-        public void Create(MonitoredContainer item) => Items.Add(item);
-
-        public void CreateRange(IEnumerable<MonitoredContainer> entities) => Items.AddRange(entities);
-
-        public void Delete(MonitoredContainer item) => Items.Remove(item);
-
-        public void DeleteRange(IEnumerable<MonitoredContainer> entities)
+        public Task<IReadOnlyList<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default)
         {
-            foreach (MonitoredContainer entity in entities.ToList())
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>(Items.ToList());
+        }
+
+        public Task<IReadOnlyList<MonitoredServer>> GetEnabledAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>(
+                Items.Where(item => item.IsMonitoringEnabled).ToList());
+        }
+
+        public Task<IReadOnlyList<MonitoredServer>> GetByServerIdAsync(
+            Guid serverId,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>(
+                Items.Where(item => item.ServerId == serverId).ToList());
+        }
+
+        public Task<MonitoredServer?> GetItemByIdAsync(
+            Guid id,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Items.SingleOrDefault(item => item.Id == id));
+        }
+
+        public void Create(MonitoredServer item)
+        {
+            Items.Add(item);
+        }
+
+        public void CreateRange(IEnumerable<MonitoredServer> entities)
+        {
+            Items.AddRange(entities);
+        }
+
+        public void Delete(MonitoredServer item)
+        {
+            Items.Remove(item);
+        }
+
+        public void DeleteRange(IEnumerable<MonitoredServer> entities)
+        {
+            foreach (MonitoredServer entity in entities.ToList())
             {
                 Items.Remove(entity);
             }

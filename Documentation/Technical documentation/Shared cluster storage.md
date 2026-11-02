@@ -1,5 +1,11 @@
 # Хранение общих данных сетки
 
+## Единая сущность мониторинга (2026-11-01)
+
+Wire-коды DeletedEntityKind.Server / Container сохранены: Container означает ServerType.Application. RevisionDomainMapper создаёт MonitoredServer обоих типов; ProjectionWriteSet.Servers — общий набор. При replay сохраняются parent link, monitoring и notification binding references; тип существующей цели не меняется.
+
+SnapshotMonitoringCompatibility после проверки manifest/hash/chunks преобразует точные прежние monitoring rows, сохраняя ID, parent и состояние. Имя приложения берётся из принятого Name или «Приложение {id:N}». Неизвестные поля отвергаются; затем обязательны строгие schema/image проверки. Исходный файл и digest не переписываются. Старые узлы новый формат не читают: смешанный rollout несовместим, узлы требуется обновлять согласованно после подготовки схемы. Migration 20261101161617_UnifyMonitoredServersAndApplications создана, к БД не применена.
+
 ## Эксплуатационный образ (09)
 
 RevisionImage.Operations хранит nodes/public trust, membership intents/results, activation, MaintenanceId, BotId и sender epoch в том же log/snapshot. ClusterOperationsProjection использует существующие ClusterMember/PeerTrustCredential/MembershipChange; новой migration нет. Pending Node.* идёт приоритетным существующим путём, с прежними лимитами 10000/1000 и Data Protection. Lifecycle held confirmation сверяет OperationsRevision и создаёт Replace, не выпускает исходный backup Pending.

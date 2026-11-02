@@ -614,60 +614,94 @@ public class TelegramOutboxDispatcherTests
         : IMonitoredServerRepository
     {
         public async Task<IReadOnlyList<MonitoredServer>> GetAllAsync(
-            CancellationToken cancellationToken = default) =>
-            await context.MonitoredServers.AsNoTracking().ToListAsync(cancellationToken);
+            CancellationToken cancellationToken = default)
+        {
+            return await context.MonitoredServers.AsNoTracking().ToListAsync(cancellationToken);
+        }
 
         public async Task<IReadOnlyList<MonitoredServer>> GetEnabledAsync(
-            CancellationToken cancellationToken = default) =>
-            await context.MonitoredServers.AsNoTracking()
+            CancellationToken cancellationToken = default)
+        {
+            return await context.MonitoredServers.AsNoTracking()
                 .Where(server => server.IsMonitoringEnabled)
                 .ToListAsync(cancellationToken);
+        }
 
         public Task<MonitoredServer?> GetItemByIdAsync(
             Guid id,
-            CancellationToken cancellationToken = default) =>
-            context.MonitoredServers.SingleOrDefaultAsync(server => server.Id == id, cancellationToken);
+            CancellationToken cancellationToken = default)
+        {
+            return context.MonitoredServers.SingleOrDefaultAsync(server => server.Id == id, cancellationToken);
+        }
 
-        public void Create(MonitoredServer item) => context.MonitoredServers.Add(item);
+        public void Create(MonitoredServer item)
+        {
+            context.MonitoredServers.Add(item);
+        }
 
-        public void CreateRange(IEnumerable<MonitoredServer> entities) =>
+        public void CreateRange(IEnumerable<MonitoredServer> entities)
+        {
             context.MonitoredServers.AddRange(entities);
+        }
 
-        public void Delete(MonitoredServer item) => context.MonitoredServers.Remove(item);
+        public void Delete(MonitoredServer item)
+        {
+            context.MonitoredServers.Remove(item);
+        }
 
-        public void DeleteRange(IEnumerable<MonitoredServer> entities) =>
+        public void DeleteRange(IEnumerable<MonitoredServer> entities)
+        {
             context.MonitoredServers.RemoveRange(entities);
+        }
     }
 
     private class EmptyContainerRepository : IMonitoredContainerRepository
     {
-        public Task<IReadOnlyList<MonitoredContainer>> GetAllAsync(
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<MonitoredContainer>>([]);
+        public Task<IReadOnlyList<MonitoredServer>> GetAllAsync(
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>([]);
+        }
 
-        public Task<IReadOnlyList<MonitoredContainer>> GetEnabledAsync(
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<MonitoredContainer>>([]);
+        public Task<IReadOnlyList<MonitoredServer>> GetEnabledAsync(
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>([]);
+        }
 
-        public Task<IReadOnlyList<MonitoredContainer>> GetByServerIdAsync(
+        public Task<IReadOnlyList<MonitoredServer>> GetByServerIdAsync(
             Guid serverId,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<MonitoredContainer>>([]);
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>([]);
+        }
 
-        public Task<MonitoredContainer?> GetItemByIdAsync(
+        public Task<MonitoredServer?> GetItemByIdAsync(
             Guid id,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult<MonitoredContainer?>(null);
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<MonitoredServer?>(null);
+        }
 
-        public void Create(MonitoredContainer item) => throw new NotSupportedException();
-
-        public void CreateRange(IEnumerable<MonitoredContainer> entities) =>
+        public void Create(MonitoredServer item)
+        {
             throw new NotSupportedException();
+        }
 
-        public void Delete(MonitoredContainer item) => throw new NotSupportedException();
-
-        public void DeleteRange(IEnumerable<MonitoredContainer> entities) =>
+        public void CreateRange(IEnumerable<MonitoredServer> entities)
+        {
             throw new NotSupportedException();
+        }
+
+        public void Delete(MonitoredServer item)
+        {
+            throw new NotSupportedException();
+        }
+
+        public void DeleteRange(IEnumerable<MonitoredServer> entities)
+        {
+            throw new NotSupportedException();
+        }
     }
 
     private class MutableTimeProvider(DateTimeOffset utcNow) : TimeProvider

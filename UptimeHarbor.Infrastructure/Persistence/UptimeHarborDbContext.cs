@@ -17,8 +17,6 @@ public class UptimeHarborDbContext(
 {
     public DbSet<MonitoredServer> MonitoredServers => Set<MonitoredServer>();
 
-    public DbSet<MonitoredContainer> MonitoredContainers => Set<MonitoredContainer>();
-
     public DbSet<ServerVisibilityPermission> ServerVisibilityPermissions => Set<ServerVisibilityPermission>();
 
     public DbSet<ContainerVisibilityPermission> ContainerVisibilityPermissions => Set<ContainerVisibilityPermission>();

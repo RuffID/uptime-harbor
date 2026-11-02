@@ -32,7 +32,7 @@ public class NotificationAdministrationService(
             await unitOfWork.NotificationBindings.GetAllAsync(cancellationToken);
         IReadOnlyList<MonitoredServer> servers =
             await unitOfWork.MonitoredServers.GetAllAsync(cancellationToken);
-        IReadOnlyList<MonitoredContainer> containers =
+        IReadOnlyList<MonitoredServer> containers =
             await unitOfWork.MonitoredContainers.GetAllAsync(cancellationToken);
 
         List<NotificationTargetDto> targets = servers
@@ -45,7 +45,7 @@ public class NotificationAdministrationService(
                 container.Id,
                 MonitoringObjectKind.Container,
                 container.ServerId,
-                GetDisplayName(container.LastKnownName, container.Id))))
+                container.Name)))
             .ToList();
 
         return ServiceResult<NotificationSettingsDto>.Ok(new NotificationSettingsDto(
@@ -268,14 +268,14 @@ public class NotificationAdministrationService(
         }
         else
         {
-            MonitoredContainer? container = await unitOfWork.MonitoredContainers.GetItemByIdAsync(
+            MonitoredServer? container = await unitOfWork.MonitoredContainers.GetItemByIdAsync(
                 objectId,
                 cancellationToken);
             if (container is null)
             {
                 return ServiceResult<NotificationBindingDto>.Fail(
                     ServiceErrorType.Validation,
-                    "Контейнер не найден.",
+                    "Приложение не найдено.",
                     "objectId");
             }
 
@@ -345,9 +345,6 @@ public class NotificationAdministrationService(
 
         return null;
     }
-
-    private static string GetDisplayName(string? name, Guid id) =>
-        name ?? $"Имя не получено · {id.ToString("N")[..8]}";
 
     private static TelegramChatDto MapChat(TelegramChat chat) =>
         new(chat.Id, chat.TelegramChatId, chat.Name);

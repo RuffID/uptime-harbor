@@ -104,10 +104,12 @@ public class MonitoringServiceTests
     [Fact]
     public async Task ServerAndContainer_AreUpdatedIndependently()
     {
+        // Arrange
         TestData data = new();
         MonitoredServer server = data.AddServer(isMonitoringEnabled: true);
-        MonitoredContainer container = data.AddContainer(server, isMonitoringEnabled: true);
+        MonitoredServer container = data.AddContainer(server, isMonitoringEnabled: true);
 
+        // Act
         await data.RecordServerFailureAsync(server, CHECKED_AT_UTC);
         await data.RecordServerFailureAsync(server, CHECKED_AT_UTC.AddSeconds(30));
         await data.RecordServerFailureAsync(server, CHECKED_AT_UTC.AddSeconds(60));
@@ -121,6 +123,7 @@ public class MonitoringServiceTests
             3,
             TestContext.Current.CancellationToken);
 
+        // Assert
         Assert.Equal(MonitoringStatus.Unavailable, server.Status);
         Assert.Equal(MonitoringStatus.Available, container.Status);
         Assert.Equal(CHECKED_AT_UTC.AddHours(-1), container.StartedAtUtc);
@@ -222,11 +225,11 @@ public class MonitoringServiceTests
             return server;
         }
 
-        public MonitoredContainer AddContainer(
+        public MonitoredServer AddContainer(
             MonitoredServer server,
             bool isMonitoringEnabled)
         {
-            MonitoredContainer container = new(
+            MonitoredServer container = MonitoredServer.CreateApplication(
                 Guid.NewGuid(),
                 server.Id,
                 $"https://container-{Containers.Items.Count}.example/health",
@@ -296,23 +299,38 @@ public class MonitoringServiceTests
     {
         public List<MonitoredServer> Items { get; } = [];
 
-        public Task<IReadOnlyList<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<MonitoredServer>>(Items.ToList());
+        public Task<IReadOnlyList<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>(Items.ToList());
+        }
 
-        public Task<IReadOnlyList<MonitoredServer>> GetEnabledAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<MonitoredServer>>(
+        public Task<IReadOnlyList<MonitoredServer>> GetEnabledAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>(
                 Items.Where(item => item.IsMonitoringEnabled).ToList());
+        }
 
         public Task<MonitoredServer?> GetItemByIdAsync(
             Guid id,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult(Items.SingleOrDefault(item => item.Id == id));
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Items.SingleOrDefault(item => item.Id == id));
+        }
 
-        public void Create(MonitoredServer item) => Items.Add(item);
+        public void Create(MonitoredServer item)
+        {
+            Items.Add(item);
+        }
 
-        public void CreateRange(IEnumerable<MonitoredServer> entities) => Items.AddRange(entities);
+        public void CreateRange(IEnumerable<MonitoredServer> entities)
+        {
+            Items.AddRange(entities);
+        }
 
-        public void Delete(MonitoredServer item) => Items.Remove(item);
+        public void Delete(MonitoredServer item)
+        {
+            Items.Remove(item);
+        }
 
         public void DeleteRange(IEnumerable<MonitoredServer> entities)
         {
@@ -325,35 +343,52 @@ public class MonitoringServiceTests
 
     private class FakeContainerRepository : IMonitoredContainerRepository
     {
-        public List<MonitoredContainer> Items { get; } = [];
+        public List<MonitoredServer> Items { get; } = [];
 
-        public Task<IReadOnlyList<MonitoredContainer>> GetAllAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<MonitoredContainer>>(Items.ToList());
-
-        public Task<IReadOnlyList<MonitoredContainer>> GetEnabledAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<MonitoredContainer>>(
-                Items.Where(item => item.IsMonitoringEnabled).ToList());
-
-        public Task<IReadOnlyList<MonitoredContainer>> GetByServerIdAsync(
-            Guid serverId,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<MonitoredContainer>>(
-                Items.Where(item => item.ServerId == serverId).ToList());
-
-        public Task<MonitoredContainer?> GetItemByIdAsync(
-            Guid id,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult(Items.SingleOrDefault(item => item.Id == id));
-
-        public void Create(MonitoredContainer item) => Items.Add(item);
-
-        public void CreateRange(IEnumerable<MonitoredContainer> entities) => Items.AddRange(entities);
-
-        public void Delete(MonitoredContainer item) => Items.Remove(item);
-
-        public void DeleteRange(IEnumerable<MonitoredContainer> entities)
+        public Task<IReadOnlyList<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default)
         {
-            foreach (MonitoredContainer entity in entities.ToList())
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>(Items.ToList());
+        }
+
+        public Task<IReadOnlyList<MonitoredServer>> GetEnabledAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>(
+                Items.Where(item => item.IsMonitoringEnabled).ToList());
+        }
+
+        public Task<IReadOnlyList<MonitoredServer>> GetByServerIdAsync(
+            Guid serverId,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>(
+                Items.Where(item => item.ServerId == serverId).ToList());
+        }
+
+        public Task<MonitoredServer?> GetItemByIdAsync(
+            Guid id,
+            CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Items.SingleOrDefault(item => item.Id == id));
+        }
+
+        public void Create(MonitoredServer item)
+        {
+            Items.Add(item);
+        }
+
+        public void CreateRange(IEnumerable<MonitoredServer> entities)
+        {
+            Items.AddRange(entities);
+        }
+
+        public void Delete(MonitoredServer item)
+        {
+            Items.Remove(item);
+        }
+
+        public void DeleteRange(IEnumerable<MonitoredServer> entities)
+        {
+            foreach (MonitoredServer entity in entities.ToList())
             {
                 Items.Remove(entity);
             }

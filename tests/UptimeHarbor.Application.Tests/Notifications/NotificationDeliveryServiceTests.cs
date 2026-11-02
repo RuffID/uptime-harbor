@@ -14,7 +14,7 @@ public class NotificationDeliveryServiceTests
     {
         // Arrange
         NotificationTestData data = new();
-        MonitoredContainer container = new(Guid.NewGuid(), null, "https://api.example/health", null, true);
+        MonitoredServer container = MonitoredServer.CreateApplication(Guid.NewGuid(), null, "https://api.example/health", null, true);
         TelegramChat chat = data.AddChat(-1001, "API");
         data.Bindings.Items.Add(NotificationBinding.ForContainer(Guid.NewGuid(), chat.Id, container.Id));
 
@@ -31,6 +31,7 @@ public class NotificationDeliveryServiceTests
     [Fact]
     public async Task Outage_DeliversToEveryBoundChatButNotUnboundChat()
     {
+        // Arrange
         NotificationTestData data = new();
         MonitoredServer server = data.AddServer("server-01");
         TelegramChat firstChat = data.AddChat(-1001, "Первый");
@@ -40,11 +41,13 @@ public class NotificationDeliveryServiceTests
         data.Bindings.Items.Add(NotificationBinding.ForServer(Guid.NewGuid(), secondChat.Id, server.Id));
         Guid incidentId = Guid.NewGuid();
 
+        // Act
         IReadOnlyList<PendingNotificationDeliveryDto> deliveries =
             await data.DeliveryService.GetPendingDeliveriesAsync(
                 CreateEvent(server, incidentId, MonitoringStatus.Unavailable),
                 TestContext.Current.CancellationToken);
 
+        // Assert
         Assert.Equal(2, deliveries.Count);
         Assert.Equal([firstChat.Id, secondChat.Id], deliveries.Select(item => item.Recipient.Id).ToList());
     }
@@ -52,6 +55,7 @@ public class NotificationDeliveryServiceTests
     [Fact]
     public async Task ReprocessingOutage_DeliversOnlyToPreviouslyUnsuccessfulBinding()
     {
+        // Arrange
         NotificationTestData data = new();
         MonitoredServer server = data.AddServer("server-01");
         TelegramChat firstChat = data.AddChat(-1001, "Первый");
@@ -62,11 +66,13 @@ public class NotificationDeliveryServiceTests
         Guid incidentId = Guid.NewGuid();
         first.MarkOutageDelivered(incidentId);
 
+        // Act
         IReadOnlyList<PendingNotificationDeliveryDto> deliveries =
             await data.DeliveryService.GetPendingDeliveriesAsync(
                 CreateEvent(server, incidentId, MonitoringStatus.Unavailable),
                 TestContext.Current.CancellationToken);
 
+        // Assert
         PendingNotificationDeliveryDto delivery = Assert.Single(deliveries);
         Assert.Equal(second.Id, delivery.BindingId);
     }
@@ -74,6 +80,7 @@ public class NotificationDeliveryServiceTests
     [Fact]
     public async Task Recovery_DeliversOnlyToBindingsWithSuccessfulOutageForSameIncident()
     {
+        // Arrange
         NotificationTestData data = new();
         MonitoredServer server = data.AddServer("server-01");
         TelegramChat firstChat = data.AddChat(-1001, "Первый");
@@ -84,11 +91,13 @@ public class NotificationDeliveryServiceTests
         Guid incidentId = Guid.NewGuid();
         first.MarkOutageDelivered(incidentId);
 
+        // Act
         IReadOnlyList<PendingNotificationDeliveryDto> deliveries =
             await data.DeliveryService.GetPendingDeliveriesAsync(
                 CreateEvent(server, incidentId, MonitoringStatus.Available),
                 TestContext.Current.CancellationToken);
 
+        // Assert
         PendingNotificationDeliveryDto delivery = Assert.Single(deliveries);
         Assert.Equal(first.Id, delivery.BindingId);
         Assert.Equal(NotificationDeliveryKind.Recovery, delivery.Kind);
@@ -97,6 +106,7 @@ public class NotificationDeliveryServiceTests
     [Fact]
     public async Task SuccessfulRecovery_IsNotRepeated()
     {
+        // Arrange
         NotificationTestData data = new();
         MonitoredServer server = data.AddServer("server-01");
         TelegramChat chat = data.AddChat(-1001, "Первый");
@@ -106,22 +116,26 @@ public class NotificationDeliveryServiceTests
         binding.MarkOutageDelivered(incidentId);
         binding.MarkRecoveryDelivered(incidentId);
 
+        // Act
         IReadOnlyList<PendingNotificationDeliveryDto> deliveries =
             await data.DeliveryService.GetPendingDeliveriesAsync(
                 CreateEvent(server, incidentId, MonitoringStatus.Available),
                 TestContext.Current.CancellationToken);
 
+        // Assert
         Assert.Empty(deliveries);
     }
 
     [Fact]
     public async Task FirstSecondFailuresAndManualDisable_DoNotCreateDeliveries()
     {
+        // Arrange
         NotificationTestData data = new();
         MonitoredServer server = data.AddServer();
         TelegramChat chat = data.AddChat(-1001, "Первый");
         data.Bindings.Items.Add(NotificationBinding.ForServer(Guid.NewGuid(), chat.Id, server.Id));
 
+        // Act
         IReadOnlyList<PendingNotificationDeliveryDto> failureDeliveries =
             await data.DeliveryService.GetPendingDeliveriesAsync(
                 CreateEvent(server, null, MonitoringStatus.Unknown),
@@ -131,6 +145,7 @@ public class NotificationDeliveryServiceTests
                 CreateEvent(server, null, MonitoringStatus.Unknown, MonitoringTransition.MonitoringDisabled),
                 TestContext.Current.CancellationToken);
 
+        // Assert
         Assert.Empty(failureDeliveries);
         Assert.Empty(disabledDeliveries);
     }
@@ -138,19 +153,22 @@ public class NotificationDeliveryServiceTests
     [Fact]
     public async Task ServerAndContainerBindings_AreIndependent()
     {
+        // Arrange
         NotificationTestData data = new();
         MonitoredServer server = data.AddServer("server-01");
-        MonitoredContainer container = data.AddContainer(server, "app-01");
+        MonitoredServer container = data.AddContainer(server, "app-01");
         TelegramChat serverChat = data.AddChat(-1001, "Серверы");
         TelegramChat containerChat = data.AddChat(-1002, "Контейнеры");
         data.Bindings.Items.Add(NotificationBinding.ForServer(Guid.NewGuid(), serverChat.Id, server.Id));
         data.Bindings.Items.Add(NotificationBinding.ForContainer(Guid.NewGuid(), containerChat.Id, container.Id));
 
+        // Act
         IReadOnlyList<PendingNotificationDeliveryDto> deliveries =
             await data.DeliveryService.GetPendingDeliveriesAsync(
                 CreateEvent(container, Guid.NewGuid(), MonitoringStatus.Unavailable),
                 TestContext.Current.CancellationToken);
 
+        // Assert
         PendingNotificationDeliveryDto delivery = Assert.Single(deliveries);
         Assert.Equal(containerChat.Id, delivery.Recipient.Id);
         Assert.Contains("Родительский сервер: Server 0", delivery.Message, StringComparison.Ordinal);
@@ -159,21 +177,24 @@ public class NotificationDeliveryServiceTests
     [Fact]
     public async Task ContainerRecovery_UsesFallbackUtcAndTimeProviderUptime()
     {
+        // Arrange
         DateTimeOffset nowUtc = new(2026, 8, 25, 12, 0, 0, TimeSpan.Zero);
         NotificationTestData data = new(nowUtc: nowUtc);
         MonitoredServer server = data.AddServer();
-        MonitoredContainer container = data.AddContainer(server);
+        MonitoredServer container = data.AddContainer(server);
         TelegramChat chat = data.AddChat(-1001, "Контейнеры");
         NotificationBinding binding = NotificationBinding.ForContainer(Guid.NewGuid(), chat.Id, container.Id);
         data.Bindings.Items.Add(binding);
         Guid incidentId = Guid.NewGuid();
         binding.MarkOutageDelivered(incidentId);
 
+        // Act
         IReadOnlyList<PendingNotificationDeliveryDto> deliveries =
             await data.DeliveryService.GetPendingDeliveriesAsync(
                 CreateEvent(container, incidentId, MonitoringStatus.Available),
                 TestContext.Current.CancellationToken);
 
+        // Assert
         string message = Assert.Single(deliveries).Message;
         Assert.Contains(container.Id.ToString("N")[..8], message, StringComparison.Ordinal);
         Assert.Contains(server.Name, message, StringComparison.Ordinal);
@@ -204,40 +225,43 @@ public class NotificationDeliveryServiceTests
         MonitoredServer server,
         Guid? incidentId,
         MonitoringStatus status,
-        MonitoringTransition transition = MonitoringTransition.None) =>
-        new(
+        MonitoringTransition transition = MonitoringTransition.None)
+    {
+        MonitoringObjectKind kind = MonitoringObjectKind.Server;
+        DateTimeOffset? startedAt = null;
+        if (server.Type == ServerType.Application)
+        {
+            kind = MonitoringObjectKind.Container;
+            startedAt = new DateTimeOffset(2026, 8, 25, 10, 0, 0, TimeSpan.Zero);
+            if (status == MonitoringStatus.Unavailable)
+            {
+                transition = MonitoringTransition.BecameUnavailable;
+            }
+            else
+            {
+                transition = MonitoringTransition.Recovered;
+            }
+        }
+
+        int failures = 0;
+        if (status == MonitoringStatus.Unavailable)
+        {
+            failures = 3;
+        }
+
+        return new MonitoringStateChangedEvent(
             server.Id,
-            MonitoringObjectKind.Server,
-            null,
+            kind,
+            server.ServerId,
             server.LastKnownName,
             server.Description,
             status,
             incidentId,
-            status == MonitoringStatus.Unavailable ? 3 : 0,
+            failures,
             new DateTimeOffset(2026, 8, 25, 12, 0, 0, TimeSpan.Zero),
-            null,
+            startedAt,
             transition,
             status == MonitoringStatus.Available,
             null);
-
-    private static MonitoringStateChangedEvent CreateEvent(
-        MonitoredContainer container,
-        Guid incidentId,
-        MonitoringStatus status) =>
-        new(
-            container.Id,
-            MonitoringObjectKind.Container,
-            container.ServerId,
-            container.LastKnownName,
-            container.Description,
-            status,
-            incidentId,
-            status == MonitoringStatus.Unavailable ? 3 : 0,
-            new DateTimeOffset(2026, 8, 25, 12, 0, 0, TimeSpan.Zero),
-            new DateTimeOffset(2026, 8, 25, 10, 0, 0, TimeSpan.Zero),
-            status == MonitoringStatus.Unavailable
-                ? MonitoringTransition.BecameUnavailable
-                : MonitoringTransition.Recovered,
-            status == MonitoringStatus.Available,
-            null);
+    }
 }

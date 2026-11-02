@@ -13,6 +13,26 @@ namespace UptimeHarbor.Tests.Application.Notifications;
 public class NotificationAdministrationServiceTests
 {
     [Fact]
+    public async Task GetSettings_ApplicationTargetUsesAdministrativeName()
+    {
+        // Arrange
+        NotificationTestData data = new();
+        MonitoredServer server = data.AddServer();
+        MonitoredServer application = data.AddContainer(server, "process-name");
+        application.UpdateSettings("Orders", application.EndpointUrl, application.Description, true);
+
+        // Act
+        ServiceResult<NotificationSettingsDto> result = await data.AdministrationService.GetSettingsAsync(
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.True(result.Success);
+        NotificationTargetDto target = Assert.Single(result.Data!.Targets, item => item.Id == application.Id);
+        Assert.Equal("Orders", target.DisplayName);
+        Assert.Equal("process-name", application.LastKnownName);
+    }
+
+    [Fact]
     public async Task TestSendRechecksAcceptedAccountImmediatelyBeforeTransport()
     {
         // Arrange

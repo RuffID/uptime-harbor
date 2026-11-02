@@ -14,7 +14,7 @@ public class MonitoringService(
     {
         IReadOnlyList<MonitoredServer> servers =
             await unitOfWork.MonitoredServers.GetEnabledAsync(cancellationToken);
-        IReadOnlyList<MonitoredContainer> containers =
+        IReadOnlyList<MonitoredServer> containers =
             await unitOfWork.MonitoredContainers.GetEnabledAsync(cancellationToken);
 
         List<MonitoringTargetDto> targets = new(servers.Count + containers.Count);
@@ -82,7 +82,7 @@ public class MonitoringService(
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(result);
-        MonitoredContainer? container = await unitOfWork.MonitoredContainers.GetItemByIdAsync(
+        MonitoredServer? container = await unitOfWork.MonitoredContainers.GetItemByIdAsync(
             containerId,
             cancellationToken);
         if (!CanApplyResult(container, checkedEndpointUrl))
@@ -90,12 +90,18 @@ public class MonitoringService(
             return false;
         }
 
-        MonitoringTransition transition = result.Success
-            ? container!.RecordSuccessfulCheck(
+        MonitoringTransition transition;
+        if (result.Success)
+        {
+            transition = container!.RecordSuccessfulCheck(
                 result.Name ?? throw new InvalidOperationException("Успешная проверка контейнера должна содержать имя."),
                 result.StartedAtUtc ?? throw new InvalidOperationException("Успешная проверка контейнера должна содержать время запуска."),
-                result.CheckedAtUtc)
-            : container!.RecordFailedCheck(result.CheckedAtUtc, failuresBeforeUnavailable);
+                result.CheckedAtUtc);
+        }
+        else
+        {
+            transition = container!.RecordFailedCheck(result.CheckedAtUtc, failuresBeforeUnavailable);
+        }
 
         MonitoringStateChangedEvent monitoringEvent =
             CreateEvent(container, transition, result.Success, result.FailureKind);
@@ -138,10 +144,16 @@ public class MonitoringService(
         bool checkSucceeded,
         EndpointCheckFailureKind? failureKind)
     {
+        MonitoringObjectKind kind = MonitoringObjectKind.Server;
+        if (server.Type == ServerType.Application)
+        {
+            kind = MonitoringObjectKind.Container;
+        }
+
         return new MonitoringStateChangedEvent(
             server.Id,
-            MonitoringObjectKind.Server,
-            null,
+            kind,
+            server.ServerId,
             server.LastKnownName,
             server.Description,
             server.Status,
@@ -155,26 +167,4 @@ public class MonitoringService(
             failureKind);
     }
 
-    private static MonitoringStateChangedEvent CreateEvent(
-        MonitoredContainer container,
-        MonitoringTransition transition,
-        bool checkSucceeded,
-        EndpointCheckFailureKind? failureKind)
-    {
-        return new MonitoringStateChangedEvent(
-            container.Id,
-            MonitoringObjectKind.Container,
-            container.ServerId,
-            container.LastKnownName,
-            container.Description,
-            container.Status,
-            container.CurrentIncidentId,
-            container.ConsecutiveFailures,
-            container.LastCheckedAtUtc
-                ?? throw new InvalidOperationException("Сохранённый результат должен содержать время проверки."),
-            container.StartedAtUtc,
-            transition,
-            checkSucceeded,
-            failureKind);
-    }
 }

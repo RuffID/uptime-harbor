@@ -7,7 +7,7 @@
 
 @if (Cluster.Value.Enabled)
 {
-    <partial name="_ClusterAdministration" model='@("Server")' />
+    <partial name="_ClusterAdministration" model='@("Monitoring")' />
 }
 else
 {
@@ -29,8 +29,16 @@ else
                        name="dashboardSearch"
                        type="search"
                        autocomplete="off"
-                       placeholder="Найти сервер или контейнер"
+                       placeholder="Найти сервер или приложение"
                        data-dashboard-search />
+            </div>
+            <div>
+                <label class="visually-hidden" for="dashboardType">Тип объекта</label>
+                <select class="form-select form-select-sm" id="dashboardType" name="type" data-dashboard-type>
+                    <option value="">Все типы</option>
+                    <option value="Server">Серверы</option>
+                    <option value="Application">Приложения</option>
+                </select>
             </div>
             <div class="monitoring-status-filter flex-shrink-0">
                 <label class="visually-hidden" for="dashboardStatus">Статус</label>
@@ -42,7 +50,13 @@ else
                 </select>
             </div>
         </div>
-        <button class="btn btn-sm btn-outline-secondary" type="button" data-dashboard-refresh>Обновить</button>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-secondary" type="button" data-dashboard-refresh>Обновить</button>
+            @if (User.IsInRole(UptimeHarbor.Application.Security.ApplicationRoles.ADMINISTRATOR))
+            {
+                <button class="btn btn-sm btn-primary" type="button" data-monitoring-create>Создать</button>
+            }
+        </div>
     </div>
 
     <div class="card border-0 bg-body-tertiary" data-dashboard-state role="status" aria-live="polite">
@@ -53,6 +67,10 @@ else
     </div>
 
     <div data-dashboard-content hidden></div>
+    @if (User.IsInRole(UptimeHarbor.Application.Security.ApplicationRoles.ADMINISTRATOR))
+    {
+        <partial name="_MonitoringEditor" />
+    }
 </section>
 }
 

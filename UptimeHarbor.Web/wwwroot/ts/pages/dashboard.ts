@@ -1,4 +1,7 @@
-import { createDataTable } from "../shared/dataTable.js";
+import { createDataTable, createTableAction } from "../shared/dataTable.js";
+import { initializeMonitoringEditor } from "./monitoringEditor.js";
+import { selectMonitoringObjects } from "./monitoringSnapshot.js";
+import type { ServerType, DashboardSnapshotDto } from "./monitoringSnapshot.js";
 import { createSearchableRadioSelect } from "../shared/searchableRadioSelect.js";
 import {
     isAbortError,
@@ -11,35 +14,6 @@ enum MonitoringStatus {
     Unknown = 0,
     Available = 1,
     Unavailable = 2
-}
-
-interface DashboardContainerDto {
-    id: string;
-    serverId: string | null;
-    displayName: string;
-    description: string | null;
-    status: MonitoringStatus;
-    lastCheckedAtUtc: string | null;
-    startedAtUtc: string | null;
-    uptimeSeconds: number | null;
-}
-
-interface DashboardServerDto {
-    id: string;
-    name: string;
-    internalName: string | null;
-    description: string | null;
-    status: MonitoringStatus;
-    lastCheckedAtUtc: string | null;
-    startedAtUtc: string | null;
-    uptimeSeconds: number | null;
-    containers: DashboardContainerDto[];
-}
-
-interface DashboardSnapshotDto {
-    generatedAtUtc: string;
-    servers: DashboardServerDto[];
-    unassignedContainers: DashboardContainerDto[];
 }
 
 interface MonitoringObjectChangedMessage {
@@ -73,7 +47,9 @@ const searchInput = requireElement<HTMLInputElement>("[data-dashboard-search]");
 const signalState = requireElement<HTMLElement>("[data-signal-state]");
 const signalStateText = requireElement<HTMLElement>("[data-signal-state-text]");
 const statusFilter = requireElement<HTMLSelectElement>("[data-dashboard-status]");
+const typeFilter = requireElement<HTMLSelectElement>("[data-dashboard-type]");
 let dashboardTable: ReturnType<typeof createDataTable>;
+let monitoringEditor: ReturnType<typeof initializeMonitoringEditor> = null;
 
 document.addEventListener("DOMContentLoaded", () => {
     void initDashboard();
@@ -81,18 +57,35 @@ document.addEventListener("DOMContentLoaded", () => {
 
 async function initDashboard(): Promise<void> {
     createSearchableRadioSelect(statusFilter);
-    dashboardTable = createDataTable(content, "monitoring", "Состояние серверов и контейнеров", [
+    createSearchableRadioSelect(typeFilter);
+    monitoringEditor = initializeMonitoringEditor(() => loadSnapshot(false));
+    document.querySelector<HTMLButtonElement>("[data-monitoring-create]")?.addEventListener("click", () => {
+        void monitoringEditor?.open(null, typeFilter.value === "Application" ? "Application" : "Server");
+    });
+    content.addEventListener("click", event => {
+        if (!(event.target instanceof Element)) return;
+        const button = event.target.closest<HTMLButtonElement>("[data-monitoring-edit-id]");
+        if (!button) return;
+        const type = button.dataset.monitoringKind;
+        if (type !== "Server" && type !== "Application") throw new Error("Неизвестный тип объекта.");
+        void monitoringEditor?.open(button.dataset.monitoringEditId!, type);
+    });
+    dashboardTable = createDataTable(content, "monitoring", "Состояние серверов и приложений", [
         { key: "name", title: "Объект", width: 220 },
         { key: "kind", title: "Тип", width: 120 },
         { key: "server", title: "Сервер", width: 200 },
         { key: "internalName", title: "Внутреннее имя", help: "Имя сервера, полученное при проверке. Заданное администратором имя показывается в колонке «Объект»." },
         { key: "status", title: "Статус", width: 160, help: "Результат мониторинга. «Неизвестно» означает, что актуального результата проверки ещё нет." },
         { key: "checked", title: "Последняя проверка", width: 220, help: "Время последней проверки в UTC." },
-        { key: "started", title: "Запущен", width: 220, help: "Время запуска сервера или контейнера в UTC, полученное при проверке." },
-        { key: "uptime", title: "Текущий uptime", width: 180, help: "Продолжительность работы сервера или контейнера с последнего запуска. Это не процент доступности за период." },
-        { key: "description", title: "Описание", width: 260 }
+        { key: "started", title: "Запущен", width: 220, help: "Время запуска сервера или приложения в UTC, полученное при проверке." },
+        { key: "uptime", title: "Текущий uptime", width: 180, help: "Продолжительность работы сервера или приложения с последнего запуска. Это не процент доступности за период." },
+        { key: "description", title: "Описание", width: 260 },
+        ...(monitoringEditor ? [{ key: "actions", title: "Действия", width: 140 }] : [])
     ]);
     statusFilter.addEventListener("change", () => {
+        if (state.snapshot !== null) renderDashboard(state.snapshot);
+    });
+    typeFilter.addEventListener("change", () => {
         if (state.snapshot !== null) renderDashboard(state.snapshot);
     });
     requireElement<HTMLButtonElement>("[data-dashboard-refresh]")
@@ -244,39 +237,17 @@ async function loadSnapshot(showLoading: boolean): Promise<void> {
 }
 
 function renderDashboard(snapshot: DashboardSnapshotDto): void {
-    const rows: HTMLTableRowElement[] = [];
-    const matchesStatus = (status: MonitoringStatus): boolean => statusFilter.value === "" || String(status) === statusFilter.value;
-    for (const server of snapshot.servers) {
-        if (matchesStatus(server.status)) {
-            rows.push(dashboardTable.row([
-                server.name, "Сервер", "—", server.internalName ?? "Нет данных", createStatusBadge(server.status),
-                formatUtc(server.lastCheckedAtUtc), formatUtc(server.startedAtUtc),
-                formatDuration(server.uptimeSeconds), server.description ?? "—"
-            ]));
-        }
-        for (const container of server.containers) {
-            if (matchesStatus(container.status)) {
-                rows.push(dashboardTable.row([
-                    container.displayName, "Контейнер", server.name, "—", createStatusBadge(container.status),
-                    formatUtc(container.lastCheckedAtUtc), formatUtc(container.startedAtUtc),
-                    formatDuration(container.uptimeSeconds), container.description ?? "—"
-                ]));
-            }
-        }
-    }
-    for (const container of snapshot.unassignedContainers) {
-        if (matchesStatus(container.status)) {
-            rows.push(dashboardTable.row([
-                container.displayName, "Контейнер", "Без сервера", "—", createStatusBadge(container.status),
-                formatUtc(container.lastCheckedAtUtc), formatUtc(container.startedAtUtc),
-                formatDuration(container.uptimeSeconds), container.description ?? "—"
-            ]));
-        }
-    }
+    const objects = selectMonitoringObjects(snapshot, typeFilter.value, statusFilter.value);
+    const rows = objects.map(object => dashboardTable.row([
+        object.name, object.type === "Server" ? "Сервер" : "Приложение", object.serverName,
+        object.internalName ?? "Нет данных", createStatusBadge(object.status),
+        formatUtc(object.lastCheckedAtUtc), formatUtc(object.startedAtUtc),
+        formatDuration(object.uptimeSeconds), object.description ?? "—", ...editAction(object.id, object.type)
+    ]));
 
     dashboardTable.body.replaceChildren(...rows);
     if (rows.length === 0) {
-        const filtered = state.search !== "" || statusFilter.value !== "";
+        const filtered = state.search !== "" || statusFilter.value !== "" || typeFilter.value !== "";
         renderMessage(
             filtered ? "no-results" : "empty",
             filtered
@@ -288,6 +259,14 @@ function renderDashboard(snapshot: DashboardSnapshotDto): void {
     stateContainer.hidden = true;
     content.hidden = false;
     dashboardTable.refresh();
+}
+
+function editAction(id: string, type: ServerType): HTMLButtonElement[] {
+    if (!monitoringEditor) return [];
+    const button = createTableAction("Изменить");
+    button.dataset.monitoringEditId = id;
+    button.dataset.monitoringKind = type;
+    return [button];
 }
 
 function createStatusBadge(status: MonitoringStatus): HTMLElement {

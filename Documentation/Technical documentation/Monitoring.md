@@ -90,6 +90,6 @@ SignalR handler реализован в Web. Он получает из Applicat
 
 ## Конкурентность
 
-Однопроцессная первая версия использует keyed in-memory coordination. Дополнительно `MonitoredServer.Version` и `MonitoredContainer.Version` являются optimistic concurrency token. Если административное изменение фиксируется после повторной проверки объекта, stale monitoring write получает `DbUpdateConcurrencyException`, переводится в `PersistenceConcurrencyException`, очищает tracking и не публикует SignalR-событие или Telegram job. Stale административный request возвращает `409 Conflict`.
+Однопроцессная первая версия использует keyed in-memory coordination. Дополнительно `MonitoredServer.Version` обоих типов Server / Application являются optimistic concurrency token. Если административное изменение фиксируется после повторной проверки объекта, stale monitoring write получает `DbUpdateConcurrencyException`, переводится в `PersistenceConcurrencyException`, очищает tracking и не публикует SignalR-событие или Telegram job. Stale административный request возвращает `409 Conflict`.
 
 Распределённые checks реализованы отдельно от этого Disabled-пути; sender/attempt lifecycle подключён в 07 за общим gate.

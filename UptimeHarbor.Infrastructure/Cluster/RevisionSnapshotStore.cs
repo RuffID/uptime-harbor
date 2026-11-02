@@ -149,6 +149,7 @@ public class RevisionSnapshotStore(IOptions<ClusterOptions> configured)
             throw new InvalidDataException("SnapshotCutMismatch");
         }
 
+        image = SnapshotMonitoringCompatibility.Upgrade(image);
         return new PublishedRevisionSnapshot(manifest, digest, path, image);
     }
 

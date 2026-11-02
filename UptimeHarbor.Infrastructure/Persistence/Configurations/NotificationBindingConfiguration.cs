@@ -29,11 +29,11 @@ public class NotificationBindingConfiguration : IEntityTypeConfiguration<Notific
         builder.HasOne<MonitoredServer>()
             .WithMany()
             .HasForeignKey(binding => binding.ServerId)
-            .OnDelete(DeleteBehavior.Cascade);
-        builder.HasOne<MonitoredContainer>()
+            .OnDelete(DeleteBehavior.NoAction);
+        builder.HasOne<MonitoredServer>()
             .WithMany()
             .HasForeignKey(binding => binding.ContainerId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.NoAction);
         builder.HasIndex(binding => new { binding.TelegramChatId, binding.ServerId })
             .IsUnique()
             .HasDatabaseName(CHAT_SERVER_UNIQUE_INDEX)

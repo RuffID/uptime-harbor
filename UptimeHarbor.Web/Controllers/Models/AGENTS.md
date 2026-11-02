@@ -4,6 +4,6 @@ CancelPendingRequest содержит только новый OperationId отм
 
 Отдельные request-типы описывают настройки объектов, пользователей и Telegram bindings; resource permissions отсутствуют.
 
-Настройки контейнера передают nullable `ServerId` (null снимает связь), настройки сервера — optional `ContainerLinks` с версиями и выбранностью контейнеров. Старый вложенный POST и новый общий POST контейнеров используют одну Application-команду.
+Настройки приложения передают Name и nullable ServerId (null снимает связь); сервер сохраняет optional ContainerLinks для совместимости. Вложенный POST и общий POST containers используют одну команду. Тип задаётся маршрутом и неизменяем после создания.
 
 Сохранять контракты JSON и validation, `Version` для stale updates и подтверждённое количество контейнеров при удалении сервера. Token Telegram и persistence entities в запросы UI не добавлять.

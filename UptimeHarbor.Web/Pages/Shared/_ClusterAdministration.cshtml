@@ -6,19 +6,19 @@
 }
 <meta name="request-verification-token" content="@token" />
 <section class="d-flex flex-column gap-3" data-cluster-page="@Model">
-    <h1 class="h3">Управление сеткой</h1>
+    <h1 class="h3">@(Model == "Monitoring" ? "Панель мониторинга" : Model == "Account" ? "Пользователи" : "Telegram")</h1>
     <p class="small mb-0">Принятая конфигурация общая для всех узлов. Pending хранится на текущем узле и ещё не меняет действующие настройки. Во время отсутствия связи принятие не обещается.</p>
     <p class="small mb-0" role="status" aria-live="polite" data-cluster-status>Повторно проверяем доступ и загружаем состояние…</p>
     <p class="text-danger mb-0" role="alert" data-cluster-error></p>
     <p class="mb-0" role="status" aria-live="polite" data-cluster-outcome></p>
     <div class="d-flex flex-wrap align-items-end justify-content-between gap-2">
         <div class="d-flex flex-wrap align-items-end gap-2">
-            <label class="form-label mb-0" for="clusterKind">Общие ресурсы
+            <label class="form-label mb-0" for="clusterKind">@(Model == "Monitoring" ? "Тип объекта" : "Раздел")
                 <select id="clusterKind" name="kind" class="form-select w-auto" data-cluster-kind></select>
             </label>
             <button type="button" class="btn btn-outline-secondary" data-cluster-refresh>Обновить</button>
         </div>
-        <button type="button" class="btn btn-primary" disabled data-cluster-create>Создать заявку</button>
+        <button type="button" class="btn btn-primary" disabled data-cluster-create>Создать</button>
     </div>
     <h2 class="h5 mb-0">Принятая конфигурация</h2>
     <div data-cluster-accepted></div>

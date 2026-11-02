@@ -90,11 +90,25 @@ export class ClusterEditor {
         }
         else if (action === "Upsert") {
             if (kind === "Server" || kind === "Container") {
-                add("name", "Название конфигурации (metadata каждого observer показаны отдельно)", "text", source?.name ?? "");
+                const objectType = select("objectType", "Тип", [["Server", "Сервер"], ["Container", "Приложение"]], kind);
+                objectType.disabled = entity !== null || pending !== null || conflict !== null;
+                const objectName = add("name", "Название", "text", source?.name ?? "");
+                objectName.required = true;
+                objectName.maxLength = 256;
                 add("endpoint", "HTTP endpoint", "url", source?.endpoint ?? "");
                 add("description", "Описание", "text", source?.description ?? "");
                 check("enabled", "Мониторинг включён", source?.enabled ?? true);
-                if (kind === "Container") select("parentId", "Сервер", [["", "Без сервера"], ...acceptedOptions(["Server"])], source?.parentId ?? "");
+                const parent = select("parentId", "Связанный сервер (можно указать позже)", [["", "Без сервера"], ...acceptedOptions(["Server"])], source?.parentId ?? "");
+                const parentField = parent.parentElement;
+                if (!parentField) throw new Error("Отсутствует поле связанного сервера.");
+                parentField.hidden = kind !== "Container";
+                objectType.addEventListener("change", () => {
+                    if (objectType.value !== "Server" && objectType.value !== "Container") throw new Error("Неизвестный тип объекта.");
+                    kind = objectType.value;
+                    parentField.hidden = kind !== "Container";
+                    if (kind === "Server") parent.value = "";
+                    refreshTitle();
+                });
                 const observers = select("observers", "Назначенные observers — NodeId (возможен множественный выбор)", snapshot.nodes.map(id => [id, id]), "", true);
                 for (const option of observers.options) option.selected = source?.observerNodes.includes(option.value) ?? false;
                 add("failureThreshold", "Порог неудач", "number", String(source?.failureThreshold ?? 3)).min = "1";
@@ -118,7 +132,7 @@ export class ClusterEditor {
             }
         }
         if (action === "Delete") {
-            form.append(element("p", "Удаление глобальное: после принятия объект удаляется во всей сетке. Проверьте контейнеры, привязки и маршруты; зависимости проверяются при принятии. Новые отправки удалённой цели/чата прекращаются, уже начатый запрос может завершиться.", "text-danger mb-0"));
+            form.append(element("p", "После принятия объект удаляется на всех узлах. Связанные приложения сохраняются без связи с сервером. Привязки удаляемого объекта снимаются; уже начатая отправка может завершиться.", "text-danger mb-0"));
             const dependencies = snapshot.entities.filter(item => !item.deleted && (item.settings.parentId === entityId || item.settings.chatId === entityId));
             form.append(element("p", `Зависимости в принятой конфигурации (${dependencies.length}): ${dependencies.map(item => `${kindNames[item.kind]} · ${item.settings.name ?? item.id}`).join("; ") || "нет"}.`, "small mb-0"));
             check("globalDelete", "Подтверждаю глобальное удаление", false).required = true;
@@ -177,7 +191,7 @@ export class ClusterEditor {
                         const observerSelect = inputs.get("observers") as HTMLSelectElement | undefined;
                         settings = { name: nullable("name"), endpoint: nullable("endpoint"), description: nullable("description"),
                             enabled: kind === "Binding" ? snapshot.entities.find(item => item.id === read("parentId"))?.kind === "Server" : inputs.has("enabled") ? checked("enabled") : true,
-                            parentId: nullable("parentId"), chatId: nullable("chatId"), telegramChatId: Number(read("telegramChatId")),
+                            parentId: kind === "Server" ? null : nullable("parentId"), chatId: nullable("chatId"), telegramChatId: Number(read("telegramChatId")),
                             observerNodes: observerSelect ? Array.from(observerSelect.selectedOptions, option => option.value) : [],
                             failureThreshold: Number(read("failureThreshold") || 3), intervalSeconds: Number(read("intervalSeconds") || 60), timeoutSeconds: Number(read("timeoutSeconds") || 10) };
                         if (!Number.isSafeInteger(settings.telegramChatId)) throw new Error("Chat ID должен быть целым числом без потери точности.");

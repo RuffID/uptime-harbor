@@ -78,12 +78,13 @@ public class MonitoringConcurrencyTests
     [Fact]
     public async Task ContainerMonitoringAgainstDisable_RejectsStaleMonitoringWrite()
     {
+        // Arrange
         await using SqliteConnection connection = await OpenDatabaseAsync();
         Guid serverId = await AddServerAsync(connection);
         Guid containerId = Guid.NewGuid();
         await using (UptimeHarborDbContext setupContext = CreateContext(connection))
         {
-            setupContext.MonitoredContainers.Add(new MonitoredContainer(
+            setupContext.MonitoredServers.Add(MonitoredServer.CreateApplication(
                 containerId,
                 serverId,
                 "https://container.example/health",
@@ -92,11 +93,14 @@ public class MonitoringConcurrencyTests
             await setupContext.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
 
+        // Act
         await using UptimeHarborDbContext monitoringContext = CreateContext(connection);
         await using UptimeHarborDbContext administrationContext = CreateContext(connection);
-        MonitoredContainer monitoringContainer = await monitoringContext.MonitoredContainers.SingleAsync(
+        MonitoredServer monitoringContainer = await monitoringContext.MonitoredServers.SingleAsync(
+            item => item.Id == containerId,
             TestContext.Current.CancellationToken);
-        MonitoredContainer administrationContainer = await administrationContext.MonitoredContainers.SingleAsync(
+        MonitoredServer administrationContainer = await administrationContext.MonitoredServers.SingleAsync(
+            item => item.Id == containerId,
             TestContext.Current.CancellationToken);
         administrationContainer.SetMonitoringEnabled(false);
         await administrationContext.SaveChangesAsync(TestContext.Current.CancellationToken);
@@ -105,6 +109,7 @@ public class MonitoringConcurrencyTests
             CHECKED_AT_UTC.AddHours(-1),
             CHECKED_AT_UTC);
 
+        // Assert
         await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() =>
             monitoringContext.SaveChangesAsync(TestContext.Current.CancellationToken));
     }
@@ -213,30 +218,70 @@ public class MonitoringConcurrencyTests
             return server;
         }
 
-        public async Task<IReadOnlyList<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default) =>
-            await context.MonitoredServers.AsNoTracking().ToListAsync(cancellationToken);
+        public async Task<IReadOnlyList<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default)
+        {
+            return await context.MonitoredServers.AsNoTracking().ToListAsync(cancellationToken);
+        }
 
-        public async Task<IReadOnlyList<MonitoredServer>> GetEnabledAsync(CancellationToken cancellationToken = default) =>
-            await context.MonitoredServers.AsNoTracking()
+        public async Task<IReadOnlyList<MonitoredServer>> GetEnabledAsync(CancellationToken cancellationToken = default)
+        {
+            return await context.MonitoredServers.AsNoTracking()
                 .Where(server => server.IsMonitoringEnabled)
                 .ToListAsync(cancellationToken);
+        }
 
-        public void Create(MonitoredServer item) => context.MonitoredServers.Add(item);
-        public void CreateRange(IEnumerable<MonitoredServer> entities) => context.MonitoredServers.AddRange(entities);
-        public void Delete(MonitoredServer item) => context.MonitoredServers.Remove(item);
-        public void DeleteRange(IEnumerable<MonitoredServer> entities) => context.MonitoredServers.RemoveRange(entities);
+        public void Create(MonitoredServer item)
+        {
+            context.MonitoredServers.Add(item);
+        }
+        public void CreateRange(IEnumerable<MonitoredServer> entities)
+        {
+            context.MonitoredServers.AddRange(entities);
+        }
+        public void Delete(MonitoredServer item)
+        {
+            context.MonitoredServers.Remove(item);
+        }
+        public void DeleteRange(IEnumerable<MonitoredServer> entities)
+        {
+            context.MonitoredServers.RemoveRange(entities);
+        }
     }
 
     private class EmptyContainerRepository : IMonitoredContainerRepository
     {
-        public Task<IReadOnlyList<MonitoredContainer>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MonitoredContainer>>([]);
-        public Task<IReadOnlyList<MonitoredContainer>> GetEnabledAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MonitoredContainer>>([]);
-        public Task<IReadOnlyList<MonitoredContainer>> GetByServerIdAsync(Guid serverId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MonitoredContainer>>([]);
-        public Task<MonitoredContainer?> GetItemByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult<MonitoredContainer?>(null);
-        public void Create(MonitoredContainer item) => throw new NotSupportedException();
-        public void CreateRange(IEnumerable<MonitoredContainer> entities) => throw new NotSupportedException();
-        public void Delete(MonitoredContainer item) => throw new NotSupportedException();
-        public void DeleteRange(IEnumerable<MonitoredContainer> entities) => throw new NotSupportedException();
+        public Task<IReadOnlyList<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>([]);
+        }
+        public Task<IReadOnlyList<MonitoredServer>> GetEnabledAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>([]);
+        }
+        public Task<IReadOnlyList<MonitoredServer>> GetByServerIdAsync(Guid serverId, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>([]);
+        }
+        public Task<MonitoredServer?> GetItemByIdAsync(Guid id, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<MonitoredServer?>(null);
+        }
+        public void Create(MonitoredServer item)
+        {
+            throw new NotSupportedException();
+        }
+        public void CreateRange(IEnumerable<MonitoredServer> entities)
+        {
+            throw new NotSupportedException();
+        }
+        public void Delete(MonitoredServer item)
+        {
+            throw new NotSupportedException();
+        }
+        public void DeleteRange(IEnumerable<MonitoredServer> entities)
+        {
+            throw new NotSupportedException();
+        }
     }
 
     private class ProviderMonitoringUnitOfWork(

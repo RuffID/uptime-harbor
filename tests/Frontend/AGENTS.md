@@ -1,5 +1,7 @@
 # Изолированные frontend-тесты
 
+monitoringSnapshot.test.mts проверяет общий список серверов, связанных и самостоятельных приложений и совместное применение фильтров типа/статуса. Кластерный editor дополнительно проверяет выбор типа нового объекта и необязательную/позднюю связь приложения; существующий тип не меняется.
+
 Compiled lifecycle API проверяется тем же fake fetch: antiforgery, точный payload control и 202 как очередь. Служебные команды не обходят shared HTTP и не означают разрешения запускать окружение.
 
 clusterAdministration.test.mts проверяет production TS редактор/черновик/refresh с DOM-заглушкой: потеря ответа, стабильный OperationId, повторный конфликт/rebase, held confirmation, пароль только в памяти, stale responses и reconnect reads. API-проверка использует outputs штатной Web-сборки и fake fetch, включая antiforgery/202/403; перед ней нужен разрешённый Web compile-check. Bootstrap, геометрия/mobile и браузер отдельно не проверяются.

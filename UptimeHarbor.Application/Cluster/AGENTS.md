@@ -1,5 +1,7 @@
 # Cluster application
 
+- Wire-коды Server / Container сохранены; Container означает ServerType.Application единой сущности MonitoredServer. RevisionDomainMapper и общий Servers write-набор обслуживают оба типа. Смена родителя/имени приложения не сбрасывает мониторинг; Server не допускает ParentId.
+
 - Lifecycle user actions требуют текущего accepted Administrator, internal — ClusterLifecycle provenance без actor и текущего coordinator term. OperationsRevision отделена от native MembershipVersion. Held Node-команды подтверждаются Replace с текущей OperationsRevision, исходная заявка не освобождается.
 - RecoveryBaseline хранит точное происхождение выбранного среза и прежнюю authority настоящих attempts. Не переписывать историю попыток и не создавать искусственный success при новой identity.
 

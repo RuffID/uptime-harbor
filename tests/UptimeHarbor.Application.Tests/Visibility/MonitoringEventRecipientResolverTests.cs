@@ -241,25 +241,70 @@ public class MonitoringEventRecipientResolverTests
 
     private class EmptyServerRepository : IMonitoredServerRepository
     {
-        public Task<IReadOnlyList<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MonitoredServer>>([]);
-        public Task<IReadOnlyList<MonitoredServer>> GetEnabledAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MonitoredServer>>([]);
-        public Task<MonitoredServer?> GetItemByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult<MonitoredServer?>(null);
-        public void Create(MonitoredServer item) => throw new NotSupportedException();
-        public void CreateRange(IEnumerable<MonitoredServer> entities) => throw new NotSupportedException();
-        public void Delete(MonitoredServer item) => throw new NotSupportedException();
-        public void DeleteRange(IEnumerable<MonitoredServer> entities) => throw new NotSupportedException();
+        public Task<IReadOnlyList<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>([]);
+        }
+        public Task<IReadOnlyList<MonitoredServer>> GetEnabledAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>([]);
+        }
+        public Task<MonitoredServer?> GetItemByIdAsync(Guid id, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<MonitoredServer?>(null);
+        }
+        public void Create(MonitoredServer item)
+        {
+            throw new NotSupportedException();
+        }
+        public void CreateRange(IEnumerable<MonitoredServer> entities)
+        {
+            throw new NotSupportedException();
+        }
+        public void Delete(MonitoredServer item)
+        {
+            throw new NotSupportedException();
+        }
+        public void DeleteRange(IEnumerable<MonitoredServer> entities)
+        {
+            throw new NotSupportedException();
+        }
     }
 
     private class EmptyContainerRepository : IMonitoredContainerRepository
     {
-        public Task<IReadOnlyList<MonitoredContainer>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MonitoredContainer>>([]);
-        public Task<IReadOnlyList<MonitoredContainer>> GetEnabledAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MonitoredContainer>>([]);
-        public Task<IReadOnlyList<MonitoredContainer>> GetByServerIdAsync(Guid serverId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MonitoredContainer>>([]);
-        public Task<MonitoredContainer?> GetItemByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult<MonitoredContainer?>(null);
-        public void Create(MonitoredContainer item) => throw new NotSupportedException();
-        public void CreateRange(IEnumerable<MonitoredContainer> entities) => throw new NotSupportedException();
-        public void Delete(MonitoredContainer item) => throw new NotSupportedException();
-        public void DeleteRange(IEnumerable<MonitoredContainer> entities) => throw new NotSupportedException();
+        public Task<IReadOnlyList<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>([]);
+        }
+        public Task<IReadOnlyList<MonitoredServer>> GetEnabledAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>([]);
+        }
+        public Task<IReadOnlyList<MonitoredServer>> GetByServerIdAsync(Guid serverId, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>([]);
+        }
+        public Task<MonitoredServer?> GetItemByIdAsync(Guid id, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<MonitoredServer?>(null);
+        }
+        public void Create(MonitoredServer item)
+        {
+            throw new NotSupportedException();
+        }
+        public void CreateRange(IEnumerable<MonitoredServer> entities)
+        {
+            throw new NotSupportedException();
+        }
+        public void Delete(MonitoredServer item)
+        {
+            throw new NotSupportedException();
+        }
+        public void DeleteRange(IEnumerable<MonitoredServer> entities)
+        {
+            throw new NotSupportedException();
+        }
     }
 
     private class FakePermissionRepository

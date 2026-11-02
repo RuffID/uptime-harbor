@@ -4,6 +4,7 @@ using UptimeHarbor.Application.Abstractions.UnitOfWork;
 using UptimeHarbor.Application.Monitoring;
 using UptimeHarbor.Application.Monitoring.Models;
 using UptimeHarbor.Domain.Monitoring;
+using UptimeHarbor.Domain.Notifications;
 
 namespace UptimeHarbor.Infrastructure.Persistence.UnitOfWork;
 
@@ -18,6 +19,14 @@ public class ObjectAdministrationUnitOfWork(
     public IMonitoredServerRepository MonitoredServers { get; } = monitoredServers;
 
     public IMonitoredContainerRepository MonitoredContainers { get; } = monitoredContainers;
+
+    public async Task RemoveNotificationBindingsAsync(Guid targetId, CancellationToken cancellationToken = default)
+    {
+        List<NotificationBinding> bindings = await dbContext.NotificationBindings
+            .Where(binding => binding.ServerId == targetId || binding.ContainerId == targetId)
+            .ToListAsync(cancellationToken);
+        dbContext.NotificationBindings.RemoveRange(bindings);
+    }
 
     public async Task CancelPendingRecoveryNotificationsAsync(
         MonitoringObjectKind objectKind,

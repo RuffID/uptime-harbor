@@ -529,7 +529,7 @@ function kindText(kind: MonitoringObjectKind): string {
         return "Сервер";
     }
     if (kind === 2) {
-        return "Контейнер";
+        return "Приложение";
     }
     throw new Error(`Неизвестный тип объекта: ${String(kind)}.`);
 }

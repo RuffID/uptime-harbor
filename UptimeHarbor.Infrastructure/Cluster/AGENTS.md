@@ -1,5 +1,7 @@
 # Cluster infrastructure
 
+- SnapshotMonitoringCompatibility после проверки manifest/hash/chunks преобразует только точные прежние monitoring rows в единый MonitoredServer. Сохранять ID, родителя, monitoring metadata и binding references; неизвестные поля отвергать. После преобразования остаются обязательными строгие schema/image проверки. Старые узлы новый projection format не читают; смешанный rollout не поддерживается.
+
 - SignedRecoveryAdmission проверяет pinned signature/process challenge/freshness, ручную isolation attestation и настоящий локальный cert/key/CA/SAN/pin. Подпись удостоверяет ручную проверку специалиста, не физическое fencing самим кодом; неполный proof оставляет карантин закрытым.
 - ClusterLocalControl хранит durable maintenance latch; restart/таймер не возобновляют работу. ResumeConsensus разрешает только consensus, новый Enable — отдельный шаг по текущим RecoveryVersion/OperationsRevision.
 - Accepted trust/administration используют тот же принятый образ. ClusterOperationsAdministration требует настоящий IUserAccessContext, полный Web graph и существующий Pending UoW; DTO реестра не раскрывает сертификат/payload.

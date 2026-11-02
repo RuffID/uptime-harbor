@@ -135,6 +135,11 @@ public class AdministratorAccessPolicyTests
 
     private class ThrowingObjectAdministrationUnitOfWork : IObjectAdministrationUnitOfWork
     {
+        public Task RemoveNotificationBindingsAsync(Guid targetId, CancellationToken cancellationToken = default)
+        {
+            throw new InvalidOperationException("Unit of work must not be called.");
+        }
+
         public Task RemoveContainerPermissionsAsync(Guid containerId, CancellationToken cancellationToken = default)
         {
             throw new InvalidOperationException("Unit of work must not be called.");

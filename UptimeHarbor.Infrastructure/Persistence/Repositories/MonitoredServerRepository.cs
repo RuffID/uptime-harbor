@@ -15,7 +15,7 @@ public class MonitoredServerRepository(
         CancellationToken cancellationToken = default)
     {
         return getRepository.GetItemByPredicateAsync(
-            server => server.Id == id,
+            server => server.Id == id && server.Type == ServerType.Server,
             ct: cancellationToken);
     }
 
@@ -23,6 +23,7 @@ public class MonitoredServerRepository(
         CancellationToken cancellationToken = default)
     {
         List<MonitoredServer> servers = await getRepository.GetItemsByPredicateAsync(
+            server => server.Type == ServerType.Server,
             asNoTracking: true,
             ct: cancellationToken);
         return servers;
@@ -32,7 +33,7 @@ public class MonitoredServerRepository(
         CancellationToken cancellationToken = default)
     {
         List<MonitoredServer> servers = await getRepository.GetItemsByPredicateAsync(
-            server => server.IsMonitoringEnabled,
+            server => server.Type == ServerType.Server && server.IsMonitoringEnabled,
             asNoTracking: true,
             ct: cancellationToken);
         return servers;

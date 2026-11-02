@@ -105,12 +105,6 @@ public class ProjectionRepository(
             await StageEntityAsync(server, server.Id, cancellationToken);
         }
 
-        foreach (var container in changes.Containers)
-        {
-            await EnsureNotDeletedAsync(container.Id, cancellationToken);
-            await StageEntityAsync(container, container.Id, cancellationToken);
-        }
-
         foreach (var chat in changes.Chats)
         {
             await EnsureNotDeletedAsync(chat.Id, cancellationToken);
@@ -208,17 +202,15 @@ public class ProjectionRepository(
         {
             if (tracked is MonitoredServer server && entity is MonitoredServer updatedServer)
             {
+                if (server.Type != updatedServer.Type)
+                {
+                    throw new InvalidOperationException("The monitoring target type cannot be changed.");
+                }
+
                 server.UpdateSettings(updatedServer.Name, updatedServer.EndpointUrl,
                     updatedServer.Description, updatedServer.IsMonitoringEnabled);
+                server.AssignServer(updatedServer.ServerId);
                 server.AcceptConfigurationRevision(updatedServer.ConfigRevision, updatedServer.CheckGeneration);
-                return;
-            }
-
-            if (tracked is MonitoredContainer container && entity is MonitoredContainer updatedContainer)
-            {
-                container.UpdateSettings(updatedContainer.EndpointUrl, updatedContainer.Description, updatedContainer.IsMonitoringEnabled);
-                container.AssignServer(updatedContainer.ServerId);
-                container.AcceptConfigurationRevision(updatedContainer.ConfigRevision, updatedContainer.CheckGeneration);
                 return;
             }
 
@@ -256,13 +248,21 @@ public class ProjectionRepository(
 
     private async Task StageDeletionAsync(Tombstone tombstone, CancellationToken cancellationToken)
     {
+        if (tombstone.Kind is DeletedEntityKind.Server or DeletedEntityKind.Container)
+        {
+            List<NotificationBinding> bindings = await context.NotificationBindings
+                .Where(binding => binding.ServerId == tombstone.Id || binding.ContainerId == tombstone.Id)
+                .ToListAsync(cancellationToken);
+            context.NotificationBindings.RemoveRange(bindings);
+        }
+
         switch (tombstone.Kind)
         {
             case DeletedEntityKind.Server:
                 await DeleteServerAsync(tombstone, cancellationToken);
                 break;
             case DeletedEntityKind.Container:
-                await RemoveAsync<Domain.Monitoring.MonitoredContainer>(tombstone.Id, cancellationToken);
+                await RemoveAsync<Domain.Monitoring.MonitoredServer>(tombstone.Id, cancellationToken);
                 break;
             case DeletedEntityKind.Chat:
                 await RemoveAsync<Domain.Notifications.TelegramChat>(tombstone.Id, cancellationToken);
@@ -294,7 +294,7 @@ public class ProjectionRepository(
 
     private async Task DeleteServerAsync(Tombstone tombstone, CancellationToken cancellationToken)
     {
-        var containers = await context.MonitoredContainers.Where(item => item.ServerId == tombstone.Id)
+        var containers = await context.MonitoredServers.Where(item => item.ServerId == tombstone.Id)
             .ToListAsync(cancellationToken);
         foreach (var container in containers)
         {

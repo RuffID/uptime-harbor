@@ -15,7 +15,6 @@ public static class RevisionWriteSetFactory
         List<ProjectionRecord> records = [];
         List<SharedAccount> accounts = [];
         List<MonitoredServer> servers = [];
-        List<MonitoredContainer> containers = [];
         List<TelegramChat> chats = [];
         List<NotificationBinding> bindings = [];
         foreach (AcceptedValue cell in after.Values.Values.OrderBy(cell => cell.Id))
@@ -43,9 +42,6 @@ public static class RevisionWriteSetFactory
                     break;
                 case MonitoredServer server:
                     servers.Add(server);
-                    break;
-                case MonitoredContainer container:
-                    containers.Add(container);
                     break;
                 case TelegramChat chat:
                     chats.Add(chat);
@@ -97,7 +93,7 @@ public static class RevisionWriteSetFactory
         {
             NodeId = nodeId, ExpectedCursorIndex = before.Index,
             Receipt = new AppliedJournalReceipt(ReceiptId(position), position, after.Digest!),
-            Accounts = accounts, Records = records, Servers = servers, Containers = containers,
+            Accounts = accounts, Records = records, Servers = servers,
             Chats = chats, Bindings = bindings
         };
     }

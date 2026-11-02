@@ -12,7 +12,7 @@
 
 - Не добавлять глобальный Unit of Work.
 - Сценарный класс раскрывает только репозитории соответствующего Application-интерфейса.
-- `ObjectAdministrationUnitOfWork` раскрывает репозитории серверов/контейнеров; связь и версии сохраняются одним commit, без compatibility cleanup permissions.
+- ObjectAdministrationUnitOfWork раскрывает совместимые типовые репозитории единого MonitoredServer. Связь, версии и явное удаление notification bindings удаляемой цели сохраняются одним commit; bindings отвязываемых приложений сохраняются.
 - `ObjectAdministrationUnitOfWork` условным update отменяет recovery jobs прежнего incident в той же транзакции, что disable/endpoint change; job не удаляется, причина хранится в payload.
 - `MonitoringUnitOfWork` используется для атомарной записи результата одного объекта и outage/recovery outbox job; параллельные проверки не разделяют его DI scope.
 - Технический Unit of Work преобразует EF concurrency exception в `PersistenceConcurrencyException` и очищает stale tracking.

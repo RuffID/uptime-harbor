@@ -215,7 +215,7 @@ curl -i --resolve health.example.com:43871:127.0.0.1 https://health.example.com:
 curl -i https://health.example.com:43871/health
 ```
 
-В Windows использовать `curl.exe` вместо `curl`. В проекте при добавлении сервера указать **Адрес проверки**:
+В Windows использовать `curl.exe` вместо `curl`. В проекте открыть **Панель мониторинга**, нажать **Создать**, выбрать тип **Сервер**, задать имя и указать **Адрес проверки**:
 
 ```text
 https://health.example.com:43871/health

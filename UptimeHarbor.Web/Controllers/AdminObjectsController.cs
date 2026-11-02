@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
+using UptimeHarbor.Application.Common;
 using UptimeHarbor.Application.ObjectAdministration;
 using UptimeHarbor.Application.ObjectAdministration.Models;
 using UptimeHarbor.Application.Security;
@@ -12,7 +14,8 @@ namespace UptimeHarbor.Web.Controllers;
 [Route("api/admin/objects")]
 [Authorize(Roles = ApplicationRoles.ADMINISTRATOR)]
 [ServiceFilter(typeof(UptimeHarbor.Web.Security.ClusterLegacyWriterFilter))]
-public class AdminObjectsController(IObjectAdministrationService administrationService) : ControllerBase
+public class AdminObjectsController(IObjectAdministrationService administrationService,
+    ILogger<AdminObjectsController>? logger = null) : ControllerBase
 {
     [HttpGet("servers")]
     public async Task<JsonResult> GetServersAsync(CancellationToken cancellationToken)
@@ -35,6 +38,7 @@ public class AdminObjectsController(IObjectAdministrationService administrationS
                 request.Description,
                 request.IsMonitoringEnabled,
                 cancellationToken);
+        LogChange(result.Success, result.Error, "Create", "Server", result.Data?.Id);
         return JsonResultMapper.ToJsonResult(result);
     }
 
@@ -55,6 +59,7 @@ public class AdminObjectsController(IObjectAdministrationService administrationS
                 request.Version ?? -1,
                 cancellationToken,
                 request.ContainerLinks);
+        LogChange(result.Success, result.Error, "Update", "Server", serverId);
         return JsonResultMapper.ToJsonResult(result);
     }
 
@@ -88,7 +93,9 @@ public class AdminObjectsController(IObjectAdministrationService administrationS
                 request.EndpointUrl ?? string.Empty,
                 request.Description,
                 request.IsMonitoringEnabled,
-                cancellationToken);
+                cancellationToken,
+                request.Name);
+        LogChange(result.Success, result.Error, "Create", "Application", result.Data?.Id);
         return JsonResultMapper.ToJsonResult(result);
     }
 
@@ -105,7 +112,9 @@ public class AdminObjectsController(IObjectAdministrationService administrationS
                 request.EndpointUrl ?? string.Empty,
                 request.Description,
                 request.IsMonitoringEnabled,
-                cancellationToken);
+                cancellationToken,
+                request.Name);
+        LogChange(result.Success, result.Error, "Create", "Application", result.Data?.Id);
         return JsonResultMapper.ToJsonResult(result);
     }
 
@@ -124,7 +133,9 @@ public class AdminObjectsController(IObjectAdministrationService administrationS
                 request.IsMonitoringEnabled,
                 request.Version ?? -1,
                 cancellationToken,
-                new ContainerServerAssignment(request.ServerId));
+                new ContainerServerAssignment(request.ServerId),
+                request.Name);
+        LogChange(result.Success, result.Error, "Update", "Application", containerId);
         return JsonResultMapper.ToJsonResult(result);
     }
 
@@ -150,6 +161,7 @@ public class AdminObjectsController(IObjectAdministrationService administrationS
             request.ExpectedContainerCount,
             request.Version,
             cancellationToken);
+        LogChange(result.Success, result.Error, "Delete", "Server", serverId);
         return JsonResultMapper.ToJsonResult(result);
     }
 
@@ -165,6 +177,27 @@ public class AdminObjectsController(IObjectAdministrationService administrationS
                 containerId,
                 request.Version,
                 cancellationToken);
+        LogChange(result.Success, result.Error, "Delete", "Application", containerId);
         return JsonResultMapper.ToJsonResult(result);
+    }
+
+    private void LogChange(bool success, ServiceError? error, string action, string type, Guid? objectId)
+    {
+        if (logger is null)
+        {
+            return;
+        }
+
+        string? actorId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (success)
+        {
+            logger.LogInformation("Monitoring object change saved. Action {Action}, Type {Type}, ObjectId {ObjectId}, ActorUserId {ActorUserId}",
+                action, type, objectId, actorId);
+        }
+        else
+        {
+            logger.LogWarning("Monitoring object change refused. Action {Action}, Type {Type}, ObjectId {ObjectId}, ActorUserId {ActorUserId}, Reason {Reason}",
+                action, type, objectId, actorId, error?.Type);
+        }
     }
 }

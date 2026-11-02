@@ -1,5 +1,7 @@
 # Администрирование объектов
 
+Оба совместимых набора Server / Container используют MonitoredServer с Type Server / Application. Имя приложения можно задать и изменить отдельно от endpoint metadata; родитель необязателен и обязан иметь Type=Server. При удалении цели явно удаляются только её notification bindings в том же UoW; приложения удаляемого сервера и их bindings сохраняются.
+
 `ObjectAdministrationService` проверяет administrator policy и координирует изменения через `IObjectAdministrationUnitOfWork`. `IObjectAdministrationChangePublisher` сообщает Web об успешном сохранении.
 
 Сохранять optimistic concurrency через `Version`, проверку уникальности имени и подтверждение количества отвязываемых контейнеров. Общий список включает контейнеры без сервера. Выбор связей сервера сохраняется вместе с настройками в одной транзакции; версии контейнеров обязательны, захватывать контейнер другого сервера через этот список нельзя. Контейнер может менять или снимать свой сервер; версии обоих серверов увеличиваются; ресурсных permissions/cleanup нет. Удаление сервера отвязывает контейнеры, сохраняя их monitoring state и Telegram bindings. Disable/endpoint reset отменяет recovery прежнего incident в той же транзакции; publisher вызывается после сохранения.

@@ -155,9 +155,15 @@ public class NotificationDeliveryService(
         NotificationDeliveryKind kind,
         string? parentServerName)
     {
+        string objectType = "Сервер";
+        if (monitoringEvent.ObjectKind == MonitoringObjectKind.Container)
+        {
+            objectType = "Приложение";
+        }
+
         List<string> lines =
         [
-            $"Объект: {(monitoringEvent.ObjectKind == MonitoringObjectKind.Server ? "Сервер" : "Контейнер")}",
+            $"Объект: {objectType}",
             $"Имя: {GetDisplayName(monitoringEvent.Name, monitoringEvent.ObjectId)}"
         ];
         if (!string.IsNullOrWhiteSpace(monitoringEvent.Description))
@@ -170,7 +176,13 @@ public class NotificationDeliveryService(
             lines.Add($"Родительский сервер: {parentServerName}");
         }
 
-        lines.Add($"Статус: {(kind == NotificationDeliveryKind.Outage ? "Недоступен" : "Доступен")}");
+        string status = "Доступен";
+        if (kind == NotificationDeliveryKind.Outage)
+        {
+            status = "Недоступен";
+        }
+
+        lines.Add($"Статус: {status}");
         lines.Add($"Время события (UTC): {monitoringEvent.CheckedAtUtc:O}");
 
         if (kind == NotificationDeliveryKind.Recovery

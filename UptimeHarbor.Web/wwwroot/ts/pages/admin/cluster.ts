@@ -4,8 +4,8 @@ import { LatestRequest } from "./clusterDraft.js";
 import { AdministrationRefresh } from "./clusterRefresh.js";
 import { ClusterEditor } from "./clusterEditor.js";
 import { ClusterViews } from "./clusterViews.js";
-import { kindNames, operationText, delegateActions } from "./clusterDom.js";
-import type { AccountChange, Change, Diagnostic, EntityKind, Pending, Snapshot, LifecycleChange } from "./clusterModels.js";
+import { operationText, delegateActions } from "./clusterDom.js";
+import type { AccountChange, Change, Diagnostic, EntityKind, Pending, Snapshot, LifecycleChange, ResourceFilter } from "./clusterModels.js";
 
 interface BootstrapWindow extends Window {
     bootstrap?: { Modal: { getOrCreateInstance(element: Element): { show(): void; hide(): void } } };
@@ -41,18 +41,26 @@ function initialize(): void {
     let denied = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
     let hub: signalR.HubConnection | null = null;
-    for (const [kind, name] of Object.entries(kindNames)) {
+    const initialKind = root.dataset.clusterPage;
+    let sections: [ResourceFilter, string][];
+    if (initialKind === "Monitoring") sections = [["Monitoring", "Все типы"], ["Server", "Серверы"], ["Container", "Приложения"]];
+    else if (initialKind === "Account") sections = [["Account", "Пользователи"]];
+    else if (initialKind === "Chat") sections = [["Chat", "Telegram-чаты"], ["Binding", "Привязки целей к чатам"], ["NodeChatRoute", "Маршруты узлов в чаты"]];
+    else throw new Error("Неизвестный раздел управления.");
+    for (const [kind, name] of sections) {
         const option = document.createElement("option"); option.value = kind; option.textContent = name;
         kindSelect.append(option);
     }
-    const initialKind = root.dataset.clusterPage;
-    if (!initialKind || !(initialKind in kindNames)) throw new Error("Неизвестный раздел управления сеткой.");
     kindSelect.value = initialKind;
     const current = (): Snapshot => {
         if (!snapshot || denied) throw new Error("Требуется повторная авторизация и загрузка принятого состояния.");
         return snapshot;
     };
-    const selectedKind = (): EntityKind => kindSelect.value as EntityKind;
+    const selectedKind = (): ResourceFilter => {
+        const section = sections.find(([kind]) => kind === kindSelect.value);
+        if (!section) throw new Error("Неизвестный тип фильтра.");
+        return section[0];
+    };
     const failure = (value: unknown): void => {
         if (isAbortError(value)) return;
         if (value instanceof ApiError && (value.status === 401 || value.status === 403)) {
@@ -130,7 +138,10 @@ function initialize(): void {
             }).catch(value => { if (latest.isCurrent(request.version)) failure(value); });
         }
     });
-    create.addEventListener("click", () => editor.open(selectedKind(), null));
+    create.addEventListener("click", () => {
+        const kind = selectedKind();
+        editor.open(kind === "Monitoring" ? "Server" : kind, null);
+    });
     kindSelect.addEventListener("change", () => { if (snapshot && diagnostic) views.render(snapshot, pending, diagnostic, selectedKind()); });
     require<HTMLButtonElement>("refresh").addEventListener("click", quietRefresh);
     previous.addEventListener("click", () => { offset = Math.max(0, offset - 100); quietRefresh(); });

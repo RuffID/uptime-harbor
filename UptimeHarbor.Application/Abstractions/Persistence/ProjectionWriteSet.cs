@@ -14,7 +14,6 @@ public class ProjectionWriteSet
     public IReadOnlyList<SharedAccount> Accounts { get; init; } = [];
     public IReadOnlyList<ProjectionRecord> Records { get; init; } = [];
     public IReadOnlyList<MonitoredServer> Servers { get; init; } = [];
-    public IReadOnlyList<MonitoredContainer> Containers { get; init; } = [];
     public IReadOnlyList<TelegramChat> Chats { get; init; } = [];
     public IReadOnlyList<NotificationBinding> Bindings { get; init; } = [];
 }

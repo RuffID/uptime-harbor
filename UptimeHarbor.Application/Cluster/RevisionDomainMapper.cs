@@ -16,11 +16,12 @@ public static class RevisionDomainMapper
             case DeletedEntityKind.Account:
                 return RevisionAccounts.Materialize(cell);
             case DeletedEntityKind.Server:
-                MonitoredServer server = new(cell.Id, value.Name!, value.Endpoint!, value.Description, value.Enabled);
+                MonitoredServer server = new(cell.Id, value.Name!, value.Endpoint!, value.Description,
+                    value.Enabled, ServerType.Server, value.ParentId);
                 server.AcceptConfigurationRevision(cell.Revision, value.Generation);
                 return server;
             case DeletedEntityKind.Container:
-                MonitoredContainer container = new(cell.Id, value.ParentId, value.Endpoint!, value.Description, value.Enabled);
+                MonitoredServer container = MonitoredServer.CreateApplication(cell.Id, value.ParentId, value.Endpoint!, value.Description, value.Enabled, value.Name);
                 container.AcceptConfigurationRevision(cell.Revision, value.Generation);
                 return container;
             case DeletedEntityKind.Chat:

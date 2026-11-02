@@ -1,5 +1,13 @@
 # Миграции SQL Server
 
+## Объединение Server / Application (2026-11-01)
+
+Модель теперь использует monitored_servers для обоих типов: Type, nullable self FK ServerId, общие Name / NormalizedName. Стабильные коды Type — Server / Application. Target FK Telegram bindings имеют NoAction, удаление bindings выполняет сценарный UoW. Уникальность имени ограничена Type=Server.
+
+Создана migration `20261101161617_UnifyMonitoredServersAndApplications`, её designer и snapshot получены штатным tooling через Infrastructure target/startup и design-time factory без ConnectionString. Up сначала отказывает при пересечении ID двух прежних таблиц, добавляет nullable Type, помечает серверы кодом Server и переносит приложения со всеми ID, ServerId, StartedAtUtc, Version, ревизиями, поколениями, статусами и инцидентами. Имена прежних приложений — «Приложение {id:N}». Только после переноса удаляется monitored_containers, Type становится обязательным и подключаются новые FK/индексы; фиктивного default Type нет. Telegram binding IDs и markers сохраняются.
+
+Down сначала отказывает при неизвестном Type или собственном имени приложения, которое прежняя схема сохранить не может. Для совместимых имён он восстанавливает monitored_containers, переносит обратно все поля и связи, удаляет только перенесённые строки из monitored_servers и возвращает прежние FK. Snapshot/designer вручную не менялись. Изолированные тесты сверяют состав переносимых столбцов, порядок операций, guards и нулевой model diff; SQL не выполнялся. Миграция к БД не применена; фактические Up/Down и SQL Server constraints требуют отдельной проверки. EF tool 10.0.11 предупредил о runtime 10.0.13 и возможной потере данных в исходном scaffold; Up/Down дополнены явным переносом данных.
+
 ## Время загрузки сервера
 
 Создана migration `20261101102504_AddMonitoredServerStartedAtUtc`, designer и model snapshot обновлены штатным EF tooling. `Up` добавляет только nullable колонку `StartedAtUtc` типа `datetime2` в `monitored_servers`, без default и backfill; `Down` удаляет только эту колонку. Существующим серверам нельзя приписывать время развёртывания или текущую дату: поле остаётся `NULL` до успешной проверки нового endpoint. Accepted observer metadata уже имеет своё поле времени запуска и не требует расширения.
@@ -51,7 +59,7 @@ Baseline-миграция создана с именем `InitialSqlServerSchema
 dotnet ef migrations add InitialSqlServerSchema --project .\UptimeHarbor.Infrastructure\UptimeHarbor.Infrastructure.csproj --startup-project .\UptimeHarbor.Web\UptimeHarbor.Web.csproj --output-dir Persistence\Migrations
 ```
 
-Design-time factory настраивает SQL Server provider без строки подключения, поэтому команда не требует локального секрета и не подключается к БД. Созданная миграция `Persistence/Migrations/20260831015604_InitialSqlServerSchema.cs` включает доменные таблицы, ASP.NET Core Identity, таблицу ключей Data Protection, concurrency columns и durable notification outbox. Сгенерированные migration и snapshot необходимо проверить перед применением; вручную они не редактируются.
+Design-time factory настраивает SQL Server provider без строки подключения, поэтому команда не требует локального секрета и не подключается к БД. Созданная миграция `Persistence/Migrations/20260831015604_InitialSqlServerSchema.cs` включает доменные таблицы, ASP.NET Core Identity, таблицу ключей Data Protection, concurrency columns и durable notification outbox. Up/Down необходимо проверить перед применением и при необходимости явно дополнить переносом данных. Generated designer и model snapshot изменяются только штатным tooling.
 
 Исправление recovery cancellation использует уже существующие `PayloadJson`, `CompletedAtUtc` и `LockedUntilUtc`; новых колонок и отдельной migration для него не требуется. Явные имена unique indexes Telegram chat/binding совпадают с именами, уже созданными baseline. Файлы `20260831015604_InitialSqlServerSchema` и snapshot этим исправлением не изменялись.
 

@@ -1,12 +1,43 @@
 using UptimeHarbor.Application.Cluster;
+using UptimeHarbor.Application.Abstractions.Persistence;
 using UptimeHarbor.Application.Cluster.Models;
 using UptimeHarbor.Domain.Cluster;
+using UptimeHarbor.Domain.Monitoring;
 using Xunit;
 
 namespace UptimeHarbor.Tests.Application.Cluster;
 
 public class RevisionReducerTests
 {
+    [Fact]
+    public void ProjectionWriteSet_ContainsBothTypesInOneEntityCollection()
+    {
+        // Arrange
+        RevisionScenario scenario = new();
+        RevisionImage before = scenario.State;
+        RevisionCommand server = scenario.Server();
+        scenario.Apply(server);
+        RevisionCommand application = scenario.Command(Guid.NewGuid(), DeletedEntityKind.Container, 0,
+            new ConfigurationValue
+            {
+                Name = "Orders", ParentId = server.EntityId, Endpoint = "https://orders.invalid/health",
+                Generation = Guid.NewGuid()
+            });
+        scenario.Apply(application);
+
+        // Act
+        ProjectionWriteSet changes = RevisionWriteSetFactory.Create(before, scenario.State, Guid.NewGuid());
+
+        // Assert
+        Assert.Equal(2, changes.Servers.Count);
+        MonitoredServer host = Assert.Single(changes.Servers, item => item.Type == ServerType.Server);
+        MonitoredServer app = Assert.Single(changes.Servers, item => item.Type == ServerType.Application);
+        Assert.Equal(server.EntityId, host.Id);
+        Assert.Equal(application.EntityId, app.Id);
+        Assert.Equal(host.Id, app.ServerId);
+        Assert.Equal("Orders", app.Name);
+    }
+
     [Fact]
     public void LostResponseAndNewLeaderReturnOriginalResultWithoutAnotherEntityRevision()
     {

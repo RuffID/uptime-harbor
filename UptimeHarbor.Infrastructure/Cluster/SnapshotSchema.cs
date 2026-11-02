@@ -26,7 +26,7 @@ public static class SnapshotSchema
     {
         return context.Model.GetEntityTypes().Where(type =>
             typeof(ProjectionRecord).IsAssignableFrom(type.ClrType)
-            || type.ClrType == typeof(MonitoredServer) || type.ClrType == typeof(MonitoredContainer)
+            || type.ClrType == typeof(MonitoredServer)
             || type.ClrType == typeof(TelegramChat) || type.ClrType == typeof(NotificationBinding)
             || type.ClrType == typeof(ApplicationUser) || type.ClrType == typeof(ApplicationRole)
             || type.ClrType == typeof(IdentityUserRole<Guid>))

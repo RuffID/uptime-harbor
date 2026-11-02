@@ -9,6 +9,8 @@ public interface IObjectAdministrationUnitOfWork : IUnitOfWorkScope
 
     IMonitoredContainerRepository MonitoredContainers { get; }
 
+    Task RemoveNotificationBindingsAsync(Guid targetId, CancellationToken cancellationToken = default);
+
     Task CancelPendingRecoveryNotificationsAsync(
         MonitoringObjectKind objectKind,
         Guid objectId,

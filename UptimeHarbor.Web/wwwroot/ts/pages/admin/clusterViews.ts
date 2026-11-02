@@ -1,6 +1,6 @@
 import { createDataTable } from "../../shared/dataTable.js";
 import { element, button, date, kindNames, settingsText, operationText, metadataDiffer } from "./clusterDom.js";
-import type { Snapshot, Pending, Diagnostic, Entity, EntityKind, Conflict } from "./clusterModels.js";
+import type { Snapshot, Pending, Diagnostic, Entity, EntityKind, Conflict, ResourceFilter } from "./clusterModels.js";
 
 interface Actions {
     edit(kind: EntityKind, entity: Entity | null, action?: string, pending?: Pending, conflict?: Conflict, useCurrent?: boolean): void;
@@ -24,7 +24,7 @@ export class ClusterViews {
         };
         const table = (key: string, title: string, columns: string[]) => createDataTable(host(key), `cluster-${key}`, title,
             columns.map((text, index) => ({ key: String(index), title: text, width: index === 0 ? 270 : 210 })));
-        this.accepted = table("accepted", "Принятая конфигурация", ["Объект / ID", "Ревизия", "Настройки", "Действия"]);
+        this.accepted = table("accepted", "Объекты", ["Объект / ID", "Тип", "Мониторинг", "Связанный сервер", "Ревизия", "Настройки", "Действия"]);
         this.pending = table("pending", "Локальные Pending", ["Операция / сущность", "Состояние", "Предложенные настройки", "Действия / результат"]);
         this.targets = table("targets", "Доступность и наблюдение", ["Цель", "Availability", "Coverage", "Принятая оценка"]);
         this.observers = table("observers", "Наблюдения по узлам", ["Цель / observer", "Результат и свежесть", "Metadata по observer", "Uptime по metadata"]);
@@ -33,8 +33,12 @@ export class ClusterViews {
         this.conflicts = host("conflicts"); this.summary = host("diagnostic-summary");
     }
 
-    render(snapshot: Snapshot, pending: Pending[], diagnostic: Diagnostic, kind: EntityKind): void {
-        const acceptedRows = snapshot.entities.filter(item => item.kind === kind && !item.deleted).map(item => {
+    render(snapshot: Snapshot, pending: Pending[], diagnostic: Diagnostic, filter: ResourceFilter): void {
+        const objects = snapshot.entities.filter(item => !item.deleted
+            && (filter === "Monitoring" ? item.kind === "Server" || item.kind === "Container" : item.kind === filter));
+        const visibleIds = new Set(objects.map(item => item.id));
+        const acceptedRows = objects.map(item => {
+            const kind = item.kind;
             const actions = element("div", "", "d-flex flex-wrap gap-2");
             actions.append(button("Изменить", () => this.actions.edit(kind, item)));
             if (kind === "Account") {
@@ -49,18 +53,28 @@ export class ClusterViews {
             }
             else actions.append(button("Удалить глобально", () => this.actions.edit(kind, item, "Delete"), true));
             if (kind === "Chat") actions.append(button("Тест в очередь", () => this.actions.edit(kind, item, "TestDelivery")));
-            return this.accepted.row([`${item.settings.name ?? kindNames[kind]} · ${item.id}`, String(item.revision), settingsText(item.settings, kind), actions]);
+            const target = snapshot.targets.find(target => target.id === item.id);
+            const monitoring = kind === "Server" || kind === "Container";
+            let parent = "";
+            if (kind === "Container") {
+                parent = item.settings.parentId === null ? "Без сервера"
+                    : snapshot.entities.find(server => server.id === item.settings.parentId)?.settings.name ?? "Сервер удалён";
+            }
+            return this.accepted.row([`${item.settings.name ?? kindNames[kind]} · ${item.id}`, kindNames[kind],
+                monitoring ? item.settings.enabled ? target?.availability ?? "Нет данных" : "Отключён" : "",
+                parent, String(item.revision), settingsText(item.settings, kind), actions]);
         });
         this.accepted.body.replaceChildren(...acceptedRows); this.accepted.refresh();
         this.renderPending(snapshot, pending);
         this.renderConflicts(snapshot);
         const name = (id: string): string => `${snapshot.entities.find(item => item.id === id)?.settings.name ?? (snapshot.nodes.includes(id) ? "Узел" : "Цель")} · ${id}`;
-        this.targets.body.replaceChildren(...snapshot.targets.map(target => this.targets.row([
+        const targets = snapshot.targets.filter(target => visibleIds.has(target.id));
+        this.targets.body.replaceChildren(...targets.map(target => this.targets.row([
             name(target.id), target.availability, target.coverage,
             `${date(target.evaluatedAtUtc)}${target.evaluationStale ? " · устарела / отсутствует" : ""}${metadataDiffer(target.observers) ? " · metadata различаются, см. строки observers" : ""}`
         ])));
         this.targets.refresh();
-        this.observers.body.replaceChildren(...snapshot.targets.flatMap(target => target.observers.map(observer => this.observers.row([
+        this.observers.body.replaceChildren(...targets.flatMap(target => target.observers.map(observer => this.observers.row([
             `${name(target.id)} / ${observer.nodeId}`,
             `${observer.status} · ${date(observer.checkedAtUtc)} · ${observer.failure ?? ""}`,
             `${observer.endpointName ?? "metadata отсутствуют"} · ${date(observer.metadataAtUtc)}`,

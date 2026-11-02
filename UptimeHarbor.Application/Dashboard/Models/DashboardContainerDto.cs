@@ -10,4 +10,5 @@ public record DashboardContainerDto(
     MonitoringStatus Status,
     DateTimeOffset? LastCheckedAtUtc,
     DateTimeOffset? StartedAtUtc,
-    long? UptimeSeconds);
+    long? UptimeSeconds,
+    string? InternalName = null);

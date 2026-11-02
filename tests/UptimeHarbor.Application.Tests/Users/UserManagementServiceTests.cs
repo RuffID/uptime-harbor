@@ -126,7 +126,7 @@ public class UserManagementServiceTests
         public TestData(bool isAdministrator)
         {
             Server = new MonitoredServer(Guid.NewGuid(), "Server", "https://server/health", null, true);
-            Container = new MonitoredContainer(
+            Container = MonitoredServer.CreateApplication(
                 Guid.NewGuid(),
                 Server.Id,
                 "https://container/health",
@@ -150,7 +150,7 @@ public class UserManagementServiceTests
         public Guid ManagedUserId { get; } = Guid.NewGuid();
         public Guid AdministratorId { get; } = Guid.NewGuid();
         public MonitoredServer Server { get; }
-        public MonitoredContainer Container { get; }
+        public MonitoredServer Container { get; }
         public FakeAccountStore Accounts { get; }
         public FakePermissionRepository Permissions { get; }
         public UserManagementService Service { get; }
@@ -200,30 +200,69 @@ public class UserManagementServiceTests
 
     private class FakeServerRepository(List<MonitoredServer> items) : IMonitoredServerRepository
     {
-        public Task<IReadOnlyList<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MonitoredServer>>(items.ToList());
-        public Task<IReadOnlyList<MonitoredServer>> GetEnabledAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MonitoredServer>>(items.Where(item => item.IsMonitoringEnabled).ToList());
-        public Task<MonitoredServer?> GetItemByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(items.SingleOrDefault(item => item.Id == id));
-        public void Create(MonitoredServer item) => items.Add(item);
-        public void CreateRange(IEnumerable<MonitoredServer> entities) => items.AddRange(entities);
-        public void Delete(MonitoredServer item) => items.Remove(item);
+        public Task<IReadOnlyList<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>(items.ToList());
+        }
+        public Task<IReadOnlyList<MonitoredServer>> GetEnabledAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>(items.Where(item => item.IsMonitoringEnabled).ToList());
+        }
+        public Task<MonitoredServer?> GetItemByIdAsync(Guid id, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(items.SingleOrDefault(item => item.Id == id));
+        }
+        public void Create(MonitoredServer item)
+        {
+            items.Add(item);
+        }
+        public void CreateRange(IEnumerable<MonitoredServer> entities)
+        {
+            items.AddRange(entities);
+        }
+        public void Delete(MonitoredServer item)
+        {
+            items.Remove(item);
+        }
         public void DeleteRange(IEnumerable<MonitoredServer> entities)
         {
             foreach (MonitoredServer entity in entities.ToList()) items.Remove(entity);
         }
     }
 
-    private class FakeContainerRepository(List<MonitoredContainer> items) : IMonitoredContainerRepository
+    private class FakeContainerRepository(List<MonitoredServer> items) : IMonitoredContainerRepository
     {
-        public Task<IReadOnlyList<MonitoredContainer>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MonitoredContainer>>(items.ToList());
-        public Task<IReadOnlyList<MonitoredContainer>> GetEnabledAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MonitoredContainer>>(items.Where(item => item.IsMonitoringEnabled).ToList());
-        public Task<IReadOnlyList<MonitoredContainer>> GetByServerIdAsync(Guid serverId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MonitoredContainer>>(items.Where(item => item.ServerId == serverId).ToList());
-        public Task<MonitoredContainer?> GetItemByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(items.SingleOrDefault(item => item.Id == id));
-        public void Create(MonitoredContainer item) => items.Add(item);
-        public void CreateRange(IEnumerable<MonitoredContainer> entities) => items.AddRange(entities);
-        public void Delete(MonitoredContainer item) => items.Remove(item);
-        public void DeleteRange(IEnumerable<MonitoredContainer> entities)
+        public Task<IReadOnlyList<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default)
         {
-            foreach (MonitoredContainer entity in entities.ToList()) items.Remove(entity);
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>(items.ToList());
+        }
+        public Task<IReadOnlyList<MonitoredServer>> GetEnabledAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>(items.Where(item => item.IsMonitoringEnabled).ToList());
+        }
+        public Task<IReadOnlyList<MonitoredServer>> GetByServerIdAsync(Guid serverId, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>(items.Where(item => item.ServerId == serverId).ToList());
+        }
+        public Task<MonitoredServer?> GetItemByIdAsync(Guid id, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(items.SingleOrDefault(item => item.Id == id));
+        }
+        public void Create(MonitoredServer item)
+        {
+            items.Add(item);
+        }
+        public void CreateRange(IEnumerable<MonitoredServer> entities)
+        {
+            items.AddRange(entities);
+        }
+        public void Delete(MonitoredServer item)
+        {
+            items.Remove(item);
+        }
+        public void DeleteRange(IEnumerable<MonitoredServer> entities)
+        {
+            foreach (MonitoredServer entity in entities.ToList()) items.Remove(entity);
         }
     }
 

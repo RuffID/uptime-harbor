@@ -65,9 +65,9 @@ internal class NotificationTestData
         return server;
     }
 
-    public MonitoredContainer AddContainer(MonitoredServer server, string? name = null)
+    public MonitoredServer AddContainer(MonitoredServer server, string? name = null)
     {
-        MonitoredContainer container = new(
+        MonitoredServer container = MonitoredServer.CreateApplication(
             Guid.NewGuid(),
             server.Id,
             $"https://container-{Containers.Items.Count}.example/health",
@@ -167,26 +167,71 @@ internal class NotificationTestData
     internal class ServerRepository : IMonitoredServerRepository
     {
         public List<MonitoredServer> Items { get; } = [];
-        public Task<IReadOnlyList<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MonitoredServer>>(Items.ToList());
-        public Task<IReadOnlyList<MonitoredServer>> GetEnabledAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MonitoredServer>>(Items.Where(item => item.IsMonitoringEnabled).ToList());
-        public Task<MonitoredServer?> GetItemByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(Items.SingleOrDefault(item => item.Id == id));
-        public void Create(MonitoredServer item) => Items.Add(item);
-        public void CreateRange(IEnumerable<MonitoredServer> entities) => Items.AddRange(entities);
-        public void Delete(MonitoredServer item) => Items.Remove(item);
-        public void DeleteRange(IEnumerable<MonitoredServer> entities) => Items.RemoveAll(entities.Contains);
+        public Task<IReadOnlyList<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>(Items.ToList());
+        }
+        public Task<IReadOnlyList<MonitoredServer>> GetEnabledAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>(Items.Where(item => item.IsMonitoringEnabled).ToList());
+        }
+        public Task<MonitoredServer?> GetItemByIdAsync(Guid id, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Items.SingleOrDefault(item => item.Id == id));
+        }
+        public void Create(MonitoredServer item)
+        {
+            Items.Add(item);
+        }
+        public void CreateRange(IEnumerable<MonitoredServer> entities)
+        {
+            Items.AddRange(entities);
+        }
+        public void Delete(MonitoredServer item)
+        {
+            Items.Remove(item);
+        }
+        public void DeleteRange(IEnumerable<MonitoredServer> entities)
+        {
+            Items.RemoveAll(entities.Contains);
+        }
     }
 
     internal class ContainerRepository : IMonitoredContainerRepository
     {
-        public List<MonitoredContainer> Items { get; } = [];
-        public Task<IReadOnlyList<MonitoredContainer>> GetAllAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MonitoredContainer>>(Items.ToList());
-        public Task<IReadOnlyList<MonitoredContainer>> GetEnabledAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MonitoredContainer>>(Items.Where(item => item.IsMonitoringEnabled).ToList());
-        public Task<IReadOnlyList<MonitoredContainer>> GetByServerIdAsync(Guid serverId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<MonitoredContainer>>(Items.Where(item => item.ServerId == serverId).ToList());
-        public Task<MonitoredContainer?> GetItemByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult(Items.SingleOrDefault(item => item.Id == id));
-        public void Create(MonitoredContainer item) => Items.Add(item);
-        public void CreateRange(IEnumerable<MonitoredContainer> entities) => Items.AddRange(entities);
-        public void Delete(MonitoredContainer item) => Items.Remove(item);
-        public void DeleteRange(IEnumerable<MonitoredContainer> entities) => Items.RemoveAll(entities.Contains);
+        public List<MonitoredServer> Items { get; } = [];
+        public Task<IReadOnlyList<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>(Items.ToList());
+        }
+        public Task<IReadOnlyList<MonitoredServer>> GetEnabledAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>(Items.Where(item => item.IsMonitoringEnabled).ToList());
+        }
+        public Task<IReadOnlyList<MonitoredServer>> GetByServerIdAsync(Guid serverId, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>(Items.Where(item => item.ServerId == serverId).ToList());
+        }
+        public Task<MonitoredServer?> GetItemByIdAsync(Guid id, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(Items.SingleOrDefault(item => item.Id == id));
+        }
+        public void Create(MonitoredServer item)
+        {
+            Items.Add(item);
+        }
+        public void CreateRange(IEnumerable<MonitoredServer> entities)
+        {
+            Items.AddRange(entities);
+        }
+        public void Delete(MonitoredServer item)
+        {
+            Items.Remove(item);
+        }
+        public void DeleteRange(IEnumerable<MonitoredServer> entities)
+        {
+            Items.RemoveAll(entities.Contains);
+        }
     }
 
     internal class ChatRepository : ITelegramChatRepository

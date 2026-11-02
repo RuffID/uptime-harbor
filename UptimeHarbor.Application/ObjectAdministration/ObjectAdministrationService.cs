@@ -40,7 +40,7 @@ public class ObjectAdministrationService(
 
         if (serverId is null)
         {
-            IReadOnlyList<MonitoredContainer> allContainers =
+            IReadOnlyList<MonitoredServer> allContainers =
                 await unitOfWork.MonitoredContainers.GetAllAsync(cancellationToken);
             return ServiceResult<IReadOnlyList<AdminContainerDto>>.Ok(allContainers.Select(MapContainer).ToList());
         }
@@ -53,7 +53,7 @@ public class ObjectAdministrationService(
                 "Сервер не найден.");
         }
 
-        IReadOnlyList<MonitoredContainer> containers =
+        IReadOnlyList<MonitoredServer> containers =
             await unitOfWork.MonitoredContainers.GetByServerIdAsync(serverId.Value, cancellationToken);
         return ServiceResult<IReadOnlyList<AdminContainerDto>>.Ok(
             containers.Select(MapContainer).ToList());
@@ -144,7 +144,7 @@ public class ObjectAdministrationService(
             return ServiceResult<AdminServerDto>.Fail(CreateDuplicateServerNameError());
         }
 
-        IReadOnlyList<MonitoredContainer> containers = [];
+        IReadOnlyList<MonitoredServer> containers = [];
         if (containerLinks is not null)
         {
             containers = await unitOfWork.MonitoredContainers.GetAllAsync(cancellationToken);
@@ -164,7 +164,7 @@ public class ObjectAdministrationService(
                     {
                         foreach (ContainerLinkUpdate link in containerLinks)
                         {
-                            MonitoredContainer container = containers.Single(item => item.Id == link.Id);
+                            MonitoredServer container = containers.Single(item => item.Id == link.Id);
                             Guid? parentId = null;
                             if (link.IsLinked)
                             {
@@ -214,9 +214,11 @@ public class ObjectAdministrationService(
         string endpointUrl,
         string? description,
         bool isMonitoringEnabled,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? name = null)
     {
-        ServiceError? error = administratorAccessPolicy.GetAccessError() ?? ValidateSettings(endpointUrl, description);
+        ServiceError? error = administratorAccessPolicy.GetAccessError()
+            ?? ValidateApplicationSettings(name, endpointUrl, description);
         if (error is not null)
         {
             return ServiceResult<AdminContainerDto>.Fail(error);
@@ -228,12 +230,13 @@ public class ObjectAdministrationService(
             return ServiceResult<AdminContainerDto>.Fail(serverError);
         }
 
-        MonitoredContainer container = new(
+        MonitoredServer container = MonitoredServer.CreateApplication(
             Guid.NewGuid(),
             serverId,
             endpointUrl,
             description,
-            isMonitoringEnabled);
+            isMonitoringEnabled,
+            name);
 
         try
         {
@@ -260,19 +263,21 @@ public class ObjectAdministrationService(
         bool isMonitoringEnabled,
         long expectedVersion,
         CancellationToken cancellationToken = default,
-        ContainerServerAssignment? serverAssignment = null)
+        ContainerServerAssignment? serverAssignment = null,
+        string? name = null)
     {
-        ServiceError? error = administratorAccessPolicy.GetAccessError() ?? ValidateSettings(endpointUrl, description);
+        ServiceError? error = administratorAccessPolicy.GetAccessError()
+            ?? ValidateApplicationSettings(name, endpointUrl, description);
         if (error is not null)
         {
             return ServiceResult<AdminContainerDto>.Fail(error);
         }
 
-        MonitoredContainer? container =
+        MonitoredServer? container =
             await unitOfWork.MonitoredContainers.GetItemByIdAsync(containerId, cancellationToken);
         if (container is null)
         {
-            return ServiceResult<AdminContainerDto>.Fail(ServiceErrorType.NotFound, "Контейнер не найден.");
+            return ServiceResult<AdminContainerDto>.Fail(ServiceErrorType.NotFound, "Приложение не найдено.");
         }
 
         if (container.Version != expectedVersion)
@@ -305,7 +310,7 @@ public class ObjectAdministrationService(
                             endpointUrl,
                             container.IsMonitoringEnabled,
                             isMonitoringEnabled);
-                    container.UpdateSettings(endpointUrl, description, isMonitoringEnabled);
+                    container.UpdateSettings(name ?? container.Name, endpointUrl, description, isMonitoringEnabled);
                     if (incidentId is Guid requiredIncidentId
                         && cancellationReason is RecoveryNotificationCancellationReason requiredReason)
                     {
@@ -343,7 +348,7 @@ public class ObjectAdministrationService(
             return ServiceResult<ServerDeletionImpactDto>.Fail(ServiceErrorType.NotFound, "Сервер не найден.");
         }
 
-        IReadOnlyList<MonitoredContainer> containers =
+        IReadOnlyList<MonitoredServer> containers =
             await unitOfWork.MonitoredContainers.GetByServerIdAsync(serverId, cancellationToken);
         return ServiceResult<ServerDeletionImpactDto>.Ok(
             new(server.Id, containers.Count, server.Version));
@@ -365,7 +370,7 @@ public class ObjectAdministrationService(
         {
             return ServiceResult.Fail(
                 ServiceErrorType.Validation,
-                "Количество контейнеров не может быть отрицательным.",
+                "Количество приложений не может быть отрицательным.",
                 "expectedContainerCount");
         }
 
@@ -390,7 +395,7 @@ public class ObjectAdministrationService(
                         return;
                     }
 
-                    IReadOnlyList<MonitoredContainer> containers =
+                    IReadOnlyList<MonitoredServer> containers =
                         await unitOfWork.MonitoredContainers.GetByServerIdAsync(
                             serverId,
                             transactionCancellationToken);
@@ -398,15 +403,16 @@ public class ObjectAdministrationService(
                     {
                         operationResult = ServiceResult.Fail(
                             ServiceErrorType.Conflict,
-                            "Количество контейнеров изменилось. Повторите подтверждение удаления.");
+                            "Количество приложений изменилось. Повторите подтверждение удаления.");
                         return;
                     }
 
-                    foreach (MonitoredContainer container in containers)
+                    foreach (MonitoredServer container in containers)
                     {
                         container.AssignServer(null);
                     }
 
+                    await unitOfWork.RemoveNotificationBindingsAsync(serverId, transactionCancellationToken);
                     unitOfWork.MonitoredServers.Delete(server);
                     operationResult = ServiceResult.Ok();
                 },
@@ -438,11 +444,11 @@ public class ObjectAdministrationService(
             return ServiceResult.Fail(accessError);
         }
 
-        MonitoredContainer? container =
+        MonitoredServer? container =
             await unitOfWork.MonitoredContainers.GetItemByIdAsync(containerId, cancellationToken);
         if (container is null)
         {
-            return ServiceResult.Fail(ServiceErrorType.NotFound, "Контейнер не найден.");
+            return ServiceResult.Fail(ServiceErrorType.NotFound, "Приложение не найдено.");
         }
 
         if (container.Version != expectedVersion)
@@ -450,6 +456,7 @@ public class ObjectAdministrationService(
             return ServiceResult.Fail(CreateConcurrencyError());
         }
 
+        await unitOfWork.RemoveNotificationBindingsAsync(containerId, cancellationToken);
         unitOfWork.MonitoredContainers.Delete(container);
         try
         {
@@ -471,16 +478,16 @@ public class ObjectAdministrationService(
         }
 
         MonitoredServer? server = await unitOfWork.MonitoredServers.GetItemByIdAsync(serverId.Value, cancellationToken);
-        if (server is null)
+        if (server is null || server.Type != ServerType.Server)
         {
-            return new ServiceError(ServiceErrorType.Validation, "Сервер не существует.", "serverId");
+            return new ServiceError(ServiceErrorType.Validation, "Связь можно установить только с существующим сервером.", "serverId");
         }
 
         return null;
     }
 
     private async Task AssignContainerServerAsync(
-        MonitoredContainer container,
+        MonitoredServer container,
         Guid? serverId,
         CancellationToken cancellationToken)
     {
@@ -509,17 +516,17 @@ public class ObjectAdministrationService(
     private static ServiceError? ValidateContainerLinks(
         Guid serverId,
         IReadOnlyList<ContainerLinkUpdate> links,
-        IReadOnlyList<MonitoredContainer> containers)
+        IReadOnlyList<MonitoredServer> containers)
     {
         HashSet<Guid> requestedIds = links.Select(link => link.Id).ToHashSet();
         if (requestedIds.Count != links.Count)
         {
-            return new ServiceError(ServiceErrorType.Validation, "Контейнеры не должны повторяться.", "containerLinks");
+            return new ServiceError(ServiceErrorType.Validation, "Приложения не должны повторяться.", "containerLinks");
         }
 
         foreach (ContainerLinkUpdate link in links)
         {
-            MonitoredContainer? container = containers.SingleOrDefault(item => item.Id == link.Id);
+            MonitoredServer? container = containers.SingleOrDefault(item => item.Id == link.Id);
             if (container is null || container.Version != link.Version)
             {
                 return CreateConcurrencyError();
@@ -528,7 +535,7 @@ public class ObjectAdministrationService(
             if (container.ServerId is Guid parentId && parentId != serverId)
             {
                 return new ServiceError(ServiceErrorType.Conflict,
-                    "Контейнер уже связан с другим сервером. Обновите список.", "containerLinks");
+                    "Приложение уже связано с другим сервером. Обновите список.", "containerLinks");
             }
         }
 
@@ -577,6 +584,16 @@ public class ObjectAdministrationService(
         return null;
     }
 
+    private static ServiceError? ValidateApplicationSettings(string? name, string endpointUrl, string? description)
+    {
+        if (name is not null)
+        {
+            return ValidateServerSettings(name, endpointUrl, description);
+        }
+
+        return ValidateSettings(endpointUrl, description);
+    }
+
     private static ServiceError? ValidateServerSettings(
         string name,
         string endpointUrl,
@@ -612,7 +629,7 @@ public class ObjectAdministrationService(
             server.Version);
     }
 
-    private static AdminContainerDto MapContainer(MonitoredContainer container)
+    private static AdminContainerDto MapContainer(MonitoredServer container)
     {
         return new AdminContainerDto(
             container.Id,
@@ -623,7 +640,8 @@ public class ObjectAdministrationService(
             container.LastKnownName,
             container.Status,
             container.ConsecutiveFailures,
-            container.Version);
+            container.Version,
+            container.Name);
     }
 
     private static ServiceError CreateConcurrencyError()

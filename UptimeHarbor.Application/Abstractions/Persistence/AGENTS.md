@@ -9,6 +9,7 @@
 ## Правила
 
 - Все списковые чтения возвращают `IReadOnlyList<T>` с materialized данными, но не изменяемый `List<T>` и не `IQueryable`.
+- MonitoredServers / MonitoredContainers — совместимые типовые представления единого MonitoredServer; реализации обязательно фильтруют ServerType. ProjectionWriteSet.Servers содержит оба типа, отдельного набора Containers нет.
 - Не принимать выражения EF, `asNoTracking`, `Include` или тип контекста.
 - Общие CRUD-операции выносить в базовые интерфейсы; предметный интерфейс дополнять только специализированными запросами.
 - Решения о tracking и форме EF-запроса оставлять Infrastructure.

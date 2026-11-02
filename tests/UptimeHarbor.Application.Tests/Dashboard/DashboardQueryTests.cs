@@ -254,7 +254,7 @@ public class DashboardQueryTests
                 "https://secondary.example/health",
                 "Secondary workload",
                 true);
-            FirstContainer = new MonitoredContainer(
+            FirstContainer = MonitoredServer.CreateApplication(
                 Guid.NewGuid(),
                 FirstServer.Id,
                 "https://payments.example/health",
@@ -264,13 +264,13 @@ public class DashboardQueryTests
                 "Payments API",
                 NOW_UTC.AddHours(-2),
                 NOW_UTC.AddMinutes(-1));
-            SecondContainerOnFirstServer = new MonitoredContainer(
+            SecondContainerOnFirstServer = MonitoredServer.CreateApplication(
                 Guid.NewGuid(),
                 FirstServer.Id,
                 "https://worker.example/health",
                 "Background worker",
                 true);
-            MonitoredContainer secondServerContainer = new(
+            MonitoredServer secondServerContainer = MonitoredServer.CreateApplication(
                 Guid.NewGuid(),
                 SecondServer.Id,
                 "https://secondary-app.example/health",
@@ -285,16 +285,18 @@ public class DashboardQueryTests
         public Guid UserId { get; } = Guid.NewGuid();
         public MonitoredServer FirstServer { get; }
         public MonitoredServer SecondServer { get; }
-        public MonitoredContainer FirstContainer { get; }
-        public MonitoredContainer SecondContainerOnFirstServer { get; }
+        public MonitoredServer FirstContainer { get; }
+        public MonitoredServer SecondContainerOnFirstServer { get; }
         public FakeServerRepository Servers { get; }
         public FakeContainerRepository Containers { get; }
         public FakePermissionRepository Permissions { get; } = new();
 
-        public void AllowServer(MonitoredServer server) =>
+        public void AllowServer(MonitoredServer server)
+        {
             Permissions.ServerPermissions.Add(new ServerVisibilityPermission(UserId, server.Id));
+        }
 
-        public void AllowContainer(MonitoredContainer container)
+        public void AllowContainer(MonitoredServer container)
         {
             Guid serverId = container.ServerId
                 ?? throw new InvalidOperationException("Тестовые права требуют сервер.");
@@ -371,41 +373,73 @@ public class DashboardQueryTests
     private class FakeServerRepository(List<MonitoredServer> items) : IMonitoredServerRepository
     {
         public List<MonitoredServer> Items => items;
-        public Task<IReadOnlyList<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<MonitoredServer>>(items.ToList());
-        public Task<IReadOnlyList<MonitoredServer>> GetEnabledAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<MonitoredServer>>(
+        public Task<IReadOnlyList<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>(items.ToList());
+        }
+        public Task<IReadOnlyList<MonitoredServer>> GetEnabledAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>(
                 items.Where(item => item.IsMonitoringEnabled).ToList());
-        public Task<MonitoredServer?> GetItemByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
-            Task.FromResult(items.SingleOrDefault(item => item.Id == id));
-        public void Create(MonitoredServer item) => items.Add(item);
-        public void CreateRange(IEnumerable<MonitoredServer> entities) => items.AddRange(entities);
-        public void Delete(MonitoredServer item) => items.Remove(item);
+        }
+        public Task<MonitoredServer?> GetItemByIdAsync(Guid id, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(items.SingleOrDefault(item => item.Id == id));
+        }
+        public void Create(MonitoredServer item)
+        {
+            items.Add(item);
+        }
+        public void CreateRange(IEnumerable<MonitoredServer> entities)
+        {
+            items.AddRange(entities);
+        }
+        public void Delete(MonitoredServer item)
+        {
+            items.Remove(item);
+        }
         public void DeleteRange(IEnumerable<MonitoredServer> entities)
         {
             foreach (MonitoredServer entity in entities.ToList()) items.Remove(entity);
         }
     }
 
-    private class FakeContainerRepository(List<MonitoredContainer> items) : IMonitoredContainerRepository
+    private class FakeContainerRepository(List<MonitoredServer> items) : IMonitoredContainerRepository
     {
-        public List<MonitoredContainer> Items => items;
-        public Task<IReadOnlyList<MonitoredContainer>> GetAllAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<MonitoredContainer>>(items.ToList());
-        public Task<IReadOnlyList<MonitoredContainer>> GetEnabledAsync(CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<MonitoredContainer>>(
-                items.Where(item => item.IsMonitoringEnabled).ToList());
-        public Task<IReadOnlyList<MonitoredContainer>> GetByServerIdAsync(Guid serverId, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IReadOnlyList<MonitoredContainer>>(
-                items.Where(item => item.ServerId == serverId).ToList());
-        public Task<MonitoredContainer?> GetItemByIdAsync(Guid id, CancellationToken cancellationToken = default) =>
-            Task.FromResult(items.SingleOrDefault(item => item.Id == id));
-        public void Create(MonitoredContainer item) => items.Add(item);
-        public void CreateRange(IEnumerable<MonitoredContainer> entities) => items.AddRange(entities);
-        public void Delete(MonitoredContainer item) => items.Remove(item);
-        public void DeleteRange(IEnumerable<MonitoredContainer> entities)
+        public List<MonitoredServer> Items => items;
+        public Task<IReadOnlyList<MonitoredServer>> GetAllAsync(CancellationToken cancellationToken = default)
         {
-            foreach (MonitoredContainer entity in entities.ToList()) items.Remove(entity);
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>(items.ToList());
+        }
+        public Task<IReadOnlyList<MonitoredServer>> GetEnabledAsync(CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>(
+                items.Where(item => item.IsMonitoringEnabled).ToList());
+        }
+        public Task<IReadOnlyList<MonitoredServer>> GetByServerIdAsync(Guid serverId, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult<IReadOnlyList<MonitoredServer>>(
+                items.Where(item => item.ServerId == serverId).ToList());
+        }
+        public Task<MonitoredServer?> GetItemByIdAsync(Guid id, CancellationToken cancellationToken = default)
+        {
+            return Task.FromResult(items.SingleOrDefault(item => item.Id == id));
+        }
+        public void Create(MonitoredServer item)
+        {
+            items.Add(item);
+        }
+        public void CreateRange(IEnumerable<MonitoredServer> entities)
+        {
+            items.AddRange(entities);
+        }
+        public void Delete(MonitoredServer item)
+        {
+            items.Remove(item);
+        }
+        public void DeleteRange(IEnumerable<MonitoredServer> entities)
+        {
+            foreach (MonitoredServer entity in entities.ToList()) items.Remove(entity);
         }
     }
 

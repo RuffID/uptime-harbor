@@ -1,4 +1,5 @@
 export type EntityKind = "Server" | "Container" | "Chat" | "Binding" | "NodeChatRoute" | "Account";
+export type ResourceFilter = EntityKind | "Monitoring";
 export interface Settings {
     name: string | null; endpoint: string | null; description: string | null; enabled: boolean;
     parentId: string | null; chatId: string | null; telegramChatId: number;

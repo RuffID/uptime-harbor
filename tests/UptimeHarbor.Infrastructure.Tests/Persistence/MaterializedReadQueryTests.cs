@@ -41,7 +41,7 @@ public class MaterializedReadQueryTests
             "https://hidden-server.example/health",
             "Hidden server",
             true);
-        MonitoredContainer visibleContainer = new(
+        MonitoredServer visibleContainer = MonitoredServer.CreateApplication(
             Guid.NewGuid(),
             visibleServer.Id,
             "https://secret-container.example/health",
@@ -54,7 +54,7 @@ public class MaterializedReadQueryTests
             await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
             context.Users.Add(new ApplicationUser(userId, "user"));
             context.MonitoredServers.AddRange(visibleServer, hiddenServer);
-            context.MonitoredContainers.Add(visibleContainer);
+            context.MonitoredServers.Add(visibleContainer);
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
 
             DashboardSnapshotReadQuery query = new(context);
@@ -99,7 +99,7 @@ public class MaterializedReadQueryTests
             "https://server.example/health",
             null,
             true);
-        MonitoredContainer container = new(
+        MonitoredServer container = MonitoredServer.CreateApplication(
             Guid.NewGuid(),
             server.Id,
             "https://container.example/health",
@@ -129,7 +129,7 @@ public class MaterializedReadQueryTests
         }
 
         context.MonitoredServers.Add(server);
-        context.MonitoredContainers.Add(container);
+        context.MonitoredServers.Add(container);
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         interceptor.Reset();
 

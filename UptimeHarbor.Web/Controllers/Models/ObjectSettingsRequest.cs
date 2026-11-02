@@ -2,6 +2,8 @@ namespace UptimeHarbor.Web.Controllers.Models;
 
 public class ObjectSettingsRequest
 {
+    public string? Name { get; init; }
+
     public string? EndpointUrl { get; init; }
 
     public string? Description { get; init; }

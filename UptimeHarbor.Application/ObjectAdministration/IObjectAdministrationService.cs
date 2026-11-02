@@ -34,7 +34,8 @@ public interface IObjectAdministrationService
         string endpointUrl,
         string? description,
         bool isMonitoringEnabled,
-        CancellationToken cancellationToken = default);
+        CancellationToken cancellationToken = default,
+        string? name = null);
 
     Task<ServiceResult<AdminContainerDto>> UpdateContainerAsync(
         Guid containerId,
@@ -43,7 +44,8 @@ public interface IObjectAdministrationService
         bool isMonitoringEnabled,
         long expectedVersion,
         CancellationToken cancellationToken = default,
-        ContainerServerAssignment? serverAssignment = null);
+        ContainerServerAssignment? serverAssignment = null,
+        string? name = null);
 
     Task<ServiceResult<ServerDeletionImpactDto>> GetServerDeletionImpactAsync(
         Guid serverId,

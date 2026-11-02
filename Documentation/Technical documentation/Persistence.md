@@ -39,16 +39,18 @@ Persistence реализован в `UptimeHarbor.Infrastructure` на EF Core �
 
 Они задают:
 
-- отдельные таблицы серверов и контейнеров;
+- единую таблицу monitored_servers для MonitoredServer, с обязательным Type и стабильными строковыми кодами Server / Application;
 - строковое хранение статуса и check constraints допустимых значений;
 - обязательные ключи и `ValueGeneratedNever` для идентификаторов приложения;
 - длины строк, индексы и уникальность связей;
 - nullable связь контейнера с сервером с `NoAction`: удаление сервера явно снимает связи в одной транзакции, сохраняя контейнеры и их notification bindings;
 - отсутствие таблиц и рабочих repository/UoW/API permissions;
-- правило notification binding «ровно один target»;
+- правило notification binding «ровно один target»; совместимые ServerId / ContainerId ссылаются на monitored_servers без каскадов; удаление bindings цели выполняется явно в том же commit;
 - хранение времён как UTC в столбцах SQL Server `datetime2`;
 - явный `Version` серверов и контейнеров как concurrency token;
 - таблицу `notification_outbox_jobs` с JSON payload в `nvarchar(max)`, attempt, next-attempt, lease и terminal timestamps без внешнего ключа к удаляемому объекту.
+
+Имя обязательно у обоих типов; уникальный индекс NormalizedName ограничен Type='Server'. Совместимые серверный и контейнерный repositories возвращают MonitoredServer с обязательным фильтром Type; отдельного DbSet MonitoredContainers нет. Migration 20261101161617_UnifyMonitoredServersAndApplications подготовлена с переносом приложений, к БД не применена.
 
 Для идемпотентности уведомлений объект хранит nullable `CurrentIncidentId`, а каждая привязка — nullable идентификаторы инцидента успешной outage- и recovery-доставки. Глобальный `OutageNotificationSent` удалён из кодовой модели, потому что не описывает частичный успех нескольких чатов.
 

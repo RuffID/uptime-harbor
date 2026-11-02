@@ -109,7 +109,7 @@ public static class SnapshotImageValidation
             Compare(context, image, entity, ConfigurationFields(type));
         }
 
-        Type[] configurationTypes = [typeof(ApplicationUser), typeof(MonitoredServer), typeof(MonitoredContainer),
+        Type[] configurationTypes = [typeof(ApplicationUser), typeof(MonitoredServer),
             typeof(TelegramChat), typeof(NotificationBinding), typeof(ObserverAssignment), typeof(NodeChatRoute),
             typeof(ObserverResult), typeof(ObservationFrontier), typeof(TargetObservationState), typeof(SharedIncident),
             typeof(IncidentEvent), typeof(DeliveryIntent), typeof(DeliveryAttempt), typeof(RecoveryEntitlement), typeof(DeliverySummary), typeof(SummarySource)];
@@ -139,12 +139,7 @@ public static class SnapshotImageValidation
 
         if (type == typeof(MonitoredServer))
         {
-            return ["Id", "Name", "EndpointUrl", "Description", "IsMonitoringEnabled", "ConfigRevision", "CheckGeneration"];
-        }
-
-        if (type == typeof(MonitoredContainer))
-        {
-            return ["Id", "ServerId", "EndpointUrl", "Description", "IsMonitoringEnabled", "ConfigRevision", "CheckGeneration"];
+            return ["Id", "Name", "Type", "ServerId", "EndpointUrl", "Description", "IsMonitoringEnabled", "ConfigRevision", "CheckGeneration"];
         }
 
         if (type == typeof(TelegramChat))

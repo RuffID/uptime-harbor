@@ -133,7 +133,8 @@ public class DashboardQuery(
             container.Status,
             container.LastCheckedAtUtc,
             container.StartedAtUtc,
-            uptimeSeconds);
+            uptimeSeconds,
+            container.LastKnownName);
     }
 
     private static bool Matches(DashboardServerReadRecord server, string? search)
@@ -148,11 +149,19 @@ public class DashboardQuery(
     {
         return search is null
             || GetDisplayName(container).Contains(search, StringComparison.OrdinalIgnoreCase)
+            || container.LastKnownName?.Contains(search, StringComparison.OrdinalIgnoreCase) == true
             || container.Description?.Contains(search, StringComparison.OrdinalIgnoreCase) == true;
     }
 
-    private static string GetDisplayName(DashboardContainerReadRecord container) =>
-        container.LastKnownName ?? $"{MISSING_NAME} · {container.Id.ToString("N")[..8]}";
+    private static string GetDisplayName(DashboardContainerReadRecord container)
+    {
+        if (container.Name is not null)
+        {
+            return container.Name;
+        }
+
+        return container.LastKnownName ?? $"{MISSING_NAME} · {container.Id.ToString("N")[..8]}";
+    }
 
     private static void EnsureUtc(DateTimeOffset? value, string fieldName)
     {

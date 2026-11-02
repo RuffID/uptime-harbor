@@ -4,17 +4,17 @@ using UptimeHarbor.Domain.Monitoring;
 namespace UptimeHarbor.Application.Abstractions.Persistence;
 
 public interface IMonitoredContainerRepository :
-    ICreateItemRepository<MonitoredContainer>,
-    IDeleteItemRepository<MonitoredContainer>,
-    IGetItemByIdRepository<MonitoredContainer, Guid>
+    ICreateItemRepository<MonitoredServer>,
+    IDeleteItemRepository<MonitoredServer>,
+    IGetItemByIdRepository<MonitoredServer, Guid>
 {
-    Task<IReadOnlyList<MonitoredContainer>> GetAllAsync(
+    Task<IReadOnlyList<MonitoredServer>> GetAllAsync(
         CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<MonitoredContainer>> GetEnabledAsync(
+    Task<IReadOnlyList<MonitoredServer>> GetEnabledAsync(
         CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<MonitoredContainer>> GetByServerIdAsync(
+    Task<IReadOnlyList<MonitoredServer>> GetByServerIdAsync(
         Guid serverId,
         CancellationToken cancellationToken = default);
 }

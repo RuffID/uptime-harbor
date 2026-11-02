@@ -1,0 +1,56 @@
+@inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@{
+    string token = Antiforgery.GetAndStoreTokens(ViewContext.HttpContext).RequestToken
+        ?? throw new InvalidOperationException("Не удалось создать antiforgery token.");
+}
+<meta name="request-verification-token" content="@token" />
+<div class="modal fade" id="monitoringEditorModal" tabindex="-1" aria-labelledby="monitoringEditorTitle" aria-hidden="true" data-monitoring-modal>
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <form data-monitoring-form>
+                <div class="modal-header">
+                    <h2 class="modal-title fs-5" id="monitoringEditorTitle" data-monitoring-title>Создать объект</h2>
+                    <button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Закрыть"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-danger" role="alert" data-monitoring-error></p>
+                    <fieldset class="d-flex flex-column gap-3" data-monitoring-fields>
+                        <div>
+                            <label class="form-label" for="monitoringType">Тип</label>
+                            <select class="form-select" id="monitoringType" name="type" data-monitoring-type>
+                                <option value="Server">Сервер</option>
+                                <option value="Application">Приложение</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="form-label" for="monitoringName">Название</label>
+                            <input class="form-control" id="monitoringName" name="name" type="text" maxlength="256" required data-monitoring-name />
+                        </div>
+                        <div>
+                            <label class="form-label" for="monitoringEndpoint">Адрес проверки</label>
+                            <input class="form-control" id="monitoringEndpoint" name="endpointUrl" type="url" maxlength="2048" required data-monitoring-endpoint />
+                        </div>
+                        <div>
+                            <label class="form-label" for="monitoringDescription">Описание</label>
+                            <textarea class="form-control" id="monitoringDescription" name="description" rows="3" maxlength="500" data-monitoring-description></textarea>
+                        </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" id="monitoringEnabled" name="isMonitoringEnabled" type="checkbox" role="switch" checked data-animated-switch data-monitoring-enabled />
+                            <label class="form-check-label" for="monitoringEnabled">Мониторинг включён</label>
+                        </div>
+                        <div data-monitoring-parent-field hidden>
+                            <label class="form-label" for="monitoringParent">Связанный сервер</label>
+                            <select class="form-select" id="monitoringParent" name="serverId" data-monitoring-parent></select>
+                            <p class="form-text mb-0">Можно оставить без сервера и указать связь позже.</p>
+                        </div>
+                    </fieldset>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline-danger me-auto" type="button" hidden data-monitoring-delete>Удалить</button>
+                    <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Закрыть</button>
+                    <button class="btn btn-primary" type="submit" data-monitoring-save>Сохранить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

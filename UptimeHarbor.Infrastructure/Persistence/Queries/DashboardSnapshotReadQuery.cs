@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using UptimeHarbor.Application.Dashboard;
 using UptimeHarbor.Application.Dashboard.Models;
+using UptimeHarbor.Domain.Monitoring;
 
 namespace UptimeHarbor.Infrastructure.Persistence.Queries;
 
@@ -14,6 +15,7 @@ public class DashboardSnapshotReadQuery(UptimeHarborDbContext dbContext)
     {
         List<DashboardServerReadRecord> servers = await dbContext.MonitoredServers
             .AsNoTracking()
+            .Where(server => server.Type == ServerType.Server)
             .Select(server => new DashboardServerReadRecord(
                 server.Id,
                 server.Name,
@@ -23,8 +25,9 @@ public class DashboardSnapshotReadQuery(UptimeHarborDbContext dbContext)
                 server.LastCheckedAtUtc,
                 server.StartedAtUtc))
             .ToListAsync(cancellationToken);
-        List<DashboardContainerReadRecord> containers = await dbContext.MonitoredContainers
+        List<DashboardContainerReadRecord> containers = await dbContext.MonitoredServers
             .AsNoTracking()
+            .Where(container => container.Type == ServerType.Application)
             .Select(container => new DashboardContainerReadRecord(
                 container.Id,
                 container.ServerId,
@@ -32,7 +35,8 @@ public class DashboardSnapshotReadQuery(UptimeHarborDbContext dbContext)
                 container.LastKnownName,
                 container.Status,
                 container.LastCheckedAtUtc,
-                container.StartedAtUtc))
+                container.StartedAtUtc,
+                container.Name))
             .ToListAsync(cancellationToken);
 
         if (isAdministrator)

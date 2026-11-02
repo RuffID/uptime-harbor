@@ -33,20 +33,24 @@ public class UptimeHarborDbContextModelTests
     [Fact]
     public void MonitoringEntities_UseExplicitConcurrencyVersion()
     {
+        // Arrange
         using UptimeHarborDbContext context = CreateContext();
+
+        // Act
         IProperty serverVersion = context.Model.FindEntityType(typeof(MonitoredServer))!
             .FindProperty(nameof(MonitoredServer.Version))!;
-        IProperty containerVersion = context.Model.FindEntityType(typeof(MonitoredContainer))!
-            .FindProperty(nameof(MonitoredContainer.Version))!;
 
+        // Assert
         Assert.True(serverVersion.IsConcurrencyToken);
-        Assert.True(containerVersion.IsConcurrencyToken);
     }
 
     [Fact]
     public void MonitoredServer_ConfiguresRequiredUniqueName()
     {
+        // Arrange
         using UptimeHarborDbContext context = CreateContext();
+
+        // Act
         IEntityType serverType = context.Model.FindEntityType(typeof(MonitoredServer))!;
         IProperty name = serverType.FindProperty(nameof(MonitoredServer.Name))!;
         IProperty normalizedName = serverType.FindProperty("NormalizedName")!;
@@ -55,6 +59,7 @@ public class UptimeHarborDbContextModelTests
             candidate => candidate.Properties.Select(property => property.Name)
                 .SequenceEqual(["NormalizedName"]));
 
+        // Assert
         Assert.False(name.IsNullable);
         Assert.Equal(ModelConstraints.OBJECT_NAME_MAX_LENGTH, name.GetMaxLength());
         Assert.False(normalizedName.IsNullable);
@@ -77,10 +82,14 @@ public class UptimeHarborDbContextModelTests
     [Fact]
     public void NotificationDeliveryState_IsPersistedPerBindingAndCurrentIncident()
     {
+        // Arrange
         using UptimeHarborDbContext context = CreateContext();
+
+        // Act
         Microsoft.EntityFrameworkCore.Metadata.IEntityType server = context.Model.FindEntityType(typeof(MonitoredServer))!;
         Microsoft.EntityFrameworkCore.Metadata.IEntityType binding = context.Model.FindEntityType(typeof(NotificationBinding))!;
 
+        // Assert
         Assert.NotNull(server.FindProperty(nameof(MonitoredServer.CurrentIncidentId)));
         Assert.NotNull(binding.FindProperty(nameof(NotificationBinding.OutageDeliveredIncidentId)));
         Assert.NotNull(binding.FindProperty(nameof(NotificationBinding.RecoveryDeliveredIncidentId)));
@@ -94,24 +103,37 @@ public class UptimeHarborDbContextModelTests
         using UptimeHarborDbContext context = CreateContext();
 
         // Act
-        IEntityType containerType = context.Model.FindEntityType(typeof(MonitoredContainer))!;
+        IEntityType containerType = context.Model.FindEntityType(typeof(MonitoredServer))!;
         IEntityType bindingType = context.Model.FindEntityType(typeof(NotificationBinding))!;
 
         // Assert
         Assert.Equal(DeleteBehavior.NoAction, Assert.Single(containerType.GetForeignKeys()).DeleteBehavior);
-        Assert.All(bindingType.GetForeignKeys(), key => Assert.Equal(DeleteBehavior.Cascade, key.DeleteBehavior));
+        Assert.Equal(DeleteBehavior.Cascade, Assert.Single(bindingType.GetForeignKeys(),
+            key => key.PrincipalEntityType.ClrType == typeof(TelegramChat)).DeleteBehavior);
+        Assert.All(bindingType.GetForeignKeys().Where(key => key.PrincipalEntityType.ClrType == typeof(MonitoredServer)),
+            key => Assert.Equal(DeleteBehavior.NoAction, key.DeleteBehavior));
     }
 
     [Fact]
-    public void Model_MapsConcreteMonitoringTypesToSeparateTables()
+    public void Model_MapsServersAndApplicationsToOneTableWithStableTypeCodes()
     {
+        // Arrange
         using UptimeHarborDbContext context = CreateContext();
-        IEntityType serverType = context.Model.FindEntityType(typeof(MonitoredServer))!;
-        IEntityType containerType = context.Model.FindEntityType(typeof(MonitoredContainer))!;
 
+        // Act
+        IEntityType serverType = context.Model.FindEntityType(typeof(MonitoredServer))!;
+        IProperty type = serverType.FindProperty(nameof(MonitoredServer.Type))!;
+        var converter = type.GetTypeMapping().Converter!;
+
+        // Assert
         Assert.Null(context.Model.FindEntityType(typeof(MonitoredObject)));
+        Assert.Single(context.Model.GetEntityTypes(), entity => typeof(MonitoredObject).IsAssignableFrom(entity.ClrType));
         Assert.Equal("monitored_servers", serverType.GetTableName());
-        Assert.Equal("monitored_containers", containerType.GetTableName());
+        Assert.False(type.IsNullable);
+        Assert.Equal("Server", converter.ConvertToProvider(ServerType.Server));
+        Assert.Equal("Application", converter.ConvertToProvider(ServerType.Application));
+        Assert.Equal(ServerType.Application, converter.ConvertFromProvider("Application"));
+        Assert.Throws<InvalidOperationException>(() => converter.ConvertFromProvider("Unsupported"));
     }
 
     [Fact]
@@ -182,10 +204,10 @@ public class UptimeHarborDbContextModelTests
         using UptimeHarborDbContext context = CreateContext();
 
         // Act
-        IEntityType containerType = context.Model.FindEntityType(typeof(MonitoredContainer))!;
+        IEntityType containerType = context.Model.FindEntityType(typeof(MonitoredServer))!;
 
         // Assert
-        Assert.True(containerType.FindProperty(nameof(MonitoredContainer.ServerId))!.IsNullable);
+        Assert.True(containerType.FindProperty(nameof(MonitoredServer.ServerId))!.IsNullable);
         Assert.Single(containerType.GetKeys());
         Assert.Null(context.Model.FindEntityType(typeof(ContainerVisibilityPermission)));
     }

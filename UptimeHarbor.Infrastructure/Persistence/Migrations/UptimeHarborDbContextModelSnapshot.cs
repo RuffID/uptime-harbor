@@ -1702,74 +1702,6 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                         });
                 });
 
-            modelBuilder.Entity("UptimeHarbor.Domain.Monitoring.MonitoredContainer", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("CheckGeneration")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<long>("ConfigRevision")
-                        .HasColumnType("bigint");
-
-                    b.Property<int>("ConsecutiveFailures")
-                        .HasColumnType("int");
-
-                    b.Property<Guid?>("CurrentIncidentId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("EndpointUrl")
-                        .IsRequired()
-                        .HasMaxLength(2048)
-                        .HasColumnType("nvarchar(2048)");
-
-                    b.Property<bool>("IsMonitoringEnabled")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime?>("LastCheckedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("LastKnownName")
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<DateTime?>("LastSuccessfulCheckAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid?>("ServerId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("StartedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("nvarchar(32)");
-
-                    b.Property<long>("Version")
-                        .IsConcurrencyToken()
-                        .HasColumnType("bigint");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ServerId");
-
-                    b.ToTable("monitored_containers", null, t =>
-                        {
-                            t.HasCheckConstraint("ck_monitored_containers_consecutive_failures", "[ConsecutiveFailures] >= 0");
-
-                            t.HasCheckConstraint("ck_monitored_containers_endpoint_url", "LOWER([EndpointUrl]) LIKE 'http://%' OR LOWER([EndpointUrl]) LIKE 'https://%'");
-
-                            t.HasCheckConstraint("ck_monitored_containers_status", "[Status] IN ('Unknown', 'Available', 'Unavailable')");
-                        });
-                });
-
             modelBuilder.Entity("UptimeHarbor.Domain.Monitoring.MonitoredServer", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1819,10 +1751,18 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
+                    b.Property<Guid?>("ServerId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime?>("StartedAtUtc")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<string>("Type")
                         .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("nvarchar(32)");
@@ -1835,13 +1775,18 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("NormalizedName")
                         .IsUnique()
-                        .HasDatabaseName("ux_monitored_servers_name");
+                        .HasDatabaseName("ux_monitored_servers_name")
+                        .HasFilter("[Type] = 'Server'");
+
+                    b.HasIndex("ServerId");
 
                     b.ToTable("monitored_servers", null, t =>
                         {
                             t.HasCheckConstraint("ck_monitored_servers_consecutive_failures", "[ConsecutiveFailures] >= 0");
 
                             t.HasCheckConstraint("ck_monitored_servers_endpoint_url", "LOWER([EndpointUrl]) LIKE 'http://%' OR LOWER([EndpointUrl]) LIKE 'https://%'");
+
+                            t.HasCheckConstraint("ck_monitored_servers_parent", "[ServerId] IS NULL OR ([Type] = 'Application' AND [ServerId] <> [Id])");
 
                             t.HasCheckConstraint("ck_monitored_servers_status", "[Status] IN ('Unknown', 'Available', 'Unavailable')");
                         });
@@ -2240,7 +2185,7 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("UptimeHarbor.Domain.Monitoring.MonitoredContainer", b =>
+            modelBuilder.Entity("UptimeHarbor.Domain.Monitoring.MonitoredServer", b =>
                 {
                     b.HasOne("UptimeHarbor.Domain.Monitoring.MonitoredServer", null)
                         .WithMany()
@@ -2250,15 +2195,15 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("UptimeHarbor.Domain.Notifications.NotificationBinding", b =>
                 {
-                    b.HasOne("UptimeHarbor.Domain.Monitoring.MonitoredContainer", null)
+                    b.HasOne("UptimeHarbor.Domain.Monitoring.MonitoredServer", null)
                         .WithMany()
                         .HasForeignKey("ContainerId")
-                        .OnDelete(DeleteBehavior.Cascade);
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("UptimeHarbor.Domain.Monitoring.MonitoredServer", null)
                         .WithMany()
                         .HasForeignKey("ServerId")
-                        .OnDelete(DeleteBehavior.Cascade);
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("UptimeHarbor.Domain.Notifications.TelegramChat", null)
                         .WithMany()

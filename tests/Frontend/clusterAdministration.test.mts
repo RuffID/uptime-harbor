@@ -19,6 +19,7 @@ class Dom {
     tag: string;
     children: Dom[] = [];
     parent: Dom | null = null;
+    get parentElement(): Dom | null { return this.parent; }
     dataset: Record<string, string> = {};
     listeners = new Map<string, ((event: Event) => void)[]>();
     ownText = "";
@@ -100,6 +101,29 @@ test("draft freezes the original request; network retry cannot reuse ID for alte
     const retry = draft.prepare(request); retry.name = "mutated response";
     assert.equal(draft.prepare(request).name, "typed");
     assert.throws(() => draft.prepare({ ...request, name: "new" }), /OperationId/);
+});
+
+test("new monitoring object selects application type with optional server; existing type stays fixed", async () => {
+    const fixture = editorFixture();
+    fixture.editor.open("Server", null);
+    const type = fixture.input("objectType");
+    assert.equal(type.disabled, false);
+    type.value = "Container";
+    type.dispatchEvent(new Event("change"));
+    fixture.input("name").value = "Orders";
+    fixture.input("endpoint").value = "https://orders.invalid/health";
+    assert.equal(fixture.input("parentId").required, false);
+    await fixture.submit();
+    const command = fixture.sent[0] as Change;
+    assert.equal(command.kind, "Container");
+    assert.equal(command.settings!.parentId, null);
+    assert.equal(command.settings!.name, "Orders");
+
+    fixture.editor.open("Container", entity("Container"));
+    assert.equal(fixture.input("objectType").disabled, true);
+    fixture.input("parentId").value = "host-id";
+    await fixture.submit();
+    assert.equal((fixture.sent[1] as Change).settings!.parentId, "host-id");
 });
 
 test("editor keeps input and OperationId after lost response; explicit rebase preserves draft", async () => {
