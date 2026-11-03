@@ -18,6 +18,12 @@
 
 ## Затрагиваемые части
 
+### Контракт, разработанный этапом 01
+
+Выполнить [mapping данных и M0–M3](technical-design.md#migration): типизированный manifest/partition hashes/FK/source watermark, shadow baseline и delta всех writers, backup/restore receipts. Реализовать preflight/report и format baseline, а не повторно выбирать политику сохранения. Существующий legacy hash/stamps/disabled state сохраняется, setup identity отсутствует; claims/logins/tokens/неизвестные таблицы требуют адаптера либо явного отказа. У standalone нет полного check/per-attempt журнала: сохранять имеющееся, не выдумывать историю. Legacy outbox/markers переносятся с точным provenance, unknown sends не становятся success.
+
+Негативные проверки: один и тот же count при изменённых значениях/links, коллизии, unsupported hash/роль/table, stale watermark/schema/backup receipt, большой delta и active transport. Логи — safe MigrationId/counts/reason, без account digests/истории. Само исследование 01 не выполняет provider inventory/backup; конкретную пользовательскую копию проверяет 07 по отдельному разрешению.
+
 Application migration/preflight contracts, Infrastructure standalone persistence и сценарные UoW, Web status DTO и будущий мастер. По фактическим изменениям обновить ближайшие AGENTS.md, Shared cluster storage, Cluster operations, Configuration и Testing. Не изменять исторические этапы прежнего плана.
 
 ## Проверки и приёмка

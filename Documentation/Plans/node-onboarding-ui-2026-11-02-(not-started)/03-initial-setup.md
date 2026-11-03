@@ -12,12 +12,20 @@
 2. Реализовать вход локальным администратором, изолированные setup routes/assets и отзыв setup-сессий после готовности. Безопасную подготовку локального аккаунта отделить от общего bootstrap; не разрешать публичное создание администратора по первому запросу. Не требовать дополнительного установочного секрета. Сохранять общую авторизацию, CSRF/origin policy, rate limit и peer/browser разделение; не открывать весь API исключением из middleware.
 3. Реализовать минимальный preflight: схема, shared-таблицы/identity/cursor, storage/manifest, версии, постоянные тома и доступные адреса. Единственная изолированная setup-учётная запись не блокирует Join; рабочие данные, посторонние аккаунты и старый cluster storage вызывают отказ без очистки или merge. Действующий первый standalone направляется в этапы 03а/03б.
 4. Хранить локальный профиль режима, references на identity/keys и AttemptId в локальной БД вне общей репликации. Приватные ключи хранить защищённо локально, файлы создавать атомарно с ограниченными путями/ACL. Проверять согласованность SQL/storage после обрыва; не переписывать config и секреты оператора.
-5. Для новой первой установки координировать BootstrapAccount и начальное членство с законными online-authority встроенного issuer. Не устанавливать Ready/Activated вручную. После проверенной готовности дать общий вход и доступ к созданию приглашения.
+5. Для новой первой установки подготовить координацию BootstrapAccount/начального членства через типизированные authority-порты; здесь проверить lifecycle с doubles при закрытых production gates. Реальные issuer/grants и интегрированную готовность завершает 04. Не устанавливать Ready/Activated вручную; общий вход и приглашения открываются только после связки 03+04.
 6. Для нового второго узла сохранить локальные NodeId/storage/AttemptId/private key, не создавать независимого общего администратора или второй Bootstrap. Перезапуск восстанавливает ту же попытку.
 7. Реализовать управляемый lifecycle без перезапуска Web-host: остановка standalone workers, короткая пауза операций, подготовка проекции, безопасная загрузка новых credentials и однократный старт cluster workers. Подготовить peer listener для перехода с закрытым доступом до готовности. Простое изменение поля режима не заменяет переключение; shell-команды и supervisor-restart из HTTP не используются.
 8. Логировать начало настройки, успешный preflight, безопасную причину отказа и переход профиля после durable результата. Установочный credential, ключи, connection string и пароль нового администратора не логировать.
 
 ## Затрагиваемые части
+
+### Контракт, разработанный этапом 01
+
+Реализовать [локальную настройку/runtime](technical-design.md#runtime): явный InstallationIntent до legacy bootstrap, LocalSetupAccount вне users/roles, подготовка из известных локальных admin credentials без публичной регистрации и отдельного setup token. Отдельные cookie/DP purpose/epoch, delete hash + revoke setup перед common routes. Существующий legacy-admin на втором не становится setup account. Для нового первого общий account создаётся отдельно, без слияния setup identity.
+
+Управляемые поколения всех legacy/cluster workers и delegating service selection, atomic profile revision, lock до preflight, write/drain gate, file/SQL reconciliation и dynamic cert/trust providers обязательны. Direct listener/TLS passthrough готовится до Build, endpoint отсутствует — preflight отказ, не скрытый restart. Сохранить локальные profile/secret volumes; DPAPI не вводить. В 03 обеспечить отсутствие зависимости setup/CanWork/consensus-health/resign от Telegram и убрать обязательность token на несендерах из startup validation; реальные sender gates/renewal/dispatch реализует 05а. До неё доставка закрыта, Join/импорт могут работать.
+
+Этап 03 реализует runtime/authority **порты** и проверяет с doubles; реальный genesis/сертификат/online activation завершается совместно с 04. Не требовать результата будущего 04 для завершения разработки 03 и не открывать production gates по doubles. Для существующего первого production cutover только 03б. Проверить first-visitor takeover/config reset/cookie crossing/nonempty local tables/double process/failed drain/stale callbacks/повреждённые refs; события — по [матрице](technical-design.md#verification). При реализации актуализировать устаревшую пометку о будущем общем входе в Application/AGENTS.md по фактическим границам.
 
 Web composition/configuration, boundary middleware, startup registration, Infrastructure initialization/options/control и локальное хранение. Изменения Program.cs остаются вызовами модулей. Синхронизировать местные AGENTS.md и Configuration, Web application, Cluster operations, Deployment после реализации.
 
@@ -29,7 +37,7 @@ Web composition/configuration, boundary middleware, startup registration, Infras
 - Перезапуск не теряет AttemptId и не переиспользует challenge предыдущего процесса.
 - В production/setup графе DI нет двойного старта workers, преждевременного WAL resolve и обхода closed gates.
 - Обычное подключение не меняет процесс Web-host и не требует ручного перезапуска; сбой на каждом runtime-переходе сохраняет проверяемое состояние и прежний AttemptId.
-- Новый первый кластер становится источником приглашения через UI. Действующий standalone проходит обязательные этапы 03а/03б до выдачи кода.
+- Runtime нового первого готов к подключению реальной authority этапа 04; интегрированный Bootstrap становится источником приглашения после 03+04 и проверки 07. Действующий standalone проходит 03а/03б до выдачи кода. Doubles не подтверждают production Bootstrap.
 
 ## Результат
 

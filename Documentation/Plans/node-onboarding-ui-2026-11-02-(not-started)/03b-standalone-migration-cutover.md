@@ -19,6 +19,12 @@
 
 ## Затрагиваемые части
 
+### Контракт, разработанный этапом 01
+
+Реализовать [M0–M3 и ImportStandaloneBaseline](technical-design.md#migration), [runtime gate](technical-design.md#runtime) и параметры pause/drain [30/10 секунд](technical-design.md#parameters). Source freeze и backup/restore evidence — перед M2. Отдельный genesis-only import не ослабляет nonempty guard Join. ClusterIntent сохраняется до native эффекта; unknown commit закрывает возврат. До M2 старый единственный writer можно открыть только после доказательства отсутствия commit, после M2 автоматического standalone rollback нет. Первый общий account set строго из manifest, без добавления BootstrapAccount.
+
+Сверить hashes/values/links/вход/queue provenance, сохранить legacy archive в baseline/snapshot, прежние observer assignments первого и явное sender assignment с локальным token. Baseline готовится как sealed provisional genesis blob/shadow state, в Raft идёт только bounded marker с digest; reducer не читает файл и не создаёт JournalPosition(0). До приглашений нужен обычный snapshot ≥import index со всем baseline. Проверить baseline >256 KiB, потерю blob и crash между marker/SQL/snapshot. Production доставка закрыта до 05а, перенос/CanWork от неё не зависят. Проверить M-boundaries, budget/drain failure, disabled admin, unknown sends и старый worker после commit. События — только после durable результата; подробнее [матрица](technical-design.md#verification).
+
 Application migration use cases/UoW contracts, Infrastructure persistence/identity/history adapters, Web runtime lifecycle и migration status. Актуализировать ближайшие AGENTS.md, Shared cluster storage, Cluster runtime, Cluster operations, Notifications и Testing по фактической реализации.
 
 ## Проверки и приёмка

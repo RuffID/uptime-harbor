@@ -19,6 +19,14 @@
 
 ## Затрагиваемые части
 
+### Контракт, разработанный этапом 01
+
+Реализовать [протокол issuer/E0–E8/grants/validators](technical-design.md#enrollment). Новый dedicated pathLen=0 application CA создаётся первым автоматически, закрытый ключ остаётся только issuer node; существующий root/offline operator key не импортировать. GenesisAuthorization либо accepted RegisterEnrollmentIssuer разрывают цикл начального доверия. Browser HTTPS authenticates origin, CSR PoP/accepted template/Bind fingerprint дают конкретный leaf. Durable IssueId возвращает те же DER; CA signature сама не предоставляет authority.
+
+Tagged proof заменяет общий FencingConfirmed только в новых online ветках, включая ClusterAccountBootstrapper; offline signature/manual isolation/CRL/maintenance сохраняются. DotNextConsensusAdapter получает exact genesis writer permit без раннего общего CanWork и произвольных команд. ManagedRestart разрешает карантинный запуск ранее целого хранилища до большинства, затем новый barrier/Enable; restore/clone/removed identity остаются offline. Exact changes перечислены по классам; server name/pin/KU/EKU, application revocation на каждый RPC, renew/retire/issuer replacement и process-epoch replay tests обязательны. Сроки — [parameters](technical-design.md#parameters), события/негативные случаи — [verification](technical-design.md#verification).
+
+При реализации актуализировать устаревшую пометку Identity/AGENTS.md о будущем ручном lifecycle; не менять исторические планы. Интеграционный результат 03+04 — новый первый готовый кластер, но snapshot/membership orchestration второго реализуется 05.
+
 Application enrollment/trust contracts, Infrastructure crypto/control/HTTP adapters и безопасное локальное хранение, Web setup/enrollment controllers и perimeter. Актуализировать местные AGENTS.md, Cluster runtime, Cluster control files, Configuration, Web application и Testing по фактическим изменениям.
 
 ## Проверки и приёмка

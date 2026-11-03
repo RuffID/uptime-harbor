@@ -1,6 +1,6 @@
 # 05а. Отправитель Telegram и сводки
 
-Статус: `not-started`. Зависимости: [01](01-scenarios-and-decisions.md), [02](02-invitations-and-contracts.md), [05](05-join-orchestration.md).
+Статус: `not-started`. Зависимости: [01](01-scenarios-and-decisions.md), [02](02-invitations-and-contracts.md), [03](03-initial-setup.md), [04](04-enrollment-and-trust.md). Готовый Join этапа 05 не требуется для реализации sender; совместная внешняя приёмка — в 07.
 
 ## Цель
 
@@ -19,6 +19,14 @@
 9. Логировать изменение назначения с доверенным actor ID, подтверждённое право, переход в ожидание/восстановление, принятый план и итог доставки с безопасными IDs/счётчиками. Не выводить token/URI Bot API/текст сообщений и не дублировать Information при poll/replay.
 
 ## Затрагиваемые части
+
+### Контракт, разработанный этапом 01
+
+Реализовать [независимую authority/устойчивый cut/ACK](technical-design.md#telegram) с [параметрами](technical-design.md#parameters). SenderAssignment отделён от coordinator term; follower Renew/Begin идёт текущим transport с exact authenticated origin и apply на sender. Изменить согласованно SenderAuthorityKey, NodeReadiness, SenderAuthorityGate, ClusterRuntimeState, lifecycle, runtime resign/Resign RPC/LeaderFailureWindow, DeliveryCommands/Reducer/Consensus/dispatcher/results. LeadershipToken follower не использовать как sender permit. Token validation/probe required только назначенному sender; лидер без токена остаётся исправным. Старые реальные authority variants/attempts не переписывать.
+
+Outage coverage по чату, SealOutageCut C/frontiers и immutable state на C; PlanId/part IDs стабильны. План включает возникшие/устранённые/актуальные, unknown coverage честно отмечается. Plan + suppression неначатых intents атомарны; не возвращать отозванные summary sources в индивидуальную рассылку. Все части имеют настоящие attempts/results; ACK только после их terminal подтверждений, failed часть не продвигает coverage. Events после C идут в следующий cut, repeated outage продолжает известный plan. LegacyHistory из 03а/03б обрабатывается с её точностью, не synthetic delivery evidence.
+
+Проверки и события перечислены в [матрице](technical-design.md#verification): follower/leader без token, потеря majority/term/process, cutoff race/late raw facts, part failure/ACK, unbind/disable/delete, late success, crash после Telegram/plan/ACK. Дополнительно доказать: потеря sender оставляет два из трёх исправными для общих изменений, отсутствие token на несендерах не вызывает resign, до готового плана backlog не dispatch-ится по одному. Singleton используется для изолированной проверки authority, три узла нужны в приёмке 07, не как зависимость разработки.
 
 Domain delivery commands/state, Application sender authority/readiness/queue, Infrastructure dispatcher/consensus/result storage/Telegram probe, Web workers/API/UI. Сохранить направление зависимостей и сценарные UoW. По реализации обновить ближайшие AGENTS.md, Notifications, Cluster runtime, Shared cluster storage, Web application, Configuration и Testing. Не менять завершённый план прежней leader-delivery.
 

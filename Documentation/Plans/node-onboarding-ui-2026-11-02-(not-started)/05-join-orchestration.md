@@ -20,6 +20,12 @@
 
 ## Затрагиваемые части
 
+### Контракт, разработанный этапом 01
+
+Координатор реализует [E0–E8](technical-design.md#enrollment) и [runtime](technical-design.md#runtime) с параметрами [TTL/snapshot/freshness](technical-design.md#parameters). Exact snapshot после Admit, registry/Operations/Monitoring/voters и schema проверяются до install; отложенный grant нельзя renew одним Pending. Полный журнал попытки локален, общие решения включены в snapshot. Сначала запросить прежний accepted/native результат, затем retry с исходным ID; новый linked snapshot не смешивает chunks. После membership expiry кода не деактивирует voter, cancellation требует штатного removal.
+
+Проверить restart до/после AddMember и Enable/Completed, непрерывный catch-up >15 минут, inactivity >24 часа с ContinueAttempt, одновременный restart всех voters без startup cycle, corrupt cut/frontier/native version и stale status <10/≥10/≥30 секунд. Свежий strong cut C и CanWork подтверждаются отдельно от назначения объектов/Telegram. Join не зависит от 05а: без неё sender gate закрыт, а синхронизация может завершиться. События/негативные проверки — [матрица](technical-design.md#verification).
+
 Application сценарии и независимые state-store contracts, Infrastructure state persistence/snapshot/recovery, Web Cluster runtime/lifecycle workers и безопасные status DTO. Не вводить глобальный UoW или обратные зависимости Application → Web. Обновить местные AGENTS.md, Cluster runtime, Cluster operations, Shared cluster storage и Testing.
 
 ## Проверки и приёмка
@@ -32,7 +38,7 @@ Application сценарии и независимые state-store contracts, In
 - Два параллельных membership-запроса проходят существующую сериализацию. Потеря одного из двух voters не вызывает автоматического сокращения состава.
 - Отмена до/после принятия состава даёт разный достоверный результат; callbacks не включают уже отозванную/заменённую попытку.
 - Состав из трёх сохраняет большинство два при потере одного; потеря единственного Telegram-отправителя не вызывает переноса токена или второго sender.
-- Telegram sender единственный и подтверждён отдельной authority этапа 05а независимо от лидерства; Join не открывает отправку сам по себе. Отсутствие локального токена на новом узле не блокирует синхронизацию.
+- Join не открывает отправку, отсутствие локального токена на новом узле не блокирует синхронизацию. Реальную единственную sender authority независимо от лидерства реализует и проверяет 05а; завершение 05 не требует ещё не реализованной доставки.
 
 ## Результат
 

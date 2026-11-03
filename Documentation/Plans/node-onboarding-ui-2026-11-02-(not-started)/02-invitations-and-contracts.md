@@ -18,6 +18,14 @@
 
 ## Затрагиваемые части
 
+### Контракт, разработанный этапом 01
+
+Реализовать [параметры](technical-design.md#parameters) и состояния [E0–E3](technical-design.md#enrollment): Issue/Replace/Revoke/Reserve/AuthorizeIssue/Bind/Admit, digest и accepted delegation автора, отдельные TTL 15/30/10 минут, ProcessEpoch и Pause/Continue после 24 часов inactivity. Совместно с Admit атомарно потребить invitation. Не ограничивать законный непрерывный catch-up 15 минутами; новый код не удаляет принятого voter. Exact replay выдаёт прежний результат, потерянный issuance response не восстанавливает plaintext. Сохранить invitation/attempt/delegation/revocation в accepted snapshot/strict codecs, local secret удалить после reserve.
+
+Проверки/логи этапа: concurrent reserve/reissue, pending expiry, credential-revision автора, wrong digest, lost response/leader change/snapshot, границы всех TTL и секреты в exception paths — по [матрице](technical-design.md#verification). Модели и порты этого этапа не зависят от будущих issuer/runtime adapters 03/04; doubles не дают production-допуска.
+
+Определить также общие versioned **data contracts** GenesisAuthorization/ImportBaselineRef/LegacyHistory и SenderAssignment/SenderOutage/SummaryCut/coverage receipt, необходимые будущим 03а/03б/05а. В 02 это только форматы/строгие codec/snapshot границы; импорт, sender authority и доставка не реализуются. Так 03б может сохранить первоначальное pending sender assignment без зависимости от ещё не реализованного dispatcher 05а.
+
 Domain/Cluster, Application/Cluster и независимые persistence/UoW-контракты, Infrastructure/Cluster и persistence, Web controllers/models. Актуализировать ближайшие AGENTS.md и технические разделы Shared cluster storage, Web application, Configuration и Testing в объёме реально введённых контрактов.
 
 ## Проверки и приёмка

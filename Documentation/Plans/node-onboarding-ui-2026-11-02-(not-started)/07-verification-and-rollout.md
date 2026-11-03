@@ -21,6 +21,14 @@
 
 ## Итоговая инструкция пользователя
 
+### Обязательные уточнения приёмки из этапа 01
+
+Проверить всю [матрицу негативных сценариев/событий](technical-design.md#verification), [параметры](technical-design.md#parameters) и [макеты](01-scenarios-and-decisions.md#screens), сохраняя разделение isolated/provider/runtime результатов. На разрешённой непустой копии — counts **и значения/FK/hash/вход**, все legacy jobs/markers, неизвестный transport и восстановленный backup. На M1/M2/M3 доказать границы возврата и запрет старого writer. Бюджет паузы измерить на заявленном объёме, не объявлять 30 секунд универсальной гарантией.
+
+TLS: новый dedicated issuer без импорта offline/root key, точный CSR/SAN/EKU/server name/pin, accepted revocation/rotation/expiry/issuer replacement, orphan DER и scoped grants. Local setup: известные credentials до HTTP, takeover/config reset/cross-cookie/epoch/закрытие после Join; nonempty queues/Identity dependents. Runtime: host PID не меняется, динамический listener/cert/pools, один worker generation, failed drain/запоздалый callback, restart всех трёх без startup cycle. Поддержка Direct/TLS passthrough подтверждается отдельно; NginxIsolatedHttp не объявлять автоматическим путём.
+
+Telegram: follower sender, лидер без token не resign-ится, majority при потере sender, события до/после C и поздние raw facts, возникшие/устранённые/актуальные, failed part без ACK, repeated outage/late success/unbind/disable/delete, suppression без индивидуальной рассылки, crash после plan/Telegram/ACK. Проверять реальные сообщения лишь после отдельного разрешения. Проверка полного злонамеренного клона не подменяется криптографическим proof: документированная граница fresh join и ручной fencing сохраняются.
+
 Должна содержать: предпосылки установки и локального административного входа; перенос первого с сохранением данных; выдачу GUID на 15 минут; ввод адреса/кода на втором и третьем; критерий синхронизации и отдельный выбор объектов; назначенного отправителя и сводку после его простоя; действия при expiry/обрыве/незавершённой операции. Объяснить большинство 2 из 3 и ограничения промежуточных двух узлов, отсутствие Telegram-failover, короткую паузу без перезапуска и процедуру обслуживания. Не превращать UI-сценарий в ручной перенос control-файлов.
 
 ## Критерии приёмки
