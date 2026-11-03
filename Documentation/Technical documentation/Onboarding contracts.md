@@ -4,7 +4,7 @@
 
 ## Промежуточная граница этапа 04 (2026-11-03)
 
-Работа приостановлена по просьбе пользователя; этап остаётся `in-progress`. [Зафиксированный остаток и известные проблемы](../Plans/node-onboarding-ui-2026-11-02-%28in-progress%29/04-enrollment-and-trust.md#результат), [проверки и незакрытый повтор preflight](Testing.md#точка-остановки-этапа-04-2026-11-03). Этот раздел отражает частичную production integration, а не полную приёмку 04.
+Работа приостановлена по просьбе пользователя; этап остаётся `in-progress`. [Зафиксированный остаток и известные проблемы](../Plans/node-onboarding-ui-2026-11-02-%28in-progress%29/04-enrollment-and-trust/main.md#результат), [проверки и незакрытый повтор preflight](Testing.md#точка-остановки-этапа-04-2026-11-03). Этот раздел отражает частичную production integration, а не полную приёмку 04.
 
 `EnrollmentCertificates` создаёт новый специализированный P-256/SHA-256 application CA с critical pathLen=0, keyCertSign/cRLSign и фиксированными purpose/cluster/generation/epoch в URI SAN. CSR проверяется по PKCS#10 signature, P-256/SPKI/digest; requested extensions отвергаются. Leaf имеет точные SAN DNS/IP/node/storage/credential, critical CA=false/digitalSignature/clientAuth/serverAuth, serial и срок. Проверки выполняются локально без загрузок и изменения system trust. Dedicated helper не использует CRL: он требует будущей accepted application revocation на RPC boundary; legacy Direct CRL не отключён.
 

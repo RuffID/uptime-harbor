@@ -8,7 +8,7 @@ InstallationLease создаёт новый 256-bit BootChallenge на кажд�
 
 Поверх подготовительного этапа 03 подключён production Bootstrap нового первого: отдельный common account, quarantine singleton, accepted baseline/account/process/activation/enable и отзыв setup перед CommonOpen. Join проходит dedicated E1–E4 trust/admission и peer probes, но его runtime/snapshot/membership остаются закрыты до 05. Этап 04 ещё выполняется; точная текущая граница и собственные gaps — [Onboarding contracts](Onboarding%20contracts.md#промежуточная-граница-этапа-04-2026-11-03). Evidence от double и local save не являются production authority.
 
-Работа над 04 приостановлена по просьбе пользователя 2026-11-03. [Точка возобновления](../Plans/node-onboarding-ui-2026-11-02-%28in-progress%29/04-enrollment-and-trust.md#результат) содержит обязательный остаток, известные проблемы seal/роста steps/порядка Mode-проверки и незакрытый повтор preflight. Минимальный Setup UI ещё не вызывает Join enrollment и сохраняет устаревший текст о закрытом доверии; API и UI пока не согласованы полностью. Реальная SQL/Ubuntu/TLS/fsync приёмка не выполнена.
+Работа над 04 приостановлена по просьбе пользователя 2026-11-03. [Точка возобновления](../Plans/node-onboarding-ui-2026-11-02-%28in-progress%29/04-enrollment-and-trust/main.md#результат) содержит обязательный остаток, известные проблемы seal/роста steps/порядка Mode-проверки и незакрытый повтор preflight. Минимальный Setup UI ещё не вызывает Join enrollment и сохраняет устаревший текст о закрытом доверии; API и UI пока не согласованы полностью. Реальная SQL/Ubuntu/TLS/fsync приёмка не выполнена.
 
 ## Вход и границы доступа
 

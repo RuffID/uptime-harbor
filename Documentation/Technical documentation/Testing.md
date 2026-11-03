@@ -24,7 +24,7 @@ dotnet test --project tests/UptimeHarbor.Web.Tests/UptimeHarbor.Web.Tests.csproj
 dotnet test --project tests/UptimeHarbor.Infrastructure.Tests/UptimeHarbor.Infrastructure.Tests.csproj --no-build --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/installation-infrastructure-tests/ -- --filter-class 'UptimeHarbor.Tests.Infrastructure.Installation.*'
 ```
 
-Первое действие после разрешённого возобновления — пересобрать Infrastructure.Tests и повторить preflight/нужный Installation-фильтр с проверкой изоляции. Предыдущие зелёные результаты 03 ниже относятся к прежнему срезу, не ко всей текущей реализации. Frontend в последнем продолжении не менялся и не проверялся повторно. Ubuntu/TLS/ACL/fsync, SQL, runtime switching, реальные majority/elections и внешний ввод не проверены. [Остаток и известные проблемы 04](../Plans/node-onboarding-ui-2026-11-02-%28in-progress%29/04-enrollment-and-trust.md#результат).
+Первое действие после разрешённого возобновления — пересобрать Infrastructure.Tests и повторить preflight/нужный Installation-фильтр с проверкой изоляции. Предыдущие зелёные результаты 03 ниже относятся к прежнему срезу, не ко всей текущей реализации. Frontend в последнем продолжении не менялся и не проверялся повторно. Ubuntu/TLS/ACL/fsync, SQL, runtime switching, реальные majority/elections и внешний ввод не проверены. [Остаток и известные проблемы 04](../Plans/node-onboarding-ui-2026-11-02-%28in-progress%29/04-enrollment-and-trust/main.md#результат).
 
 ## Локальный setup (этап 03)
 
