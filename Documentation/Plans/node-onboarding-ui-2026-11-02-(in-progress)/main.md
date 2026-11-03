@@ -2,7 +2,7 @@
 
 Дата создания: 2026-11-02. Статус: `in-progress`.
 
-Этап 01 исследования/проектирования и этап 02 приглашений/контрактов завершены 2026-11-03. Реализованы принятые состояния, безопасный API, хранение и совместимость; production-допуск нового узла закрыт. Остальные этапы не начаты. Установка, приложение, БД и внешние операции не выполнялись. Переход к следующему этапу требует отдельного поручения.
+Этапы 01 исследования/проектирования, 02 приглашений/контрактов и подготовительный объём 03 первоначальной настройки завершены 2026-11-03. Реализованы принятые состояния, безопасный API, локальный setup, хранение и управляемые runtime-порты; production-допуск нового узла закрыт. Остальные этапы не начаты. Установка, приложение, БД и внешние операции не выполнялись. Переход к следующему этапу требует отдельного поручения.
 
 ## Цель и согласованный сценарий
 
@@ -84,7 +84,7 @@
 | --- | --- | --- | --- |
 | [01. Сценарии и решения](01-scenarios-and-decisions.md) | Исследование кода, макеты, проверяемые trust/runtime/migration/sender контракты и параметры | Требования настоящего плана | `completed` |
 | [02. Приглашения и контракты](02-invitations-and-contracts.md) | Одноразовый GUID на 15 минут, права и долговременное состояние; реальные enrollment/Join gates закрыты | 01 | `completed` |
-| [03. Первоначальная настройка](03-initial-setup.md) | Локальный административный setup и управляемый runtime без перезапуска | 01, 02 | `not-started` |
+| [03. Первоначальная настройка](03-initial-setup.md) | Локальный setup, preflight/storage и управляемые runtime/authority порты; production Bootstrap/Join закрыты | 01, 02 | `completed` |
 | [03а. Подготовка переноса первого сервера](03a-standalone-migration-preflight.md) | Полный состав данных, проверка переносимости и план возврата | 01 | `not-started` |
 | [03б. Перенос и переключение первого сервера](03b-standalone-migration-cutover.md) | Сохранённые данные и проверенный первый кластерный узел | 02, 03, 03а, 04 | `not-started` |
 | [04. Установление доверия](04-enrollment-and-trust.md) | Автоматическая сертификатная авторизация без внешнего сервиса | 01–03 | `not-started` |
@@ -113,4 +113,6 @@
 
 Этап 01 сохранён без изменения содержания. В этапе 02 реализованы invitation/attempt/delegation/ProcessEpoch, TTL 15/30/10, Pause/Continue, verifier и одноразовый ответ, accepted reducer/write set/snapshot/WAL replay, safe API с reauthentication/CSRF, versioned genesis/import/legacy/sender/cut/coverage formats. Подготовлена миграция без применения к БД. [Подробности](02-invitations-and-contracts.md#результат), [текущее устройство](../../Technical%20documentation/Onboarding%20contracts.md).
 
-Изолированные проверки: Domain 47, Application 266, Infrastructure Cluster 129, Web 143 — без ошибок/пропусков. Compile-check затронутых production/test проектов без warnings/errors; TypeScript не менялся и исключён из C# compile-check. Актуальные документы, AGENTS, ссылки и solution items синхронизированы с `in-progress`. Реальные БД/DDL/locks, сеть/TLS, выборы/failover, crash fsync, Ubuntu/browser и полный Join не проверены. Setup/issuer/runtime/import/dispatcher и новые экраны остаются запланированными. К этапу 03 работа не переходила.
+Этап 03 завершён в согласованном подготовительном объёме: отдельный local login/setup, preflight, durable attempts/key refs, AES-GCM, exclusive locks, runtime phases/supervisor/generation/drain, динамический listener/trust и закрытые authority-порты. Минимальная страница Setup не является полным мастером подключения. Общий admin первого отделён от setup; Join не создаёт второй Bootstrap. Непустой standalone направляется в 03а/03б, Telegram не блокирует setup/CanWork/consensus. Production genesis/issuer/activation/Join/sender остаются закрытыми до своих этапов.
+
+Текущие изолированные проверки: Application 266, Infrastructure Installation+Cluster 166, Web 162 и frontend 2 — без ошибок/пропусков. Production/test compile-check без warnings/errors, tsc успешен. Новая локальная миграция сгенерирована с отдельного разрешения, к БД не применена. Актуальные документы, AGENTS и solution items синхронизированы; общий статус остаётся `in-progress`, переименование папки не требуется. Реальные БД/DDL/locks, второй OS-процесс, сеть/TLS, crash fsync, Ubuntu/browser и переключение живого окружения не проверены. [Результат 03](03-initial-setup.md#результат), [актуальное устройство](../../Technical%20documentation/Local%20installation%20setup.md). Этапы 03а/03б, 04–07 не начаты.

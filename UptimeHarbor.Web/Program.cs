@@ -15,6 +15,7 @@ if (await ClusterControlTool.TryExecuteAsync(args))
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration.AddJsonFile("Config/config.json", optional: false, reloadOnChange: false);
+builder.ConfigureLocalInstallation();
 builder.ConfigureClusterListeners();
 
 builder.Host.UseSerilog((_, loggerConfiguration) =>
@@ -46,10 +47,11 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+app.UseSecurityHeaders();
 app.UseClusterPeerBoundary();
 app.UseForwardedHeaders();
 app.UseRouting();
-app.UseSecurityHeaders();
+app.UseMiddleware<SetupBoundaryMiddleware>();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();

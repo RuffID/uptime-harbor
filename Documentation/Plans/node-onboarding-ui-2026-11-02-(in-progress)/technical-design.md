@@ -1,10 +1,14 @@
 # Предлагаемое устройство подключения
 
-Статус: проектирование 01 и подготовительная реализация 02 завершены (2026-11-03). Остальной документ задаёт целевой протокол следующих этапов. Общие границы находятся в [main.md](main.md). Детальные контракты: [исходная карта кода](#source-map), [сроки](#parameters), [сертификатный протокол](#enrollment), [setup/runtime](#runtime), [перенос](#migration), [Telegram](#telegram), [проверки](#verification). Макеты — в [этапе 01](01-scenarios-and-decisions.md#screens).
+Статус: проектирование 01, контракты 02 и подготовительный setup/runtime 03 завершены (2026-11-03). Нереализованные части документа задают целевой протокол следующих этапов. Общие границы находятся в [main.md](main.md). Детальные контракты: [исходная карта кода](#source-map), [сроки](#parameters), [сертификатный протокол](#enrollment), [setup/runtime](#runtime), [перенос](#migration), [Telegram](#telegram), [проверки](#verification). Макеты — в [этапе 01](01-scenarios-and-decisions.md#screens).
 
 ## Реализованная граница этапа 02
 
-Фактические типы/API/codec/порты описаны в [Onboarding contracts.md](../../Technical%20documentation/Onboarding%20contracts.md); доказательства и ограничения — в [результате 02](02-invitations-and-contracts.md#результат). Schema-2 включает E0–E3 как accepted решения и process-bound подготовительные membership команды с прежним reducer. Реальные issuer/PoP/grants/enrollment transport/native Join/activation закрыты. Локальный persistence попытки представлен контрактом, его adapter остаётся этапу 03. Genesis/import/legacy/sender/cut/coverage определены только как versioned data formats; их сценарии не исполняются. Экраны остаются запланированными.
+Фактические типы/API/codec/порты описаны в [Onboarding contracts.md](../../Technical%20documentation/Onboarding%20contracts.md); доказательства и ограничения — в [результате 02](02-invitations-and-contracts.md#результат). Schema-2 включает E0–E3 как accepted решения и process-bound подготовительные membership команды с прежним reducer. Реальные issuer/PoP/grants/enrollment transport/native Join/activation закрыты. Локальный persistence попытки реализован этапом 03. Genesis/import/legacy/sender/cut/coverage определены только как versioned data formats; их сценарии не исполняются.
+
+## Реализованная граница этапа 03
+
+Отдельный local login/setup, preflight, локальные UoW/profile/steps, AES-GCM key references, installation/storage locks, runtime supervisor/generations и динамические TLS/trust providers описаны в [Local installation setup.md](../../Technical%20documentation/Local%20installation%20setup.md). Минимальная страница подготавливает E0; полный мастер и список узлов остаются этапу 06. ISetupAuthority и IManagedRuntimeAdmission в production отказывают: doubles проверяют lifecycle, но не предоставляют online authority или Ready. Настоящие двусторонние probes, accepted ProcessEpoch, genesis/issuer/grants/activation остаются 04; полный Join — 05, sender — 05а, перенос непустого standalone — 03а/03б. [Проверки и внешние ограничения](03-initial-setup.md#результат) не заменяют приёмку 07.
 
 ## Один процесс поверх существующего кластера
 

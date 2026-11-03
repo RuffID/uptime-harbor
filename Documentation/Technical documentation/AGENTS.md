@@ -14,6 +14,8 @@
 
 ## Правила
 
+- `Local installation setup.md` владеет отдельным setup login/preflight/secret storage/runtime supervisor и inventory workers этапа 03. Сохранение попытки не означает рабочие Bootstrap/Join/Ready; реальные authority/issuer/activation, перенос и sender относятся к следующим этапам.
+
 - `Onboarding contracts.md` владеет реализованным этапом 02: invitation/attempt/delegation/TTL, strict formats/snapshot, совместимость и закрытые enrollment/native gates. Общие genesis/import/sender форматы не описывать как работающие сценарии следующих этапов.
 
 - Отделять текущее реализованное состояние от целевого решения следующих этапов.

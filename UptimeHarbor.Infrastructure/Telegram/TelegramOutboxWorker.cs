@@ -5,7 +5,7 @@ namespace UptimeHarbor.Infrastructure.Telegram;
 public class TelegramOutboxWorker(
     TelegramOutboxDispatcher dispatcher,
     TimeProvider timeProvider)
-    : BackgroundService
+    : UptimeHarbor.Infrastructure.Installation.RestartableWorker
 {
     public static readonly TimeSpan POLL_INTERVAL = TimeSpan.FromSeconds(5);
 

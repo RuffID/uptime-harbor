@@ -3,6 +3,7 @@ using UptimeHarbor.Infrastructure.Telegram;
 using Microsoft.AspNetCore.HttpOverrides;
 using System.Net;
 using System.Net.Sockets;
+using UptimeHarbor.Infrastructure.Cluster;
 
 namespace UptimeHarbor.Web.Configuration;
 
@@ -33,10 +34,14 @@ public static class ServiceCollectionExtensions
             .AddOptions<TelegramOptions>()
             .Bind(configuration.GetSection(TelegramOptions.SECTION_NAME))
             .Validate(
-                options => !string.IsNullOrWhiteSpace(options.BotToken),
-                $"{TelegramOptions.SECTION_NAME}:BotToken is required.")
+                options => configuration["Installation:InstallationIntent"] == "Setup"
+                    || configuration["Cluster:Mode"] is "Bootstrap" or "Join" or "Restart"
+                    || !string.IsNullOrWhiteSpace(options.BotToken),
+                "Telegram:BotToken is required.")
             .Validate(
-                options => options.HasValidBotToken(),
+                options => configuration["Installation:InstallationIntent"] == "Setup"
+                    || configuration["Cluster:Mode"] is "Bootstrap" or "Join" or "Restart"
+                    || options.HasValidBotToken(),
                 "Telegram:BotToken в Config/config.json должен содержать token от BotFather, а не заглушку или ID чата.")
             .ValidateOnStart();
 

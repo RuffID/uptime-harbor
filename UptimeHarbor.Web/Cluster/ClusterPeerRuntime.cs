@@ -16,7 +16,7 @@ public class ClusterPeerRuntime(IServiceProvider services, IOptions<ClusterOptio
     ClusterStateMachine machine, ClusterRuntimeState state, NodeReadiness readiness,
     SenderAuthorityGate gate, LeaderFailureWindow failureWindow, TimeProvider timeProvider,
     IPeerTrustSource trust, ILogger<ClusterPeerRuntime> logger, ClusterRaftHandle handle,
-    ClusterLocalControl? control = null, RevisionStateStore? revisions = null) : BackgroundService
+    ClusterLocalControl? control = null, RevisionStateStore? revisions = null) : UptimeHarbor.Infrastructure.Installation.RestartableWorker
 {
     private readonly SemaphoreSlim lifecycle = new(1, 1);
     private ServiceProvider? nodeServices;
@@ -112,14 +112,13 @@ public class ClusterPeerRuntime(IServiceProvider services, IOptions<ClusterOptio
 
                     readiness.ConfirmRecovery(readiness.RecoveryVersion, state.Accepted, status);
                     failureWindow.ObserveTerm(status.Term, status.MembershipVersion, LeaderNodeId);
-                    bool leaderReady = status.IsLeader && readiness.CanSend(state);
+                    bool leaderReady = status.IsLeader && readiness.CanMaintainConsensus(state);
                     if (leaderReady)
                     {
                         failureWindow.ObserveAuthenticated(CreateHealth());
                     }
 
-                    bool knownFailure = readiness.Get("Monitoring").Status == "Unavailable"
-                        || readiness.Get("Telegram").Status == "Unavailable";
+                    bool knownFailure = readiness.Get("Monitoring").Status == "Unavailable";
                     bool lostConsensus = status.LeadershipToken.IsCancellationRequested
                         || status.ConsensusToken.IsCancellationRequested;
                     // Ожидание accepted epoch/activation не является локальной поломкой:
@@ -398,7 +397,7 @@ public class ClusterPeerRuntime(IServiceProvider services, IOptions<ClusterOptio
             ConsensusStatus? current = state.Consensus;
             // Задержавшийся Resign прежнего term и жалоба на локально готового
             // главного не обходят readiness quorum. Большинство может изолировать RPC.
-            if (current is null || envelope.Term != current.Term || readiness.CanSend(state))
+            if (current is null || envelope.Term != current.Term || readiness.CanMaintainConsensus(state))
             {
                 context.Response.StatusCode = StatusCodes.Status409Conflict;
                 return;
@@ -448,7 +447,7 @@ public class ClusterPeerRuntime(IServiceProvider services, IOptions<ClusterOptio
         }
 
         ConsensusStatus? status = state.Consensus;
-        bool ready = status?.IsLeader == true && readiness.CanSend(state);
+        bool ready = status?.IsLeader == true && readiness.CanMaintainConsensus(state);
         return new(configured.Value.NodeId, bootId, status?.Term ?? 0, LeaderNodeId,
             status?.MembershipVersion ?? -1, status?.CommittedIndex ?? 0, state.Accepted.AppliedIndex,
             ready, failureWindow.SecondsWithoutReady, components, failureWindow.ConfirmedPeers(),

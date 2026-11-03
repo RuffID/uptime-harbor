@@ -1,5 +1,13 @@
 # Конфигурация и запуск
 
+## Явная локальная настройка (этап 03)
+
+Новая секция `Installation`: InstallationIntent (`Legacy` по умолчанию, явный `Setup`), абсолютные StateDirectory/SecretDirectory/KeyDirectory, точный HTTPS BrowserOrigin, canonical HTTPS PeerEndpoint `/internal/raft`, AllowedPeerNetworks (CIDR для разрешённых private/VPN адресов). Cluster:Mode до подготовки остаётся Disabled; StoragePath — отдельный persistent volume. State/secret/key/storage пути не пересекаются. Нужны заранее подготовленные Browser/Peer Kestrel endpoints с отдельными портами, Direct/TLS passthrough и schema v2. Пути/ACL/endpoint/schema не исправляются из HTTP. Конфигурация установки и config.example.json в этой задаче не изменялись по прямому ограничению пользователя; описанные prerequisites требуется подготовить отдельно перед будущей приёмкой.
+
+Setup создаёт отдельный LocalSetupAccount из защищённых BootstrapAdmin credentials до legacy bootstrap, без дополнительного секрета. Изменение config не сбрасывает пароль. Постоянная InstallIdentity задаёт файловый DP keyring в StateDirectory/data-protection; отдельный wrapping.key автоматически создаётся в SecretDirectory, private envelopes — в KeyDirectory, DPAPI не используется. Все эти volumes локальны и не реплицируются.
+
+Setup/кластерные несендеры больше не требуют BotToken при startup. Первый определяет публичный BotId из положительного ExpectedBotId либо bounded getMe своего локального токена; при отсутствии обоих preparation отказывается. Join не задаёт BotId/общего администратора, получает identity только от будущей authenticated authority. Обычный Disabled сохраняет прежнюю обязательность корректного token. Production Bootstrap/Join и новый dispatch закрыты. [Точные границы, безопасность и runtime](Local%20installation%20setup.md).
+
 ## Совместимость приглашений (2026-11-03)
 
 Новое API требует согласованного набора ProtocolMajor/CommandSchema/SnapshotFormat/SqlSchema = 2, SerializerVersion = 1, DotNext 6.10.0 (`2.0/2/2/2/1/6.10.0`). Validator сохраняет прежний набор v1; он не принимает новые onboarding command/snapshot. Defaults, config.example.json и установка не менялись. Схему и все voters нужно подготовить отдельно; одна смена версии не даёт права подключения. Production IEnrollmentAuthority всегда отказывает, новый native Join/activation закрыт. Сроки и лимиты описаны в [Onboarding contracts.md](Onboarding%20contracts.md).

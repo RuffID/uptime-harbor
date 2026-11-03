@@ -1,5 +1,7 @@
 # Persistence unit of work
 
+LocalSetupUnitOfWork и OnboardingProgressUnitOfWork — отдельные сценарные scopes на существующей сессии. Revoke setup/hash/epoch/profile атомарны. RuntimeGeneration повторно проверяется перед transaction commit; сеть/файлы/runtime effect выполнять за пределами SQL transaction.
+
 - ClusterLocalInitializationUnitOfWork создаёт только точную LocalNodeState в пустой общей проекции; чужая identity/cursor/shared rows запрещают join без merge. Аккаунты/роль создаёт принятая история. Genesis validation не создаёт JournalPosition с индексом 0.
 
 - Snapshot recovery дополнительно сверяет monitoring image с конфигурацией/observations/incidents/intents/summaries и настоящими accepted delivery attempts, а admitted NodeId/storage generation — с ClusterMember. Cursor/CanConnect не заменяют эту проверку; provider semantics остаются отдельной проверкой.

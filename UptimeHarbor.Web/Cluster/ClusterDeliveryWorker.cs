@@ -6,7 +6,7 @@ namespace UptimeHarbor.Web.Cluster;
 
 /// <summary>Renewal не ждёт Telegram: независимый цикл сохраняет срок authority во время in-flight.</summary>
 public class ClusterDeliveryWorker(IOptions<ClusterOptions> options, SenderAuthorityGate gate,
-    AcceptedDeliveryDispatcher dispatcher, TimeProvider time, ILogger<ClusterDeliveryWorker> logger) : BackgroundService
+    AcceptedDeliveryDispatcher dispatcher, TimeProvider time, ILogger<ClusterDeliveryWorker> logger) : UptimeHarbor.Infrastructure.Installation.RestartableWorker
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {

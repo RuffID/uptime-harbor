@@ -8,7 +8,7 @@ public class MonitoringWorker(
     IMonitoringCycleRunner cycleRunner,
     IOptions<MonitoringOptions> options,
     TimeProvider timeProvider)
-    : BackgroundService
+    : UptimeHarbor.Infrastructure.Installation.RestartableWorker
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {

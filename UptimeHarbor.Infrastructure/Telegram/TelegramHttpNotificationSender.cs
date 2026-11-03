@@ -62,6 +62,7 @@ public class TelegramHttpNotificationSender(
 
         try
         {
+            UptimeHarbor.Application.Installation.RuntimeGenerationContext.Verify();
             using HttpResponseMessage response = await httpClient.SendAsync(
                 request,
                 HttpCompletionOption.ResponseHeadersRead,

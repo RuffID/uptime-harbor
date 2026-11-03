@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Server.Kestrel.Https;
 using Microsoft.Extensions.Options;
 using UptimeHarbor.Application.Cluster.Models;
 using UptimeHarbor.Infrastructure.Cluster;
+using UptimeHarbor.Infrastructure.Installation;
 
 namespace UptimeHarbor.Web.Cluster;
 
@@ -13,6 +14,14 @@ public static class ClusterListenerConfiguration
     {
         ClusterOptions options = new();
         builder.Configuration.GetSection(ClusterOptions.SECTION_NAME).Bind(options);
+        InstallationOptions installation = builder.Configuration.GetSection(InstallationOptions.SECTION_NAME)
+            .Get<InstallationOptions>() ?? new();
+        if (installation.Setup)
+        {
+            ConfigureSetupPeer(builder, options, installation);
+            return builder;
+        }
+
         if (!options.Enabled)
         {
             return builder;
@@ -50,6 +59,36 @@ public static class ClusterListenerConfiguration
         });
 
         return builder;
+    }
+
+    private static void ConfigureSetupPeer(WebApplicationBuilder builder, ClusterOptions cluster, InstallationOptions installation)
+    {
+        string? peerUrl = builder.Configuration["Kestrel:Endpoints:Peer:Url"];
+        string? browserUrl = builder.Configuration["Kestrel:Endpoints:Browser:Url"];
+        bool prepared = Uri.TryCreate(peerUrl, UriKind.Absolute, out Uri? peer)
+            && Uri.TryCreate(browserUrl, UriKind.Absolute, out Uri? browser)
+            && Uri.TryCreate(installation.PeerEndpoint, UriKind.Absolute, out Uri? advertised)
+            && peer.Scheme == "https" && peer.Port == cluster.PeerListenPort && browser.Port != peer.Port
+            && advertised.Scheme == "https" && advertised.AbsolutePath == "/internal/raft"
+            && advertised.UserInfo.Length == 0 && advertised.Query.Length == 0 && advertised.Fragment.Length == 0
+            && advertised.AbsoluteUri == installation.PeerEndpoint && cluster.TlsBoundary == "Direct";
+        builder.Services.AddSingleton(new PreparedPeerEndpoint(prepared, installation.PeerEndpoint));
+        if (!prepared)
+        {
+            return;
+        }
+
+        builder.WebHost.ConfigureKestrel((context, server) =>
+        {
+            server.Configure(context.Configuration.GetSection("Kestrel"), reloadOnChange: false)
+                .Endpoint("Peer", endpoint =>
+                {
+                    DynamicPeerTls credentials = server.ApplicationServices.GetRequiredService<DynamicPeerTls>();
+                    endpoint.HttpsOptions.ServerCertificateSelector = (_, _) => credentials.Certificate;
+                    endpoint.HttpsOptions.ClientCertificateMode = ClientCertificateMode.RequireCertificate;
+                    endpoint.HttpsOptions.ClientCertificateValidation = (certificate, _, _) => credentials.Validate(certificate);
+                });
+        });
     }
 
     private static void ValidateLocalCertificate(ClusterOptions options)

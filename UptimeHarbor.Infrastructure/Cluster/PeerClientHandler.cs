@@ -46,6 +46,7 @@ public class PeerClientHandler(IOptions<ClusterOptions> configured, IPeerTrustSo
         HttpResponseMessage response;
         try
         {
+            UptimeHarbor.Application.Installation.RuntimeGenerationContext.Verify();
             response = await base.SendAsync(request, cancellationToken);
         }
         catch (HttpRequestException)

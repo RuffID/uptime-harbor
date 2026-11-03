@@ -2,6 +2,8 @@
 
 Статус: `not-started`. Зависимости: [01](01-scenarios-and-decisions.md)–[03](03-initial-setup.md).
 
+Граница после 03: заменить закрытые production ISetupAuthority/IManagedRuntimeAdmission настоящими адаптерами, сохранив local step CAS, исходные IDs/digests и E0 private key. LocalInstallationProfile уже содержит ClusterGeneration/CredentialId/TrustAnchorFingerprint; динамические TLS/trust providers не предоставляют authority сами. Двусторонние probes, accepted ProcessEpoch, genesis/issuer/grants/activation ещё не реализованы. [Фактический setup](../../Technical%20documentation/Local%20installation%20setup.md).
+
 ## Цель
 
 Превратить принятое приглашение в узкий проверяемый допуск конкретной новой установки, сохранив защиту peer-связи и восстановления.

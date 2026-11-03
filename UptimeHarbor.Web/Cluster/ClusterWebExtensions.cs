@@ -4,6 +4,9 @@ using UptimeHarbor.Infrastructure.Identity;
 using UptimeHarbor.Application.Cluster.Onboarding;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using UptimeHarbor.Application.Installation;
+using UptimeHarbor.Infrastructure.Installation;
 
 namespace UptimeHarbor.Web.Cluster;
 
@@ -11,11 +14,13 @@ public static class ClusterWebExtensions
 {
     public static IServiceCollection AddClusterWeb(this IServiceCollection services)
     {
+        services.AddOptions<InstallationOptions>();
+        services.TryAddSingleton<InstallationState>();
+        services.TryAddSingleton<RuntimeWriteGate>();
+        services.TryAddSingleton<IManagedRuntimeAdmission, UnavailableManagedRuntimeAdmission>();
         services.AddSingleton<ClusterRaftHandle>();
         services.AddSingleton<ClusterPeerRuntime>();
-        services.AddHostedService(provider => provider.GetRequiredService<ClusterPeerRuntime>());
         services.AddSingleton<ClusterHealthWorker>();
-        services.AddHostedService(provider => provider.GetRequiredService<ClusterHealthWorker>());
         services.AddScoped<ClusterBrowserDiagnostics>();
         services.AddScoped<MembershipCoordinator>();
         services.AddSingleton<IClusterAdministrationState, AcceptedClusterAdministrationState>();
@@ -29,18 +34,22 @@ public static class ClusterWebExtensions
                 {
                     PermitLimit = 5, Window = TimeSpan.FromMinutes(1), QueueLimit = 0, AutoReplenishment = true
                 })));
-        services.AddHostedService<ClusterLifecycleWorker>();
+        services.AddSingleton<ClusterLifecycleWorker>();
         services.AddSingleton<ISenderConsensus, DeliverySenderConsensus>();
         services.AddSingleton<AcceptedDeliveryDispatcher>();
-        services.AddHostedService<ClusterDeliveryWorker>();
+        services.AddSingleton<ClusterDeliveryWorker>();
         services.AddScoped<ClusterAccountBootstrapper>();
         services.AddSingleton<IRevisionTransport, ClusterRevisionTransport>();
         services.AddSingleton<PendingReplicationPump>();
         services.AddSingleton<ObservationReplicationPump>();
         services.AddSingleton<MonitoringCoordinator>();
-        services.AddHostedService<ClusterRevisionWorker>();
-        services.AddHostedService<ClusterSnapshotWorker>();
-        services.AddHostedService<ClusterMonitoringWorker>();
+        services.AddSingleton<ClusterRevisionWorker>();
+        services.AddSingleton<ClusterSnapshotWorker>();
+        services.AddSingleton<ClusterMonitoringWorker>();
+        services.AddSingleton<ManagedWorkerSupervisor>();
+        services.AddSingleton<IManagedWorkerCatalog, ManagedWorkerCatalog>();
+        services.AddSingleton<UptimeHarbor.Application.Installation.IInstallationRuntime>(provider => provider.GetRequiredService<ManagedWorkerSupervisor>());
+        services.AddHostedService(provider => provider.GetRequiredService<ManagedWorkerSupervisor>());
         return services;
     }
 

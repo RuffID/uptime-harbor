@@ -1,5 +1,11 @@
 # Первый запуск и обслуживание сетки
 
+## Новая первоначальная настройка (этап 03)
+
+Автоматический путь новой установки сейчас ограничен локальным setup/preflight/E0. Заранее подготовить schema v2, HTTPS Browser/Direct Peer endpoints, четыре постоянных непересекающихся локальных пути и защищённые BootstrapAdmin credentials; prerequisites — [Configuration.md](Configuration.md#явная-локальная-настройка-этап-03). Явный InstallationIntent=Setup должен существовать до запуска поддерживающей версии. Текущая конфигурация установки не менялась и окружение не переключалось.
+
+Посторонние аккаунты, рабочие shared/local queues, identity/cursor и старый storage вызывают отказ. Ничего не удалять для обхода preflight; действующий первый standalone направляется в 03а/03б. Второй не становится независимым Bootstrap. При неизвестном результате сохранять прежние AttemptId/OperationIds, не создавать новую попытку и не усыновлять orphan keys. До реализации 04 production authority/activation закрыты; до 05а новый sender не работает. Ручные legacy-процедуры ниже не являются обходом нового setup. [Фазы, inventory, locks и остановка](Local%20installation%20setup.md).
+
 Реализован controlled enable поверх DotNext 6.10.0, accepted pipeline и сценарных UoW. По умолчанию `Cluster:Mode=Disabled`. Этот документ описывает будущие действия оператора; команды здесь не выполнялись и не дают разрешения запускать установку. [Форматы файлов](Cluster%20control%20files.md), [restore и аварийное восстановление](Cluster%20recovery.md), [проверки этапа 10](Testing.md#проверка-этапа-10).
 
 ## Полномочия и общие условия остановки
@@ -12,7 +18,7 @@
 
 Каждый узел имеет постоянный HTTPS DNS-адрес вида `https://node.example/internal/raft` и отдельный peer listener. VPN необязателен. Оператор обеспечивает DNS, публичный server TLS, renew до истечения, firewall и mTLS client CA. Peer certificate содержит clientAuth и URI SAN `urn:uptimeharbor:<ClusterId:D>:<Generation>:<NodeId:D>`; SHA256 pin, credential ID и storage generation должны совпасть с принятым реестром. Отдельный browser listener не принимает peer certificate headers. Для Nginx нужны изолированный ingress, точный proxy allowlist, CRL и запрет early data; см. [Cluster runtime.md](Cluster%20runtime.md).
 
-На каждом возможном отправителе локально задать токен **одного и того же бота**, `ExpectedBotId` должен совпасть с принятым BotId. Токен не входит в команды, snapshot, диагностику или аудит. Cookie/keyring/session/lockout и приватные ключи узла остаются локальными. Защитить ACL каталоги SQL backup, WAL/snapshot, control и отдельный bootstrap keyring; snapshot содержит защищённые данные общих аккаунтов и не является браузерным DTO. Выпуск сертификатов, renew и реальные права бота к чатам здесь не проверялись.
+Для нового managed пути токен требуется только будущему явно назначенному sender; несендеры/Join/CanWork/consensus от него не зависят. Первый заранее получает публичный BotId из ExpectedBotId либо getMe своего локального токена. В legacy ручном sender-сценарии ExpectedBotId должен совпасть с принятым BotId. Токен не входит в команды, snapshot, диагностику или аудит. Cookie/keyring/session/lockout и приватные ключи узла остаются локальными. Защитить ACL каталоги SQL backup, WAL/snapshot, control и отдельный bootstrap keyring; snapshot содержит защищённые данные общих аккаунтов и не является браузерным DTO. Выпуск сертификатов, renew и реальные права бота к чатам здесь не проверялись.
 
 ## Первый узел
 

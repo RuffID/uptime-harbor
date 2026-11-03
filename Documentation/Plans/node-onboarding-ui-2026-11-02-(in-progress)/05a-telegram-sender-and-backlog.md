@@ -2,6 +2,8 @@
 
 Статус: `not-started`. Зависимости: [01](01-scenarios-and-decisions.md), [02](02-invitations-and-contracts.md), [03](03-initial-setup.md), [04](04-enrollment-and-trust.md). Готовый Join этапа 05 не требуется для реализации sender; совместная внешняя приёмка — в 07.
 
+Граница после 03: setup/CanWork/consensus health/resign уже независимы от Telegram; BotToken не обязателен на несендере. Публичный BotId нового первого определяется локально, Join получает его через будущую authority. Managed delivery остаётся закрытым: sender assignment/renewal/dispatch и сводки этот результат не заменяет.
+
 ## Цель
 
 Обеспечить одного назначенного отправителя общего бота независимо от Raft-лидера и после его простоя доставлять сводку вместо всех накопленных устаревших уведомлений.

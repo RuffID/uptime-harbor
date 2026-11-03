@@ -77,6 +77,7 @@ public class RevisionSnapshotStore(IOptions<ClusterOptions> configured)
 
             string path = SnapshotPath(id);
             PublishedRevisionSnapshot verified = await ReadAsync(temporary, null, token);
+            UptimeHarbor.Application.Installation.RuntimeGenerationContext.Verify();
             File.Move(temporary, path);
             return verified with { Path = path };
         }
@@ -95,6 +96,7 @@ public class RevisionSnapshotStore(IOptions<ClusterOptions> configured)
             throw new InvalidDataException("SnapshotIdentityMismatch");
         }
 
+        UptimeHarbor.Application.Installation.RuntimeGenerationContext.Verify();
         Volatile.Write(ref published, snapshot);
         return snapshot;
     }
@@ -195,6 +197,7 @@ public class RevisionSnapshotStore(IOptions<ClusterOptions> configured)
                 return await ReadAsync(path, verified.Digest, token);
             }
 
+            UptimeHarbor.Application.Installation.RuntimeGenerationContext.Verify();
             File.Move(temporary, path);
             return verified with { Path = path };
         }
@@ -206,6 +209,7 @@ public class RevisionSnapshotStore(IOptions<ClusterOptions> configured)
 
     public void ConfirmInstalled(PublishedRevisionSnapshot snapshot)
     {
+        UptimeHarbor.Application.Installation.RuntimeGenerationContext.Verify();
         Volatile.Write(ref published, snapshot);
     }
 

@@ -77,6 +77,11 @@ public class ClusterRuntimeState(IClusterRecovery recovery, RevisionStateStore? 
 
     public void Publish(ConsensusStatus? value)
     {
+        if (value is not null)
+        {
+            UptimeHarbor.Application.Installation.RuntimeGenerationContext.Verify();
+        }
+
         Volatile.Write(ref status, value);
     }
 }

@@ -104,6 +104,7 @@ public class HttpMonitoringEndpointChecker(
         {
             HttpClient client = httpClientFactory.CreateClient(HTTP_CLIENT_NAME);
             using HttpRequestMessage request = new(HttpMethod.Get, endpointUrl);
+            UptimeHarbor.Application.Installation.RuntimeGenerationContext.Verify();
             using HttpResponseMessage response = await client.SendAsync(
                 request,
                 HttpCompletionOption.ResponseHeadersRead,

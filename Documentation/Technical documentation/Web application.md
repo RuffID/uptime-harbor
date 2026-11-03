@@ -1,5 +1,11 @@
 # Web-приложение
 
+## Локальная первоначальная настройка (этап 03)
+
+`/Setup` — минимальная отдельная страница локального входа и E0-подготовки нового первого/второго узла. `/api/setup/session|login|logout|status|prepare` использует собственную cookie scheme, bounded DTO/ServiceResult, antiforgery, exact HTTPS Origin/Host, rate limit, no-store и общие security headers. Setup identity не открывает common API; общий cookie не даёт setup-права. После login обновляется CSRF token, пароли очищаются в finally, автоматического повтора mutation нет. PageModel не загружает рабочие данные.
+
+До online activation общий API закрыт точным middleware gate; разрешены только собственные routes/assets. Первый подготавливает отдельного общего администратора, второй не создаёт Bootstrap. Ответ preparation означает сохранённую локальную попытку. Production authority/runtime admission недоступны: настоящие Bootstrap/Join, приглашение из нового первого, мастер подключения и список узлов не включены. [Cookies, durable фазы, TLS и полный inventory](Local%20installation%20setup.md).
+
 ## API приглашений (2026-11-03)
 
 ClusterInvitationsController предоставляет Issue/Replace/Revoke/Continue/Cancel и безопасный read на `/api/admin/cluster/invitations`. Mutations требуют accepted Administrator, antiforgery, свежий пароль, rate limit и bounded DTO без actor/verifier. Code возвращается только первым запросом после подтверждённой выдачи; потерянный ответ/retry его не восстанавливает. 202 означает существующий local Pending, Unconfirmed — отсутствие подтверждения. Ответы no-store; новые экраны остаются запланированными.

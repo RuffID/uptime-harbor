@@ -1,0 +1,57 @@
+@page "/Setup"
+@attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+@{
+    Layout = null;
+}
+<!DOCTYPE html>
+<html lang="ru" data-bs-theme="dark">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="request-verification-token" content="" />
+    <title>Локальная настройка — UptimeHarbor</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+</head>
+<body>
+<main class="container py-4">
+    <h1>Локальная настройка этого сервера</h1>
+    <p>Войдите с локальными административными данными, подготовленными при установке.</p>
+    <div class="alert alert-info" role="status" aria-live="polite" data-setup-message>Загрузка…</div>
+    <form data-setup-login>
+        <div class="mb-3">
+            <label class="form-label" for="setup-login">Логин</label>
+            <input class="form-control" id="setup-login" name="login" autocomplete="username" maxlength="256" required />
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="setup-password">Пароль</label>
+            <input class="form-control" id="setup-password" name="password" type="password" autocomplete="current-password" maxlength="1024" required />
+        </div>
+        <button class="btn btn-primary" type="submit">Войти</button>
+    </form>
+    <section class="d-none" data-setup-content>
+        <p data-setup-status></p>
+        <form data-setup-prepare>
+            <div class="mb-3">
+                <label class="form-label" for="setup-mode">Назначение новой установки</label>
+                <select class="form-select" id="setup-mode" name="mode" data-setup-mode>
+                    <option value="Join">Второй узел существующего кластера</option>
+                    <option value="Bootstrap">Первый узел нового кластера</option>
+                </select>
+            </div>
+            <fieldset class="d-none" data-setup-common>
+                <legend>Отдельный общий администратор</legend>
+                <label class="form-label" for="setup-common-login">Новый общий логин</label>
+                <input class="form-control mb-3" id="setup-common-login" name="commonLogin" autocomplete="off" maxlength="256" />
+                <label class="form-label" for="setup-common-password">Новый общий пароль</label>
+                <input class="form-control mb-3" id="setup-common-password" name="commonPassword" type="password" autocomplete="new-password" maxlength="1024" />
+                <p>Публичный ID общего Telegram-бота должен быть заранее настроен по месту установки. Токен на этом сервере не требуется.</p>
+            </fieldset>
+            <button class="btn btn-primary" type="submit">Подготовить установку</button>
+        </form>
+        <p class="mt-3">Сейчас доступна локальная подготовка. Установление доверия и подключение ещё закрыты. Мастер подключения и список узлов появятся отдельно.</p>
+        <form data-setup-logout><button class="btn btn-secondary" type="submit">Выйти</button></form>
+    </section>
+</main>
+<script type="module" src="~/dist/pages/setup.js" asp-append-version="true"></script>
+</body>
+</html>

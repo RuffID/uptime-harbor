@@ -1,5 +1,7 @@
 # Infrastructure persistence
 
+local_setup_accounts/local_installation_profiles/local_onboarding_attempts/local_attempt_steps локальны, вне ProjectionRecord/SnapshotSchema. Installation preflight проверяет каждую mapped shared/local queue/Identity-таблицу. SaveChanges (sync/async) проверяет ambient RuntimeGeneration до записи; схема Setup готовится отдельно без startup migration.
+
 ## Ответственность
 
 Каталог содержит `UptimeHarborDbContext`, EF-конфигурации, реализации репозиториев, scoped-сессию контекста и сценарные Unit of Work.

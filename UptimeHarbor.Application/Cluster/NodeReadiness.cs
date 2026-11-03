@@ -22,6 +22,10 @@ public class NodeReadiness(TimeProvider timeProvider)
 
     public void Report(string component, bool healthy, string reason, TimeSpan lifetime)
     {
+        if (healthy)
+        {
+            UptimeHarbor.Application.Installation.RuntimeGenerationContext.Verify();
+        }
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(lifetime, TimeSpan.Zero);
         if (component is not ("Database" or "Projection" or "Monitoring" or "Telegram" or "Clock" or "Storage"))
         {
@@ -74,6 +78,7 @@ public class NodeReadiness(TimeProvider timeProvider)
 
     public bool ConfirmRecovery(long expectedVersion, AcceptedClusterState accepted, ConsensusStatus consensus)
     {
+        UptimeHarbor.Application.Installation.RuntimeGenerationContext.Verify();
         lock (sync)
         {
             bool matching = accepted.SnapshotConfirmed && accepted.AccountStateConfirmed && accepted.CaughtUp
@@ -126,6 +131,17 @@ public class NodeReadiness(TimeProvider timeProvider)
         return CanWork(state) && Get("Monitoring").Status == "Ready"
             && Get("Telegram").Status == "Ready" && state.Accepted.DeliveryStateConfirmed
             && state.Accepted.SenderEpoch != Guid.Empty;
+    }
+
+    public bool CanMaintainConsensus(IClusterStateView state)
+    {
+        ConsensusStatus? status = state.Consensus;
+        if (status is null || status.ConsensusToken.IsCancellationRequested || status.LeadershipToken.IsCancellationRequested)
+        {
+            return false;
+        }
+
+        return CanWork(state) && Get("Monitoring").Status != "Unavailable";
     }
 
     public void InvalidateRecovery()

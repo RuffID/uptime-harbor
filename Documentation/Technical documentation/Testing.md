@@ -1,5 +1,40 @@
 # Тестирование
 
+## Локальный setup (этап 03)
+
+2026-11-03: перед запуском проверены конкретные csproj, tests/Directory.Build.props и доступные imports/build/restore файлы, а также код/инициализация выбранных тестов. Изменённые проекты не добавляют executable hooks. Проверки не запускают Web-host, SQL/SQLite, отдельный OS-процесс, Docker, browser или настоящую сеть. WebApplicationBuilder/DI Build в composition tests только строят граф; Start/Run не вызываются. Bot getMe проверен только с fake HttpMessageHandler. Полный Infrastructure project **не запускался**: его provider-набор требует БД и исключён точными фильтрами.
+
+| Набор текущего запуска | Пройдено | Ошибки / пропуски |
+| --- | --- | --- |
+| Application целиком | 266 | 0 / 0 |
+| Infrastructure Installation + Cluster | 166 (37 новых setup + 129 regression) | 0 / 0 |
+| Web целиком | 162 (19 новых setup/runtime/legacy selection) | 0 / 0 |
+| Frontend setup.test.mts | 2 | 0 / 0 |
+
+Итого 594 .NET и 2 frontend-проверки. Domain повторно отдельно не запускался: доменные исходники не менялись. Отдельные compile-check Infrastructure/Web и test projects завершились без warnings/errors; локальный tsc проверил весь tsconfig в отдельный artifacts output, production dist вручную не менялся. Разрешённая генерация AddLocalInstallationSetup не открывала соединение; metadata test подтверждает только четыре новые локальные таблицы, нулевой snapshot/model diff и исключение локальных credentials/refs/DP из snapshot.
+
+Покрытие: first-visitor/config-reset; stamp/epoch/Boot/TTL/lockout; пересечение cookie schemes/install identities; настоящий antiforgery filter и смена identity/token, Origin/Host; каждая mapped shared/local queue/Identity-таблица и orphan local progress; exclusive second file handle; failed drain/повторный start/stale callback/запись; restart с прежними IDs/key; durable intent до authority, потерянный ответ и повтор исходных revisions; удаление protected invitation после accepted reserve; AES/AAD/digest/повреждение/missing wrapping key/orphans; отдельный common account; атомарный revoke/hash removal до публикации, runtime failure с закрытым gate; полный setup DI без WAL; независимость CanWork/consensus/несендера от Telegram; сохранение legacy test-send и общих assets.
+
+Во время расширенной регрессии обнаружены и исправлены ранняя зависимость автономного Infrastructure graph от Pending и ошибочный выбор cluster test-send в Disabled; восстановлена прежняя ясная проверка пустого обязательного token в Disabled. Новые runtime/config проверки не ослабляют accepted authority, proxy/CRL или прежний Disabled. Ошибки подготовки тестов (повторная публикация изменённого профиля с той же revision, повторное использование antiforgery HttpContext) исправлены в fixtures; итоговая таблица отражает повторные успешные запуски.
+
+Команды из корня, Microsoft Testing Platform; соответствующий test project предварительно собран в Debug без restore с тем же BaseOutputPath:
+
+```powershell
+dotnet test --project .\tests\UptimeHarbor.Application.Tests\UptimeHarbor.Application.Tests.csproj --no-build --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\installation-application-tests\
+dotnet test --project .\tests\UptimeHarbor.Infrastructure.Tests\UptimeHarbor.Infrastructure.Tests.csproj --no-build --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\installation-infrastructure-tests\ -- --filter-class 'UptimeHarbor.Tests.Infrastructure.Installation.*' --filter-class 'UptimeHarbor.Tests.Infrastructure.Cluster.*'
+dotnet test --project .\tests\UptimeHarbor.Web.Tests\UptimeHarbor.Web.Tests.csproj --no-build --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\installation-web-tests\
+& 'C:\Users\Spike\.nuget\packages\microsoft.typescript.msbuild\7.0.1\tools\runtimes\win32-x64\tsc.exe' --project .\UptimeHarbor.Web\tsconfig.json --outDir .\artifacts\installation-setup\typescript
+node --experimental-strip-types --test .\tests\Frontend\setup.test.mts
+```
+
+Для C# использованы отдельные `dotnet build <конкретный.csproj> -c Debug --no-restore -p:BaseOutputPath=<полный artifacts путь>`; Web и Web tests дополнительно `-p:TypeScriptCompileBlocked=true`. Production output: installation-production-infrastructure и installation-production-web. Setup frontend test требует предварительный tsc output shared/http.js, поскольку strip-only Node не поддерживает parameter properties исходного ApiError; это не копия или правка production файла.
+
+После последней правки PeerBoundary повторены production Web compile-check, Web test build и все 162 Web-теста; после расширения локального profile повторены Application build и все 266 тестов. Проверены локальные ссылки актуальных документов/незавершённых этапов, наличие всей документации в solution, strict UTF-8, отсутствие U+FFFD/четырёх вопросительных знаков и характерного mojibake. Исходные окончания строк сохранены; существующие mixed-EOL файлы целиком не переформатировались.
+
+Ранний compile-check с относительным BaseOutputPath оставил только build output в `D:\Media\User\source\repos\artifacts\compile-check\installation-infrastructure-tests\` вне репозитория. Последующие проверки использовали указанные выше абсолютные пути внутри репозитория. Автоматическая проверка отклонила удаление внешнего каталога с причиной `blocked by policy`; каталог оставлен, исходники и результаты запусков от него не зависят.
+
+**Не проверено:** настоящий второй OS-процесс (проверен FileShare.None primitive), SQL DDL/locks/atomicity/backup, Ubuntu ACL/fsync/power loss, реальные Kestrel bind/hot TLS/CRL/DNS/двусторонняя сеть, browser rendering, фактическое переключение живого окружения. Production authority/Bootstrap/Join/sender закрыты; эти тесты не подтверждают внешнюю приёмку этапа 07. [Реализованный контур и inventory](Local%20installation%20setup.md).
+
 ## Приглашения и контракты (2026-11-03)
 
 Этап 02: отдельные Debug compile-check конкретных production/test `.csproj` без restore/Start. Перед запуском проверены csproj, tests/Directory.Build.props, доступные build/restore файлы и инициализация выбранных тестов. Новых Exec/hooks/packages нет; restore для генерации миграции ограничен локальным NuGet cache. Web C# compile-check использует `-p:TypeScriptCompileBlocked=true`; TypeScript/экраны не изменены и здесь не проверялись.

@@ -14,7 +14,8 @@ namespace UptimeHarbor.Infrastructure.Cluster;
 /// <summary>Восстанавливаемая доставка без legacy outbox. Ошибка одного чата изолирована.</summary>
 public class AcceptedDeliveryDispatcher(RevisionStateStore accepted, IClusterStateView state, NodeReadiness readiness,
     SenderAuthorityGate gate, IRevisionTransport journal, IServiceScopeFactory scopes,
-    IOptions<ClusterOptions> options, TimeProvider time, ILogger<AcceptedDeliveryDispatcher> logger)
+    IOptions<ClusterOptions> options, TimeProvider time, ILogger<AcceptedDeliveryDispatcher> logger,
+    IOptions<UptimeHarbor.Infrastructure.Installation.InstallationOptions>? installation = null)
 {
     private readonly SemaphoreSlim serial = new(1, 1);
     private long recoveredVersion = -1;
@@ -23,6 +24,11 @@ public class AcceptedDeliveryDispatcher(RevisionStateStore accepted, IClusterSta
 
     public bool ReconcileQueue()
     {
+        if (installation?.Value.Setup == true)
+        {
+            return false;
+        }
+
         if (!options.Value.Enabled || !accepted.Available || !readiness.CanSend(state))
         {
             return false;
@@ -47,6 +53,11 @@ public class AcceptedDeliveryDispatcher(RevisionStateStore accepted, IClusterSta
 
     public async Task RunOnceAsync(CancellationToken token)
     {
+        if (installation?.Value.Setup == true)
+        {
+            return;
+        }
+
         await serial.WaitAsync(token);
         try
         {

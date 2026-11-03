@@ -2,6 +2,8 @@
 
 Статус: `not-started`. Зависимости: [02](02-invitations-and-contracts.md)–[04](04-enrollment-and-trust.md). Для действующего первого standalone до выдачи приглашения обязателен [03б](03b-standalone-migration-cutover.md).
 
+Граница после 03: использовать существующие LocalOnboardingAttempt/OnboardingProgress UoW и прежние AttemptId/OperationIds/NodeId/storage/key. E0 и удаление protected invitation после accepted reserve подготовлены; полного Join endpoint, snapshot/membership orchestration и production activation пока нет. Второй Bootstrap не создавать.
+
 ## Цель
 
 Выполнить существующий Join автоматически и проверяемо, продолжать после обрыва без дубликатов и показывать успех только после реального принятия состава и догона.

@@ -6,7 +6,7 @@ namespace UptimeHarbor.Web.Cluster;
 
 public class ClusterMonitoringWorker(ClusterMonitoringCycle cycle, ObservationReplicationPump observations,
     MonitoringCoordinator coordinator, IOptions<ClusterOptions> options, TimeProvider time,
-    ILogger<ClusterMonitoringWorker> logger) : BackgroundService
+    ILogger<ClusterMonitoringWorker> logger) : UptimeHarbor.Infrastructure.Installation.RestartableWorker
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {

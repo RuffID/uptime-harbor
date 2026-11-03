@@ -43,6 +43,7 @@ public abstract class UptimeHarborDbUnitOfWork(IUptimeHarborDbContextSession ses
         {
             await action(cancellationToken);
             await SaveChangesAsync(cancellationToken);
+            UptimeHarbor.Application.Installation.RuntimeGenerationContext.Verify();
             await transaction.CommitAsync(cancellationToken);
         }
         catch (Exception originalException)

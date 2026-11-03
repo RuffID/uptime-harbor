@@ -9,6 +9,7 @@ using UptimeHarbor.Infrastructure.Telegram;
 using UptimeHarbor.Infrastructure.Monitoring;
 using UptimeHarbor.Application.Cluster.Onboarding;
 using UptimeHarbor.Infrastructure.Cluster.Onboarding;
+using UptimeHarbor.Infrastructure.Installation;
 
 namespace UptimeHarbor.Infrastructure.Cluster;
 
@@ -59,6 +60,30 @@ public static class ClusterServiceCollectionExtensions
             .ConfigurePrimaryHttpMessageHandler(provider =>
             {
                 ClusterOptions options = provider.GetRequiredService<IOptions<ClusterOptions>>().Value;
+                if (provider.GetRequiredService<IOptions<InstallationOptions>>().Value.Setup)
+                {
+                    DynamicPeerTls credentials = provider.GetRequiredService<DynamicPeerTls>();
+                    SocketsHttpHandler managed = new()
+                    {
+                        AllowAutoRedirect = false, UseCookies = false, UseProxy = false,
+                        ConnectTimeout = TimeSpan.FromSeconds(3), PooledConnectionLifetime = TimeSpan.Zero
+                    };
+                    SetupPeerAddressPolicy addresses = new(provider.GetRequiredService<IOptions<InstallationOptions>>().Value);
+                    managed.ConnectCallback = addresses.ConnectAsync;
+                    managed.SslOptions.LocalCertificateSelectionCallback = (_, _, _, _, _) => credentials.Certificate;
+                    managed.SslOptions.RemoteCertificateValidationCallback = (_, certificate, _, errors) =>
+                    {
+                        if (certificate is null || (errors & System.Net.Security.SslPolicyErrors.RemoteCertificateNameMismatch) != 0)
+                        {
+                            return false;
+                        }
+
+                        using X509Certificate2 candidate = new(certificate);
+                        return credentials.Validate(candidate);
+                    };
+                    return managed;
+                }
+
                 X509Certificate2 certificate = X509Certificate2.CreateFromPemFile(
                     options.ClientCertificatePath, options.ClientKeyPath);
                 SocketsHttpHandler handler = new()

@@ -10,7 +10,7 @@ public class ClusterHealthWorker(IOptions<ClusterOptions> options, ClusterDataba
     TelegramHealthProbe telegram, IPeerTrustSource trust,
     IHttpClientFactory clients, LeaderFailureWindow failureWindow,
     TimeProvider timeProvider, PeerObservationCapture? observations = null,
-    ILogger<ClusterHealthWorker>? logger = null) : BackgroundService
+    ILogger<ClusterHealthWorker>? logger = null) : UptimeHarbor.Infrastructure.Installation.RestartableWorker
 {
     private readonly Dictionary<Guid, (HealthResult Result, long At)> connections = new();
     private readonly object sync = new();
@@ -117,6 +117,7 @@ public class ClusterHealthWorker(IOptions<ClusterOptions> options, ClusterDataba
                 return;
             }
 
+            UptimeHarbor.Application.Installation.RuntimeGenerationContext.Verify();
             failureWindow.ObserveAuthenticated(health);
             observed = health;
             lock (sync)
@@ -158,6 +159,7 @@ public class ClusterHealthWorker(IOptions<ClusterOptions> options, ClusterDataba
 
     private void RecordConnection(Guid node, HealthResult result)
     {
+        UptimeHarbor.Application.Installation.RuntimeGenerationContext.Verify();
         lock (sync)
         {
             connections[node] = (result, timeProvider.GetTimestamp());

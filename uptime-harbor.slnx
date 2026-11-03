@@ -29,6 +29,7 @@
     <File Path="Documentation/Technical documentation/Persistence.md" />
     <File Path="Documentation/Technical documentation/Shared cluster storage.md" />
     <File Path="Documentation/Technical documentation/Onboarding contracts.md" />
+    <File Path="Documentation/Technical documentation/Local installation setup.md" />
     <File Path="Documentation/Technical documentation/Testing.md" />
     <File Path="Documentation/Technical documentation/Web application.md" />
   </Folder>

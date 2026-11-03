@@ -1,5 +1,11 @@
 # Сборка и развёртывание
 
+## Подготовленный setup (этап 03)
+
+Новый путь требует отдельного Direct/TLS-passthrough peer listener, подготовленного до Build, browser HTTPS, совместимой SQL schema и persistent state/secret/keys/storage volumes с ограниченными правами. Wrapping key создаётся приложением автоматически; дополнительный установочный секрет и Windows DPAPI не требуются. Пути/схема/listeners/ACL не исправляются HTTP-запросом, Nginx из приложения не управляется. Конфигурация установки, Docker и окружение в этой задаче не изменялись.
+
+Добавлен supervisor для переходов без перезапуска Web-host, однако настоящий issuer/activation адаптер этапа 04 отсутствует и рабочие gates закрыты. Изолированные doubles проверяют stop/drain/generation/start и не разрешают production Bootstrap/Join. Ubuntu/TLS/ACL/fsync, настоящий второй процесс и переключение работающего окружения отдельно не проверены; до отдельной внешней приёмки это не готовый rollout. [Подробности и inventory](Local%20installation%20setup.md).
+
 ## Эксплуатация распределённого режима
 
 Точные процедуры, предпосылки, условия остановки и границы разрешений: [первый узел/join/membership/TLS/maintenance/rollback](Cluster%20operations.md), [backup/rejoin/ручная авария](Cluster%20recovery.md), [офлайн-команды и control files](Cluster%20control%20files.md). Production dependencies реализованы, default Disabled сохранён; текущая установка не включалась. Интернет-связь допускается по доменным HTTPS-адресам без обязательного VPN. Выпуск/renew сертификатов и локальные секреты принадлежат окружению, а ручное подтверждение специалиста не является автоматической проверкой питания/firewall.

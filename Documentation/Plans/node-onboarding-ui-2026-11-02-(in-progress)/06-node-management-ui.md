@@ -2,6 +2,8 @@
 
 Статус: `not-started`. Зависимости: [01](01-scenarios-and-decisions.md)–[05](05-join-orchestration.md), [03а](03a-standalone-migration-preflight.md)/[03б](03b-standalone-migration-cutover.md), [05а](05a-telegram-sender-and-backlog.md).
 
+Граница после 03: существует минимальная `/Setup` с отдельным login, чтением статуса, подготовкой E0 и logout. Использовать её security/session boundaries; полный мастер подключения, список узлов, перенос, назначения объектов и экраны Telegram остаются работами этого этапа. Локальная подготовка не отображается как успешный Bootstrap/Join.
+
 ## Цель
 
 Предоставить короткий понятный путь «адрес + приглашение» и объяснять ожидаемый результат без требований разбираться в Raft, JSON или служебных файлах.

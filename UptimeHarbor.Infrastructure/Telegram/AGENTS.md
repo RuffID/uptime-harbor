@@ -1,5 +1,7 @@
 # Infrastructure Telegram
 
+TelegramOutboxWorker принадлежит единственному ManagedWorkerSupervisor, не отдельному hosted registration. Перед HTTP sender проверяет ambient RuntimeGeneration. Setup и несендеры не требуют token при startup; необязательный getMe для определения BotId первого узла не назначает sender и не разрешает доставку. Новый managed dispatch закрыт до этапа 05а.
+
 ## Ответственность
 
 Каталог содержит `TelegramOptions`, HTTP transport Bot API, durable outbox dispatcher и отдельный hosted worker доставки.

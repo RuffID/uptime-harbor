@@ -15,6 +15,6 @@
 - Keyed-координацию освобождать в `finally`; одновременно разрешена только одна проверка пары «тип + идентификатор».
 - Ожидаемые HTTP, network, timeout и validation-ошибки возвращать как результат проверки; неожиданные исключения изолировать на границе объекта и логировать.
 - Не выполнять retry внутри цикла и корректно передавать cancellation при остановке.
-- Прежний worker регистрируется только при Cluster:Mode=Disabled. Распределённый worker проверяет NodeReadiness.CanWork и подтверждает реальный прогресс через MonitoringProgressWatchdog; partial цели не является неисправностью самого главного.
+- Прежний worker зарегистрирован как управляемый singleton; supervisor запускает его только для обычного Disabled. MonitoringCycleRunner await-ит все проверки и освобождает keyed coordination в finally. Распределённый worker проверяет NodeReadiness.CanWork и подтверждает реальный прогресс через MonitoringProgressWatchdog; partial цели не является неисправностью самого главного.
 - Автоматические redirect отключать; любой `3xx` считать HTTP-ошибкой. Тело ответа ограничивать 64 KiB по `Content-Length` и фактически прочитанным байтам.
 - При изменении цикла или transport-контракта обновлять тесты и `Documentation/Technical documentation/Monitoring.md`.

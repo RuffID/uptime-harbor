@@ -5,19 +5,37 @@ using Microsoft.Extensions.Options;
 using UptimeHarbor.Application.Cluster;
 using UptimeHarbor.Application.Cluster.Models;
 using UptimeHarbor.Infrastructure.Cluster;
+using UptimeHarbor.Infrastructure.Installation;
+using UptimeHarbor.Web.Security;
+using UptimeHarbor.Application.Installation;
 
 namespace UptimeHarbor.Web.Cluster;
 
-public class PeerBoundaryMiddleware(RequestDelegate next, IOptions<ClusterOptions> configured)
+public class PeerBoundaryMiddleware(RequestDelegate next, IOptions<ClusterOptions> configured,
+    IOptions<InstallationOptions>? installationOptions = null, InstallationState? installation = null)
 {
     public async Task InvokeAsync(HttpContext context, IPeerTrustSource trust,
-        NodeReadiness readiness, TimeProvider timeProvider, ClusterPeerRuntime runtime, IClusterStateView? state = null)
+        NodeReadiness readiness, TimeProvider timeProvider, ClusterPeerRuntime runtime, IClusterStateView? state = null,
+        DynamicPeerTls? dynamicTls = null, RuntimeWriteGate? writes = null)
     {
         ClusterOptions options = configured.Value;
         bool peerPath = context.Request.Path.StartsWithSegments("/internal");
-        bool peerListener = options.Enabled && context.Connection.LocalPort == options.PeerListenPort;
+        bool managed = installationOptions?.Value.Setup == true;
+        bool peerListener = (options.Enabled || managed) && context.Connection.LocalPort == options.PeerListenPort;
         if (!peerPath && !peerListener)
         {
+            if (managed && SetupBoundaryMiddleware.Allowed(context.Request.Path))
+            {
+                await next(context);
+                return;
+            }
+
+            if (managed && installation?.CommonOpen != true)
+            {
+                context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+                return;
+            }
+
             if (options.Enabled && (state is null || !readiness.CanWork(state)))
             {
                 context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
@@ -28,11 +46,33 @@ public class PeerBoundaryMiddleware(RequestDelegate next, IOptions<ClusterOption
             return;
         }
 
+        if (managed && installation?.Current?.Phase is not (UptimeHarbor.Application.Installation.InstallationPhase.ClusterQuarantine
+            or UptimeHarbor.Application.Installation.InstallationPhase.CatchingUp
+            or UptimeHarbor.Application.Installation.InstallationPhase.AwaitingActivation
+            or UptimeHarbor.Application.Installation.InstallationPhase.ClusterReady))
+        {
+            context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+            return;
+        }
+
         if (!peerListener || !peerPath || context.Request.Host.Host != new Uri(options.PublicUri).Host)
         {
             context.Response.StatusCode = StatusCodes.Status404NotFound;
             return;
         }
+
+        long generation = installation?.Current?.RuntimeGeneration ?? 0;
+        IDisposable? operation = null;
+        RuntimeGenerationContext? generationContext = null;
+        if (managed)
+        {
+            RuntimeWriteGate gate = writes ?? throw new InvalidOperationException("RuntimeGateMissing");
+            operation = gate.Enter(generation);
+            generationContext = new(() => gate.Verify(generation));
+        }
+
+        using IDisposable? requestOperation = operation;
+        using RuntimeGenerationContext? requestGeneration = generationContext;
 
         if (readiness.Get("Clock").Status != "Ready")
         {
@@ -108,9 +148,18 @@ public class PeerBoundaryMiddleware(RequestDelegate next, IOptions<ClusterOption
             return;
         }
 
-        using X509Certificate2 root = X509CertificateLoader.LoadCertificateFromFile(options.ClientCaPath);
-        PeerCertificateValidator validator = new();
-        if (!validator.Validate(certificate, root, options, credential, timeProvider.GetUtcNow()))
+        bool validCertificate;
+        if (managed)
+        {
+            validCertificate = dynamicTls?.ValidateRequest(certificate, options, credential, timeProvider.GetUtcNow()) == true;
+        }
+        else
+        {
+            using X509Certificate2 root = X509CertificateLoader.LoadCertificateFromFile(options.ClientCaPath);
+            validCertificate = new PeerCertificateValidator().Validate(certificate, root, options, credential, timeProvider.GetUtcNow());
+        }
+
+        if (!validCertificate)
         {
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
             return;

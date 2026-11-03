@@ -1,5 +1,9 @@
 # Связь узлов, Raft и готовность
 
+## Управляемый локальный setup (этап 03)
+
+Полный inventory, phase/generation/locks, stop/drain и динамические certificate/trust providers вынесены в [Local installation setup.md](Local%20installation%20setup.md). Единственный root hosted owner — ManagedWorkerSupervisor; Setup не запускает WAL или рабочие loops. Новый production genesis/issuer/online activation недоступен до 04, dispatch — до 05а. Локальная подготовка не открывает common/peer/sender gates. Legacy процедуры ниже сохраняют свои recovery/trust/CRL proof.
+
 ## Подготовительный onboarding protocol v2 (2026-11-03)
 
 OnboardingAcceptance назначает подтверждённое время через существующий strong barrier и ClusterRaftHandle; RevisionDispatcher/reducer/apply сохраняют новые команды в прежнем WAL/projection. Request digest исключает coordinator stamp, WAL/receipt покрывают полные байты. Snapshot строго проверяет manifest/body и onboarding, включая recovery ancestors. Старый membership/Activate не обходит новую delegation/process модель. Настоящие issuer, enrollment proofs, новый native Join и activation остаются закрытыми. [Реализованные контракты](Onboarding%20contracts.md).
@@ -41,7 +45,7 @@ RevisionClusterRecovery самостоятельно не подтверждае
 
 Этап 04 подключил `RevisionClusterRecovery`, production reducer, SQL apply/replay, очередь Pending и streaming snapshot; 05.1 — чтение принятого аккаунта и active Administrator policy. 05.2–05.4 подключили общий sign-in/сессии и команды аккаунтов; 06 подключил monitoring capture/reducer/coordinator; delivery worker подключён в 07; UI и включение — 08/09. Production graph использует SignedRecoveryAdmission, AcceptedPeerTrustSource и AcceptedClusterAdministrationState; Unavailable-реализации не являются доказательством готовности. Web graph использует DeliverySenderConsensus, самостоятельный Infrastructure module сохраняет UnavailableSenderConsensus. Admission требует настоящих identity/checkpoint и подписанного подтверждения ручной изоляции до создания WAL; без них enabled-конфигурация Raft не запускает.
 
-`Disabled` сохраняет однопроцессное поведение. Любой enabled-режим не регистрирует прежние monitoring/outbox workers, блокирует прежний `INotificationSender`. Browser endpoints закрыты до подтверждённого controlled enable; peer-perimeter проверяется отдельно. Legacy startup migrations/bootstrap пропускаются: заранее подготовленная схема и точный accepted bootstrap account не подменяются прежним startup. Наличие классов этапа 03 не разрешает controlled enable.
+`Disabled` сохраняет однопроцессное поведение. Любой enabled-режим не запускает прежние monitoring/outbox loops; singleton registrations принадлежат ManagedWorkerSupervisor, блокирует прежний `INotificationSender`. Browser endpoints закрыты до подтверждённого controlled enable; peer-perimeter проверяется отдельно. Legacy startup migrations/bootstrap пропускаются: заранее подготовленная схема и точный accepted bootstrap account не подменяются прежним startup. Наличие классов этапа 03 не разрешает controlled enable.
 
 ## Долговременный Raft
 

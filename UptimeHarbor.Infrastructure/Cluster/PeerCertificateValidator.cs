@@ -8,7 +8,7 @@ namespace UptimeHarbor.Infrastructure.Cluster;
 public class PeerCertificateValidator
 {
     public bool Validate(X509Certificate2 certificate, X509Certificate2 root, ClusterOptions options,
-        PeerCredential credential, DateTimeOffset now)
+        PeerCredential credential, DateTimeOffset now, bool offlineRevocation = false)
     {
         string rootHash = root.GetCertHashString(HashAlgorithmName.SHA256);
         string hash = certificate.GetCertHashString(HashAlgorithmName.SHA256);
@@ -39,10 +39,11 @@ public class PeerCertificateValidator
             return false;
         }
 
-        return ValidateChain(certificate, root, options, now);
+        return ValidateChain(certificate, root, options, now, offlineRevocation);
     }
 
-    public bool ValidateChain(X509Certificate2 certificate, X509Certificate2 root, ClusterOptions options, DateTimeOffset now)
+    public bool ValidateChain(X509Certificate2 certificate, X509Certificate2 root, ClusterOptions options, DateTimeOffset now,
+        bool offlineRevocation = false)
     {
         if (!string.Equals(root.GetCertHashString(HashAlgorithmName.SHA256), options.ClientCaFingerprint,
             StringComparison.OrdinalIgnoreCase))
@@ -61,6 +62,11 @@ public class PeerCertificateValidator
         {
             chain.ChainPolicy.RevocationMode = X509RevocationMode.Online;
             chain.ChainPolicy.UrlRetrievalTimeout = TimeSpan.FromSeconds(3);
+            if (offlineRevocation)
+            {
+                chain.ChainPolicy.RevocationMode = X509RevocationMode.Offline;
+                chain.ChainPolicy.DisableCertificateDownloads = true;
+            }
         }
 
         return chain.Build(certificate);

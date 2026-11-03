@@ -1,5 +1,7 @@
 # Identity и вход
 
+DI selectors sign-in/account/administrator читают активный профиль при создании scoped adapter. LocalSetupAccount живёт в Installation вне users/roles; его cookie/hash никогда не использовать как accepted account или BootstrapAccount. В Setup DP keyring файловый локальный, SQL registration его не переопределяет.
+
 `ApplicationUser`/`ApplicationRole` принадлежат Infrastructure. `IdentityUserAccountStore` реализует прикладной account store и bootstrap store; sign-in service изолирует cookie-сценарии.
 
 Использовать общий scoped `UptimeHarborDbContext`. Bootstrap создаёт только отсутствующего администратора; блокировка обновляет security stamp. `IsEnabled`, Identity lockout и результат входа не смешивать; пароль и stamp не логировать.

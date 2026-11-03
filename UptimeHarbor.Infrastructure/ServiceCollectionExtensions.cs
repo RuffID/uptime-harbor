@@ -27,6 +27,7 @@ using UptimeHarbor.Application.Visibility;
 using UptimeHarbor.Infrastructure.Services.DataBase;
 using UptimeHarbor.Infrastructure.Cluster;
 using UptimeHarbor.Application.Security;
+using UptimeHarbor.Infrastructure.Installation;
 
 namespace UptimeHarbor.Infrastructure;
 
@@ -42,12 +43,29 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(configuration);
 
         services.AddClusterInfrastructure(configuration);
-        ClusterOptions clusterOptions = configuration.GetSection(ClusterOptions.SECTION_NAME).Get<ClusterOptions>() ?? new();
-        if (clusterOptions.Enabled)
+        services.AddLocalInstallation(configuration);
+        services.AddScoped<IAdministratorAccessPolicy>(provider =>
         {
-            services.AddScoped<IAdministratorAccessPolicy, AcceptedAdministratorAccessPolicy>();
-            services.AddScoped<IAcceptedTestDelivery, ClusterTestDelivery>();
-        }
+            if (provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<ClusterOptions>>().Value.Enabled)
+            {
+                return ActivatorUtilities.CreateInstance<AcceptedAdministratorAccessPolicy>(provider);
+            }
+
+            return ActivatorUtilities.CreateInstance<AdministratorAccessPolicy>(provider);
+        });
+        services.AddScoped<IAcceptedTestDelivery>(provider =>
+            ActivatorUtilities.CreateInstance<ClusterTestDelivery>(provider));
+        services.AddScoped<INotificationAdministrationService>(provider =>
+        {
+            IAcceptedTestDelivery? accepted = null;
+            if (provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<ClusterOptions>>().Value.Enabled)
+            {
+                accepted = provider.GetRequiredService<IAcceptedTestDelivery>();
+            }
+
+            return new NotificationAdministrationService(provider.GetRequiredService<IAdministratorAccessPolicy>(),
+                provider.GetRequiredService<INotificationSettingsUnitOfWork>(), provider.GetRequiredService<INotificationSender>(), accepted);
+        });
 
         string? connectionString = configuration.GetConnectionString("SqlServer");
 
@@ -146,28 +164,56 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IDeliveryResultUnitOfWork, DeliveryResultUnitOfWork>();
         services.AddScoped<IHistoryRetentionQuery, HistoryRetentionQuery>();
         services.AddScoped<IdentityUserAccountStore>();
+        services.AddScoped<AcceptedUserAccountStore>();
         services.AddScoped<IUserAccountStore>(provider =>
-            provider.GetRequiredService<IdentityUserAccountStore>());
+        {
+            if (provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<ClusterOptions>>().Value.Enabled)
+            {
+                return provider.GetRequiredService<AcceptedUserAccountStore>();
+            }
+
+            return provider.GetRequiredService<IdentityUserAccountStore>();
+        });
         services.AddScoped<IInitialAdministratorStore>(provider =>
             provider.GetRequiredService<IdentityUserAccountStore>());
         services.AddScoped<InitialAdministratorBootstrapper>();
-        services.AddScoped<IUserSignInService, UserSignInService>();
+        services.AddScoped<UserSignInService>();
+        services.AddScoped<AcceptedUserSignInService>();
+        services.AddScoped<IUserSignInService>(provider =>
+        {
+            if (provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<ClusterOptions>>().Value.Enabled)
+            {
+                return provider.GetRequiredService<AcceptedUserSignInService>();
+            }
+
+            return provider.GetRequiredService<UserSignInService>();
+        });
         services.AddScoped<IAccountCredentialService, AccountCredentialService>();
         services.AddSingleton<AcceptedAccountSession>();
         services.AddSingleton<LocalAccountLoginGate>();
         services.AddScoped<ILocalAccountLogin, LocalAccountLogin>();
         services.AddScoped<ILocalLoginUnitOfWork, LocalLoginUnitOfWork>();
-        if (clusterOptions.Enabled)
+        services.AddScoped<MonitoringRecipientReadQuery>();
+        services.AddScoped<AcceptedMonitoringRecipients>();
+        services.AddScoped<IMonitoringRecipientReadQuery>(provider =>
         {
-            services.AddScoped<IUserAccountStore, AcceptedUserAccountStore>();
-            services.AddScoped<IUserSignInService, AcceptedUserSignInService>();
-            services.AddScoped<IMonitoringRecipientReadQuery, AcceptedMonitoringRecipients>();
-            services.AddDataProtection().SetApplicationName($"UptimeHarbor/{clusterOptions.NodeId:N}");
+            if (provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<ClusterOptions>>().Value.Enabled)
+            {
+                return provider.GetRequiredService<AcceptedMonitoringRecipients>();
+            }
+
+            return provider.GetRequiredService<MonitoringRecipientReadQuery>();
+        });
+        ClusterOptions initialCluster = configuration.GetSection(ClusterOptions.SECTION_NAME).Get<ClusterOptions>() ?? new();
+        if (initialCluster.Enabled && configuration["Installation:InstallationIntent"] != "Setup")
+        {
+            services.AddDataProtection().SetApplicationName($"UptimeHarbor/{initialCluster.NodeId:N}");
         }
 
-        services
-            .AddDataProtection()
-            .PersistKeysToDbContext<UptimeHarborDbContext>();
+        if (configuration["Installation:InstallationIntent"] != "Setup")
+        {
+            services.AddDataProtection().PersistKeysToDbContext<UptimeHarborDbContext>();
+        }
 
         services.AddHttpClient<IHttpApiClient, HttpApiClient>();
         services.AddHttpClient(HttpMonitoringEndpointChecker.HTTP_CLIENT_NAME, client =>
@@ -180,10 +226,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IContainerEndpointChecker>(provider =>
             provider.GetRequiredService<HttpMonitoringEndpointChecker>());
         services.AddSingleton<IMonitoringCycleRunner, MonitoringCycleRunner>();
-        if (!clusterOptions.Enabled)
-        {
-            services.AddHostedService<MonitoringWorker>();
-        }
+        services.AddSingleton<MonitoringWorker>();
 
         services.AddHttpClient<TelegramHttpNotificationSender>(client =>
         {
@@ -195,16 +238,20 @@ public static class ServiceCollectionExtensions
         services.AddScoped<INotificationSender, ClusterNotificationSender>();
         services.AddScoped<NotificationOutboxStore>();
         services.AddSingleton<TelegramOutboxDispatcher>();
-        if (!clusterOptions.Enabled)
-        {
-            services.AddHostedService<TelegramOutboxWorker>();
-        }
+        services.AddSingleton<TelegramOutboxWorker>();
 
         return services;
     }
 
     private static async Task ValidateEnabledUserAsync(CookieValidatePrincipalContext context)
     {
+        InstallationState installation = context.HttpContext.RequestServices.GetRequiredService<InstallationState>();
+        if (installation.Current is not null && !installation.CommonOpen)
+        {
+            context.RejectPrincipal();
+            return;
+        }
+
         ClusterOptions cluster = context.HttpContext.RequestServices
             .GetRequiredService<Microsoft.Extensions.Options.IOptions<ClusterOptions>>().Value;
         if (cluster.Enabled)

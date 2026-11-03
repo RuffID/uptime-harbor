@@ -2,6 +2,8 @@
 
 Статус: `not-started`. Зависимости: [02](02-invitations-and-contracts.md)–[04](04-enrollment-and-trust.md), [03а](03a-standalone-migration-preflight.md).
 
+Граница после 03: installation/runtime-порты, supervisor и поколения подготовлены, но переход непустого standalone не разрешён. Использовать их после manifest/preflight 03а и настоящей authority 04; setup identity не заменяет действующего legacy-admin.
+
 ## Цель
 
 Перевести действующий первый сервер в первый кластерный узел с сохранением пользователей, объектов, чатов, привязок и истории, без перезапуска всего приложения.

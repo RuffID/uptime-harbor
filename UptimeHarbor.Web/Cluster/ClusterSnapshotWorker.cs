@@ -6,7 +6,7 @@ namespace UptimeHarbor.Web.Cluster;
 
 public class ClusterSnapshotWorker(RevisionClusterRecovery recovery, RevisionStateStore state,
     RevisionSnapshotStore snapshots, IOptions<ClusterOptions> options,
-    TimeProvider timeProvider, ILogger<ClusterSnapshotWorker> logger) : BackgroundService
+    TimeProvider timeProvider, ILogger<ClusterSnapshotWorker> logger) : UptimeHarbor.Infrastructure.Installation.RestartableWorker
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {

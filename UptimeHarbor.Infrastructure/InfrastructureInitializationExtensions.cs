@@ -4,6 +4,8 @@ using UptimeHarbor.Infrastructure.Persistence;
 using UptimeHarbor.Infrastructure.Services.DataBase;
 using Microsoft.Extensions.Options;
 using UptimeHarbor.Infrastructure.Cluster;
+using UptimeHarbor.Infrastructure.Installation;
+using Microsoft.EntityFrameworkCore;
 
 namespace UptimeHarbor.Infrastructure;
 
@@ -16,6 +18,13 @@ public static class InfrastructureInitializationExtensions
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(services);
+        if (services.GetRequiredService<IOptions<InstallationOptions>>().Value.Setup)
+        {
+            await using AsyncServiceScope setupScope = services.CreateAsyncScope();
+            await setupScope.ServiceProvider.GetRequiredService<SetupInitialization>().InitializeAsync(cancellationToken);
+            return;
+        }
+
         if (services.GetRequiredService<IOptions<ClusterOptions>>().Value.Enabled)
         {
             // Cluster schema/provisioning и общий bootstrap выполняются controlled lifecycle этапа 09.
@@ -42,6 +51,12 @@ public static class InfrastructureInitializationExtensions
                 $"Database initialization did not finish within " +
                 $"{DATABASE_STARTUP_TIMEOUT_SECONDS} seconds.",
                 exception);
+        }
+
+        UptimeHarborDbContext context = scope.ServiceProvider.GetRequiredService<UptimeHarborDbContext>();
+        if (await context.Set<LocalProfileRecord>().AnyAsync(cancellationToken))
+        {
+            throw new InvalidOperationException("ManagedInstallationRequiresSetupIntent");
         }
 
         InitialAdministratorBootstrapper bootstrapper =

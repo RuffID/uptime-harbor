@@ -1,5 +1,13 @@
 # Миграции SQL Server
 
+## Локальная установка (2026-11-03)
+
+С отдельного разрешения пользователя выполнена точная команда: `dotnet ef migrations add AddLocalInstallationSetup --project .\UptimeHarbor.Infrastructure\UptimeHarbor.Infrastructure.csproj --startup-project .\UptimeHarbor.Infrastructure\UptimeHarbor.Infrastructure.csproj --context UptimeHarborDbContext --output-dir Persistence/Migrations --configuration MigrationCheck`.
+
+Созданы `20261103085414_AddLocalInstallationSetup`, designer и обновлённый snapshot. Up добавляет только local_setup_accounts/local_installation_profiles/local_onboarding_attempts/local_attempt_steps и индексы, Down удаляет эти четыре таблицы. Design-time factory использует SQL Server provider без connection string/подключения. Старые migrations вручную не менялись. Tool 10.0.11 предупредил об установленном runtime 10.0.13; генерация успешна. Metadata/model-diff проверка не открывает соединение и не обнаруживает расхождений snapshot/model.
+
+К БД ничего не применено. SQL/DDL/Up/Down/backup/locking/atomicity не проверялись. Явный Setup отказывается при неподготовленной схеме и не применяет migration автоматически. [Локальный storage и границы](Local%20installation%20setup.md).
+
 ## Приглашения (2026-11-03)
 
 С разрешения пользователя выполнена только генерация `20261103075157_AddOnboardingInvitations` через Infrastructure target/startup и UptimeHarborDesignTimeDbContextFactory без строки подключения. Up добавляет onboarding_invitations и индекс, Down удаляет эту таблицу. Существующие migrations вручную не редактировались; designer и model snapshot обновлены tooling. Metadata-проверка подтверждает constraints/concurrency и нулевой model diff, connection остаётся Closed.

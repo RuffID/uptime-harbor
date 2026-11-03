@@ -1,5 +1,7 @@
 # Изолированные проверки cluster hosting
 
+SetupSecurity/SetupComposition/ManagedSupervisor tests проверяют production cookie/antiforgery/boundaries, полный DI без Start/WAL и реальный supervisor с подставным catalog loops. LegacySetupSelectionTests запрещает разрешение cluster Pending в обычном Disabled test-send. Это не проверка настоящего cutover/TLS/второго процесса; doubles authority/admission не регистрируются production graph.
+
 InvitationHttpFixture использует настоящие Pending/dispatcher/reducer/apply и закрывает advanced enrollment. InvitationSecurityTests вызывает настоящий antiforgery filter с ephemeral DP: получение токена и POST используют разные HttpContext, а выполняемый filter включён в context.Filters. Полный graph проверять без Start/сети; не возвращать runtime dependency из acceptance в dispatcher.
 
 - Lifecycle HTTP tests проверяют actual accepted actor, protected Pending/held Replace и 202 без запуска host. Peer boundary отвергает internal lifecycle/foreign storage до dispatch. PersistentMembershipTests вызывает production ClusterJoinMembership с настоящим временным native store, исключая joining nonvoter и повторную запись; это не live join/elections.

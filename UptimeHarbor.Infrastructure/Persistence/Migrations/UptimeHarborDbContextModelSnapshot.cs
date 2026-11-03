@@ -2030,6 +2030,116 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("UptimeHarbor.Infrastructure.Installation.LocalAttemptRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<long>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("local_onboarding_attempts", (string)null);
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Infrastructure.Installation.LocalProfileRecord", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("InstallIdentity")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<long>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InstallIdentity")
+                        .IsUnique();
+
+                    b.ToTable("local_installation_profiles", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_local_installation_singleton", "[Id] = 1");
+                        });
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Infrastructure.Installation.LocalSetupAccount", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CreatedForInstallIdentity")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Disabled")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("FailedCount")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("LockoutUntilUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NormalizedLogin")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("PasswordHash")
+                        .HasMaxLength(1024)
+                        .HasColumnType("nvarchar(1024)");
+
+                    b.Property<long>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Stamp")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedForInstallIdentity")
+                        .IsUnique();
+
+                    b.ToTable("local_setup_accounts", (string)null);
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Infrastructure.Installation.LocalStepRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AttemptId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AttemptId");
+
+                    b.ToTable("local_attempt_steps", (string)null);
+                });
+
             modelBuilder.Entity("UptimeHarbor.Infrastructure.Persistence.NotificationOutboxJob", b =>
                 {
                     b.Property<Guid>("Id")

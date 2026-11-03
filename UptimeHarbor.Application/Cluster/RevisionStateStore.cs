@@ -32,6 +32,7 @@ public class RevisionStateStore : IAcceptedAccountReader
 
     public void Publish(RevisionImage accepted)
     {
+        UptimeHarbor.Application.Installation.RuntimeGenerationContext.Verify();
         lock (sync)
         {
             Volatile.Write(ref image, accepted);
@@ -55,6 +56,7 @@ public class RevisionStateStore : IAcceptedAccountReader
 
     public bool ConfirmRecovery(RevisionImage accepted, long expectedRecoveryVersion)
     {
+        UptimeHarbor.Application.Installation.RuntimeGenerationContext.Verify();
         lock (sync)
         {
             if (expectedRecoveryVersion != recoveryVersion)

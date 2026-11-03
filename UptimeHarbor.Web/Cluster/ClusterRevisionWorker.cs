@@ -4,7 +4,7 @@ using UptimeHarbor.Infrastructure.Cluster;
 namespace UptimeHarbor.Web.Cluster;
 
 public class ClusterRevisionWorker(PendingReplicationPump pump, IOptions<ClusterOptions> options,
-    TimeProvider timeProvider) : BackgroundService
+    TimeProvider timeProvider) : UptimeHarbor.Infrastructure.Installation.RestartableWorker
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {

@@ -1,6 +1,12 @@
 # Persistence и транзакции
 
-Приглашения этапа 02 используют onboarding_invitations и прежний projection UoW: запись состояния, decision, receipt и cursor составляют один accepted write set. Локальное хранилище попытки пока имеет только независимые CAS/UoW-порты. [Контракты и схема](Onboarding%20contracts.md), [миграция](Database%20migrations.md#приглашения-2026-11-03). Provider-level atomicity в этой задаче не проверена.
+Приглашения этапа 02 используют onboarding_invitations и прежний projection UoW: запись состояния, decision, receipt и cursor составляют один accepted write set. Этап 03 реализует локальные CAS/UoW-контракты попытки. [Контракты и схема](Onboarding%20contracts.md), [миграции](Database%20migrations.md). Provider-level atomicity в этой задаче не проверена.
+
+## Локальный setup (этап 03)
+
+local_setup_accounts/local_installation_profiles/local_onboarding_attempts/local_attempt_steps — отдельные локальные таблицы, вне ProjectionRecord и SnapshotSchema. LocalSetupUnitOfWork и OnboardingProgressUnitOfWork используют существующую EF session. Profile/attempt/account защищены revision concurrency tokens; request/IDs/key и исходные step revisions сохраняются до внешнего эффекта. После accepted reserve ProtectedInvitation удаляется, повтор не меняет ReservationIndex. Общий BootstrapAccount хранится отдельным зашифрованным локальным command reference до authority, не в users/roles.
+
+Setup preflight проверяет schema и непустоту всех mapped shared/local queue/Identity таблиц, собственный локальный progress сверяет с InstallIdentity/AttemptId. Startup migrations/bootstrap в явном Setup пропускаются. Revoke setup/hash/stamp/epoch/profile сохраняются одной транзакцией до common publication. SaveChanges sync/async и UoW commit проверяют RuntimeGenerationContext; SQL transaction не охватывает network/file/runtime effect. Повреждённые refs/orphans не становятся credential. [Хранение и восстановление](Local%20installation%20setup.md). Миграция только сгенерирована; реальные SQL locks/constraints/atomicity не проверялись.
 
 ## Первый запуск и восстановление (09)
 

@@ -1,6 +1,6 @@
 # 03. Первоначальная настройка
 
-Статус: `not-started`. Зависимости: [01](01-scenarios-and-decisions.md), [02](02-invitations-and-contracts.md).
+Статус: `completed` (2026-11-03, подготовительный объём). Зависимости: [01](01-scenarios-and-decisions.md), [02](02-invitations-and-contracts.md).
 
 ## Цель
 
@@ -41,4 +41,12 @@ Web composition/configuration, boundary middleware, startup registration, Infras
 
 ## Результат
 
-Пока не выполнен. Готовность setup не означает принятый Join или работоспособность Telegram. Переключение без перезапуска, восстановление после внешнего рестарта и права файлов проверяются отдельно на Ubuntu.
+Подготовительный объём выполнен. Явный Setup до legacy initialization, отдельный LocalSetupAccount/login/cookie, точные CSRF/Origin/Host boundaries, preflight всех mapped shared/local таблиц и queues, локальные profile/attempt/step CAS/UoW, AES-GCM files/inline invitation, installation/storage locks и reconciliation реализованы. Новый первый подготавливает отдельного общего администратора и BotId; второй сохраняет свои IDs/key и не создаёт Bootstrap. Конфигурация установки и содержание завершённых 01/02 не менялись.
+
+Реализованы typed ISetupAuthority/IManagedRuntimeAdmission/IInstallationRuntime, полная машина фаз и supervisor с deferred worker inventory, immutable active profile, write/drain generations, bounded stop и stale callback guards. Заранее подготовленный Direct/TLS-passthrough listener использует динамический certificate/trust provider. Setup/CanWork/consensus health/resign не требуют Telegram, новый delivery path закрыт. Доступен только минимальный login/setup E0 UI, без мастера подключения и списка узлов. События логируются по durable результату без секретов.
+
+Production adapters authority/admission остаются Unavailable: настоящий genesis/issuer/grants/online activation принадлежит 04, полный Join — 05, sender — 05а, экраны — 06. Local save/evidence double не объявляются Bootstrap/Join/Ready. Удаление setup hash/отзыв sessions перед common publication проверены с doubles; production gate не открыт. Действующий standalone не переводился: его непустота направляет в 03а/03б. Это согласованная граница завершения 03, а не требование реализовать будущий 04.
+
+Проверки: Application 266, Infrastructure Installation+Cluster 166, Web 162, frontend 2 — без ошибок/пропусков; отдельные production/test compile-check и tsc успешны, C# warnings/errors отсутствуют. Сгенерирована только разрешённая AddLocalInstallationSetup, к БД не применялась. Покрыты takeover/config reset, cookie/CSRF/origin crossing, непустые mapped/local таблицы, второй exclusive file handle, failed drain/double start/stale callbacks, потеря ответа/исходные IDs/revisions/restart, corrupted refs/orphans, safe logs и отсутствие Telegram зависимости несендера. [Команды и пределы](../../Technical%20documentation/Testing.md#локальный-setup-этап-03), [устройство и полный inventory](../../Technical%20documentation/Local%20installation%20setup.md).
+
+Отдельно не проверены настоящий второй OS-процесс, SQL/DDL/locking/atomicity, Ubuntu ACL/fsync/power loss, TLS/Kestrel/DNS/двусторонняя сеть, browser rendering и переключение работающего окружения. К следующим этапам реализация не переходила; внешняя приёмка остаётся в 07.

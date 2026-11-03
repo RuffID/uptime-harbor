@@ -1,4 +1,6 @@
-# Клиент главной панели
+# Клиент страниц
+
+setup.ts обслуживает только локальный login/status/prepare/logout, использует shared/http, обновляет CSRF token после смены identity, очищает пароли в finally и не повторяет mutation автоматически. Не хранить секреты в browser storage, не объявлять сохранённую попытку завершённым подключением.
 
 В enabled-режиме Index использует admin/cluster.ts: accepted API и per-observer availability/coverage/metadata вместо legacy aggregate dashboard. Disabled сохраняет dashboard.ts. Ни один UI-модуль не открывает server readiness gates.
 

@@ -1,5 +1,7 @@
 # Peer perimeter and Raft hosting
 
+ManagedWorkerCatalog — полный deferred inventory; единственный hosted owner — ManagedWorkerSupervisor. Start/Stop сериализованы, stop await-ит все loops и их дочерние tasks в бюджете 10 секунд. Quiescing повышает generation; failed drain/неизвестный runtime effect запрещают следующий старт. Порядок: installation transition → supervisor lifecycle → PeerRuntime lifecycle → membership; write gate закрывается перед drain. Не разрешать WAL до recovery/admission. DynamicPeerTls по умолчанию пуст; managed HTTP повторяет dynamic trust/pin/SAN/expiry, не загружает legacy CA из config. Новый путь доставки закрыт до 05а; doubles не регистрировать production composition root.
+
 OnboardingAcceptance использует ClusterRaftHandle, majority barrier, native term/tokens и текущий accepted proof; не зависеть от ClusterPeerRuntime через dispatcher, чтобы не создавать DI cycle. Peer batch не принимает coordinator onboarding или чужой timestamp. IEnrollmentAuthority по умолчанию отвергает reserve/issuance/admission/critical continuations.
 
 - ClusterControlTool обрабатывает только явный --cluster-control до builder/host/config secrets. Provision/checkpoint/sign/bootstrap/recover работают офлайн с файлами/crypto/metadata; не вызывать startup services, SQL или сеть. Runtime grants — pinned signature + текущий process challenge.

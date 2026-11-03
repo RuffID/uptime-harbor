@@ -29,6 +29,18 @@ public class UptimeHarborDbContext(
 
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
 
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        UptimeHarbor.Application.Installation.RuntimeGenerationContext.Verify();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    {
+        UptimeHarbor.Application.Installation.RuntimeGenerationContext.Verify();
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+    }
+
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
         configurationBuilder

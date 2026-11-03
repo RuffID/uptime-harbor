@@ -1,5 +1,7 @@
 # EF configurations
 
+LocalSetupAccount/LocalProfileRecord/LocalAttemptRecord/LocalStepRecord configurations задают четыре локальные таблицы setup/profile/attempt/step и revision concurrency tokens. Их не добавлять в whitelist общей проекции/snapshot; миграции генерировать tooling только с отдельным разрешением.
+
 OnboardingProjection хранится в onboarding_invitations с version/status constraints и concurrency по LogIndex, в общей projection transaction. Payload содержит verifier, никогда plaintext. Migration/designer/snapshot получать tooling; provider atomicity не выводить из metadata model tests.
 
 ## Ответственность

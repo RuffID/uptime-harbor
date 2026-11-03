@@ -1,5 +1,7 @@
 # HTTP API
 
+SetupController отделён own cookie scheme от common API, принимает bounded DTO без actor/stamp/key/invitation. Session GET выдаёт antiforgery token текущей setup identity; login/prepare/logout требуют antiforgery, exact Origin/Host boundary и rate limit. ServiceResult prepare подтверждает только local preparation; authority unavailable/unknown не означает Bootstrap/Join/Ready.
+
 ClusterInvitationsController обслуживает только Administrator API выдачи/явной замены/отзыва/Continue/Cancel и safe read. Mutations требуют antiforgery, rate limit и password reauthentication; actor берётся сервером. 202 означает существующий local Pending, Unconfirmed не выдумывает очередь. Новых экранов и анонимного enrollment endpoint пока нет.
 
 AdminObjectsController сохраняет совместимые routes servers / containers для Server / Application. Аудит создания/изменения/удаления записывает фактический итог, тип, ID и доверенный actor ID; имена, URL, описания и raw errors не журналировать.
