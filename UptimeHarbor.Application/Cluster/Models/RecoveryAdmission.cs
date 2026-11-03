@@ -7,6 +7,8 @@ public record RecoveryAdmission(Guid ClusterId, long Generation, Guid NodeId, Gu
     bool FencingConfirmed, bool OldBackup, Guid? SnapshotId, string? SnapshotDigest,
     long MinimumCommittedIndex, long MembershipVersion)
 {
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public RecoveryProof? Proof { get; init; }
     // Только внешний проверенный provenance. Пароль в открытом виде здесь недопустим.
     public RevisionCommand? BootstrapAccount { get; init; }
     public ImmutableDictionary<Guid, Guid> MonitoringNodes { get; init; } = ImmutableDictionary<Guid, Guid>.Empty;

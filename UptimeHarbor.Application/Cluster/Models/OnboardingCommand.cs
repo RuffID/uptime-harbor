@@ -21,6 +21,8 @@ public record OnboardingCommand
     public Guid AttemptId { get; init; }
     [JsonRequired]
     public Guid BootId { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? BootChallenge { get; init; }
     [JsonRequired]
     public long ProcessEpoch { get; init; }
     [JsonRequired]

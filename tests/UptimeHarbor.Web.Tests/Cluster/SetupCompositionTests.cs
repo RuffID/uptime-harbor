@@ -16,7 +16,7 @@ namespace UptimeHarbor.Tests.Web.Cluster;
 public class SetupCompositionTests
 {
     [Fact]
-    public async Task CompleteSetupGraphHasOneSupervisorClosedAuthorityAndNoNativeStorage()
+    public async Task CompleteSetupGraphHasProductionAdaptersOneSupervisorAndNoNativeStorage()
     {
         // Arrange
         string root = Path.Combine(Path.GetTempPath(), "setup-composition-" + Guid.NewGuid().ToString("N"));
@@ -42,7 +42,7 @@ public class SetupCompositionTests
         try
         {
             builder.Services.AddApplication().AddApplicationConfiguration(builder.Configuration)
-                .AddInfrastructure(builder.Configuration).AddWebPresentation().AddClusterWeb();
+                .AddInfrastructure(builder.Configuration).AddWebPresentation().AddClusterWeb(builder.Configuration);
             await using ServiceProvider provider = builder.Services.BuildServiceProvider(new ServiceProviderOptions
             {
                 ValidateOnBuild = true, ValidateScopes = true
@@ -62,8 +62,9 @@ public class SetupCompositionTests
             Assert.Null(runtime.Raft);
             Assert.False(Directory.Exists(Path.Combine(root, "storage", "wal")));
             Assert.False(Directory.Exists(Path.Combine(root, "storage", "membership")));
-            Assert.IsType<UnavailableSetupAuthority>(provider.GetRequiredService<ISetupAuthority>());
-            Assert.IsType<UnavailableManagedRuntimeAdmission>(provider.GetRequiredService<IManagedRuntimeAdmission>());
+            Assert.IsType<SetupAuthority>(scope.ServiceProvider.GetRequiredService<ISetupAuthority>());
+            Assert.IsType<ManagedRuntimeAdmission>(provider.GetRequiredService<IManagedRuntimeAdmission>());
+            Assert.NotNull(scope.ServiceProvider.GetRequiredService<ManagedBootstrapLifecycle>());
             Assert.False(provider.GetRequiredService<InstallationState>().CommonOpen);
             Assert.Null(provider.GetRequiredService<DynamicPeerTls>().Certificate);
         }

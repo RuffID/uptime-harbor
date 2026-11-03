@@ -252,7 +252,7 @@ public class InvitationAdministration(ClusterAdministrationAccess access, Revisi
         RevisionImage image = state.Current!;
         return new RevisionCommand
         {
-            Schema = 2, ClusterId = image.ClusterId, ClusterGeneration = image.Generation, OperationId = operationId,
+            Schema = configured.Value.CommandSchema, ClusterId = image.ClusterId, ClusterGeneration = image.Generation, OperationId = operationId,
             OriginNodeId = configured.Value.NodeId, ActorUserId = user.UserId,
             ActorRevision = verifiedActorRevision!.Value, EntityId = invitationId, EntityKind = DeletedEntityKind.Node,
             Action = action, BaseRevision = image.Onboarding?.Revision ?? 0, CreatedAtUtc = time.GetUtcNow(), Onboarding = data

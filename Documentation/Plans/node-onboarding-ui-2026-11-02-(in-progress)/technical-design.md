@@ -1,6 +1,6 @@
 # Предлагаемое устройство подключения
 
-Статус: проектирование 01, контракты 02 и подготовительный setup/runtime 03 завершены (2026-11-03). Нереализованные части документа задают целевой протокол следующих этапов. Общие границы находятся в [main.md](main.md). Детальные контракты: [исходная карта кода](#source-map), [сроки](#parameters), [сертификатный протокол](#enrollment), [setup/runtime](#runtime), [перенос](#migration), [Telegram](#telegram), [проверки](#verification). Макеты — в [этапе 01](01-scenarios-and-decisions.md#screens).
+Статус: проектирование 01, контракты 02 и подготовительный setup/runtime 03 завершены (2026-11-03). Этап 04 частично реализован и приостановлен по просьбе пользователя 2026-11-03; статус `in-progress`, обязательные критерии не закрыты. Нереализованные части документа остаются согласованными требованиями, в том числе собственный остаток 04. Общие границы находятся в [main.md](main.md). Детальные контракты: [исходная карта кода](#source-map), [сроки](#parameters), [сертификатный протокол](#enrollment), [setup/runtime](#runtime), [перенос](#migration), [Telegram](#telegram), [проверки](#verification). Макеты — в [этапе 01](01-scenarios-and-decisions.md#screens).
 
 ## Реализованная граница этапа 02
 
@@ -8,7 +8,11 @@
 
 ## Реализованная граница этапа 03
 
-Отдельный local login/setup, preflight, локальные UoW/profile/steps, AES-GCM key references, installation/storage locks, runtime supervisor/generations и динамические TLS/trust providers описаны в [Local installation setup.md](../../Technical%20documentation/Local%20installation%20setup.md). Минимальная страница подготавливает E0; полный мастер и список узлов остаются этапу 06. ISetupAuthority и IManagedRuntimeAdmission в production отказывают: doubles проверяют lifecycle, но не предоставляют online authority или Ready. Настоящие двусторонние probes, accepted ProcessEpoch, genesis/issuer/grants/activation остаются 04; полный Join — 05, sender — 05а, перенос непустого standalone — 03а/03б. [Проверки и внешние ограничения](03-initial-setup.md#результат) не заменяют приёмку 07.
+Отдельный local login/setup, preflight, локальные UoW/profile/steps, AES-GCM key references, installation/storage locks, runtime supervisor/generations и динамические TLS/trust providers описаны в [Local installation setup.md](../../Technical%20documentation/Local%20installation%20setup.md). На завершении 03 production authority-порты отказывали. Этап 04 подключил настоящий новый первый Bootstrap, E1–E4 trust/admission второго, accepted ProcessEpoch и двусторонние probes. Минимальная страница ещё не вызывает Join enrollment; полный мастер и список узлов остаются 06. Полный Join — 05, sender — 05а, перенос непустого standalone — 03а/03б. [Проверки и внешние ограничения 03](03-initial-setup.md#результат) не заменяют приёмку 07.
+
+## Текущая граница 04 на остановке
+
+Новый первый проходит exact genesis permit, карантинный singleton, accepted baseline/отдельный account, свежий barrier, process/activation/enable и отзыв setup до CommonOpen; production выдача приглашений использует текущую схему. Второй получает ограниченный nonvoter trust/admission, protected manifest и две peer TLS-пробы, но не snapshot/membership/runtime. ManagedRestart пока подключён только к новому первому и требует целого sealed storage, затем нового barrier/Enable. Issuer provisioning существующего ручного кластера/remote issuer, полный leaf lifecycle, online exchanges последующих voters, минимальный Join UI и вся матрица проверок остаются обязательным объёмом 04. [Подробная точка возобновления и известные проблемы](04-enrollment-and-trust.md#результат), [актуальные контракты](../../Technical%20documentation/Onboarding%20contracts.md), [последние проверки с незакрытым preflight](../../Technical%20documentation/Testing.md#точка-остановки-этапа-04-2026-11-03). Ни изолированные doubles, ни подпись CA сами не доказывают production Ready или внешнюю приёмку.
 
 ## Один процесс поверх существующего кластера
 

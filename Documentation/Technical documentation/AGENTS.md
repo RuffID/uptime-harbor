@@ -14,9 +14,9 @@
 
 ## Правила
 
-- `Local installation setup.md` владеет отдельным setup login/preflight/secret storage/runtime supervisor и inventory workers этапа 03. Сохранение попытки не означает рабочие Bootstrap/Join/Ready; реальные authority/issuer/activation, перенос и sender относятся к следующим этапам.
+- `Local installation setup.md` владеет отдельным setup login/preflight/secret storage/runtime supervisor, production Bootstrap/ManagedRestart нового первого и локальной trust installation. Сохранение попытки не означает Ready; E4 второго не открывает полный Join. Перенос, snapshot/membership orchestration и sender остаются отдельными этапами.
 
-- `Onboarding contracts.md` владеет реализованным этапом 02: invitation/attempt/delegation/TTL, strict formats/snapshot, совместимость и закрытые enrollment/native gates. Общие genesis/import/sender форматы не описывать как работающие сценарии следующих этапов.
+- `Onboarding contracts.md` владеет invitation/attempt/delegation/TTL и частичной границей 04: issuer/crypto/journal/exact permit/schema v3, production Bootstrap и E1–E4 trust/admission/probes. Helper, accepted record или double не описывать как законченный полный Join. Оставшийся issuer/leaf/последующие online exchanges объём 04 не переносить в 05; результаты проверок и незакрытые прогоны фиксировать в Testing.md. Общие import/sender форматы не означают исполнения следующих этапов.
 
 - Отделять текущее реализованное состояние от целевого решения следующих этапов.
 - `Web application.md` владеет безопасным accepted/Pending/conflict UI/API и lifecycle; сборка не подтверждает browser acceptance или controlled enable.

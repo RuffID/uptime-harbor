@@ -29,6 +29,11 @@ public class ClusterRuntimeState(IClusterRecovery recovery, RevisionStateStore? 
                 && local.Address == options.Value.PublicUri && !local.Removed && credential is not null
                 && credential.NodeId == local.NodeId && !credential.RevokedAtUtc.HasValue
                 && credential.ExpiresAtUtc > (time ?? TimeProvider.System).GetUtcNow();
+            if (trusted)
+            {
+                trusted = Onboarding.EnrollmentPeerTrustPolicy.IsActive(image, local!, credential!,
+                    (time ?? TimeProvider.System).GetUtcNow());
+            }
             HashSet<Guid> voters = operations.Nodes.Values.Where(node => node.Voting && !node.Removed)
                 .Select(node => node.NodeId).ToHashSet();
             bool membership = voters.SetEquals(current.VotingNodes) && operations.MembershipVersion == current.MembershipVersion;

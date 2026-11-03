@@ -39,12 +39,24 @@ public class RevisionReducer
         if (command.Action == "BootstrapAccount")
         {
             bool emptyAccounts = !state.Values.Values.Any(value => value.Kind == DeletedEntityKind.Account);
-            if (!emptyAccounts || state.BootstrapAccountDigest != digest)
+            bool genesisPending = state.OnboardingContracts?.Genesis is not null
+                && state.OnboardingContracts.GenesisInitialized == false;
+            if (!emptyAccounts || state.BootstrapAccountDigest != digest || genesisPending)
             {
                 return Decide(state, command, digest, OperationOutcome.Rejected, "BootstrapNotAuthorized");
             }
 
             return Change(state, command, digest);
+        }
+
+        if (EnrollmentTrustCommands.IsTrust(command))
+        {
+            return EnrollmentTrustReducer.Apply(state, command);
+        }
+
+        if (OnlineLifecycleCommands.IsOnline(command))
+        {
+            return OnlineLifecycleReducer.Apply(state, command);
         }
 
         if (DeliveryCommands.IsSystem(command))

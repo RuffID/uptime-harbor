@@ -11,4 +11,7 @@ public record LocalInstallationProfile(Guid InstallIdentity, string Mode, Instal
     ImmutableDictionary<string, Guid>? OperationIds = null, string? Evidence = null,
     Guid? ClusterId = null, string? BootstrapAccountReference = null, long BotId = 0,
     string? BootstrapAccountDigest = null, long? ClusterGeneration = null,
-    Guid? CredentialId = null, string? TrustAnchorFingerprint = null);
+    Guid? CredentialId = null, string? TrustAnchorFingerprint = null)
+{
+    public bool ManagedRestart { get; init; }
+}

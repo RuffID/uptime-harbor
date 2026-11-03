@@ -3,6 +3,7 @@ using UptimeHarbor.Infrastructure.Persistence;
 using UptimeHarbor.Application.Installation;
 using UptimeHarbor.Application.Cluster.Models;
 using System.Text.Json;
+using UptimeHarbor.Application.Cluster;
 
 namespace UptimeHarbor.Infrastructure.Installation;
 
@@ -43,8 +44,8 @@ public class LocalSetupAccountStore(UptimeHarborDbContext context) : ILocalSetup
             }
         }
 
-        List<LocalStepRecord> steps = await context.Set<LocalStepRecord>().AsNoTracking().Take(33).ToListAsync(token);
-        if (steps.Count > 32 || steps.Any(item => item.AttemptId != profile.AttemptId))
+        List<LocalStepRecord> steps = await context.Set<LocalStepRecord>().AsNoTracking().Take(10001).ToListAsync(token);
+        if (steps.Count > 10000 || steps.Any(item => item.AttemptId != profile.AttemptId))
         {
             throw new InvalidDataException("ForeignLocalAttemptStep");
         }
@@ -53,11 +54,26 @@ public class LocalSetupAccountStore(UptimeHarborDbContext context) : ILocalSetup
         {
             LocalAttemptStep step = JsonSerializer.Deserialize<LocalAttemptStep>(row.Payload)
                 ?? throw new InvalidDataException("LocalStepInvalid");
-            if (step.OperationId != row.Id || step.AttemptId != row.AttemptId
-                || profile.OperationIds?.Values.Contains(row.Id) != true)
+            if (step.OperationId != row.Id || step.AttemptId != row.AttemptId)
             {
                 throw new InvalidDataException("LocalStepIdentityMismatch");
             }
+
+            if (profile.OperationIds?.Values.Contains(row.Id) == true)
+            {
+                continue;
+            }
+
+            RevisionCommand command = JsonSerializer.Deserialize<RevisionCommand>(step.Evidence
+                ?? throw new InvalidDataException("LocalStepEvidenceMissing"))
+                ?? throw new InvalidDataException("LocalStepEvidenceInvalid");
+            string prefix = string.Empty;
+            if (step.Kind.StartsWith("Enrollment/", StringComparison.Ordinal))
+            {
+                prefix = "Enrollment/";
+            }
+
+            LocalCommandStepValidation.Require(profile, step, command, prefix);
         }
     }
 }

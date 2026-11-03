@@ -206,8 +206,8 @@ public class ClusterPeerRuntime(IServiceProvider services, IOptions<ClusterOptio
                 HashSet<Guid> voters = [];
                 foreach (UriEndPoint member in configuration.Members)
                 {
-                    OperationalNode? node = revisions.Current.Operations.Nodes.Values.SingleOrDefault(item => !item.Removed && item.Address == member.Uri.AbsoluteUri);
-                    if (node is null || !voters.Add(node.NodeId))
+                    Guid? nodeId = revisionRecovery.ResolveNativeVoter(member.Uri.AbsoluteUri);
+                    if (!nodeId.HasValue || !voters.Add(nodeId.Value))
                     {
                         await DisposeNodeAsync();
                         return;

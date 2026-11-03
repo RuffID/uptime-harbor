@@ -48,7 +48,8 @@ public class ClusterOptionsValidator : IValidateOptions<ClusterOptions>
             return ValidateOptionsResult.Fail("Cluster snapshot interval is invalid.");
         }
 
-        if (options.Compatibility != "1.0/1/1/1/1/6.10.0" && options.Compatibility != OnboardingProtocol.COMPATIBILITY)
+        if (options.Compatibility != "1.0/1/1/1/1/6.10.0" && options.Compatibility != OnboardingProtocol.COMPATIBILITY
+            && options.Compatibility != OnboardingProtocol.TRUST_COMPATIBILITY)
         {
             return ValidateOptionsResult.Fail("Cluster compatibility is unsupported.");
         }

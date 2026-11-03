@@ -1,8 +1,10 @@
 # Первый запуск и обслуживание сетки
 
+Production новый первый Bootstrap выполняет genesis/account/process/activation/enable; E1–E4 второго выполняет accepted trust/admission, файловую установку и двусторонние peer probes. Его runtime остаётся закрыт до 05. ManagedRestart первого требует целый прежний storage/sealed checkpoint и новый Enable после majority; старые grants не восстанавливаются. Нельзя подменять authority ручным CA/orphan leaf/double. Renew/issuer replacement рабочего managed протокола ещё требуют завершения 04. [Точное состояние](Onboarding%20contracts.md#промежуточная-граница-этапа-04-2026-11-03); legacy runbooks не служат обходом gates.
+
 ## Новая первоначальная настройка (этап 03)
 
-Автоматический путь новой установки сейчас ограничен локальным setup/preflight/E0. Заранее подготовить schema v2, HTTPS Browser/Direct Peer endpoints, четыре постоянных непересекающихся локальных пути и защищённые BootstrapAdmin credentials; prerequisites — [Configuration.md](Configuration.md#явная-локальная-настройка-этап-03). Явный InstallationIntent=Setup должен существовать до запуска поддерживающей версии. Текущая конфигурация установки не менялась и окружение не переключалось.
+Автоматический Bootstrap начинается через отдельный setup login и общий admin, подготовленный E0. Заранее подготовить актуальную schema с AddEnrollmentTrust, HTTPS Browser/Direct Peer endpoints, четыре постоянных непересекающихся локальных пути и защищённые BootstrapAdmin credentials; [Configuration.md](Configuration.md#явная-локальная-настройка-этап-03). InstallationIntent=Setup задаётся до запуска версии. Конфигурация установки не менялась, окружение не переключалось; реальная внешняя приёмка ещё нужна.
 
 Посторонние аккаунты, рабочие shared/local queues, identity/cursor и старый storage вызывают отказ. Ничего не удалять для обхода preflight; действующий первый standalone направляется в 03а/03б. Второй не становится независимым Bootstrap. При неизвестном результате сохранять прежние AttemptId/OperationIds, не создавать новую попытку и не усыновлять orphan keys. До реализации 04 production authority/activation закрыты; до 05а новый sender не работает. Ручные legacy-процедуры ниже не являются обходом нового setup. [Фазы, inventory, locks и остановка](Local%20installation%20setup.md).
 

@@ -1,8 +1,8 @@
 # 04. Установление доверия
 
-Статус: `not-started`. Зависимости: [01](01-scenarios-and-decisions.md)–[03](03-initial-setup.md).
+Статус: `in-progress`. Работа приостановлена по просьбе пользователя 2026-11-03, этап не завершён. Зависимости: [01](01-scenarios-and-decisions.md)–[03](03-initial-setup.md).
 
-Граница после 03: заменить закрытые production ISetupAuthority/IManagedRuntimeAdmission настоящими адаптерами, сохранив local step CAS, исходные IDs/digests и E0 private key. LocalInstallationProfile уже содержит ClusterGeneration/CredentialId/TrustAnchorFingerprint; динамические TLS/trust providers не предоставляют authority сами. Двусторонние probes, accepted ProcessEpoch, genesis/issuer/grants/activation ещё не реализованы. [Фактический setup](../../Technical%20documentation/Local%20installation%20setup.md).
+Исходная граница после 03: закрытые production authority-порты и E0 без настоящего Bootstrap/Join. В 04 подключены production адаптеры, genesis/issuer/grants/activation нового первого, accepted ProcessEpoch, E1–E4 и двусторонние probes; сохранены local step CAS, исходные IDs/digests и E0 key. Это ещё не полный объём этапа. [Фактический setup](../../Technical%20documentation/Local%20installation%20setup.md), [точка остановки](#результат).
 
 ## Цель
 
@@ -43,4 +43,36 @@ Application enrollment/trust contracts, Infrastructure crypto/control/HTTP adapt
 
 ## Результат
 
-Пока не выполнен. Доверенный обмен не означает готовность узла к работе: membership, snapshot/recovery и рабочие gates подтверждает этап 05.
+### Точка остановки 2026-11-03
+
+Работа приостановлена по прямой просьбе пользователя. Код сохранён в текущем состоянии; этап не принят и не помечен completed. Новые изменения кода и проверки при фиксации остановки не выполнялись.
+
+Реализовано в production-коде:
+
+- Dedicated enrollment с authenticated descriptor, capabilities/версиями, nonce/CSR/PoP, лимитами, same-origin transport, DNS/IP policy и запретом redirects. Accepted reserve/authorize/bind/admit связаны с прежними IDs/key/digests; signing journal сохраняет DER до ответа и возвращает прежние DER по IssueId.
+- Новый ограниченный P-256 application CA, защищённый issuer key, schema-3 trust registry и application revocation на peer boundary. Genesis intent сохраняется до native эффекта; exact permit разрешает только InitializeCluster и исходный BootstrapAccount.
+- Новый первый Bootstrap: quarantine singleton → accepted baseline/account → fresh majority barrier → process/activation/enable → durable отзыв setup → CommonOpen. Отдельный общий администратор не подменяется setup identity. Реальная выдача приглашений после этого исправлена с schema2 на текущую schema3 и проверена через production dispatcher/WAL/reducer.
+- Второй узел: E1–E4 trust/admission, protected content-addressed trust manifest, SQL intent до файла, сверка refs/identity/registry и обе peer TLS-пробы. Узкая pending session разрешает только probe, не Raft/commands/common. Полный Join и его runtime остаются закрыты до snapshot/membership orchestration 05.
+- Process-bound resume с новым BootChallenge/ProcessEpoch и ожиданием прежней lease. ManagedRestart нового первого использует AEAD storage seal, snapshot/SQL checkpoint и карантинный startup до majority; новый barrier/Enable обязателен. Старые grants не восстанавливаются, offline recovery/maintenance не расширены.
+- Миграция `20261103105437_AddEnrollmentTrust` сгенерирована по отдельному разрешению без применения к БД. Конфигурация установки и завершённые 01/02/03 не изменялись.
+
+Точные текущие контракты — [Onboarding contracts](../../Technical%20documentation/Onboarding%20contracts.md), проверки и команды — [Testing](../../Technical%20documentation/Testing.md#точка-остановки-этапа-04-2026-11-03). Последние результаты: Web 28 успешных + отдельно ManagedInvitation 1 успешный; compile-check Web/Infrastructure test projects успешен. Installation: 185/186 успешных, ошибка preflight исправлена, **после исправления сборка и повтор теста не выполнены**. Все обязательные критерии этапа этим не подтверждены.
+
+### Остаток собственного объёма 04
+
+1. Production provisioning/Register/Retire/Revoke/replacement issuer существующего ручного кластера и удалённый issuer/follower: accepted reducers не заменяют полный работающий сценарий. Не импортировать root/operator key и не менять конфигурацию установки.
+2. Полный leaf renewal/rotation/revocation/retirement, новый ключ, exact authorization и overlap ≤24 часов. Текущий signer связан с активной onboarding attempt; одного endpoint renew недостаточно.
+3. Законные online process/activation/enable exchanges последующих voters и ManagedRestart завершённого Join, включая удалённого signer. Snapshot/membership orchestration остаётся 05; нельзя создавать startup cycle всех voters или открывать gate до доказательства.
+4. Завершить negative/crash matrix: TTL на границе секунды, nonce/identity/digest/revocation/replay, SQL/file/WAL reconciliation и crash boundaries. Повторить исправленный preflight и затем необходимые точные безопасные фильтры, не весь Infrastructure.
+5. Подключить минимальный Join UI к существующему `/api/setup/enroll`, очистку invitation и достоверный статус E4 без фиктивного Ready. На остановке только прочитаны setup.ts/cshtml и frontend tests; UI не изменён. Полный мастер/список узлов остаются 06.
+6. Согласовать все актуальные документы/AGENTS с кодом, проверить ссылки/solution items/UTF-8/EOL, размер новых C# файлов и разнести несколько record из `EnrollmentPeerProbe.cs` по принятому стилю. Прежние результаты 03 не выдавать за регрессию 04.
+
+### Известные проблемы и ограничения
+
+- `ManagedRestartPreparation.PrepareAsync` проверяет Mode=Restart в конце, после Publish/TLS install; перенести проверку до эффектов при возобновлении.
+- `LocalSetupAccountStore.ValidateProgressAsync` ограничен 10000 steps; требуется безопасная проверка растущей истории, иначе долгоживущая установка может получить отказ.
+- `ManagedStorageSeals` после каждого дальнейшего durable apply публикует snapshot/checkpoint/seal. Это консервативный текущий механизм; стоимость и конкурентность/crash boundaries ещё не оценены. Не ослаблять rollback checks ради ускорения.
+- Согласование документации не завершено: в актуальных документах/UI могут оставаться старые фразы о полностью закрытом production Bootstrap. Настоящая граница — этот результат и вводные разделы Onboarding contracts/Local installation setup; UI пока не отражает её полностью.
+- Реальные Ubuntu, сетевые TLS handshakes, ACL/fsync/power loss, SQL/DDL/transaction locking, выборы/majority и переключение живого окружения не проверены. Doubles, local WAL и криптография этого не доказывают.
+
+Начать возобновление с незакрытой проверки preflight и перечисленных известных проблем; затем завершать собственный остаток 04. Перенос 03а/03б, полный Join 05, sender 05а и экраны 06 не реализованы и не начинались. Отсутствие Telegram-токена на несендере не является препятствием допуска.

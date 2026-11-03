@@ -1,6 +1,6 @@
 # HTTP API
 
-SetupController отделён own cookie scheme от common API, принимает bounded DTO без actor/stamp/key/invitation. Session GET выдаёт antiforgery token текущей setup identity; login/prepare/logout требуют antiforgery, exact Origin/Host boundary и rate limit. ServiceResult prepare подтверждает только local preparation; authority unavailable/unknown не означает Bootstrap/Join/Ready.
+SetupController отделён own cookie scheme от common API. Login/prepare/enroll/logout требуют antiforgery, exact Origin/Host и rate limit. Enroll принимает bounded origin/invitation без actor/key/stamp, возвращает только safe SetupStatus; секрет и protected evidence не сериализовать в UI. Bootstrap подключает production genesis lifecycle; enroll до E4 не открывает общий доступ. EnrollmentController — отдельный strict bounded PoP protocol без cookie auth; действия purpose-bound, raw exceptions/payload не журналировать.
 
 ClusterInvitationsController обслуживает только Administrator API выдачи/явной замены/отзыва/Continue/Cancel и safe read. Mutations требуют antiforgery, rate limit и password reauthentication; actor берётся сервером. 202 означает существующий local Pending, Unconfirmed не выдумывает очередь. Новых экранов и анонимного enrollment endpoint пока нет.
 

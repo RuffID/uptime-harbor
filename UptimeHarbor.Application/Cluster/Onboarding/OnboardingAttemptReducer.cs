@@ -113,19 +113,48 @@ public static class OnboardingAttemptReducer
             return "OnboardingAdministratorRequired";
         }
 
+        if (command.Schema == 3 && attempt.Issuance is not null)
+        {
+            AcceptedEnrollmentIssuer? issuer = image.OnboardingContracts?.Issuers?.GetValueOrDefault(attempt.Issuance.IssuerEpoch);
+            OperationalNode? owner = IssuerOwner(image, issuer);
+            if (issuer is null || issuer.RevokedAtUtc.HasValue || owner is null || owner.Removed
+                || owner.StorageGeneration != issuer.StorageGeneration)
+            {
+                return "EnrollmentIssuerUnavailable";
+            }
+
+            if (attempt.AdmitOperationId.HasValue)
+            {
+                OperationalNode? node = image.Operations.Nodes.GetValueOrDefault(attempt.Request.NodeId);
+                bool credential = image.Operations.Credentials.Values.Any(item => item.AdmissionId == attempt.AdmitOperationId
+                    && item.NodeId == attempt.Request.NodeId && item.Fingerprint == attempt.CertificateDigest
+                    && !item.RevokedAtUtc.HasValue && now < item.ExpiresAtUtc);
+                if (node is null || node.Removed || node.StorageGeneration != attempt.Request.StorageGeneration || !credential)
+                {
+                    return "OnboardingCredentialUnavailable";
+                }
+            }
+        }
+
         if (command.Action == "ResumeOnboardingAttempt")
         {
-            if (data.BootId == attempt.BootId || data.ProcessEpoch != attempt.ProcessEpoch + 1 || now < attempt.ProcessLeaseUntilUtc)
+            if (data.BootId == attempt.BootId || data.ProcessEpoch != attempt.ProcessEpoch + 1 || now < attempt.ProcessLeaseUntilUtc
+                || command.Schema == 3 && data.BootChallenge == attempt.BootChallenge)
             {
                 return "OnboardingProcessLeaseActive";
             }
 
-            attempt = attempt with { BootId = data.BootId, ProcessEpoch = data.ProcessEpoch, ProcessLeaseUntilUtc = now.AddMinutes(2) };
+            attempt = attempt with
+            {
+                BootId = data.BootId, BootChallenge = data.BootChallenge, ProcessEpoch = data.ProcessEpoch,
+                ProcessLeaseUntilUtc = now.AddMinutes(2)
+            };
             result = OnboardingReducer.Put(image, invitation with { Attempt = attempt });
             return null;
         }
 
-        if (data.BootId != attempt.BootId || data.ProcessEpoch != attempt.ProcessEpoch)
+        if (data.BootId != attempt.BootId || data.ProcessEpoch != attempt.ProcessEpoch
+            || command.Schema == 3 && data.BootChallenge != attempt.BootChallenge)
         {
             return "OnboardingProcessChanged";
         }
@@ -153,15 +182,46 @@ public static class OnboardingAttemptReducer
         switch (command.Action)
         {
             case "AuthorizeEnrollmentCertificate":
-                if (attempt.Status != OnboardingAttemptStatus.Reserved || !ValidTemplate(attempt.Request, data.Issuance!, now))
+                EnrollmentIssuance template = data.Issuance!;
+                DateTimeOffset templateTime = now;
+                if (command.Schema == 3)
+                {
+                    // Immutable intent сохраняется до majority/network: перенос через секундную границу
+                    // не меняет template/digest. Допускается только уже начавшийся срок, не его продление.
+                    templateTime = template.NotAfterUtc.AddDays(-30);
+                    if (templateTime > now || now - templateTime > TimeSpan.FromSeconds(10))
+                    {
+                        return "EnrollmentTemplateIntentExpired";
+                    }
+                }
+
+                if (attempt.Status != OnboardingAttemptStatus.Reserved || !ValidTemplate(attempt.Request, template, templateTime))
                 {
                     return "EnrollmentIssuanceUnavailable";
+                }
+
+                if (command.Schema == 3)
+                {
+                    AcceptedEnrollmentIssuer? issuer = image.OnboardingContracts?.Issuers?.GetValueOrDefault(template.IssuerEpoch);
+                    OperationalNode? owner = IssuerOwner(image, issuer);
+                    if (issuer is null || issuer.RetiredAtUtc.HasValue || issuer.RevokedAtUtc.HasValue
+                        || owner is null || owner.Removed || !owner.Voting || owner.StorageGeneration != issuer.StorageGeneration
+                        || issuer.NotBeforeUtc > template.NotBeforeUtc || issuer.NotAfterUtc < template.NotAfterUtc
+                        || template.NotBeforeUtc.Ticks % TimeSpan.TicksPerSecond != 0)
+                    {
+                        return "EnrollmentIssuerUnavailable";
+                    }
                 }
 
                 attempt = attempt with
                 {
                     Status = InvitationTransitions.Advance(attempt.Status), IssueId = data.IssueId, Issuance = data.Issuance
                 };
+                if (command.Schema == 3)
+                {
+                    attempt = attempt with { IssuanceAuthorizationIndex = image.Index };
+                }
+
                 break;
             case "BindEnrollmentCredential":
                 if (attempt.Status != OnboardingAttemptStatus.CertificateAuthorized || attempt.IssueId != data.IssueId)
@@ -221,5 +281,15 @@ public static class OnboardingAttemptReducer
             && issuance.PeerUri == request.PeerUri && issuance.SpkiDigest == request.SpkiDigest && issuance.CsrDigest == request.CsrDigest;
         return identity && issuance.NotBeforeUtc >= now.AddMinutes(-2) && issuance.NotBeforeUtc <= now
             && issuance.NotAfterUtc == now.AddDays(30);
+    }
+
+    private static OperationalNode? IssuerOwner(RevisionImage image, AcceptedEnrollmentIssuer? issuer)
+    {
+        if (issuer is null)
+        {
+            return null;
+        }
+
+        return image.Operations.Nodes.GetValueOrDefault(issuer.NodeId);
     }
 }

@@ -6,6 +6,8 @@ public static class OnboardingContractSnapshot
 {
     public static void Validate(RevisionImage image)
     {
+        EnrollmentTrustSnapshot.Validate(image);
+        OnlineLifecycleSnapshot.Validate(image);
         OnboardingContractImage? data = image.OnboardingContracts;
         if (data is null)
         {

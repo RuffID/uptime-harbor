@@ -63,16 +63,13 @@ public class SetupPeerAddressPolicy(InstallationOptions options)
     {
         RuntimeGenerationContext.Verify();
         IPAddress[] addresses = await Dns.GetHostAddressesAsync(context.DnsEndPoint.Host, token);
-        if (addresses.Length == 0 || addresses.Any(address => !Allows(address)))
-        {
-            throw new HttpRequestException("PeerAddressPolicyRejected");
-        }
+        IPAddress address = SelectAddress(addresses);
 
-        Socket socket = new(addresses[0].AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+        Socket socket = new(address.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
         try
         {
             RuntimeGenerationContext.Verify();
-            await socket.ConnectAsync(new IPEndPoint(addresses[0], context.DnsEndPoint.Port), token);
+            await socket.ConnectAsync(new IPEndPoint(address, context.DnsEndPoint.Port), token);
             return new NetworkStream(socket, ownsSocket: true);
         }
         catch
@@ -80,5 +77,15 @@ public class SetupPeerAddressPolicy(InstallationOptions options)
             socket.Dispose();
             throw;
         }
+    }
+
+    internal IPAddress SelectAddress(IReadOnlyList<IPAddress> addresses)
+    {
+        if (addresses.Count == 0 || addresses.Any(address => !Allows(address)))
+        {
+            throw new HttpRequestException("PeerAddressPolicyRejected");
+        }
+
+        return addresses[0];
     }
 }

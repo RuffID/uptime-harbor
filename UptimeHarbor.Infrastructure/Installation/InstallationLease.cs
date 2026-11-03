@@ -1,4 +1,5 @@
 using System.Text;
+using System.Security.Cryptography;
 
 namespace UptimeHarbor.Infrastructure.Installation;
 
@@ -8,6 +9,7 @@ public class InstallationLease : IDisposable
     private readonly List<FileStream> locks = [];
     public Guid InstallIdentity { get; }
     public Guid BootId { get; } = Guid.NewGuid();
+    public string BootChallenge { get; } = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
 
     public InstallationLease(InstallationOptions options, string storagePath)
     {

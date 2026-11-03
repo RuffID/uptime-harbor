@@ -1,5 +1,7 @@
 # EF configurations
 
+EnrollmentIssuerConfiguration задаёт public projection enrollment_issuers; две LocalEnrollment* configurations не являются ProjectionRecord. Issuance Restrict FK относится к local issuer; operational credential не создаётся до существующего Node. Purpose/validity/authorization checks и unique key/SPKI/pins поддерживать вместе с моделью и metadata tests. Genesis journal index=0 требует GenesisId; обычная выдача требует accepted index>0.
+
 LocalSetupAccount/LocalProfileRecord/LocalAttemptRecord/LocalStepRecord configurations задают четыре локальные таблицы setup/profile/attempt/step и revision concurrency tokens. Их не добавлять в whitelist общей проекции/snapshot; миграции генерировать tooling только с отдельным разрешением.
 
 OnboardingProjection хранится в onboarding_invitations с version/status constraints и concurrency по LogIndex, в общей projection transaction. Payload содержит verifier, никогда plaintext. Migration/designer/snapshot получать tooling; provider atomicity не выводить из metadata model tests.

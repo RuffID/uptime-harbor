@@ -19,6 +19,15 @@ public static class SnapshotImageValidation
     {
         SnapshotSchema.Validate(context, image.ProjectionRows);
         OnboardingSnapshot.Validate(image);
+        foreach (AcceptedOnlineGrant accepted in image.OnboardingContracts?.OnlineGrants?.Values ?? [])
+        {
+            if (!Onboarding.OnlineGrantSignatures.Verify(image, accepted.Grant, accepted.Grant.IssuedAtUtc,
+                historical: true, processRenewal: accepted.ProcessRenewal))
+            {
+                throw new InvalidDataException("OnlineGrantSnapshotSignatureInvalid");
+            }
+        }
+
         DeliveryQueue.Validate(image);
         JournalPosition position = new(new ClusterIdentity(image.ClusterId, image.Generation), image.Index, image.Term);
         Dictionary<Type, HashSet<Guid>> expected = [];
@@ -45,7 +54,8 @@ public static class SnapshotImageValidation
             ids.Add(record.Id);
         }
 
-        foreach (ProjectionRecord record in ClusterOperationsProjection.Changes(empty, image).Concat(OnboardingSnapshot.Changes(empty, image)))
+        foreach (ProjectionRecord record in ClusterOperationsProjection.Changes(empty, image)
+            .Concat(OnboardingSnapshot.Changes(empty, image)).Concat(EnrollmentTrustSnapshot.Changes(empty, image)))
         {
             Type recordType = record.GetType();
             string[] fields = SnapshotSchema.Fields(context.Model.FindEntityType(recordType)!)
@@ -120,7 +130,7 @@ public static class SnapshotImageValidation
             configurationTypes = [.. configurationTypes, typeof(ClusterMember), typeof(PeerTrustCredential), typeof(MembershipChange)];
         }
 
-        configurationTypes = [.. configurationTypes, typeof(OnboardingProjection)];
+        configurationTypes = [.. configurationTypes, typeof(OnboardingProjection), typeof(EnrollmentIssuer)];
 
         foreach (Type type in configurationTypes)
         {

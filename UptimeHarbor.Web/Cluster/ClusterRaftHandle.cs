@@ -1,13 +1,13 @@
-using DotNext.Net.Cluster.Consensus.Raft.Http;
+using DotNext.Net.Cluster.Consensus.Raft;
 
 namespace UptimeHarbor.Web.Cluster;
 
 /// <summary>Текущий экземпляр принадлежит runtime; writer не зависит от его sender lifecycle.</summary>
 public class ClusterRaftHandle
 {
-    private volatile IRaftHttpCluster? current;
+    private volatile IRaftCluster? current;
 
-    public IRaftHttpCluster? Current
+    public IRaftCluster? Current
     {
         get
         {

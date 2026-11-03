@@ -6,29 +6,45 @@ using UptimeHarbor.Application.Installation;
 using UptimeHarbor.Application.Common;
 using UptimeHarbor.Infrastructure.Identity;
 using UptimeHarbor.Infrastructure.Persistence;
+using UptimeHarbor.Application.Cluster.Onboarding;
 
 namespace UptimeHarbor.Infrastructure.Installation;
 
 public class SetupInitialization(ILocalSetupUnitOfWork work, ILocalSetupAccountStore accounts,
     IOptions<BootstrapAdminOptions> credentials, InstallationLease lease, SetupPreflight preflight,
-    InstallationState state, LocalSecretStore secrets, TimeProvider time, ILogger<SetupInitialization> logger)
+    InstallationState state, LocalSecretStore secrets, TimeProvider time, ILogger<SetupInitialization> logger,
+    IEnrollmentSigningRepository? signing = null, EnrollmentTrustInstallation? trust = null,
+    UptimeHarbor.Application.Abstractions.UnitOfWork.IOnboardingProgressUnitOfWork? progress = null)
 {
     public async Task InitializeAsync(CancellationToken token)
     {
-        ServiceResult check = await preflight.CheckAsync(null, token);
+        LocalInstallationProfile? profile = await work.Profiles.ReadAsync(token);
+        ServiceResult check = await preflight.CheckAsync(profile, token);
         if (!check.Success)
         {
             logger.LogWarning("{EventName} {Reason}", "SetupPreflightRejected", check.Error!.Message);
             throw new InvalidDataException(check.Error.Message);
         }
 
-        LocalInstallationProfile? profile = await work.Profiles.ReadAsync(token);
         if (profile is not null && profile.InstallIdentity != lease.InstallIdentity)
         {
             throw new InvalidDataException("InstallationIdentityMismatch");
         }
 
-        secrets.ReconcileAll(profile);
+        IReadOnlyList<UptimeHarbor.Application.Cluster.Models.EnrollmentIssuerReference>? issuers = null;
+        if (signing is not null)
+        {
+            issuers = await signing.ListIssuersAsync(token);
+        }
+
+        secrets.ReconcileAll(profile, issuers);
+        UptimeHarbor.Application.Cluster.Models.LocalOnboardingAttempt? attempt = null;
+        if (profile?.AttemptId is not null && progress is not null)
+        {
+            attempt = await progress.Attempts.FindAsync(profile.AttemptId.Value, token);
+        }
+
+        trust?.Reconcile(profile, attempt);
         secrets.Initialize();
 
         if (profile is not null)
@@ -37,7 +53,7 @@ public class SetupInitialization(ILocalSetupUnitOfWork work, ILocalSetupAccountS
             {
                 await Task.Delay(profile.LeaseUntilUtc - time.GetUtcNow(), time, token);
                 LocalInstallationProfile? verified = await work.Profiles.ReadAsync(token);
-                if (verified != profile)
+                if (!LocalProfileEquality.Same(verified, profile))
                 {
                     throw new InvalidDataException("InstallationProcessLeaseChanged");
                 }
@@ -57,7 +73,12 @@ public class SetupInitialization(ILocalSetupUnitOfWork work, ILocalSetupAccountS
             {
                 ProfileRevision = profile.ProfileRevision + 1, SetupEpoch = profile.SetupEpoch + 1,
                 RuntimeGeneration = profile.RuntimeGeneration + 1, BootId = lease.BootId,
-                LeaseUntilUtc = time.GetUtcNow().AddMinutes(2)
+                LeaseUntilUtc = time.GetUtcNow().AddMinutes(2),
+                ManagedRestart = profile.Phase is InstallationPhase.ClusterReady or InstallationPhase.ClusterQuarantine
+                    or InstallationPhase.CatchingUp or InstallationPhase.AwaitingActivation,
+                Phase = profile.Phase is InstallationPhase.ClusterReady or InstallationPhase.ClusterQuarantine
+                    or InstallationPhase.CatchingUp or InstallationPhase.AwaitingActivation
+                    ? InstallationPhase.ClusterQuarantine : profile.Phase
             };
             await work.ExecuteInTransactionAsync(async cancellation =>
                 await work.Profiles.ReplaceAsync(resumed, profile.ProfileRevision, cancellation), token);

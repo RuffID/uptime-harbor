@@ -5,12 +5,14 @@ using UptimeHarbor.Application.Common;
 using UptimeHarbor.Application.Users;
 using UptimeHarbor.Domain.Cluster;
 using UptimeHarbor.Infrastructure.Cluster;
+using UptimeHarbor.Application.Cluster.Onboarding;
 
 namespace UptimeHarbor.Infrastructure.Identity;
 
 /// <summary>Аккаунтная часть controlled bootstrap. Внешний lifecycle обязан сохранить и подтвердить точную команду.</summary>
 public class ClusterAccountBootstrapper(IOptions<ClusterOptions> configured, IAccountCredentialService credentials,
-    IRecoveryAdmission admission, RevisionStateStore state, IConsensusWriter consensus, IRevisionAudit audit)
+    IRecoveryAdmission admission, RevisionStateStore state, IConsensusWriter consensus, IRevisionAudit audit,
+    RevisionDispatcher? dispatcher = null)
 {
     public async Task<ServiceResult<RevisionCommand>> PrepareAsync(Guid operationId, Guid userId, Guid roleId,
         DateTimeOffset createdAtUtc, string login, string password, CancellationToken token)
@@ -59,7 +61,8 @@ public class ClusterAccountBootstrapper(IOptions<ClusterOptions> configured, IAc
 
         RecoveryAdmission? proof = await admission.ReadAsync(token);
         RevisionCommand? command = proof?.BootstrapAccount;
-        if (proof is null || command is null || !proof.FencingConfirmed || proof.OldBackup
+        if (proof is null || command is null || !RecoveryProofValidation.CanBootstrap(proof,
+            options.Compatibility != UptimeHarbor.Infrastructure.Cluster.Onboarding.OnboardingProtocol.TRUST_COMPATIBILITY) || proof.OldBackup
             || proof.ClusterId != options.ClusterId || proof.Generation != options.Generation
             || proof.NodeId != options.NodeId || proof.StorageGeneration != options.StorageGeneration
             || command.OriginNodeId != options.NodeId || command.Action != "BootstrapAccount")
@@ -69,6 +72,22 @@ public class ClusterAccountBootstrapper(IOptions<ClusterOptions> configured, IAc
 
         string digest = RevisionCodec.Digest(command);
         RevisionImage image = state.Current!;
+        if (proof.Proof is FreshBootstrapProof genesis && image.OnboardingContracts?.GenesisInitialized == false)
+        {
+            if (dispatcher is null)
+            {
+                return false;
+            }
+
+            CommandResult initialized = await dispatcher.AcceptAsync(genesis.InitializeCluster, options.NodeId, token);
+            if (initialized.Outcome != OperationOutcome.Committed)
+            {
+                throw new InvalidOperationException("GenesisInitializeNotApplied");
+            }
+
+            image = state.Current ?? throw new InvalidOperationException("GenesisImageUnavailable");
+        }
+
         if (image.BootstrapAccountDigest != digest || image.Results.ContainsKey(command.OperationId)
             || image.Values.Values.Any(value => value.Kind == DeletedEntityKind.Account))
         {

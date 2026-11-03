@@ -1,5 +1,11 @@
 # Связь узлов, Raft и готовность
 
+## Частичная интеграция trust v3 (этап 04)
+
+Добавлены accepted issuer/genesis commands, точный двухкомандный GenesisWriterPermit и crypto signing boundary со свежим native barrier. Permit не вооружается текущим production setup, не открывает CanWork и не меняет offline recovery. Managed peer client проверяет exact server pin по host+port до HTTP через PlaintextStreamFilter; прежние TLS name/chain и legacy CRL/proxy проверки сохранены. Проверка registry выполняется повторно после I/O.
+
+Production новый первый соединён с lifecycle: trusted genesis intent → карантин → exact InitializeCluster/BootstrapAccount permit → свежий barrier → accepted Process/Activation/Enable → атомарный отзыв setup → CommonOpen. ManagedRestart использует sealed snapshot/SQL/manifest и целый прежний WAL до majority, затем новый process/Enable. Старый grant не открывает работу. Dedicated browser enrollment и отдельные двусторонние peer probes подключены; pending TLS session нового узла допускает только фиксированный probe handler до runtime, не Raft/commands. DynamicPeerTls после genesis сверяет текущий accepted leaf/node/issuer/revocation на каждом RPC. [Точные границы и оставшийся объём 04](Onboarding%20contracts.md#промежуточная-граница-этапа-04-2026-11-03). Изолированный WAL test не подтверждает выборы/настоящие TLS handshakes.
+
 ## Управляемый локальный setup (этап 03)
 
 Полный inventory, phase/generation/locks, stop/drain и динамические certificate/trust providers вынесены в [Local installation setup.md](Local%20installation%20setup.md). Единственный root hosted owner — ManagedWorkerSupervisor; Setup не запускает WAL или рабочие loops. Новый production genesis/issuer/online activation недоступен до 04, dispatch — до 05а. Локальная подготовка не открывает common/peer/sender gates. Legacy процедуры ниже сохраняют свои recovery/trust/CRL proof.

@@ -131,7 +131,8 @@ public static class ClusterOperationReducer
                 error = Confirm(image, command, delegated, out image);
                 break;
             case "ActivateNode":
-                if (OnboardingMembership.Find(image, command.EntityId) is not null)
+                if (OnboardingMembership.Find(image, command.EntityId) is not null
+                    || image.OnboardingContracts?.GenesisInitialized == true && image.OnboardingContracts.Genesis?.NodeId == command.EntityId)
                 {
                     error = "OnboardingActivationRequired";
                     break;

@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Options;
 using UptimeHarbor.Infrastructure.Installation;
+using UptimeHarbor.Web.Controllers;
 
 namespace UptimeHarbor.Web.Security;
 
@@ -7,7 +8,7 @@ public class SetupBoundaryMiddleware(RequestDelegate next)
 {
     private static readonly HashSet<string> ROUTES = new(StringComparer.Ordinal)
     {
-        "/Setup", "/api/setup/session", "/api/setup/login", "/api/setup/logout", "/api/setup/status", "/api/setup/prepare",
+        "/Setup", "/api/setup/session", "/api/setup/login", "/api/setup/logout", "/api/setup/status", "/api/setup/prepare", "/api/setup/enroll",
         "/dist/pages/setup.js", "/dist/shared/http.js", "/lib/bootstrap/dist/css/bootstrap.min.css"
     };
 
@@ -19,6 +20,12 @@ public class SetupBoundaryMiddleware(RequestDelegate next)
     public async Task InvokeAsync(HttpContext context, IOptions<InstallationOptions> options,
         InstallationState state, RuntimeWriteGate writes)
     {
+        if (EnrollmentController.IsRoute(context.Request.Path))
+        {
+            await next(context);
+            return;
+        }
+
         bool ownedRoute = context.Request.Path == "/Setup" || context.Request.Path.StartsWithSegments("/api/setup")
             || context.Request.Path == "/dist/pages/setup.js";
         bool setupRoute = ownedRoute || options.Value.Setup && Allowed(context.Request.Path);

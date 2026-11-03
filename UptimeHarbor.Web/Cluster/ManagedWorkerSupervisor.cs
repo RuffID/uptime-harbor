@@ -24,6 +24,12 @@ public class ManagedWorkerSupervisor(IServiceProvider services, IOptions<Install
     {
         if (installation.Value.Setup)
         {
+            LocalInstallationProfile? profile = state.Current;
+            if (profile?.ManagedRestart == true && profile.Phase == InstallationPhase.ClusterQuarantine)
+            {
+                await StartQuarantinedAsync(profile, cancellationToken);
+            }
+
             await base.StartAsync(cancellationToken);
             return;
         }

@@ -233,7 +233,7 @@ public class SetupSecurityTests
 
         // Assert
         Assert.Equal(SetupAuthentication.SCHEME, authorization.AuthenticationSchemes);
-        Assert.Equal(3, mutations.Length);
+        Assert.Equal(4, mutations.Length);
         Assert.All(mutations, method => Assert.NotNull(method.GetCustomAttribute<ValidateAntiForgeryTokenAttribute>()));
         Assert.Null(controller.GetMethod(nameof(SetupController.PrepareAsync))!.GetCustomAttribute<AllowAnonymousAttribute>());
         Assert.NotNull(controller.GetCustomAttribute<Microsoft.AspNetCore.RateLimiting.EnableRateLimitingAttribute>());

@@ -37,7 +37,7 @@ public static class OnboardingCommands
         bool mixed = command.Value is not null || command.Operation is not null || command.Monitoring is not null
             || command.Delivery is not null || command.Target is not null || command.Replacement is not null
             || command.AccountAction is not null || command.ResolvesConflictId.HasValue;
-        if (command.Schema != 2 || data.Version != 1 || mixed || command.EntityKind != DeletedEntityKind.Node
+        if (command.Schema is not (2 or 3) || data.Version != 1 || mixed || command.EntityKind != DeletedEntityKind.Node
             || command.EntityId != data.InvitationId || data.ProcessEpoch < 0 || data.ProgressIndex < 0)
         {
             throw new InvalidDataException("OnboardingEnvelopeInvalid");
@@ -83,6 +83,18 @@ public static class OnboardingCommands
             || (command.Action != "RecordOnboardingProgress" && data.ProgressIndex != 0))
         {
             throw new InvalidDataException("OnboardingFieldsInvalid");
+        }
+
+        if (command.Schema == 3 && process)
+        {
+            if (!IsBootChallenge(data.BootChallenge))
+            {
+                throw new InvalidDataException("OnboardingBootChallengeInvalid");
+            }
+        }
+        else if (data.BootChallenge is not null)
+        {
+            throw new InvalidDataException("UnexpectedOnboardingBootChallenge");
         }
 
         bool confirm = command.Action == "ConfirmOnboardingMembership";
@@ -142,5 +154,12 @@ public static class OnboardingCommands
                 throw new InvalidDataException("EnrollmentIssuanceInvalid");
             }
         }
+    }
+
+    public static bool IsBootChallenge(string? value)
+    {
+        Span<byte> bytes = stackalloc byte[32];
+        return value is not null && value.Length == 44 && Convert.TryFromBase64String(value, bytes, out int length)
+            && length == 32 && Convert.ToBase64String(bytes) == value;
     }
 }

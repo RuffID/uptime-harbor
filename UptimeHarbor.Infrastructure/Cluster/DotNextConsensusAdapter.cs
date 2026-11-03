@@ -3,11 +3,14 @@ using DotNext.Net.Cluster.Replication;
 using UptimeHarbor.Application.Cluster;
 using UptimeHarbor.Application.Cluster.Models;
 using UptimeHarbor.Domain.Cluster;
+using UptimeHarbor.Infrastructure.Cluster.Onboarding;
+using UptimeHarbor.Application.Cluster.Onboarding;
 
 namespace UptimeHarbor.Infrastructure.Cluster;
 
 public class DotNextConsensusAdapter(IRaftCluster cluster, IClusterStateView state,
-    NodeReadiness readiness, ClusterOptions options, RevisionStateStore? accepted = null) : IConsensusWriter
+    NodeReadiness readiness, ClusterOptions options, RevisionStateStore? accepted = null,
+    GenesisWriterPermit? genesis = null) : IConsensusWriter
 {
     public async ValueTask<long> ReplicateAsync(ReadOnlyMemory<byte> payload, int commandId,
         CancellationToken cancellationToken)
@@ -17,7 +20,7 @@ public class DotNextConsensusAdapter(IRaftCluster cluster, IClusterStateView sta
             throw new InvalidOperationException("Cluster writer is not ready.");
         }
 
-        if (!readiness.CanWork(state) && !CanBootstrapAccount(payload) && !CanControl(payload))
+        if (!readiness.CanWork(state) && !CanGenesis(payload, commandId) && !CanBootstrapAccount(payload) && !CanControl(payload))
         {
             throw new InvalidOperationException("Cluster writer is not ready.");
         }
@@ -37,6 +40,32 @@ public class DotNextConsensusAdapter(IRaftCluster cluster, IClusterStateView sta
         long index = await applied.Task.WaitAsync(cancellation.Token);
         await cluster.AuditTrail.WaitForApplyAsync(index, cancellation.Token);
         return index;
+    }
+
+    private bool CanGenesis(ReadOnlyMemory<byte> payload, int commandId)
+    {
+        ConsensusStatus? status = state.Consensus;
+        if (genesis is null || accepted?.Available != true || commandId != RevisionCodec.COMMAND_ID
+            || options.Compatibility != OnboardingProtocol.TRUST_COMPATIBILITY || status is null || !status.IsLeader
+            || status.NodeId != options.NodeId || status.ClusterId != options.ClusterId || status.Generation != options.Generation
+            || status.Term != cluster.AuditTrail.Term || status.LeadershipToken.IsCancellationRequested
+            || status.ConsensusToken.IsCancellationRequested || cluster.LeadershipToken.IsCancellationRequested
+            || cluster.ConsensusToken.IsCancellationRequested || status.VotingNodes.Count != 1 || !status.VotingNodes.Contains(options.NodeId)
+            || status.CommittedIndex > state.Accepted.AppliedIndex || !state.Accepted.CaughtUp || !state.Accepted.SnapshotConfirmed
+            || state.Accepted.MembershipVersion != status.MembershipVersion
+            || new[] { "Database", "Storage", "Clock", "Projection" }.Any(name => readiness.Get(name).Status != "Ready"))
+        {
+            return false;
+        }
+
+        RevisionCommand command = RevisionCodec.Decode(payload.Span);
+        if (command.Action == "InitializeCluster" && (command.EnrollmentTrust!.GenesisMembershipVersion != status.MembershipVersion
+            || command.EnrollmentTrust.CoordinatorTerm != status.Term || !command.EnrollmentTrust.CoordinatorAtUtc.HasValue))
+        {
+            return false;
+        }
+
+        return genesis.Allows(command, accepted.Current!);
     }
 
     private bool CanControl(ReadOnlyMemory<byte> payload)
@@ -60,11 +89,23 @@ public class DotNextConsensusAdapter(IRaftCluster cluster, IClusterStateView sta
         }
 
         RevisionCommand command = RevisionCodec.Decode(payload.Span);
+        if (OnlineLifecycleCommands.IsOnline(command))
+        {
+            return options.Compatibility == OnboardingProtocol.TRUST_COMPATIBILITY
+                && command.OriginNodeId == options.NodeId && command.OnlineLifecycle!.Grant.MembershipVersion == status!.MembershipVersion;
+        }
+
         return ClusterOperationValidation.IsOperation(command) && command.Operation!.MembershipVersion == status!.MembershipVersion;
     }
 
     private bool CanBootstrapAccount(ReadOnlyMemory<byte> payload)
     {
+        if (options.Compatibility == OnboardingProtocol.TRUST_COMPATIBILITY)
+        {
+            // Новый online genesis использует только exact permit выше; legacy offline path не расширяется.
+            return false;
+        }
+
         if (options.Mode != "Bootstrap" || accepted?.Available != true)
         {
             return false;

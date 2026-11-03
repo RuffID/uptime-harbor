@@ -20,7 +20,7 @@ namespace UptimeHarbor.Web.Controllers;
 [RequestSizeLimit(4096)]
 public class SetupController(SetupAccountLogin login, InstallationPreparation preparation,
     InstallationLifecycle lifecycle, InstallationState state, IAntiforgery antiforgery,
-    SetupAuthorityCoordinator authority) : ControllerBase
+    SetupAuthorityCoordinator authority, JoinEnrollmentPreparation? enrollment = null) : ControllerBase
 {
     [HttpGet("session")]
     [AllowAnonymous]
@@ -90,6 +90,11 @@ public class SetupController(SetupAccountLogin login, InstallationPreparation pr
         if (result.Success && result.Data!.Phase == nameof(InstallationPhase.LocalPrepared) && result.Data.Mode == "Bootstrap")
         {
             result = await authority.PrepareBootstrapAsync(token);
+            if (result.Success)
+            {
+                result = await lifecycle.AdvanceAsync(result.Data!.Revision, result.Data.Generation,
+                    InstallationPhase.ClusterQuarantine, null, token);
+            }
         }
 
         return JsonResultMapper.ToJsonResult(result);
@@ -107,5 +112,38 @@ public class SetupController(SetupAccountLogin login, InstallationPreparation pr
 
         await HttpContext.SignOutAsync(SetupAuthentication.SCHEME);
         return JsonResultMapper.ToJsonResult(ServiceResult.Ok());
+    }
+
+    [HttpPost("enroll")]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> EnrollAsync(SetupEnrollmentRequest request, CancellationToken token)
+    {
+        SetupSession? session = SetupAuthentication.Read(User);
+        if (session is null || !await login.ValidateAsync(session, token))
+        {
+            return JsonResultMapper.ToJsonResult(ServiceResult.Fail(ServiceErrorType.Unauthorized, "Требуется локальный вход."));
+        }
+
+        if (enrollment is null)
+        {
+            return JsonResultMapper.ToJsonResult(ServiceResult.Fail(ServiceErrorType.Conflict, "EnrollmentUnavailable"));
+        }
+
+        try
+        {
+            UptimeHarbor.Application.Cluster.Models.LocalOnboardingAttempt intent = await enrollment.PrepareAsync(request.BrowserOrigin, request.Invitation, token);
+            ServiceResult<SetupStatus> result = await authority.PrepareJoinAsync(intent, token);
+            // E3 не запускает runtime: snapshot/membership orchestration предоставляет отдельный этап 05.
+            return JsonResultMapper.ToJsonResult(result);
+        }
+        catch (Exception error) when (error is InvalidDataException or FormatException or ArgumentException
+            or System.Security.Cryptography.CryptographicException or UnauthorizedAccessException)
+        {
+            return JsonResultMapper.ToJsonResult(ServiceResult.Fail(ServiceErrorType.Conflict, "EnrollmentTrustRejected"));
+        }
+        catch (HttpRequestException)
+        {
+            return JsonResultMapper.ToJsonResult(ServiceResult.Fail(ServiceErrorType.Conflict, "AuthorityResultUnknown"));
+        }
     }
 }

@@ -1,12 +1,16 @@
 # Конфигурация и запуск
 
+## Подготовленные trust-компоненты v3
+
+Validator дополнительно распознаёт `3.0/3/3/3/1/6.10.0` для schema-3 issuer/genesis state и его snapshot/history. Эта версия требует AddEnrollmentTrust и согласованного обновления voters. Defaults, установка и config-файлы не изменены; один выбор версии не включает Bootstrap/admission. EnrollmentTransport использует существующие AllowedPeerNetworks, system browser TLS и фиксированные лимиты 3/10 секунд/64 KiB. [Текущие компоненты и закрытые gates](Onboarding%20contracts.md#промежуточная-граница-этапа-04-2026-11-03).
+
 ## Явная локальная настройка (этап 03)
 
 Новая секция `Installation`: InstallationIntent (`Legacy` по умолчанию, явный `Setup`), абсолютные StateDirectory/SecretDirectory/KeyDirectory, точный HTTPS BrowserOrigin, canonical HTTPS PeerEndpoint `/internal/raft`, AllowedPeerNetworks (CIDR для разрешённых private/VPN адресов). Cluster:Mode до подготовки остаётся Disabled; StoragePath — отдельный persistent volume. State/secret/key/storage пути не пересекаются. Нужны заранее подготовленные Browser/Peer Kestrel endpoints с отдельными портами, Direct/TLS passthrough и schema v2. Пути/ACL/endpoint/schema не исправляются из HTTP. Конфигурация установки и config.example.json в этой задаче не изменялись по прямому ограничению пользователя; описанные prerequisites требуется подготовить отдельно перед будущей приёмкой.
 
 Setup создаёт отдельный LocalSetupAccount из защищённых BootstrapAdmin credentials до legacy bootstrap, без дополнительного секрета. Изменение config не сбрасывает пароль. Постоянная InstallIdentity задаёт файловый DP keyring в StateDirectory/data-protection; отдельный wrapping.key автоматически создаётся в SecretDirectory, private envelopes — в KeyDirectory, DPAPI не используется. Все эти volumes локальны и не реплицируются.
 
-Setup/кластерные несендеры больше не требуют BotToken при startup. Первый определяет публичный BotId из положительного ExpectedBotId либо bounded getMe своего локального токена; при отсутствии обоих preparation отказывается. Join не задаёт BotId/общего администратора, получает identity только от будущей authenticated authority. Обычный Disabled сохраняет прежнюю обязательность корректного token. Production Bootstrap/Join и новый dispatch закрыты. [Точные границы, безопасность и runtime](Local%20installation%20setup.md).
+Setup/кластерные несендеры не требуют BotToken при startup. Первый определяет публичный BotId из положительного ExpectedBotId либо bounded getMe своего локального токена; при отсутствии обоих preparation отказывается. Join получает BotId/cluster identity через authenticated enrollment descriptor и не создаёт общего администратора. ActiveClusterOptions выбирает trust v3 из durable evidence, конфигурацию установки не переписывает. ManagedRestart использует прежнюю identity с Mode=Restart и новым process proof; файл managed-storage.seal хранится в StateDirectory. Production Bootstrap нового первого и E1–E4 подключены; полный Join и dispatch закрыты до своих этапов. Обычный Disabled сохраняет прежнюю обязательность token. [Границы](Local%20installation%20setup.md).
 
 ## Совместимость приглашений (2026-11-03)
 

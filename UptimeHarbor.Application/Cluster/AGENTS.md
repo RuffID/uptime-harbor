@@ -1,5 +1,7 @@
 # Cluster application
 
+EnrollmentTrustCommands schema 3 проходят тот же dispatcher/reducer/write set; mixed payload запрещён общей RevisionCodec boundary. Request digest исключает только coordinator stamp trust/onboarding, WAL digest покрывает весь payload. Genesis/init и issuer registration не превращать в общий write permit; старые control/account paths сохраняют прежнюю авторизацию.
+
 Publication/ConfirmRecovery в RevisionStateStore проверяют текущий RuntimeGenerationContext. Устаревший callback не публикует новый принятый образ/права. Контекст не подменяет consensus/replay proof и не вводит зависимости от hosting/EF.
 
 Onboarding/ владеет schema-2 invitation/attempt reducer и strict contracts. Request digest исключает только coordinator stamp, WAL digest покрывает полный accepted payload; обе проверки сохранять. Legacy membership/activation не должны обходить process-bound onboarding. Общие import/sender модели в этом этапе не предоставляют runtime authority.

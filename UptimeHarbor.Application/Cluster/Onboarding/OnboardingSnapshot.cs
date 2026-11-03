@@ -134,6 +134,10 @@ public static class OnboardingSnapshot
         StorageGuards.Utc(attempt.ReservationUntilUtc);
         StorageGuards.Utc(attempt.ProcessLeaseUntilUtc);
         StorageGuards.Utc(attempt.LastProgressAtUtc);
+        if (attempt.BootChallenge is not null && !OnboardingCommands.IsBootChallenge(attempt.BootChallenge))
+        {
+            throw new InvalidDataException("OnboardingBootChallengeSnapshotInvalid");
+        }
         bool identity = attempt.Request.ClusterId == image.ClusterId && attempt.Request.Generation == image.Generation
             && attempt.Request.InvitationId == invitation.Id;
         bool paused = attempt.Status == OnboardingAttemptStatus.PauseAwaitingAdministrator;
@@ -167,6 +171,17 @@ public static class OnboardingSnapshot
 
         if (attempt.Issuance is EnrollmentIssuance issuance)
         {
+            if (attempt.BootChallenge is not null && (attempt.IssuanceAuthorizationIndex <= 0
+                || attempt.IssuanceAuthorizationIndex > image.Index
+                || !image.Results.Values.Any(result => result.Index == attempt.IssuanceAuthorizationIndex
+                    && result.Outcome == OperationOutcome.Committed
+                    && image.Onboarding!.Requests.GetValueOrDefault(result.OperationId) is OnboardingRequestReceipt receipt
+                    && receipt.Action == "AuthorizeEnrollmentCertificate" && receipt.AttemptId == attempt.Request.AttemptId
+                    && receipt.InvitationId == attempt.Request.InvitationId)))
+            {
+                throw new InvalidDataException("OnboardingIssuanceAuthorizationSnapshotInvalid");
+            }
+
             StorageGuards.Utc(issuance.NotBeforeUtc);
             StorageGuards.Utc(issuance.NotAfterUtc);
             if (issuance.Version != 1 || issuance.IssueId != attempt.IssueId || issuance.IssuerEpoch == Guid.Empty

@@ -8,6 +8,8 @@ using UptimeHarbor.Infrastructure.Cluster;
 using UptimeHarbor.Infrastructure.Installation;
 using UptimeHarbor.Web.Security;
 using UptimeHarbor.Application.Installation;
+using UptimeHarbor.Web.Controllers;
+using UptimeHarbor.Infrastructure.Cluster.Onboarding;
 
 namespace UptimeHarbor.Web.Cluster;
 
@@ -16,12 +18,46 @@ public class PeerBoundaryMiddleware(RequestDelegate next, IOptions<ClusterOption
 {
     public async Task InvokeAsync(HttpContext context, IPeerTrustSource trust,
         NodeReadiness readiness, TimeProvider timeProvider, ClusterPeerRuntime runtime, IClusterStateView? state = null,
-        DynamicPeerTls? dynamicTls = null, RuntimeWriteGate? writes = null)
+        DynamicPeerTls? dynamicTls = null, RuntimeWriteGate? writes = null,
+        EnrollmentPeerProbes? probes = null, EnrollmentRateLimiter? enrollmentLimits = null)
     {
         ClusterOptions options = configured.Value;
         bool peerPath = context.Request.Path.StartsWithSegments("/internal");
         bool managed = installationOptions?.Value.Setup == true;
         bool peerListener = (options.Enabled || managed) && context.Connection.LocalPort == options.PeerListenPort;
+        if (context.Request.Path == EnrollmentPeerProbeTransport.PATH)
+        {
+            string? address = installationOptions?.Value.PeerEndpoint;
+            if (!managed || !peerListener || !context.Request.IsHttps || options.TlsBoundary != "Direct"
+                || address is null || context.Request.Host.Value != new Uri(address).Authority
+                || readiness.Get("Clock").Status != "Ready" || probes is null || enrollmentLimits is null)
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                return;
+            }
+
+            await EnrollmentPeerProbeEndpoint.HandleAsync(context, probes, enrollmentLimits);
+            return;
+        }
+
+        if (EnrollmentController.IsRoute(context.Request.Path))
+        {
+            string origin = context.Request.Scheme + "://" + context.Request.Host.Value;
+            string browser = installationOptions?.Value.BrowserOrigin ?? string.Empty;
+            string suppliedOrigin = context.Request.Headers.Origin.ToString();
+            if (!managed || peerListener || !context.Request.IsHttps || origin != browser
+                || suppliedOrigin.Length > 0 && suppliedOrigin != browser
+                || context.Request.Headers.ContainsKey("Cookie") || context.Request.Headers.ContainsKey("Authorization"))
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                return;
+            }
+
+            context.Response.Headers.CacheControl = "no-store";
+            await next(context);
+            return;
+        }
+
         if (!peerPath && !peerListener)
         {
             if (managed && SetupBoundaryMiddleware.Allowed(context.Request.Path))

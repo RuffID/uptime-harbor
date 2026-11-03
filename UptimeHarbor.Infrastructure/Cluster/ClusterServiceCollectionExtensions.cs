@@ -39,6 +39,7 @@ public static class ClusterServiceCollectionExtensions
         services.TryAddSingleton<IOnboardingAudit, OnboardingAudit>();
         services.TryAddSingleton<IEnrollmentAuthority, UnavailableEnrollmentAuthority>();
         services.TryAddSingleton<EnrollmentRateLimiter>();
+        services.TryAddSingleton<GenesisWriterPermit>();
         services.TryAddSingleton<IPeerTrustSource, AcceptedPeerTrustSource>();
         services.TryAddSingleton<ISenderConsensus, UnavailableSenderConsensus>();
         services.AddSingleton<IClusterAudit, ClusterAudit>();
@@ -80,6 +81,26 @@ public static class ClusterServiceCollectionExtensions
 
                         using X509Certificate2 candidate = new(certificate);
                         return credentials.Validate(candidate);
+                    };
+                    managed.PlaintextStreamFilter = async (context, token) =>
+                    {
+                        UptimeHarbor.Application.Installation.RuntimeGenerationContext.Verify();
+                        Uri target = context.InitialRequestMessage.RequestUri
+                            ?? throw new HttpRequestException("PeerServerPinMissing");
+                        if (context.PlaintextStream is not System.Net.Security.SslStream tls || tls.RemoteCertificate is null)
+                        {
+                            throw new HttpRequestException("PeerServerTlsMissing");
+                        }
+
+                        using X509Certificate2 server = new(tls.RemoteCertificate);
+                        IPeerTrustSource acceptedTrust = provider.GetRequiredService<IPeerTrustSource>();
+                        if (!await PeerServerPin.MatchesAsync(target, server, acceptedTrust,
+                            provider.GetRequiredService<TimeProvider>().GetUtcNow(), token))
+                        {
+                            throw new HttpRequestException("PeerServerPinRejected");
+                        }
+
+                        return context.PlaintextStream;
                     };
                     return managed;
                 }

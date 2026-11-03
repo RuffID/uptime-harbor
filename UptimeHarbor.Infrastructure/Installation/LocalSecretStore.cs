@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Options;
 using UptimeHarbor.Application.Installation;
+using UptimeHarbor.Application.Cluster.Models;
 
 namespace UptimeHarbor.Infrastructure.Installation;
 
@@ -48,7 +49,7 @@ public class LocalSecretStore(IOptions<InstallationOptions> configured, Installa
 
     public string Write(Guid attemptId, string purpose, ReadOnlySpan<byte> plaintext)
     {
-        if (attemptId == Guid.Empty || purpose is not ("peer" or "bootstrap"))
+        if (attemptId == Guid.Empty || purpose is not ("peer" or "bootstrap" or "issuer"))
         {
             throw new ArgumentException("SecretPurposeInvalid");
         }
@@ -120,7 +121,17 @@ public class LocalSecretStore(IOptions<InstallationOptions> configured, Installa
     // Invitation живёт в SQL, поэтому её envelope не создаёт orphan-файл после accepted reserve.
     public string ProtectInvitation(Guid attemptId, ReadOnlySpan<byte> invitation)
     {
-        if (attemptId == Guid.Empty || invitation.Length is < 1 or > 4096)
+        return ProtectState(attemptId, "invitation", invitation, 4096);
+    }
+
+    public string ProtectRestart(Guid attemptId, ReadOnlySpan<byte> state)
+    {
+        return ProtectState(attemptId, "managed-restart", state, 8192);
+    }
+
+    private string ProtectState(Guid attemptId, string purpose, ReadOnlySpan<byte> invitation, int maximum)
+    {
+        if (attemptId == Guid.Empty || invitation.Length < 1 || invitation.Length > maximum)
         {
             throw new ArgumentException("InvitationInvalid");
         }
@@ -133,7 +144,7 @@ public class LocalSecretStore(IOptions<InstallationOptions> configured, Installa
         {
             using AesGcm cipher = new(key, 16);
             cipher.Encrypt(envelope.AsSpan(1, 12), invitation, envelope.AsSpan(29), envelope.AsSpan(13, 16),
-                AssociatedData(attemptId, "invitation", attemptId));
+                AssociatedData(attemptId, purpose, attemptId));
             return Convert.ToBase64String(envelope);
         }
         finally
@@ -145,8 +156,18 @@ public class LocalSecretStore(IOptions<InstallationOptions> configured, Installa
 
     public byte[] ReadInvitation(Guid attemptId, string protectedInvitation)
     {
+        return ReadState(attemptId, "invitation", protectedInvitation, 4096);
+    }
+
+    public byte[] ReadRestart(Guid attemptId, string protectedState)
+    {
+        return ReadState(attemptId, "managed-restart", protectedState, 8192);
+    }
+
+    private byte[] ReadState(Guid attemptId, string purpose, string protectedInvitation, int maximum)
+    {
         byte[] envelope = Convert.FromBase64String(protectedInvitation);
-        if (envelope.Length is < 30 or > 4125 || envelope[0] != 1)
+        if (envelope.Length < 30 || envelope.Length > maximum + 29 || envelope[0] != 1)
         {
             throw new InvalidDataException("InvitationEnvelopeInvalid");
         }
@@ -157,7 +178,7 @@ public class LocalSecretStore(IOptions<InstallationOptions> configured, Installa
         {
             using AesGcm cipher = new(key, 16);
             cipher.Decrypt(envelope.AsSpan(1, 12), envelope.AsSpan(29), envelope.AsSpan(13, 16), plaintext,
-                AssociatedData(attemptId, "invitation", attemptId));
+                AssociatedData(attemptId, purpose, attemptId));
             return plaintext;
         }
         catch (CryptographicException)
@@ -184,7 +205,7 @@ public class LocalSecretStore(IOptions<InstallationOptions> configured, Installa
         // Неизвестные файлы не выбираются по имени/времени и не публикуются как credential.
     }
 
-    public void ReconcileAll(LocalInstallationProfile? profile)
+    public void ReconcileAll(LocalInstallationProfile? profile, IReadOnlyList<EnrollmentIssuerReference>? issuers = null)
     {
         HashSet<string> expected = new(StringComparer.OrdinalIgnoreCase);
         if (profile?.KeyReference is not null)
@@ -209,6 +230,24 @@ public class LocalSecretStore(IOptions<InstallationOptions> configured, Installa
             }
 
             expected.Add(profile.BootstrapAccountReference.Split(':')[0] + ".key");
+        }
+
+        foreach (EnrollmentIssuerReference issuer in issuers ?? [])
+        {
+            bool local = profile is not null && profile.InstallIdentity == issuer.InstallIdentity
+                && profile.ClusterId == issuer.ClusterId && profile.ClusterGeneration == issuer.Generation
+                && profile.NodeId == issuer.NodeId && profile.StorageGeneration == issuer.StorageGeneration;
+            if (!local)
+            {
+                throw new InvalidDataException("ForeignEnrollmentIssuerReference");
+            }
+
+            byte[] key = Read(issuer.Epoch, "issuer", issuer.KeyReference);
+            CryptographicOperations.ZeroMemory(key);
+            if (!expected.Add(issuer.KeyReference.Split(':')[0] + ".key"))
+            {
+                throw new InvalidDataException("DuplicateEnrollmentIssuerReference");
+            }
         }
 
         foreach (string path in Directory.EnumerateFileSystemEntries(configured.Value.KeyDirectory))

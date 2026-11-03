@@ -59,7 +59,7 @@ public class SignedRecoveryAdmission(ClusterLocalControl control, IOptions<Clust
         }
 
         ValidateRegistry(proof, node);
-        admitted = proof;
+        admitted = proof with { Proof = new SignedOfflineRecoveryProof(evidence) };
         return ValueTask.FromResult<RecoveryAdmission?>(admitted);
     }
 

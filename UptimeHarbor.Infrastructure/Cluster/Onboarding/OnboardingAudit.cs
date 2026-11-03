@@ -14,6 +14,21 @@ public class OnboardingAudit(ILogger<OnboardingAudit> logger) : IOnboardingAudit
 
     public void Accepted(RevisionImage before, RevisionImage after, RevisionCommand command, CommandResult result)
     {
+        if (OnlineLifecycleCommands.IsOnline(command))
+        {
+            OnlineGrant grant = command.OnlineLifecycle!.Grant;
+            logger.LogInformation("Online lifecycle {Action} {OperationId} {GrantId} {NodeId} {ActorId} {Outcome} at {Index}.",
+                command.Action, command.OperationId, grant.GrantId, grant.NodeId, grant.ActorId, result.Outcome, result.Index);
+            return;
+        }
+
+        if (EnrollmentTrustCommands.IsTrust(command))
+        {
+            logger.LogInformation("Enrollment trust {Action} {OperationId} {IssuerEpoch} {ActorId} {Outcome} at {Index}.",
+                command.Action, command.OperationId, command.EnrollmentTrust!.IssuerEpoch, command.ActorUserId, result.Outcome, result.Index);
+            return;
+        }
+
         if (result.Outcome != OperationOutcome.Committed)
         {
             logger.LogWarning("Onboarding rejected {OperationId} {InvitationId} {AttemptId} {ActorId} at {Index}.",

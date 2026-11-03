@@ -1,5 +1,11 @@
 # Миграции SQL Server
 
+## Доверие enrollment (2026-11-03)
+
+С отдельного разрешения выполнена генерация `AddEnrollmentTrust` с Infrastructure как project/startup project, UptimeHarborDbContext, Debug, `--no-build` и BaseOutputPath `artifacts/compile-check/stage04-schema/`. Созданы `20261103105437_AddEnrollmentTrust`, designer и tooling snapshot. Up добавляет только enrollment_issuers/local_enrollment_issuers/local_enrollment_issuances, индексы и Restrict FK; Down удаляет эти три таблицы. Старые migrations вручную не изменялись.
+
+Генерация и metadata/model-diff не открывали соединение. Tool 10.0.11 предупредил о runtime 10.0.13. К БД ничего не применено; настоящие SQL Up/Down/locking/atomicity не проверены. Повторная генерация требует отдельного разрешения на новую точную команду.
+
 ## Локальная установка (2026-11-03)
 
 С отдельного разрешения пользователя выполнена точная команда: `dotnet ef migrations add AddLocalInstallationSetup --project .\UptimeHarbor.Infrastructure\UptimeHarbor.Infrastructure.csproj --startup-project .\UptimeHarbor.Infrastructure\UptimeHarbor.Infrastructure.csproj --context UptimeHarborDbContext --output-dir Persistence/Migrations --configuration MigrationCheck`.

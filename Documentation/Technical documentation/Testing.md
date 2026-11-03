@@ -1,5 +1,31 @@
 # Тестирование
 
+## Точка остановки этапа 04 (2026-11-03)
+
+Работа приостановлена по просьбе пользователя; при фиксации остановки новые builds/tests не запускались. Ниже последние результаты выполненной реализации, а не финальная приёмка 04. Предварительно проверены csproj/build hooks и изоляция выбранных тестов по `csharp-project-rules/references/build-validation.md`. Полный Infrastructure-набор с provider/БД-тестами не запускался.
+
+| Последняя проверка | Результат |
+| --- | --- |
+| Compile-check Web.Tests с зависимостями, TypeScriptCompileBlocked=true | 0 warnings / 0 errors |
+| Compile-check Infrastructure.Tests с зависимостями | 0 warnings / 0 errors; до последней правки preflight |
+| Web: ManagedRestart, EnrollmentClient, EnrollmentGateway, ManagedBootstrap, SetupComposition, SetupSecurity | 28 успешно, 0 ошибок/пропусков |
+| Web: ManagedInvitation отдельно после исправления schema2 → current schema | 1 успешно |
+| Infrastructure: только Installation namespace | 186 всего: 185 успешно, 1 ошибка SetupPreflightTests; исправлено требование связанного Bootstrap evidence intent, но **сборка и тест после исправления не повторены** |
+
+Web-сценарии используют production lifecycle/dispatcher/acceptance/reducer, настоящий локальный WAL и подставные SQL/native majority/HTTP boundaries. Проверены новый первый до Enable и отзыва setup, выдача приглашения, E1–E4 с потерянным reserve response, trust ref/file reconciliation, orphan/missing/corrupted artifacts, две peer-пробы, resume с новой lease/ProcessEpoch и ManagedRestart с новым Enable. Infrastructure включает локальную криптографию, live TLS policy/revocation/pin/expiry и файловые сценарии. Fake handlers проверяют production policy без sockets/listeners и настоящей сети; локальный WAL не доказывает реальные выборы, SQL или power-loss durability. Полная negative/crash матрица ещё не закрыта.
+
+Последние команды (запись для продолжения, при остановке не выполнялись):
+
+```powershell
+dotnet build tests/UptimeHarbor.Web.Tests/UptimeHarbor.Web.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/web-tests/ -p:TypeScriptCompileBlocked=true
+dotnet build tests/UptimeHarbor.Infrastructure.Tests/UptimeHarbor.Infrastructure.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/installation-infrastructure-tests/
+dotnet test --project tests/UptimeHarbor.Web.Tests/UptimeHarbor.Web.Tests.csproj --no-build --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/web-tests/ -- --filter-class UptimeHarbor.Tests.Web.Cluster.ManagedRestartTests --filter-class UptimeHarbor.Tests.Web.Cluster.EnrollmentClientTests --filter-class UptimeHarbor.Tests.Web.Cluster.EnrollmentGatewayTests --filter-class UptimeHarbor.Tests.Web.Cluster.ManagedBootstrapTests --filter-class UptimeHarbor.Tests.Web.Cluster.SetupCompositionTests --filter-class UptimeHarbor.Tests.Web.Cluster.SetupSecurityTests
+dotnet test --project tests/UptimeHarbor.Web.Tests/UptimeHarbor.Web.Tests.csproj --no-build --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/web-tests/ -- --filter-class UptimeHarbor.Tests.Web.Cluster.ManagedInvitationTests
+dotnet test --project tests/UptimeHarbor.Infrastructure.Tests/UptimeHarbor.Infrastructure.Tests.csproj --no-build --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/installation-infrastructure-tests/ -- --filter-class 'UptimeHarbor.Tests.Infrastructure.Installation.*'
+```
+
+Первое действие после разрешённого возобновления — пересобрать Infrastructure.Tests и повторить preflight/нужный Installation-фильтр с проверкой изоляции. Предыдущие зелёные результаты 03 ниже относятся к прежнему срезу, не ко всей текущей реализации. Frontend в последнем продолжении не менялся и не проверялся повторно. Ubuntu/TLS/ACL/fsync, SQL, runtime switching, реальные majority/elections и внешний ввод не проверены. [Остаток и известные проблемы 04](../Plans/node-onboarding-ui-2026-11-02-%28in-progress%29/04-enrollment-and-trust.md#результат).
+
 ## Локальный setup (этап 03)
 
 2026-11-03: перед запуском проверены конкретные csproj, tests/Directory.Build.props и доступные imports/build/restore файлы, а также код/инициализация выбранных тестов. Изменённые проекты не добавляют executable hooks. Проверки не запускают Web-host, SQL/SQLite, отдельный OS-процесс, Docker, browser или настоящую сеть. WebApplicationBuilder/DI Build в composition tests только строят граф; Start/Run не вызываются. Bot getMe проверен только с fake HttpMessageHandler. Полный Infrastructure project **не запускался**: его provider-набор требует БД и исключён точными фильтрами.

@@ -1,5 +1,7 @@
 # Persistence unit of work
 
+EnrollmentSigningUnitOfWork сохраняет локальный immutable issuer/IssueId/DER journal через ту же session; наружу DER возвращаются после commit. Majority/crypto/files не охватывать SQL transaction. Сценарий не создаёт OperationalCredential или вторую общую очередь согласования.
+
 LocalSetupUnitOfWork и OnboardingProgressUnitOfWork — отдельные сценарные scopes на существующей сессии. Revoke setup/hash/epoch/profile атомарны. RuntimeGeneration повторно проверяется перед transaction commit; сеть/файлы/runtime effect выполнять за пределами SQL transaction.
 
 - ClusterLocalInitializationUnitOfWork создаёт только точную LocalNodeState в пустой общей проекции; чужая identity/cursor/shared rows запрещают join без merge. Аккаунты/роль создаёт принятая история. Genesis validation не создаёт JournalPosition с индексом 0.

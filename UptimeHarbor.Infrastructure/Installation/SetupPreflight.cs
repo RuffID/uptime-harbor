@@ -6,7 +6,8 @@ using UptimeHarbor.Infrastructure.Cluster;
 namespace UptimeHarbor.Infrastructure.Installation;
 
 public class SetupPreflight(IInstallationInventory inventory, IOptions<InstallationOptions> installation,
-    IOptions<ClusterOptions> cluster, PreparedPeerEndpoint endpoint, InstallationLease lease)
+    IOptions<ClusterOptions> cluster, PreparedPeerEndpoint endpoint, InstallationLease lease,
+    ManagedStorageSeals? seals = null)
 {
     private static readonly HashSet<string> LOCAL_TABLES =
     [
@@ -22,7 +23,21 @@ public class SetupPreflight(IInstallationInventory inventory, IOptions<Installat
             return Reject("SchemaPreparationRequired");
         }
 
-        if (state.NonemptyTables.Any(item => item.Value && !LOCAL_TABLES.Contains(item.Key)))
+        bool restart = profile?.Phase is InstallationPhase.ClusterReady or InstallationPhase.ClusterQuarantine
+            or InstallationPhase.CatchingUp or InstallationPhase.AwaitingActivation;
+        if (restart)
+        {
+            if (seals is null || !seals.Exists)
+            {
+                return Reject("ManagedStorageSealRequired");
+            }
+
+            seals.Read(profile!);
+        }
+
+        bool signerIntent = profile?.Mode == "Bootstrap" && profile.AttemptId.HasValue && profile.Evidence is not null;
+        if (!restart && state.NonemptyTables.Any(item => item.Value && !LOCAL_TABLES.Contains(item.Key)
+            && !(signerIntent && item.Key is "local_enrollment_issuers" or "local_enrollment_issuances")))
         {
             return Reject("NonemptyInstallationUseMigration03a03b");
         }
@@ -47,14 +62,16 @@ public class SetupPreflight(IInstallationInventory inventory, IOptions<Installat
             return Reject("PreparedDirectPeerEndpointRequired");
         }
 
-        if (options.Compatibility != "2.0/2/2/2/1/6.10.0")
+        if (options.Compatibility != "2.0/2/2/2/1/6.10.0"
+            && options.Compatibility != UptimeHarbor.Infrastructure.Cluster.Onboarding.OnboardingProtocol.TRUST_COMPATIBILITY)
         {
             return Reject("OnboardingVersionMismatch");
         }
 
         foreach (string entry in Directory.EnumerateFileSystemEntries(options.StoragePath))
         {
-            if (Path.GetFileName(entry) != "installation.lock")
+            if (!restart && Path.GetFileName(entry) != "installation.lock"
+                && !(profile?.Mode == "Bootstrap" && profile.Evidence is not null && Path.GetFileName(entry) == "manifest.json"))
             {
                 return Reject("ExistingClusterStorageForbidden");
             }

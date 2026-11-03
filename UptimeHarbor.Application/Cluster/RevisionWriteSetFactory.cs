@@ -90,6 +90,7 @@ public static class RevisionWriteSetFactory
         records.AddRange(MonitoringProjection.Changes(before, after));
         records.AddRange(ClusterOperationsProjection.Changes(before, after));
         records.AddRange(OnboardingSnapshot.Changes(before, after));
+        records.AddRange(EnrollmentTrustSnapshot.Changes(before, after));
 
         return new ProjectionWriteSet
         {

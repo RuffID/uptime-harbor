@@ -41,6 +41,9 @@ public class LocalOnboardingAttemptRepository(UptimeHarborDbContext context) : I
             ?? throw new InvalidDataException("LocalAttemptInvalid");
         bool identityChanged = original.Request != attempt.Request || original.RequestDigest != attempt.RequestDigest
             || original.PrivateKeyReference != attempt.PrivateKeyReference
+            || original.BrowserOrigin != attempt.BrowserOrigin || original.CsrDer != attempt.CsrDer
+            || original.TrustReference is not null && original.TrustReference != attempt.TrustReference
+            || original.TrustManifest is not null && original.TrustManifest != attempt.TrustManifest
             || !original.OperationIds.OrderBy(item => item.Key).SequenceEqual(attempt.OperationIds.OrderBy(item => item.Key));
         if (row.Revision != expectedRevision || attempt.Revision != expectedRevision + 1 || identityChanged)
         {

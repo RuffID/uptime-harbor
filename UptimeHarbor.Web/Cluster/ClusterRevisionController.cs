@@ -25,12 +25,16 @@ public class ClusterRevisionController(RevisionDispatcher dispatcher, IOptions<C
             byte[] bytes = await RevisionBatchCodec.ReadAsync(Request.Body, options.Value.BatchMaxBytes, cancellationToken);
             IReadOnlyList<RevisionCommand> commands = RevisionBatchCodec.Decode(bytes, options.Value);
             if (commands.Any(command => ClusterOperationValidation.IsInternal(command) || OnboardingCommands.IsCoordinator(command)
+                || OnlineLifecycleCommands.IsOnline(command)
                 || command.OriginNodeId != peer.FromNodeId
                 || command.Monitoring is not null && command.Monitoring.StorageGeneration != peer.StorageGeneration
                 || command.Delivery is not null && command.Delivery.StorageGeneration != peer.StorageGeneration
                 || command.Operation is not null && command.Operation.StorageGeneration != peer.StorageGeneration
+                || command.EnrollmentTrust is not null && (command.Action == "InitializeCluster"
+                    || command.EnrollmentTrust.StorageGeneration != peer.StorageGeneration
+                    || command.EnrollmentTrust.CoordinatorAtUtc.HasValue || options.Value.CommandSchema != 3)
                 || command.Onboarding is not null && (command.Onboarding.StorageGeneration != peer.StorageGeneration
-                    || command.Onboarding.CoordinatorAtUtc.HasValue || options.Value.CommandSchema != 2)))
+                    || command.Onboarding.CoordinatorAtUtc.HasValue || options.Value.CommandSchema != command.Schema)))
             {
                 return StatusCode(StatusCodes.Status403Forbidden);
             }

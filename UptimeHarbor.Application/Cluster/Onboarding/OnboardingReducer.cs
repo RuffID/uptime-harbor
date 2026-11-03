@@ -42,7 +42,8 @@ public static class OnboardingReducer
         {
             OnboardingAttempt existing = invitation.Attempt;
             bool same = existing.Request == data.Request && existing.RequestDigest == data.RequestDigest
-                && existing.BootId == data.BootId && existing.ProcessEpoch == data.ProcessEpoch;
+                && existing.BootId == data.BootId && existing.ProcessEpoch == data.ProcessEpoch
+                && existing.BootChallenge == data.BootChallenge;
             if (same && invitation.Status == InvitationStatus.Reserved)
             {
                 if (!InvitationSecrets.Matches(invitation.Verifier, data.Verifier!))
@@ -221,7 +222,7 @@ public static class OnboardingReducer
         }
 
         OnboardingAttempt attempt = new(request, data.RequestDigest!, command.OperationId, now.AddMinutes(30), invitation.Delegation,
-            data.BootId, 1, now.AddMinutes(2), now);
+            data.BootId, 1, now.AddMinutes(2), now) { BootChallenge = data.BootChallenge };
         result = Put(image, invitation with
         {
             Status = InvitationTransitions.Change(invitation.Status, InvitationStatus.Reserved), Attempt = attempt

@@ -42,6 +42,13 @@ public class ClusterLifecycleWorker(ClusterPeerRuntime runtime, ClusterRuntimeSt
 
     public async Task TickAsync(CancellationToken token)
     {
+        if (installation?.Value.Setup == true)
+        {
+            await using AsyncServiceScope managedScope = scopes.CreateAsyncScope();
+            await managedScope.ServiceProvider.GetRequiredService<ManagedBootstrapLifecycle>().TickAsync(token);
+            return;
+        }
+
         ConsensusStatus? status = state.Consensus;
         RevisionImage? image = revisions.Current;
         if (!revisions.Available || image is null || status is null || !status.IsLeader

@@ -1,5 +1,7 @@
 # Общие данные сетки
 
+EnrollmentIssuer — публичная ProjectionRecord ограниченного application CA с фиксированным purpose, owner storage, validity ≤3 лет и необратимыми retirement/revocation. Private key и local issuance journal не входят в эту модель или shared snapshot. Сам issuer не предоставляет peer authority.
+
 InvitationStatus и OnboardingAttemptStatus задают необратимые переходы приглашения и последовательные шаги попытки. OnboardingProjection — одна запись принятого состояния с verifier, без plaintext; её terminal состояние сохраняется вместе с общей историей.
 
 PendingOperation сохраняет версию command protocol/schema при создании; прежние вызовы используют v1. Для новых schema-2 команд metadata не должна утверждать v1, а payload protection сохраняет собственный формат v1.

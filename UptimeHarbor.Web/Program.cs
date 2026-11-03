@@ -35,7 +35,7 @@ builder.Services
     .AddApplicationConfiguration(builder.Configuration)
     .AddInfrastructure(builder.Configuration)
     .AddWebPresentation()
-    .AddClusterWeb();
+    .AddClusterWeb(builder.Configuration);
 
 var app = builder.Build();
 

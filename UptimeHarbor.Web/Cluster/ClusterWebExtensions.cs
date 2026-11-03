@@ -12,7 +12,7 @@ namespace UptimeHarbor.Web.Cluster;
 
 public static class ClusterWebExtensions
 {
-    public static IServiceCollection AddClusterWeb(this IServiceCollection services)
+    public static IServiceCollection AddClusterWeb(this IServiceCollection services, IConfiguration? configuration = null)
     {
         services.AddOptions<InstallationOptions>();
         services.TryAddSingleton<InstallationState>();
@@ -26,6 +26,13 @@ public static class ClusterWebExtensions
         services.AddSingleton<IClusterAdministrationState, AcceptedClusterAdministrationState>();
         services.AddSingleton<IMembershipProtocol, DotNextMembershipProtocol>();
         services.AddSingleton<IConsensusWriter, ClusterConsensusWriter>();
+        services.TryAddSingleton<IEnrollmentSigningAuthorization, EnrollmentSigningAuthorization>();
+        services.TryAddSingleton<IEnrollmentReadBarrier, EnrollmentReadBarrier>();
+        if (configuration?["Installation:InstallationIntent"] == "Setup")
+        {
+            services.TryAddSingleton<IOnlineGrantSigningAuthorization, OnlineGrantSigningAuthorization>();
+            services.AddScoped<ManagedBootstrapLifecycle>();
+        }
         services.AddSingleton<RevisionDispatcher>();
         services.AddSingleton<IOnboardingAcceptance, OnboardingAcceptance>();
         services.AddRateLimiter(options => options.AddPolicy("onboarding-administrator", context =>

@@ -53,7 +53,7 @@ public static class RecoveryBaselineFactory
             RecoveryBaseline = baseline, Operations = operations, Onboarding = null, OnboardingContracts = null,
             Monitoring = source.Monitoring with { Nodes = source.Monitoring.Nodes.Add(target.NodeId, target.StorageGeneration) }
         };
-        HashSet<string> operationalTypes = [typeof(ClusterMember).FullName!, typeof(PeerTrustCredential).FullName!, typeof(MembershipChange).FullName!, typeof(OnboardingProjection).FullName!];
+        HashSet<string> operationalTypes = [typeof(ClusterMember).FullName!, typeof(PeerTrustCredential).FullName!, typeof(MembershipChange).FullName!, typeof(OnboardingProjection).FullName!, typeof(EnrollmentIssuer).FullName!];
         ImmutableArray<SharedSnapshotRow>.Builder rows = ImmutableArray.CreateBuilder<SharedSnapshotRow>();
         foreach (SharedSnapshotRow row in source.ProjectionRows.Where(row => !operationalTypes.Contains(row.Entity)))
         {

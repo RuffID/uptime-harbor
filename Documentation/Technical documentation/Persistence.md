@@ -1,5 +1,13 @@
 # Persistence и транзакции
 
+## Issuer и signing journal (часть этапа 04)
+
+`enrollment_issuers` — общая ProjectionRecord публичной accepted регистрации, без private key; изменения формирует EnrollmentTrustSnapshot в том же projection write set. Snapshot сравнивает issuer rows с typed registry, запрещает orphan projection и сохраняет прежний registry только в recovery history. `local_enrollment_issuers` и `local_enrollment_issuances` локальны и не входят в SnapshotSchema. Первый содержит AES key ref/DER/digests/exact install identity; второй — immutable IssueId/request/template/authorization/DER. Restrict FK связывает local issuance с local issuer. Genesis index=0 допустим только с отдельным GenesisId; это не OperationalCredential.
+
+EnrollmentSigningUnitOfWork использует прежнюю scoped session. DER возвращаются после SaveChanges, retry возвращает исходные DER; неизвестный commit не объявляется успехом. Отдельные locks сериализуют private-key effect и короткий journal commit. Provider-level atomicity/constraints/crash fsync не проверены. [Миграция](Database%20migrations.md#доверие-enrollment-2026-11-03), [контракты](Onboarding%20contracts.md#промежуточная-граница-этапа-04-2026-11-03).
+
+LocalOnboardingAttempt JSON дополнен immutable origin/CSR, authenticated descriptor и trust manifest/ref; новая SQL schema для этих полей не требуется. Trust intent записывается до protected файла, повтор завершает только прежние bytes. Accepted Reserve удаляет inline protected invitation. EnrollmentCommandJournal хранит исходные commands/serial/template/OperationIds до consensus. ManagedStorageSeals после snapshot publication и SQL checkpoint сохраняет AEAD provenance install/profile/manifest/head/snapshot; normal apply первого обновляет checkpoint. Поломка refs, SQL rollback, orphan/unknown effect закрывают recovery; файлы не выводят accepted authority из CA signature. Нагрузочная стоимость checkpoint после каждого apply и provider atomicity отдельно не проверены.
+
 Приглашения этапа 02 используют onboarding_invitations и прежний projection UoW: запись состояния, decision, receipt и cursor составляют один accepted write set. Этап 03 реализует локальные CAS/UoW-контракты попытки. [Контракты и схема](Onboarding%20contracts.md), [миграции](Database%20migrations.md). Provider-level atomicity в этой задаче не проверена.
 
 ## Локальный setup (этап 03)

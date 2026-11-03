@@ -1,10 +1,16 @@
 # Web-приложение
 
+## Частичный backend этапа 04
+
+OnboardingAcceptance распознаёт закрытые schema-3 issuer/genesis commands, проверяет crypto public anchor и назначает stamp после majority barrier. InitializeCluster не принимается из peer command batch; остальная issuer administration требует того же authenticated peer storage и текущей accepted авторизации. EnrollmentSigningAuthorization использует ClusterRaftHandle без зависимости от runtime/dispatcher. Managed TLS server pin привязан к точному endpoint до отправки HTTP.
+
+Setup prepare подключает production Bootstrap нового первого; отдельный authenticated/antiforgery POST `/api/setup/enroll` выполняет E1–E4. Dedicated anonymous browser HTTPS routes `/internal/enrollment/v1/*` принимают только фиксированный canonical PoP protocol, system-TLS origin/Host, без cookies/Authorization; лимиты 64 KiB/10 секунд, 30 запросов и 5 отказов/минуту. `/internal/enrollment-peer/v1/probe` обслуживается до runtime только на Direct peer listener с exact mTLS/process/registry проверками; не проходит в commands/Raft. Общий peer authentication не ослаблен. Full Join UI пока не подключён. [Фактическая граница](Onboarding%20contracts.md#промежуточная-граница-этапа-04-2026-11-03).
+
 ## Локальная первоначальная настройка (этап 03)
 
 `/Setup` — минимальная отдельная страница локального входа и E0-подготовки нового первого/второго узла. `/api/setup/session|login|logout|status|prepare` использует собственную cookie scheme, bounded DTO/ServiceResult, antiforgery, exact HTTPS Origin/Host, rate limit, no-store и общие security headers. Setup identity не открывает common API; общий cookie не даёт setup-права. После login обновляется CSRF token, пароли очищаются в finally, автоматического повтора mutation нет. PageModel не загружает рабочие данные.
 
-До online activation общий API закрыт точным middleware gate; разрешены только собственные routes/assets. Первый подготавливает отдельного общего администратора, второй не создаёт Bootstrap. Ответ preparation означает сохранённую локальную попытку. Production authority/runtime admission недоступны: настоящие Bootstrap/Join, приглашение из нового первого, мастер подключения и список узлов не включены. [Cookies, durable фазы, TLS и полный inventory](Local%20installation%20setup.md).
+До доказанного online Enable общий API закрыт middleware gate. Первый подготавливает отдельного общего администратора, второй не создаёт Bootstrap. Production Bootstrap открывает общий доступ и выдачу приглашений после accepted результата и отзыва setup; E1–E4 второго этого не делает. Мастер и список узлов остаются 06. [Cookies, durable фазы, TLS и inventory](Local%20installation%20setup.md).
 
 ## API приглашений (2026-11-03)
 

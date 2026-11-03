@@ -7,6 +7,13 @@ public record LocalOnboardingAttempt(Guid AttemptId, EnrollmentRequest Request, 
     string PrivateKeyReference, long Revision, ImmutableDictionary<string, Guid> OperationIds,
     string? ProtectedInvitation, long? ReservationIndex)
 {
+    public string? BrowserOrigin { get; init; }
+    public string? CsrDer { get; init; }
+    public EnrollmentDescriptor? Descriptor { get; init; }
+    public string? TrustReference { get; init; }
+    public string? TrustManifest { get; init; }
+    public EnrollmentPeerProbeEvidence? PeerProbes { get; init; }
+
     public LocalOnboardingAttempt Reserved(long index)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(index);

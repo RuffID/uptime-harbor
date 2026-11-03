@@ -1,5 +1,6 @@
 using UptimeHarbor.Application.Cluster;
 using UptimeHarbor.Application.Cluster.Models;
+using UptimeHarbor.Infrastructure.Cluster.Onboarding;
 
 namespace UptimeHarbor.Infrastructure.Cluster;
 
@@ -15,7 +16,8 @@ public class AcceptedPeerTrustSource(RevisionStateStore state, TimeProvider time
     public ValueTask<IReadOnlyList<PeerCredential>> ListAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        ClusterOperationsImage? operations = state.Current?.Operations;
+        RevisionImage? image = state.Current;
+        ClusterOperationsImage? operations = image?.Operations;
         if (operations is null)
         {
             return ValueTask.FromResult<IReadOnlyList<PeerCredential>>([]);
@@ -26,6 +28,11 @@ public class AcceptedPeerTrustSource(RevisionStateStore state, TimeProvider time
         {
             OperationalNode? node = operations.Nodes.GetValueOrDefault(credential.NodeId);
             if (node is null || node.Removed || credential.RevokedAtUtc.HasValue || credential.ExpiresAtUtc <= time.GetUtcNow())
+            {
+                continue;
+            }
+
+            if (!EnrollmentPeerTrustPolicy.IsActive(image!, node, credential, time.GetUtcNow()))
             {
                 continue;
             }

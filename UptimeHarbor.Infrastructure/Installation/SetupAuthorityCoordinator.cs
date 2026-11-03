@@ -122,7 +122,8 @@ public class SetupAuthorityCoordinator(ILocalSetupUnitOfWork work, InstallationS
             if (profile.Mode == "Bootstrap")
             {
                 exact = exact && evidence.Kind == SetupAuthorityEvidenceKind.GenesisPrepared
-                    && evidence.AcceptedIndex > 0 && evidence.Digest == profile.BootstrapAccountDigest;
+                    && evidence.AcceptedIndex == 0 && evidence.Genesis is not null
+                    && evidence.Digest == profile.BootstrapAccountDigest;
             }
 
             if (!exact)
@@ -132,6 +133,35 @@ public class SetupAuthorityCoordinator(ILocalSetupUnitOfWork work, InstallationS
             }
 
             next = next with { Evidence = JsonSerializer.Serialize(evidence), ErrorCode = null };
+            if (profile.Mode == "Bootstrap")
+            {
+                PreparedGenesisValidation.Validate(profile, evidence, time.GetUtcNow());
+                next = next with
+                {
+                    CredentialId = evidence.Genesis!.Template.IssueId,
+                    TrustAnchorFingerprint = evidence.Genesis.Authorization.IssuerCertificateDigest
+                };
+            }
+            else if (evidence.Enrollment is EnrollmentDescriptor descriptor)
+            {
+                bool bound = descriptor.Request.AttemptId == profile.AttemptId && descriptor.Request.NodeId == profile.NodeId
+                    && descriptor.Request.StorageGeneration == profile.StorageGeneration && descriptor.Request.PeerUri == profile.PeerAddress
+                    && descriptor.RequestDigest == evidence.Digest && descriptor.Issuance is not null
+                    && descriptor.CertificateDer is not null && evidence.TrustReference is not null;
+                if (!bound)
+                {
+                    return await RecordAsync(profile, ServiceResult<SetupAuthorityEvidence>.Fail(
+                        ServiceErrorType.Conflict, "AuthorityEvidenceInvalid"), token);
+                }
+
+                AcceptedEnrollmentIssuer issuer = descriptor.Issuers.Single(item => item.Epoch == descriptor.Issuance!.IssuerEpoch);
+                next = next with
+                {
+                    ClusterId = descriptor.Request.ClusterId, ClusterGeneration = descriptor.Request.Generation,
+                    CredentialId = descriptor.Issuance!.IssueId, TrustAnchorFingerprint = issuer.CertificateDigest,
+                    BotId = descriptor.BotId
+                };
+            }
         }
         else
         {

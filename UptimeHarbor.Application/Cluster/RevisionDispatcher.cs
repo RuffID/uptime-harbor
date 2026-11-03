@@ -114,7 +114,7 @@ public class RevisionDispatcher(IConsensusWriter consensus, RevisionStateStore a
 
         // Окончательная повторная авторизация выполняется reducer на позиции принятия.
         RevisionImage before = image;
-        if (OnboardingCommands.IsOnboarding(command))
+        if (OnboardingCommands.IsOnboarding(command) || EnrollmentTrustCommands.IsTrust(command) || OnlineLifecycleCommands.IsOnline(command))
         {
             if (onboarding is null)
             {
@@ -132,7 +132,7 @@ public class RevisionDispatcher(IConsensusWriter consensus, RevisionStateStore a
             throw new InvalidOperationException("DecisionUnavailable");
         }
 
-        if (OnboardingCommands.IsOnboarding(command))
+        if (OnboardingCommands.IsOnboarding(command) || EnrollmentTrustCommands.IsTrust(command) || OnlineLifecycleCommands.IsOnline(command))
         {
             onboardingAudit?.Accepted(before, image, command, result);
         }

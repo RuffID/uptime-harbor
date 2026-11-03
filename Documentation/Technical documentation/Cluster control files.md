@@ -1,5 +1,7 @@
 # Локальные control-файлы
 
+Online путь 04 не подписывает control-файлы и не снимает blocked/maintenance. GenesisWriterPermit допускает только точные InitializeCluster/BootstrapAccount bytes/IDs; это не operator signature/isolation attestation. FreshBootstrap и ManagedRestart нового первого подключены к отдельным accepted Process/Activation/Enable validators. AEAD managed-storage.seal — только локальный checkpoint provenance, не ручной fencing и не offline recovery grant. Missing/truncated WAL, backup/restore/recovery/maintenance markers закрывают managed restart; команды ниже сохраняют прежний offline контракт. [Граница trust](Onboarding%20contracts.md#промежуточная-граница-этапа-04-2026-11-03).
+
 Это контракт офлайн-инструмента и подписанного локального управления этапа 09. [Последовательности запуска](Cluster%20operations.md) и [восстановления](Cluster%20recovery.md) обязательны. Команды ниже — примеры точного синтаксиса для отдельно разрешённой операции, в задаче они не запускались. Абсолютные пути и примерные IDs заменить значениями выбранной установки; не использовать примерные доказательства из документа как фактические.
 
 ## Офлайн-команды

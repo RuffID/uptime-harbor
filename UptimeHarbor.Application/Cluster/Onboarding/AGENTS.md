@@ -8,4 +8,6 @@
 
 Администратор/credential revision проверяются на accepted image при каждом критичном шаге. Продолжение после паузы требует нового reauthentication; poll не является прогрессом. Порты certificate/admission по умолчанию закрыты; тестовые данные не открывают production recovery/activation.
 
-Общие data contracts и codec здесь не реализуют genesis/import/Telegram dispatcher. Локальные storage-контракты не входят в общий snapshot; их реализация принадлежит setup этапу.
+Schema-3 EnrollmentTrust commands используют прежний reducer/projection и отдельный bounded payload. InitializeCluster требует точного GenesisAuthorization из trusted initial image, создаёт Node до credential и не принимает самоподписанное входящее разрешение. Issuer retirement/revocation сохраняют public anchor/history. Snapshot сверяет issuer owner/revision/digests и projection rows. Schema-2 WAL сохраняет прежние semantics; новые online команды требуют schema 3.
+
+Schema-3 попытка сохраняет BootChallenge и IssuanceAuthorizationIndex. Resume ждёт предыдущую lease и меняет boot/challenge/epoch; критичные продолжения проверяют issuer/delegation/credential revocation. CSR extension policy и private signing принадлежат Infrastructure; record/digest сами authority не создают. Import/Telegram dispatcher здесь не реализованы. Локальные signing ports не входят в общий snapshot.

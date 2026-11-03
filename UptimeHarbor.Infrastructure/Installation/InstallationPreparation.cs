@@ -11,6 +11,7 @@ using UptimeHarbor.Application.Installation;
 using UptimeHarbor.Application.Users;
 using UptimeHarbor.Domain.Cluster;
 using UptimeHarbor.Infrastructure.Cluster;
+using UptimeHarbor.Application.Cluster.Onboarding;
 
 namespace UptimeHarbor.Infrastructure.Installation;
 
@@ -18,7 +19,8 @@ namespace UptimeHarbor.Infrastructure.Installation;
 public class InstallationPreparation(ILocalSetupUnitOfWork work, InstallationState state,
     SetupAccountLogin login, SetupPreflight preflight, LocalSecretStore secrets,
     IAccountCredentialService credentials, IOptions<InstallationOptions> options,
-    TimeProvider time, ILogger<InstallationPreparation> logger, ISetupBotIdentity botIdentity)
+    TimeProvider time, ILogger<InstallationPreparation> logger, ISetupBotIdentity botIdentity,
+    IEnrollmentSigningRepository? signing = null)
 {
     public async Task<ServiceResult<SetupStatus>> PrepareAsync(SetupSession session,
         SetupPreparationRequest request, CancellationToken token)
@@ -33,7 +35,13 @@ public class InstallationPreparation(ILocalSetupUnitOfWork work, InstallationSta
 
             LocalInstallationProfile profile = await work.Profiles.ReadAsync(token)
                 ?? throw new InvalidDataException("InstallationProfileMissing");
-            secrets.ReconcileAll(profile);
+            IReadOnlyList<EnrollmentIssuerReference>? issuers = null;
+            if (signing is not null)
+            {
+                issuers = await signing.ListIssuersAsync(token);
+            }
+
+            secrets.ReconcileAll(profile, issuers);
             if (profile.AttemptId.HasValue)
             {
                 if (profile.Mode != request.Mode || !MatchesPreparedRequest(profile, request))

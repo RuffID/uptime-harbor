@@ -64,6 +64,19 @@ public static class RevisionCodec
             command = command with { Onboarding = command.Onboarding with { CoordinatorAtUtc = null, CoordinatorTerm = 0 } };
         }
 
+        if (command.EnrollmentTrust is not null)
+        {
+            command = command with { EnrollmentTrust = command.EnrollmentTrust with
+            {
+                CoordinatorAtUtc = null, CoordinatorTerm = 0, GenesisMembershipVersion = 0
+            } };
+        }
+
+        if (command.OnlineLifecycle is not null)
+        {
+            command = command with { OnlineLifecycle = command.OnlineLifecycle with { CoordinatorAtUtc = null, CoordinatorTerm = 0 } };
+        }
+
         return Digest(Encode(command));
     }
 
@@ -115,11 +128,13 @@ public static class RevisionCodec
 
     private static void ValidateLeaf(RevisionCommand command)
     {
+        bool trust = EnrollmentTrustCommands.IsTrust(command);
+        bool online = OnlineLifecycleCommands.IsOnline(command);
         bool onboarding = OnboardingCommands.IsOnboarding(command);
         bool delivery = DeliveryCommands.IsSystem(command);
         bool operation = ClusterOperationValidation.IsOperation(command);
-        bool system = MonitoringCommandValidation.IsSystem(command) || delivery || operation || onboarding;
-        if ((!onboarding && command.Schema != 1) || !system && command.Action is not ("Upsert" or "Delete" or "Cancel" or "Replace" or "BootstrapAccount" or "TestDelivery")
+        bool system = MonitoringCommandValidation.IsSystem(command) || delivery || operation || onboarding || trust || online;
+        if ((!onboarding && !trust && !online && command.Schema != 1) || !system && command.Action is not ("Upsert" or "Delete" or "Cancel" or "Replace" or "BootstrapAccount" or "TestDelivery")
             || !Enum.IsDefined(command.EntityKind))
         {
             throw new InvalidDataException("UnsupportedCommand");
@@ -132,6 +147,28 @@ public static class RevisionCodec
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(command.ClusterGeneration);
         ArgumentOutOfRangeException.ThrowIfNegative(command.BaseRevision);
         StorageGuards.Utc(command.CreatedAtUtc);
+        if (online)
+        {
+            OnlineLifecycleCommands.Validate(command);
+            return;
+        }
+
+        if (command.OnlineLifecycle is not null)
+        {
+            throw new InvalidDataException("UnexpectedOnlineLifecyclePayload");
+        }
+
+        if (trust)
+        {
+            EnrollmentTrustCommands.Validate(command);
+            return;
+        }
+
+        if (command.EnrollmentTrust is not null)
+        {
+            throw new InvalidDataException("UnexpectedEnrollmentTrustPayload");
+        }
+
         if (system)
         {
             if (onboarding)

@@ -1,6 +1,6 @@
 namespace UptimeHarbor.Infrastructure.Cluster.Onboarding;
 
-/// <summary>Локальные ограничения будущего enrollment endpoint; источник задаёт доверенный transport.</summary>
+/// <summary>Общий лимит 30 запросов/минуту; 5 отказов/минуту блокируют IP. Источник задаёт transport.</summary>
 public class EnrollmentRateLimiter(TimeProvider time)
 {
     private readonly object sync = new();
@@ -27,9 +27,17 @@ public class EnrollmentRateLimiter(TimeProvider time)
                 return false;
             }
 
-            origins[trustedOrigin] = (started, count + 1);
             endpointCount++;
             return true;
+        }
+    }
+
+    public void Rejected(string trustedOrigin)
+    {
+        lock (sync)
+        {
+            (long started, int count) = origins.GetValueOrDefault(trustedOrigin, (time.GetTimestamp(), 0));
+            origins[trustedOrigin] = (started, count + 1);
         }
     }
 }

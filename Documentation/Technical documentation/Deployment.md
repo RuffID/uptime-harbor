@@ -1,10 +1,12 @@
 # Сборка и развёртывание
 
+Этап 04 ещё не образует готовый rollout. Production новый первый Bootstrap и trust/admission E1–E4 подключены; полный Join, перенос, sender и мастер закрыты до своих этапов. AddEnrollmentTrust сгенерирована с отдельного разрешения без подключения/применения к БД. Перед включением отдельно подготовить все voters/schema/Direct peer endpoint. Изолированные crypto/WAL/files/HTTP doubles не проверяют Ubuntu/TLS/ACL/fsync, SQL или переключение окружения. [Реализованность](Onboarding%20contracts.md#промежуточная-граница-этапа-04-2026-11-03).
+
 ## Подготовленный setup (этап 03)
 
 Новый путь требует отдельного Direct/TLS-passthrough peer listener, подготовленного до Build, browser HTTPS, совместимой SQL schema и persistent state/secret/keys/storage volumes с ограниченными правами. Wrapping key создаётся приложением автоматически; дополнительный установочный секрет и Windows DPAPI не требуются. Пути/схема/listeners/ACL не исправляются HTTP-запросом, Nginx из приложения не управляется. Конфигурация установки, Docker и окружение в этой задаче не изменялись.
 
-Добавлен supervisor для переходов без перезапуска Web-host, однако настоящий issuer/activation адаптер этапа 04 отсутствует и рабочие gates закрыты. Изолированные doubles проверяют stop/drain/generation/start и не разрешают production Bootstrap/Join. Ubuntu/TLS/ACL/fsync, настоящий второй процесс и переключение работающего окружения отдельно не проверены; до отдельной внешней приёмки это не готовый rollout. [Подробности и inventory](Local%20installation%20setup.md).
+Supervisor выполняет подготовленные переходы без перезапуска Web-host. Production issuer/activation нового первого и отдельный enrollment client/server подключены; двойная TLS-проба проходит фиксированные peer endpoints без команд. Managed storage seal и snapshots входят в локальную согласованную сохранность; restore/cloning этим не разрешены. Ubuntu/TLS/ACL/fsync, второй OS-процесс и переключение живого окружения не проверены. [Inventory и границы](Local%20installation%20setup.md).
 
 ## Эксплуатация распределённого режима
 

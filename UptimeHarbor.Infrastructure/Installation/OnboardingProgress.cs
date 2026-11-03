@@ -42,6 +42,7 @@ public class OnboardingProgress(IOnboardingProgressUnitOfWork work, LocalSecretS
         {
             if (existing.Request != intent.Request || existing.RequestDigest != intent.RequestDigest
                 || existing.PrivateKeyReference != intent.PrivateKeyReference
+                || existing.BrowserOrigin != intent.BrowserOrigin || existing.CsrDer != intent.CsrDer
                 || !existing.OperationIds.OrderBy(item => item.Key).SequenceEqual(intent.OperationIds.OrderBy(item => item.Key)))
             {
                 throw new InvalidDataException("AttemptPayloadChanged");

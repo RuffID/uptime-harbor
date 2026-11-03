@@ -2,7 +2,7 @@
 
 Singleton компоненты читают IOptions<ClusterOptions> через immutable active profile в точке операции. Peer handler нового Setup выбирает динамический credential/trust snapshot, не использует прежние PEM paths, не переиспользует TLS pools; DNS/IP проверяется при каждом connect. Legacy proxy/CRL boundary сохраняется. CanWork/consensus health/resign не зависят от Telegram; sender gate остаётся отдельным. Snapshot publication проверяет generation перед rename/публикацией.
 
-Onboarding/ добавляет безопасное администрирование и закрытую enrollment authority в прежний pipeline. Snapshot валидирует onboarding/projection и архив всех recovery ancestors; старую compatibility отвергать до записи. Реальные issuer/PoP/grants, local setup и native новый Join здесь ещё не реализованы.
+Onboarding/ добавляет issuer/PoP/signing journal/HTTPS client и schema-3 trust commands к прежнему pipeline. Snapshot валидирует issuer/onboarding projection и архив recovery ancestors; trust v3 нельзя читать как v2. End-to-end enrollment, tagged grants/recovery, managed Bootstrap/Restart ещё не подключены; production authority закрыта. PeerServerPin связывает managed TLS certificate с точной accepted server authority до HTTP, дополнительно к name/chain checks. Legacy Direct CRL/proxy policy сохраняется.
 
 - SnapshotMonitoringCompatibility после проверки manifest/hash/chunks преобразует только точные прежние monitoring rows в единый MonitoredServer. Сохранять ID, родителя, monitoring metadata и binding references; неизвестные поля отвергать. После преобразования остаются обязательными строгие schema/image проверки. Старые узлы новый projection format не читают; смешанный rollout не поддерживается.
 

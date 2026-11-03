@@ -30,7 +30,7 @@ public class ActiveClusterOptions(IOptionsFactory<ClusterOptions> factory, Insta
                     ClusterOptions next = JsonSerializer.Deserialize<ClusterOptions>(JsonSerializer.Serialize(initial))!;
                     if (profile.Mode is "Bootstrap" or "Join")
                     {
-                        next.Mode = profile.Mode;
+                        next.Mode = profile.ManagedRestart ? "Restart" : profile.Mode;
                         next.ClusterId = profile.ClusterId ?? Guid.Empty;
                         next.Generation = profile.ClusterGeneration ?? 0;
                         next.CredentialId = profile.CredentialId ?? Guid.Empty;
@@ -39,6 +39,18 @@ public class ActiveClusterOptions(IOptionsFactory<ClusterOptions> factory, Insta
                         next.StorageGeneration = profile.StorageGeneration ?? Guid.Empty;
                         next.PublicUri = profile.PeerAddress ?? string.Empty;
                         next.ExpectedBotId = profile.BotId;
+                        if (profile.Evidence is not null)
+                        {
+                            SetupAuthorityEvidence? evidence = JsonSerializer.Deserialize<SetupAuthorityEvidence>(profile.Evidence);
+                            if (evidence?.Genesis is not null || evidence?.Enrollment is not null)
+                            {
+                                next.ProtocolMajor = 3;
+                                next.ProtocolMinor = 0;
+                                next.CommandSchema = 3;
+                                next.SnapshotFormat = 3;
+                                next.SqlSchema = 3;
+                            }
+                        }
                     }
 
                     active = next;

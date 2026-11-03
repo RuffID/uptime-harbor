@@ -648,6 +648,91 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.EnrollmentIssuer", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("ClusterGeneration")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ClusterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Fingerprint")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("char(64)")
+                        .IsFixedLength();
+
+                    b.Property<long>("LogIndex")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("NodeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("NotAfterUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("NotBeforeUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PublicCertificate")
+                        .IsRequired()
+                        .HasMaxLength(16384)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Purpose")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<DateTime?>("RetiredAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("RevokedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("SpkiDigest")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("char(64)")
+                        .IsFixedLength();
+
+                    b.Property<Guid>("StorageGeneration")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("Term")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Fingerprint")
+                        .IsUnique();
+
+                    b.HasIndex("SpkiDigest")
+                        .IsUnique();
+
+                    b.HasIndex("NodeId", "StorageGeneration");
+
+                    b.HasIndex("ClusterId", "ClusterGeneration", "LogIndex");
+
+                    b.ToTable("enrollment_issuers", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_enrollment_issuers_lifetime", "[NotAfterUtc] > [NotBeforeUtc] AND [NotAfterUtc] <= DATEADD(year, 3, [NotBeforeUtc])");
+
+                            t.HasCheckConstraint("ck_enrollment_issuers_position", "[ClusterGeneration] > 0 AND [LogIndex] > 0 AND [Term] > 0");
+
+                            t.HasCheckConstraint("ck_enrollment_issuers_purpose", "[Purpose] = 'UptimeHarbor.EnrollmentPeer.v1'");
+
+                            t.HasCheckConstraint("ck_enrollment_issuers_transitions", "([RetiredAtUtc] IS NULL OR [RetiredAtUtc] >= [NotBeforeUtc]) AND ([RevokedAtUtc] IS NULL OR [RevokedAtUtc] >= [NotBeforeUtc])");
+                        });
+                });
+
             modelBuilder.Entity("UptimeHarbor.Domain.Cluster.IncidentEvent", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1910,6 +1995,132 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                     b.ToTable("telegram_chats", (string)null);
                 });
 
+            modelBuilder.Entity("UptimeHarbor.Infrastructure.Cluster.Onboarding.LocalEnrollmentIssuanceRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("AttemptId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("AuthorizationIndex")
+                        .HasColumnType("bigint");
+
+                    b.Property<byte[]>("CertificateDer")
+                        .IsRequired()
+                        .HasMaxLength(65536)
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<string>("CertificateDigest")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("char(64)")
+                        .IsFixedLength();
+
+                    b.Property<Guid?>("GenesisId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("IssuerEpoch")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("RequestDigest")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("char(64)")
+                        .IsFixedLength();
+
+                    b.Property<string>("TemplateDigest")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("char(64)")
+                        .IsFixedLength();
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AttemptId");
+
+                    b.HasIndex("CertificateDigest")
+                        .IsUnique();
+
+                    b.HasIndex("IssuerEpoch");
+
+                    b.ToTable("local_enrollment_issuances", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_local_enrollment_issuances_authorization", "([GenesisId] IS NULL AND [AuthorizationIndex] > 0) OR ([GenesisId] IS NOT NULL AND [GenesisId] <> '00000000-0000-0000-0000-000000000000' AND [AuthorizationIndex] = 0)");
+
+                            t.HasCheckConstraint("ck_local_enrollment_issuances_der", "DATALENGTH([CertificateDer]) BETWEEN 1 AND 65536");
+                        });
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Infrastructure.Cluster.Onboarding.LocalEnrollmentIssuerRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("CertificateDer")
+                        .IsRequired()
+                        .HasMaxLength(65536)
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<string>("CertificateDigest")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("char(64)")
+                        .IsFixedLength();
+
+                    b.Property<long>("ClusterGeneration")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ClusterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("InstallIdentity")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("KeyReference")
+                        .IsRequired()
+                        .HasMaxLength(97)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(97)");
+
+                    b.Property<Guid>("NodeId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("SpkiDigest")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("char(64)")
+                        .IsFixedLength();
+
+                    b.Property<Guid>("StorageGeneration")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CertificateDigest")
+                        .IsUnique();
+
+                    b.HasIndex("KeyReference")
+                        .IsUnique();
+
+                    b.HasIndex("SpkiDigest")
+                        .IsUnique();
+
+                    b.HasIndex("ClusterId", "ClusterGeneration");
+
+                    b.ToTable("local_enrollment_issuers", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_local_enrollment_issuers_der", "DATALENGTH([CertificateDer]) BETWEEN 1 AND 65536");
+
+                            t.HasCheckConstraint("ck_local_enrollment_issuers_generation", "[ClusterGeneration] > 0");
+                        });
+                });
+
             modelBuilder.Entity("UptimeHarbor.Infrastructure.Identity.ApplicationRole", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2364,6 +2575,15 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("TelegramChatId")
                         .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("UptimeHarbor.Infrastructure.Cluster.Onboarding.LocalEnrollmentIssuanceRecord", b =>
+                {
+                    b.HasOne("UptimeHarbor.Infrastructure.Cluster.Onboarding.LocalEnrollmentIssuerRecord", null)
+                        .WithMany()
+                        .HasForeignKey("IssuerEpoch")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
                 });
 #pragma warning restore 612, 618

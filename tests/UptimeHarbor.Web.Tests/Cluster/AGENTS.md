@@ -1,5 +1,7 @@
 # Изолированные проверки cluster hosting
 
+ManagedBootstrap/ManagedRestart tests используют production permit/recovery/signers/validators/lifecycle и реальный локальный WAL; SQL/native majority и membership file — doubles, native Start/elections не выполняются. EnrollmentClient/Gateway tests соединяют production client/server через fake handlers без listeners; TLS policy проверяется локальной криптографией, не handshake. Проверять обе peer-пробы, lost reserve/IssueId/DER, новый BootChallenge/ProcessEpoch/lease, file intent/crash/orphans и закрытый CommonOpen второго. Не запускать реальную сеть или host ради этих тестов.
+
 SetupSecurity/SetupComposition/ManagedSupervisor tests проверяют production cookie/antiforgery/boundaries, полный DI без Start/WAL и реальный supervisor с подставным catalog loops. LegacySetupSelectionTests запрещает разрешение cluster Pending в обычном Disabled test-send. Это не проверка настоящего cutover/TLS/второго процесса; doubles authority/admission не регистрируются production graph.
 
 InvitationHttpFixture использует настоящие Pending/dispatcher/reducer/apply и закрывает advanced enrollment. InvitationSecurityTests вызывает настоящий antiforgery filter с ephemeral DP: получение токена и POST используют разные HttpContext, а выполняемый filter включён в context.Filters. Полный graph проверять без Start/сети; не возвращать runtime dependency из acceptance в dispatcher.
