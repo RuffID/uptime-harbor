@@ -14,6 +14,8 @@
 
 ## Правила
 
+- `Onboarding contracts.md` владеет реализованным этапом 02: invitation/attempt/delegation/TTL, strict formats/snapshot, совместимость и закрытые enrollment/native gates. Общие genesis/import/sender форматы не описывать как работающие сценарии следующих этапов.
+
 - Отделять текущее реализованное состояние от целевого решения следующих этапов.
 - `Web application.md` владеет безопасным accepted/Pending/conflict UI/API и lifecycle; сборка не подтверждает browser acceptance или controlled enable.
 - `Shared cluster storage.md` владеет моделью и SQL storage общих данных; наличие схемы не означает работающие consensus, replication, общий вход или sender.

@@ -1,5 +1,9 @@
 # Связь узлов, Raft и готовность
 
+## Подготовительный onboarding protocol v2 (2026-11-03)
+
+OnboardingAcceptance назначает подтверждённое время через существующий strong barrier и ClusterRaftHandle; RevisionDispatcher/reducer/apply сохраняют новые команды в прежнем WAL/projection. Request digest исключает coordinator stamp, WAL/receipt покрывают полные байты. Snapshot строго проверяет manifest/body и onboarding, включая recovery ancestors. Старый membership/Activate не обходит новую delegation/process модель. Настоящие issuer, enrollment proofs, новый native Join и activation остаются закрытыми. [Реализованные контракты](Onboarding%20contracts.md).
+
 ## Controlled enable и эксплуатация (09)
 
 SignedRecoveryAdmission проверяет локальную ECDSA-подпись/pinned SPKI, process challenge, UTC freshness, manifest и настоящий client certificate/private key/CA/SAN/pin. Bootstrap разрешает только точную защищённую команду singleton account; Join использует принятый snapshot без независимого аккаунта. AcceptedPeerTrustSource читает общий публичный реестр с отзывом/expiry. ClusterDatabaseProbe требует CanConnect и отсутствия pending migrations, ничего не применяет.

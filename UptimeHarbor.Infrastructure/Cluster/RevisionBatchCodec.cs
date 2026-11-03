@@ -1,6 +1,8 @@
 using System.Text.Json;
 using UptimeHarbor.Application.Cluster;
 using UptimeHarbor.Application.Cluster.Models;
+using UptimeHarbor.Application.Cluster.Onboarding;
+using UptimeHarbor.Infrastructure.Cluster.Onboarding;
 
 namespace UptimeHarbor.Infrastructure.Cluster;
 
@@ -31,6 +33,11 @@ public static class RevisionBatchCodec
             }
 
             RevisionCommand command = RevisionCodec.Decode(payload);
+            if (OnboardingCommands.IsOnboarding(command) && !OnboardingProtocol.Supported(options))
+            {
+                throw new InvalidDataException("OnboardingCommandIncompatible");
+            }
+
             if (!ids.Add(command.OperationId))
             {
                 throw new InvalidDataException("DuplicateBatchOperation");

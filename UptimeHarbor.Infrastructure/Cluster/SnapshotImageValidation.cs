@@ -8,6 +8,7 @@ using UptimeHarbor.Domain.Monitoring;
 using UptimeHarbor.Domain.Notifications;
 using UptimeHarbor.Infrastructure.Identity;
 using UptimeHarbor.Infrastructure.Persistence;
+using UptimeHarbor.Application.Cluster.Onboarding;
 
 namespace UptimeHarbor.Infrastructure.Cluster;
 
@@ -17,6 +18,7 @@ public static class SnapshotImageValidation
     public static void Validate(UptimeHarborDbContext context, RevisionImage image)
     {
         SnapshotSchema.Validate(context, image.ProjectionRows);
+        OnboardingSnapshot.Validate(image);
         DeliveryQueue.Validate(image);
         JournalPosition position = new(new ClusterIdentity(image.ClusterId, image.Generation), image.Index, image.Term);
         Dictionary<Type, HashSet<Guid>> expected = [];
@@ -43,7 +45,7 @@ public static class SnapshotImageValidation
             ids.Add(record.Id);
         }
 
-        foreach (ProjectionRecord record in ClusterOperationsProjection.Changes(empty, image))
+        foreach (ProjectionRecord record in ClusterOperationsProjection.Changes(empty, image).Concat(OnboardingSnapshot.Changes(empty, image)))
         {
             Type recordType = record.GetType();
             string[] fields = SnapshotSchema.Fields(context.Model.FindEntityType(recordType)!)
@@ -117,6 +119,9 @@ public static class SnapshotImageValidation
         {
             configurationTypes = [.. configurationTypes, typeof(ClusterMember), typeof(PeerTrustCredential), typeof(MembershipChange)];
         }
+
+        configurationTypes = [.. configurationTypes, typeof(OnboardingProjection)];
+
         foreach (Type type in configurationTypes)
         {
             HashSet<Guid> ids = expected.GetValueOrDefault(type) ?? [];

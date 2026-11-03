@@ -1,5 +1,7 @@
 # Cluster infrastructure tests
 
+OnboardingStorage/BoundaryTests проверяет migration metadata с закрытым connection, exact snapshot/projection, compatibility включая ancestors, limiter и настоящий DotNext WAL reopen/replay. IEnrollmentAuthority остаётся false. Не запускать весь Infrastructure: вне Cluster есть provider-тесты с БД.
+
 - SnapshotMonitoringCompatibilityTests проверяет точное преобразование прежних monitoring rows с сохранением ID/parent/state и отказом на неизвестные поля; metadata-контекст соединение не открывает.
 
 - Control/admission tests используют настоящую ECDSA/CA/client certificate и локальный DP keyring во временных каталогах. Проверять stale/revoked proofs, новый process challenge и restart/maintenance без автоматического enable.

@@ -6,6 +6,8 @@ using Microsoft.Extensions.Options;
 using UptimeHarbor.Application.Cluster;
 using UptimeHarbor.Application.Cluster.Models;
 using UptimeHarbor.Infrastructure.Cluster.Models;
+using UptimeHarbor.Application.Cluster.Onboarding;
+using UptimeHarbor.Infrastructure.Cluster.Onboarding;
 
 namespace UptimeHarbor.Infrastructure.Cluster;
 
@@ -17,13 +19,16 @@ public class RevisionSnapshotStore(IOptions<ClusterOptions> configured)
     private static readonly byte[] MAGIC = "UHRVS001"u8.ToArray();
     private static readonly JsonSerializerOptions JSON = new()
     {
-        UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow, MaxDepth = 32
+        UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow, MaxDepth = 32,
+        RespectRequiredConstructorParameters = true, RespectNullableAnnotations = true
     };
     private PublishedRevisionSnapshot? published;
     public PublishedRevisionSnapshot? Current => Volatile.Read(ref published);
 
     public async Task<PublishedRevisionSnapshot> PublishAsync(RevisionImage image, CancellationToken token)
     {
+        OnboardingProtocol.ValidateSnapshot(image, configured.Value);
+        OnboardingSnapshot.Validate(image);
         string directory = SnapshotDirectory();
         Guid id = Guid.NewGuid();
         string bodyPath = Path.Combine(directory, id.ToString("N") + ".body.tmp");
@@ -121,8 +126,7 @@ public class RevisionSnapshotStore(IOptions<ClusterOptions> configured)
 
         byte[] header = new byte[headerBytes];
         await stream.ReadExactlyAsync(header, token);
-        RevisionSnapshotManifest manifest = JsonSerializer.Deserialize<RevisionSnapshotManifest>(header, JSON)
-            ?? throw new InvalidDataException("SnapshotManifestMissing");
+        RevisionSnapshotManifest manifest = DecodeManifest(header);
         if (manifest.ClusterId != configured.Value.ClusterId || manifest.Generation != configured.Value.Generation
             || manifest.Compatibility != configured.Value.Compatibility || manifest.Index <= 0 || manifest.Term <= 0
             || manifest.SnapshotId == Guid.Empty || manifest.ChunkBytes is < 16384 or > 1048576
@@ -141,8 +145,18 @@ public class RevisionSnapshotStore(IOptions<ClusterOptions> configured)
         stream.Position = bodyOffset;
         await ReadChunksAsync(stream, manifest.ChunkBytes, manifest.ChunkDigests, token);
         stream.Position = bodyOffset;
-        RevisionImage image = await JsonSerializer.DeserializeAsync<RevisionImage>(stream, JSON, token)
-            ?? throw new InvalidDataException("SnapshotImageMissing");
+        await StrictSnapshotJson.ValidateAsync(stream, token);
+        stream.Position = bodyOffset;
+        RevisionImage image;
+        try
+        {
+            image = await JsonSerializer.DeserializeAsync<RevisionImage>(stream, JSON, token)
+                ?? throw new InvalidDataException("SnapshotImageMissing");
+        }
+        catch (JsonException)
+        {
+            throw new InvalidDataException("SnapshotImageInvalid");
+        }
         if (image.ClusterId != manifest.ClusterId || image.Generation != manifest.Generation
             || image.Index != manifest.Index || image.Term != manifest.Term || image.Digest is null)
         {
@@ -150,6 +164,8 @@ public class RevisionSnapshotStore(IOptions<ClusterOptions> configured)
         }
 
         image = SnapshotMonitoringCompatibility.Upgrade(image);
+        OnboardingProtocol.ValidateSnapshot(image, configured.Value);
+        OnboardingSnapshot.Validate(image);
         return new PublishedRevisionSnapshot(manifest, digest, path, image);
     }
 
@@ -220,12 +236,26 @@ public class RevisionSnapshotStore(IOptions<ClusterOptions> configured)
 
             byte[] header = new byte[headerBytes];
             stream.ReadExactly(header);
-            RevisionSnapshotManifest old = JsonSerializer.Deserialize<RevisionSnapshotManifest>(header, JSON)!;
+            RevisionSnapshotManifest old = DecodeManifest(header);
             if (old.ClusterId == current.Manifest.ClusterId && old.Generation == current.Manifest.Generation
                 && old.Index < current.Manifest.Index && old.Index < watermark)
             {
                 File.Delete(path);
             }
+        }
+    }
+
+    private static RevisionSnapshotManifest DecodeManifest(byte[] header)
+    {
+        StrictSnapshotJson.Validate(header);
+        try
+        {
+            return JsonSerializer.Deserialize<RevisionSnapshotManifest>(header, JSON)
+                ?? throw new InvalidDataException("SnapshotManifestMissing");
+        }
+        catch (JsonException)
+        {
+            throw new InvalidDataException("SnapshotManifestInvalid");
         }
     }
 

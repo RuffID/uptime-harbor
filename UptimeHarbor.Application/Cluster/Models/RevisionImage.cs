@@ -11,6 +11,10 @@ public record RevisionImage(Guid ClusterId, long Generation)
     public string? BootstrapAccountDigest { get; init; }
     public MonitoringImage Monitoring { get; init; } = new();
     public ClusterOperationsImage Operations { get; init; } = new();
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public OnboardingImage? Onboarding { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public OnboardingContractImage? OnboardingContracts { get; init; }
     public RecoveryBaseline? RecoveryBaseline { get; init; }
     public ImmutableArray<SharedSnapshotRow> ProjectionRows { get; init; } = [];
     public ImmutableDictionary<Guid, AcceptedValue> Values { get; init; } = ImmutableDictionary<Guid, AcceptedValue>.Empty;

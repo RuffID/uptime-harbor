@@ -1,6 +1,7 @@
 using UptimeHarbor.Application.Cluster.Models;
 using UptimeHarbor.Application.Security;
 using UptimeHarbor.Domain.Cluster;
+using UptimeHarbor.Application.Cluster.Onboarding;
 
 namespace UptimeHarbor.Application.Cluster;
 
@@ -8,6 +9,16 @@ namespace UptimeHarbor.Application.Cluster;
 public static class ClusterOperationReducer
 {
     public static RevisionImage Apply(RevisionImage image, RevisionCommand command)
+    {
+        return ApplyCore(image, command, false);
+    }
+
+    internal static RevisionImage ApplyDelegated(RevisionImage image, RevisionCommand command)
+    {
+        return ApplyCore(image, command, true);
+    }
+
+    private static RevisionImage ApplyCore(RevisionImage image, RevisionCommand command, bool delegated)
     {
         ClusterOperation payload = command.Operation!;
         ClusterOperationsImage operations = image.Operations;
@@ -46,11 +57,31 @@ public static class ClusterOperationReducer
         }
 
         OperationalNode? node = operations.Nodes.GetValueOrDefault(command.EntityId);
+        bool addingMember = command.Action == "RequestMembership" && !payload.Remove;
+        if (command.Action == "AuthorizeMembership")
+        {
+            addingMember = operations.Changes.GetValueOrDefault(payload.ChangeId)?.Remove == false;
+        }
+
+        if (addingMember)
+        {
+            if (!delegated && OnboardingMembership.Find(image, command.EntityId) is not null)
+            {
+                return Decide(image, command, "OnboardingProtocolRequired");
+            }
+
+            if (!OnboardingMembership.CanContinue(image, command.EntityId,
+                command.ActorUserId, command.ActorRevision, command.CreatedAtUtc))
+            {
+                return Decide(image, command, "OnboardingDelegationChanged");
+            }
+        }
+
         string? error = null;
         switch (command.Action)
         {
             case "AdmitNode":
-                error = Admit(image, command, out image);
+                error = AdmitAccepted(image, command, out image);
                 break;
             case "RequestMembership":
                 if (node is null || node.Removed || payload.Remove && !node.Voting
@@ -97,9 +128,15 @@ public static class ClusterOperationReducer
                 } };
                 break;
             case "ConfirmMembership":
-                error = Confirm(image, command, out image);
+                error = Confirm(image, command, delegated, out image);
                 break;
             case "ActivateNode":
+                if (OnboardingMembership.Find(image, command.EntityId) is not null)
+                {
+                    error = "OnboardingActivationRequired";
+                    break;
+                }
+
                 if (node is null || !node.Voting || node.Removed || operations.MaintenanceId != Guid.Empty)
                 {
                     error = "ActivationUnavailable";
@@ -175,7 +212,7 @@ public static class ClusterOperationReducer
         return Decide(image, command, error);
     }
 
-    private static string? Admit(RevisionImage image, RevisionCommand command, out RevisionImage result)
+    internal static string? AdmitAccepted(RevisionImage image, RevisionCommand command, out RevisionImage result)
     {
         result = image;
         OperationalNode node = command.Operation!.Node!;
@@ -209,7 +246,7 @@ public static class ClusterOperationReducer
             && !item.ConsumedAtUtc.HasValue && !item.RevokedAtUtc.HasValue && item.AdmissionExpiresAtUtc > at && item.ExpiresAtUtc > at);
     }
 
-    private static string? Confirm(RevisionImage image, RevisionCommand command, out RevisionImage result)
+    private static string? Confirm(RevisionImage image, RevisionCommand command, bool delegated, out RevisionImage result)
     {
         result = image;
         ClusterOperation payload = command.Operation!;
@@ -225,6 +262,17 @@ public static class ClusterOperationReducer
         if (!AcceptedAdministratorAccessPolicy.IsActiveAdministrator(actor) || actor!.Revision != change.ActorRevision)
         {
             return "ActorNotActive";
+        }
+
+        if (!change.Remove && !OnboardingMembership.CanContinue(image, change.NodeId,
+            change.ActorUserId, change.ActorRevision, command.CreatedAtUtc))
+        {
+            return "OnboardingDelegationChanged";
+        }
+
+        if (!change.Remove && !delegated && OnboardingMembership.Find(image, change.NodeId) is not null)
+        {
+            return "OnboardingProtocolRequired";
         }
 
         OperationalNode node = operations.Nodes[change.NodeId];
@@ -250,7 +298,7 @@ public static class ClusterOperationReducer
             operations = operations with { Credentials = operations.Credentials.SetItem(updated.Id, updated) };
         }
 
-        result = image with { Operations = operations };
+        result = OnboardingMembership.Confirm(image with { Operations = operations }, node.NodeId, change.Remove);
         return null;
     }
 

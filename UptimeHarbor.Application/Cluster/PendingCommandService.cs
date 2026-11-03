@@ -30,6 +30,12 @@ public class PendingCommandService(IPendingControlUnitOfWork work, IUserAccessCo
         RequireAdministrator(proposal.OperationId, localNodeId);
         RevisionImage image = accepted.Current ?? throw new InvalidOperationException("AcceptedStateUnavailable");
         AcceptedAccount account = accepted.Find(user.UserId) ?? throw new InvalidOperationException("AccountNotAccepted");
+        if (proposal.Onboarding is not null && (proposal.ActorUserId != user.UserId || proposal.ActorRevision != account.Revision
+            || proposal.Onboarding.CoordinatorAtUtc.HasValue))
+        {
+            throw new UnauthorizedAccessException("OnboardingReauthenticationChanged");
+        }
+
         if (image.Results.TryGetValue(proposal.OperationId, out CommandResult? decision))
         {
             RevisionCommand retry = Stamp(proposal, image, localNodeId, decision.ActorRevision);
@@ -94,7 +100,8 @@ public class PendingCommandService(IPendingControlUnitOfWork work, IUserAccessCo
 
             PendingOperation pending = new(new ClusterIdentity(image.ClusterId, image.Generation),
                 new CommandIdentity(command.OperationId, localNodeId, user.UserId, null), $"{command.EntityKind}.{command.Action}",
-                command.EntityId, command.BaseRevision, account.Revision, digest, protection.Protect(bytes), command.CreatedAtUtc);
+                command.EntityId, command.BaseRevision, account.Revision, digest, protection.Protect(bytes), command.CreatedAtUtc,
+                protocolVersion: command.Schema, schemaVersion: command.Schema);
             work.PendingOperations.Create(pending);
             created = true;
         }, cancellationToken);

@@ -1,6 +1,9 @@
 using UptimeHarbor.Application.Cluster;
 using UptimeHarbor.Infrastructure.Cluster;
 using UptimeHarbor.Infrastructure.Identity;
+using UptimeHarbor.Application.Cluster.Onboarding;
+using Microsoft.AspNetCore.RateLimiting;
+using System.Threading.RateLimiting;
 
 namespace UptimeHarbor.Web.Cluster;
 
@@ -19,6 +22,13 @@ public static class ClusterWebExtensions
         services.AddSingleton<IMembershipProtocol, DotNextMembershipProtocol>();
         services.AddSingleton<IConsensusWriter, ClusterConsensusWriter>();
         services.AddSingleton<RevisionDispatcher>();
+        services.AddSingleton<IOnboardingAcceptance, OnboardingAcceptance>();
+        services.AddRateLimiter(options => options.AddPolicy("onboarding-administrator", context =>
+            RateLimitPartition.GetFixedWindowLimiter(context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 5, Window = TimeSpan.FromMinutes(1), QueueLimit = 0, AutoReplenishment = true
+                })));
         services.AddHostedService<ClusterLifecycleWorker>();
         services.AddSingleton<ISenderConsensus, DeliverySenderConsensus>();
         services.AddSingleton<AcceptedDeliveryDispatcher>();

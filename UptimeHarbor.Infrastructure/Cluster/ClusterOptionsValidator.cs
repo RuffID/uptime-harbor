@@ -1,5 +1,6 @@
 using System.Net;
 using Microsoft.Extensions.Options;
+using UptimeHarbor.Infrastructure.Cluster.Onboarding;
 
 namespace UptimeHarbor.Infrastructure.Cluster;
 
@@ -47,7 +48,7 @@ public class ClusterOptionsValidator : IValidateOptions<ClusterOptions>
             return ValidateOptionsResult.Fail("Cluster snapshot interval is invalid.");
         }
 
-        if (options.Compatibility != "1.0/1/1/1/1/6.10.0")
+        if (options.Compatibility != "1.0/1/1/1/1/6.10.0" && options.Compatibility != OnboardingProtocol.COMPATIBILITY)
         {
             return ValidateOptionsResult.Fail("Cluster compatibility is unsupported.");
         }

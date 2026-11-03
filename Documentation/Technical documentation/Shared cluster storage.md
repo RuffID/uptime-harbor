@@ -1,5 +1,9 @@
 # Хранение общих данных сетки
 
+## Приглашения (2026-11-03)
+
+OnboardingImage/OnboardingProjection входят в прежний accepted image/write set; новая таблица onboarding_invitations сохраняется вместе с decision/receipt/cursor. Verifier заменяет plaintext, terminal состояния и delegation переживают snapshot/WAL replay. RecoveryBaseline архивирует прежние попытки всех generations без переноса действующих полномочий. Отдельного журнала нет. LocalOnboardingAttempt storage/UoW пока определены только как порты этапа 03. [Точные контракты и compatibility v2](Onboarding%20contracts.md).
+
 ## Единая сущность мониторинга (2026-11-01)
 
 Wire-коды DeletedEntityKind.Server / Container сохранены: Container означает ServerType.Application. RevisionDomainMapper создаёт MonitoredServer обоих типов; ProjectionWriteSet.Servers — общий набор. При replay сохраняются parent link, monitoring и notification binding references; тип существующей цели не меняется.

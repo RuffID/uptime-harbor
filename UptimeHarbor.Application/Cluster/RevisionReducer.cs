@@ -3,6 +3,7 @@ using System.Text.Json;
 using UptimeHarbor.Application.Cluster.Models;
 using UptimeHarbor.Application.Security;
 using UptimeHarbor.Domain.Cluster;
+using UptimeHarbor.Application.Cluster.Onboarding;
 
 namespace UptimeHarbor.Application.Cluster;
 
@@ -19,7 +20,7 @@ public class RevisionReducer
         }
 
         string digest = RevisionCodec.Digest(command);
-        RevisionImage next = state with { Index = index, Term = term, Digest = digest };
+        RevisionImage next = state with { Index = index, Term = term, Digest = RevisionCodec.Digest(RevisionCodec.Encode(command)) };
         return Execute(next, command, digest);
     }
 
@@ -49,6 +50,11 @@ public class RevisionReducer
         if (DeliveryCommands.IsSystem(command))
         {
             return DeliveryReducer.Apply(state, command);
+        }
+
+        if (OnboardingCommands.IsOnboarding(command))
+        {
+            return OnboardingReducer.Apply(state, command);
         }
 
         if (ClusterOperationValidation.IsOperation(command))

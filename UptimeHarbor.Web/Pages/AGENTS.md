@@ -1,5 +1,7 @@
 # Razor Pages
 
+InvitationAdministration регистрируется рядом с остальными browser use cases в AddWebPresentation; полный graph включает AddApplication/AddInfrastructure/AddClusterWeb. Новые экраны подключения остаются запланированными, в этом этапе изменены только API/контракты.
+
 ## Ответственность
 
 Каталог содержит пользовательские Razor Pages и регистрацию Web-presentation сервисов.

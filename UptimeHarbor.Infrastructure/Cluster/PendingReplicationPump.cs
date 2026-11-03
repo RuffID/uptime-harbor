@@ -105,7 +105,8 @@ public class PendingReplicationPump(IServiceScopeFactory scopes, IRevisionTransp
             byte[] payload = protection.Unprotect(item.ProtectedPayload);
             RevisionCommand command = RevisionCodec.Decode(payload);
             if (RevisionCodec.Digest(payload) != item.Digest || command.OperationId != item.Id
-                || command.OriginNodeId != options.NodeId || command.ActorUserId != item.ActorUserId)
+                || command.OriginNodeId != options.NodeId || command.ActorUserId != item.ActorUserId
+                || item.PayloadVersion != 1 || item.ProtocolVersion != command.Schema || item.SchemaVersion != command.Schema)
             {
                 throw new InvalidDataException("PendingIdentityMismatch");
             }

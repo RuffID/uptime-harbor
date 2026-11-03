@@ -8,7 +8,7 @@ public class PendingOperation
 
     public PendingOperation(ClusterIdentity cluster, CommandIdentity command, string kind, Guid entityId,
         long baseRevision, long actorUserRevision, string digest, string protectedPayload,
-        DateTimeOffset createdAtUtc)
+        DateTimeOffset createdAtUtc, int protocolVersion = 1, int schemaVersion = 1)
     {
         ArgumentNullException.ThrowIfNull(cluster);
         ArgumentNullException.ThrowIfNull(command);
@@ -16,6 +16,8 @@ public class PendingOperation
         StorageGuards.Utc(createdAtUtc);
         ArgumentOutOfRangeException.ThrowIfNegative(baseRevision);
         ArgumentOutOfRangeException.ThrowIfNegative(actorUserRevision);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(protocolVersion);
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(schemaVersion);
         Id = command.OperationId;
         ClusterId = cluster.ClusterId;
         ClusterGeneration = cluster.Generation;
@@ -29,6 +31,8 @@ public class PendingOperation
         Digest = StorageGuards.Digest(digest);
         ProtectedPayload = StorageGuards.Payload(protectedPayload);
         CreatedAtUtc = createdAtUtc;
+        ProtocolVersion = protocolVersion;
+        SchemaVersion = schemaVersion;
     }
 
     public Guid Id { get; private set; }

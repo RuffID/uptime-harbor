@@ -3,6 +3,7 @@ using UptimeHarbor.Application.Cluster.Models;
 using UptimeHarbor.Domain.Cluster;
 using UptimeHarbor.Domain.Monitoring;
 using UptimeHarbor.Domain.Notifications;
+using UptimeHarbor.Application.Cluster.Onboarding;
 
 namespace UptimeHarbor.Application.Cluster;
 
@@ -88,6 +89,7 @@ public static class RevisionWriteSetFactory
 
         records.AddRange(MonitoringProjection.Changes(before, after));
         records.AddRange(ClusterOperationsProjection.Changes(before, after));
+        records.AddRange(OnboardingSnapshot.Changes(before, after));
 
         return new ProjectionWriteSet
         {

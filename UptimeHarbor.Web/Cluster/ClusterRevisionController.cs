@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using UptimeHarbor.Application.Cluster;
 using UptimeHarbor.Application.Cluster.Models;
 using UptimeHarbor.Infrastructure.Cluster;
+using UptimeHarbor.Application.Cluster.Onboarding;
 
 namespace UptimeHarbor.Web.Cluster;
 
@@ -23,11 +24,13 @@ public class ClusterRevisionController(RevisionDispatcher dispatcher, IOptions<C
         {
             byte[] bytes = await RevisionBatchCodec.ReadAsync(Request.Body, options.Value.BatchMaxBytes, cancellationToken);
             IReadOnlyList<RevisionCommand> commands = RevisionBatchCodec.Decode(bytes, options.Value);
-            if (commands.Any(command => ClusterOperationValidation.IsInternal(command)
+            if (commands.Any(command => ClusterOperationValidation.IsInternal(command) || OnboardingCommands.IsCoordinator(command)
                 || command.OriginNodeId != peer.FromNodeId
                 || command.Monitoring is not null && command.Monitoring.StorageGeneration != peer.StorageGeneration
                 || command.Delivery is not null && command.Delivery.StorageGeneration != peer.StorageGeneration
-                || command.Operation is not null && command.Operation.StorageGeneration != peer.StorageGeneration))
+                || command.Operation is not null && command.Operation.StorageGeneration != peer.StorageGeneration
+                || command.Onboarding is not null && (command.Onboarding.StorageGeneration != peer.StorageGeneration
+                    || command.Onboarding.CoordinatorAtUtc.HasValue || options.Value.CommandSchema != 2)))
             {
                 return StatusCode(StatusCodes.Status403Forbidden);
             }

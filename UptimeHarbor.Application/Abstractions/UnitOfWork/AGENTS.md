@@ -1,5 +1,7 @@
 # Scenario unit of work contracts
 
+IOnboardingProgressUnitOfWork ограничен локальным шагом попытки: сохранить intent до сети, удалить protected code после accepted reserve. Это подготовленный порт; реализация setup ещё отсутствует. Общие приглашения сохраняет прежний IProjectionApplyUnitOfWork вместе с decision/receipt/cursor.
+
 ## Ответственность
 
 Каталог задаёт технический `IUnitOfWorkScope` и небольшие сценарные Unit of Work для связанных групп операций.

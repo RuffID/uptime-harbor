@@ -1,5 +1,7 @@
 # Application persistence contracts
 
+ILocalOnboardingAttemptRepository описывает локальный durable intent и CAS по revision; реализация относится к setup, отсутствует в этапе приглашений. Не включать локальный код/ключи/OperationIds шага в общий snapshot и не выдавать порт за готовое хранилище.
+
 - Observation capture repository раскрывает Find по ID и bounded pages streams/results (до 100); sequence/capture writes сохраняются существующим сценарным UoW. Принятый frontier служит ACK, но локальный capture не объявляется accepted и не удаляется по ACK.
 
 ## Ответственность

@@ -1,9 +1,11 @@
 using UptimeHarbor.Application.Cluster.Models;
+using UptimeHarbor.Application.Cluster.Onboarding;
 
 namespace UptimeHarbor.Application.Cluster;
 
 public class RevisionDispatcher(IConsensusWriter consensus, RevisionStateStore accepted, IClusterStateView? view = null,
-    IMonitoringAudit? monitoringAudit = null, TimeProvider? time = null, IDeliveryAudit? deliveryAudit = null)
+    IMonitoringAudit? monitoringAudit = null, TimeProvider? time = null, IDeliveryAudit? deliveryAudit = null,
+    IOnboardingAcceptance? onboarding = null, IOnboardingAudit? onboardingAudit = null)
 {
     private readonly SemaphoreSlim serial = new(1, 1);
 
@@ -102,7 +104,7 @@ public class RevisionDispatcher(IConsensusWriter consensus, RevisionStateStore a
 
         if (image.Results.TryGetValue(command.OperationId, out CommandResult? previous))
         {
-            if (previous.Digest != RevisionCodec.Digest(payload))
+            if (previous.Digest != RevisionCodec.Digest(command))
             {
                 throw new InvalidDataException("IdempotencyKeyReuse");
             }
@@ -112,11 +114,27 @@ public class RevisionDispatcher(IConsensusWriter consensus, RevisionStateStore a
 
         // Окончательная повторная авторизация выполняется reducer на позиции принятия.
         RevisionImage before = image;
+        if (OnboardingCommands.IsOnboarding(command))
+        {
+            if (onboarding is null)
+            {
+                throw new InvalidOperationException("OnboardingUnavailable");
+            }
+
+            command = await onboarding.PrepareAsync(command, cancellationToken);
+            payload = RevisionCodec.Encode(command);
+        }
+
         await consensus.ReplicateAsync(payload, RevisionCodec.COMMAND_ID, cancellationToken);
         image = accepted.Current ?? throw new InvalidOperationException("ProjectionUnavailable");
         if (!accepted.Available || !image.Results.TryGetValue(command.OperationId, out CommandResult? result))
         {
             throw new InvalidOperationException("DecisionUnavailable");
+        }
+
+        if (OnboardingCommands.IsOnboarding(command))
+        {
+            onboardingAudit?.Accepted(before, image, command, result);
         }
 
         foreach (MonitoringEvent acceptedEvent in image.Monitoring.Events.Values.Where(item => item.Index == result.Index

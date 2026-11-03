@@ -1076,6 +1076,51 @@ namespace UptimeHarbor.Infrastructure.Persistence.Migrations
                         });
                 });
 
+            modelBuilder.Entity("UptimeHarbor.Domain.Cluster.OnboardingProjection", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("ClusterGeneration")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("ClusterId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("LogIndex")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Payload")
+                        .IsRequired()
+                        .HasMaxLength(262144)
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<long>("Term")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClusterId", "ClusterGeneration", "LogIndex");
+
+                    b.ToTable("onboarding_invitations", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_onboarding_invitations_position", "[ClusterGeneration] > 0 AND [LogIndex] > 0 AND [Term] > 0");
+
+                            t.HasCheckConstraint("ck_onboarding_invitations_status", "[Status] IN ('Unused','Reserved','Consumed','Revoked','Expired')");
+
+                            t.HasCheckConstraint("ck_onboarding_invitations_version", "[Version] = 1");
+                        });
+                });
+
             modelBuilder.Entity("UptimeHarbor.Domain.Cluster.OperationControl", b =>
                 {
                     b.Property<Guid>("Id")

@@ -10,4 +10,8 @@ public record RecoveryBaseline(Guid RecoveryId, Guid PreviousClusterId, long Pre
 {
     public ImmutableArray<RecoveryBaseline> Ancestors { get; init; } = [];
     public ImmutableDictionary<Guid, RecoveredAttemptIdentity> Attempts { get; init; } = ImmutableDictionary<Guid, RecoveredAttemptIdentity>.Empty;
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public OnboardingImage? PreviousOnboarding { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public OnboardingContractImage? PreviousOnboardingContracts { get; init; }
 }

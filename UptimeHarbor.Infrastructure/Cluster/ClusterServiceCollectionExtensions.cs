@@ -7,6 +7,8 @@ using UptimeHarbor.Application.Cluster;
 using UptimeHarbor.Application.Security;
 using UptimeHarbor.Infrastructure.Telegram;
 using UptimeHarbor.Infrastructure.Monitoring;
+using UptimeHarbor.Application.Cluster.Onboarding;
+using UptimeHarbor.Infrastructure.Cluster.Onboarding;
 
 namespace UptimeHarbor.Infrastructure.Cluster;
 
@@ -33,6 +35,9 @@ public static class ClusterServiceCollectionExtensions
         services.TryAddSingleton<IRevisionAudit, RevisionAudit>();
         services.TryAddSingleton<IMonitoringAudit, MonitoringAudit>();
         services.TryAddSingleton<IDeliveryAudit, DeliveryAudit>();
+        services.TryAddSingleton<IOnboardingAudit, OnboardingAudit>();
+        services.TryAddSingleton<IEnrollmentAuthority, UnavailableEnrollmentAuthority>();
+        services.TryAddSingleton<EnrollmentRateLimiter>();
         services.TryAddSingleton<IPeerTrustSource, AcceptedPeerTrustSource>();
         services.TryAddSingleton<ISenderConsensus, UnavailableSenderConsensus>();
         services.AddSingleton<IClusterAudit, ClusterAudit>();

@@ -1,5 +1,11 @@
 # Web-приложение
 
+## API приглашений (2026-11-03)
+
+ClusterInvitationsController предоставляет Issue/Replace/Revoke/Continue/Cancel и безопасный read на `/api/admin/cluster/invitations`. Mutations требуют accepted Administrator, antiforgery, свежий пароль, rate limit и bounded DTO без actor/verifier. Code возвращается только первым запросом после подтверждённой выдачи; потерянный ответ/retry его не восстанавливает. 202 означает существующий local Pending, Unconfirmed — отсутствие подтверждения. Ответы no-store; новые экраны остаются запланированными.
+
+InvitationAdministration регистрируется в AddWebPresentation; полный graph также включает AddClusterWeb с transport/acceptance через ClusterRaftHandle. Enrollment endpoint и реальный новый Join не реализованы, gates закрыты. [Контракты, ошибки и границы проверки](Onboarding%20contracts.md).
+
 ## Эксплуатационные команды (09)
 
 ClusterOperationsController GET/POST `/api/admin/cluster/lifecycle` требует accepted Administrator; POST — antiforgery, 202 — durable Pending. GET возвращает safe registry без public certificate/payload/hash/stamps. Internal lifecycle запрещён на browser/peer boundary. ClusterOperationsAdministration регистрируется в полном Web presentation graph, не в автономном Infrastructure module. Node Pending отображается отдельно от редакторов ресурсов, Cancel идёт через lifecycle API с сохранённым request/OperationId; held renewal выполняется явным typed API Replace с текущей OperationsRevision.

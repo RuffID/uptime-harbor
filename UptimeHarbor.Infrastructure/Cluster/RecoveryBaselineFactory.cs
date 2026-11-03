@@ -38,6 +38,7 @@ public static class RecoveryBaselineFactory
             selection.SnapshotDigest, selection.KnownCommittedIndex, selection.AdministratorId, selection.Isolation.OperatorId,
             isolationDigest, at, source.Operations)
         {
+            PreviousOnboarding = source.Onboarding, PreviousOnboardingContracts = source.OnboardingContracts,
             Attempts = source.Monitoring.Attempts.ToImmutableDictionary(item => item.Key, item =>
                 new RecoveredAttemptIdentity(item.Value.IntentId, item.Value.Number, item.Value.Authority, item.Value.StartedAtUtc))
         };
@@ -49,10 +50,10 @@ public static class RecoveryBaselineFactory
         RevisionImage result = source with
         {
             ClusterId = target.ClusterId, Generation = target.Generation, BootstrapAccountDigest = null,
-            RecoveryBaseline = baseline, Operations = operations,
+            RecoveryBaseline = baseline, Operations = operations, Onboarding = null, OnboardingContracts = null,
             Monitoring = source.Monitoring with { Nodes = source.Monitoring.Nodes.Add(target.NodeId, target.StorageGeneration) }
         };
-        HashSet<string> operationalTypes = [typeof(ClusterMember).FullName!, typeof(PeerTrustCredential).FullName!, typeof(MembershipChange).FullName!];
+        HashSet<string> operationalTypes = [typeof(ClusterMember).FullName!, typeof(PeerTrustCredential).FullName!, typeof(MembershipChange).FullName!, typeof(OnboardingProjection).FullName!];
         ImmutableArray<SharedSnapshotRow>.Builder rows = ImmutableArray.CreateBuilder<SharedSnapshotRow>();
         foreach (SharedSnapshotRow row in source.ProjectionRows.Where(row => !operationalTypes.Contains(row.Entity)))
         {

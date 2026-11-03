@@ -1,5 +1,7 @@
 # HTTP API
 
+ClusterInvitationsController обслуживает только Administrator API выдачи/явной замены/отзыва/Continue/Cancel и safe read. Mutations требуют antiforgery, rate limit и password reauthentication; actor берётся сервером. 202 означает существующий local Pending, Unconfirmed не выдумывает очередь. Новых экранов и анонимного enrollment endpoint пока нет.
+
 AdminObjectsController сохраняет совместимые routes servers / containers для Server / Application. Аудит создания/изменения/удаления записывает фактический итог, тип, ID и доверенный actor ID; имена, URL, описания и raw errors не журналировать.
 
 ClusterOperationsController обслуживает lifecycle GET/POST с accepted Administrator/antiforgery. 202 означает Pending, internal lifecycle через endpoint запрещён. Safe registry не выдаёт public certificate/payload/hash/stamps; обычные resource editors не принимают Node-команды.

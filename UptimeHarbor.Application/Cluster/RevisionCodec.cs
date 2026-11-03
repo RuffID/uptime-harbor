@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using UptimeHarbor.Application.Cluster.Models;
 using UptimeHarbor.Domain.Cluster;
+using UptimeHarbor.Application.Cluster.Onboarding;
 
 namespace UptimeHarbor.Application.Cluster;
 
@@ -13,6 +14,8 @@ public static class RevisionCodec
     private static readonly JsonSerializerOptions OPTIONS = new()
     {
         UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow,
+        RespectRequiredConstructorParameters = true,
+        RespectNullableAnnotations = true,
         MaxDepth = 16
     };
 
@@ -35,10 +38,18 @@ public static class RevisionCodec
             throw new InvalidDataException("InvalidCommandLength");
         }
 
-        RevisionCommand command = JsonSerializer.Deserialize<RevisionCommand>(bytes, OPTIONS)
-            ?? throw new InvalidDataException("InvalidCommand");
-        Validate(command);
-        return command;
+        try
+        {
+            StrictOnboardingJson.Validate(bytes);
+            RevisionCommand command = JsonSerializer.Deserialize<RevisionCommand>(bytes, OPTIONS)
+                ?? throw new InvalidDataException("InvalidCommand");
+            Validate(command);
+            return command;
+        }
+        catch (JsonException)
+        {
+            throw new InvalidDataException("InvalidCommand");
+        }
     }
 
     public static string Digest(ReadOnlySpan<byte> bytes)
@@ -48,6 +59,11 @@ public static class RevisionCodec
 
     public static string Digest(RevisionCommand command)
     {
+        if (command.Onboarding is not null)
+        {
+            command = command with { Onboarding = command.Onboarding with { CoordinatorAtUtc = null, CoordinatorTerm = 0 } };
+        }
+
         return Digest(Encode(command));
     }
 
@@ -99,10 +115,11 @@ public static class RevisionCodec
 
     private static void ValidateLeaf(RevisionCommand command)
     {
+        bool onboarding = OnboardingCommands.IsOnboarding(command);
         bool delivery = DeliveryCommands.IsSystem(command);
         bool operation = ClusterOperationValidation.IsOperation(command);
-        bool system = MonitoringCommandValidation.IsSystem(command) || delivery || operation;
-        if (command.Schema != 1 || !system && command.Action is not ("Upsert" or "Delete" or "Cancel" or "Replace" or "BootstrapAccount" or "TestDelivery")
+        bool system = MonitoringCommandValidation.IsSystem(command) || delivery || operation || onboarding;
+        if ((!onboarding && command.Schema != 1) || !system && command.Action is not ("Upsert" or "Delete" or "Cancel" or "Replace" or "BootstrapAccount" or "TestDelivery")
             || !Enum.IsDefined(command.EntityKind))
         {
             throw new InvalidDataException("UnsupportedCommand");
@@ -117,6 +134,17 @@ public static class RevisionCodec
         StorageGuards.Utc(command.CreatedAtUtc);
         if (system)
         {
+            if (onboarding)
+            {
+                OnboardingCommands.Validate(command);
+                return;
+            }
+
+            if (command.Onboarding is not null)
+            {
+                throw new InvalidDataException("UnexpectedOnboardingPayload");
+            }
+
             if (operation)
             {
                 ClusterOperationValidation.Validate(command);
@@ -136,7 +164,7 @@ public static class RevisionCodec
         StorageGuards.Id(command.ActorUserId, nameof(command.ActorUserId));
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(command.ActorRevision);
         if (command.SystemSource is not null || command.Monitoring is not null || command.Delivery is not null
-            || command.Operation is not null)
+            || command.Operation is not null || command.Onboarding is not null)
         {
             throw new InvalidDataException("UnexpectedSystemSource");
         }

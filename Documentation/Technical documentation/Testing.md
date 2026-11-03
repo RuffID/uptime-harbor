@@ -1,5 +1,48 @@
 # Тестирование
 
+## Приглашения и контракты (2026-11-03)
+
+Этап 02: отдельные Debug compile-check конкретных production/test `.csproj` без restore/Start. Перед запуском проверены csproj, tests/Directory.Build.props, доступные build/restore файлы и инициализация выбранных тестов. Новых Exec/hooks/packages нет; restore для генерации миграции ограничен локальным NuGet cache. Web C# compile-check использует `-p:TypeScriptCompileBlocked=true`; TypeScript/экраны не изменены и здесь не проверялись.
+
+| Набор | Пройдено | Ошибки / пропуски | Граница |
+| --- | --- | --- | --- |
+| Domain целиком | 47 | 0 / 0 | Чистые инварианты |
+| Application целиком | 266 | 0 / 0 | Production reducer/Pending/write set с изолированными зависимостями |
+| Infrastructure: только `UptimeHarbor.Tests.Infrastructure.Cluster.*` | 129 | 0 / 0 | Файлы/crypto/metadata/DotNext WAL, fake SQL/transport/time; provider-набор исключён |
+| Web целиком | 143 | 0 / 0 | Direct controller/filter/middleware/DI без Start/реальной сети/БД |
+
+Итого 585 пройденных проверок; builds без предупреждений/ошибок. Дефекты тестового antiforgery context и новый DI cycle выявлены проверками и исправлены; таблица содержит итог повторного запуска.
+
+Финально проверены UTF-8 без replacement/mojibake/четырёх вопросительных знаков, сохранение окончаний затронутых файлов, локальные ссылки 37 актуальных/плановых документов и все solution paths. Новый Onboarding contracts.md включён в solution. SHA-256 содержания завершённого 01 до/после переноса папки совпадает. Имеющиеся mixed EOL в незатронутых файлах оставлены без переформатирования.
+
+Точные команды из корня для каждого проекта (Microsoft Testing Platform):
+
+```powershell
+dotnet build .\tests\UptimeHarbor.Domain.Tests\UptimeHarbor.Domain.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\domain-tests\
+dotnet test --project .\tests\UptimeHarbor.Domain.Tests\UptimeHarbor.Domain.Tests.csproj --no-build --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\domain-tests\
+dotnet build .\tests\UptimeHarbor.Application.Tests\UptimeHarbor.Application.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\application-tests\
+dotnet test --project .\tests\UptimeHarbor.Application.Tests\UptimeHarbor.Application.Tests.csproj --no-build --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\application-tests\
+dotnet build .\tests\UptimeHarbor.Infrastructure.Tests\UptimeHarbor.Infrastructure.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\infrastructure-tests\
+dotnet test --project .\tests\UptimeHarbor.Infrastructure.Tests\UptimeHarbor.Infrastructure.Tests.csproj --no-build --no-restore -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\infrastructure-tests\ -- --filter-class 'UptimeHarbor.Tests.Infrastructure.Cluster.*'
+dotnet build .\tests\UptimeHarbor.Web.Tests\UptimeHarbor.Web.Tests.csproj -c Debug --no-restore -p:TypeScriptCompileBlocked=true -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\web-tests\
+dotnet test --project .\tests\UptimeHarbor.Web.Tests\UptimeHarbor.Web.Tests.csproj --no-build --no-restore -p:TypeScriptCompileBlocked=true -p:BaseOutputPath=D:\Media\User\source\repos\uptime-harbor\artifacts\compile-check\web-tests\
+```
+
+Это запись выполненной проверки, не разрешение на запуск приложения/provider-набора. Прямые DLL runner options `--no-progress`/`-help` для этого xUnit runner не подошли: ранние попытки тестов не выполняли; результат подтверждён MTP-командами выше.
+
+| Критерий этапа 02 | Изолированное доказательство |
+| --- | --- |
+| UUID/variant/verifier, TTL 15/30/10, renew <3, reauth 5, lease 2, inactivity 24 | InvitationTests, OnboardingTests/ContinuationTests/DataContractTests |
+| Competing reserve/reissue, wrong binding/digest, terminal/replay | Настоящий reducer в OnboardingScenario, принятый порядок без SQL concurrency |
+| Lost response, другой coordinator без local Pending, нет второго кода/plaintext recovery | InvitationHttpTests с настоящими Pending/dispatcher/reducer/apply, fake transport |
+| Actor disable/revision, Continue, старый ProcessEpoch, held restore | OnboardingTests/ContinuationTests и InvitationHttpTests |
+| Прогресс >24 часов, cancel nonvoter, сохранение voter, новая delegation membership | OnboardingContinuationTests, без native AddMember |
+| Snapshot/replay не оживляют код, projection mismatch/ancestors/compatibility | OnboardingStorageTests/BoundaryTests: настоящий snapshot/WAL reopen, connection Closed |
+| DTO/логи/errors, CSRF, closed authority, limiter 5/30 | InvitationHttpTests/SecurityTests, OnboardingDataContractTests, OnboardingStorageTests/BoundaryTests |
+| Migration constraints/concurrency, нулевой model diff | OnboardingStorageTests через metadata без SQL |
+
+Не проверены provider locks/atomicity, реальные Up/Down, crash fsync, выборы/leader failover, TLS/enrollment/issuer/native Join, Ubuntu/browser/Telegram. Тестовый certificate text и synthetic accepted fixtures не дают production допуска. Это не заменяет отдельную приёмку 07. [Реализованный объём](Onboarding%20contracts.md).
+
 ## Проверка объединения Server / Application (2026-11-01)
 
 Изолированные тесты покрывают оба типа MonitoredServer, позднюю связь и сохранение мониторинга при переименовании/отвязке/удалении родителя, общий projection write-набор, фильтры типа/статуса и выбор типа только при создании. Metadata-тесты проверяют коды Type и FK без БД; snapshot-тесты — преобразование старых rows с сохранением полей и отказом на неизвестную схему.

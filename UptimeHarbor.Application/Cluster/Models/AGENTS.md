@@ -1,5 +1,7 @@
 # Cluster contracts
 
+OnboardingCommand/Image/Attempt/Delegation и EnrollmentIssuance — внутренние versioned контракты. InvitationResponse — browser whitelist; Code допускается только в первом подтверждённом ответе выдачи. LocalOnboardingAttempt хранит только ссылку на ключ и защищённый код до reserve. Genesis/import/legacy/sender/cut/coverage — форматы без исполнения; RecoveryBaseline архивирует прежние данные без действующих полномочий.
+
 - ClusterOperationsImage/RecoveryBaseline — внутренние snapshot-контракты. Browser получает только ClusterOperationsStatus/ClusterTrustStatus без публичного сертификата, protected command и account credentials. RequestedAtUtc membership сохраняет время принятой заявки при поздней сверке admission.
 
 - Administration* и Cluster*DiagnosticDto — явные браузерные whitelist-контракты. Account settings содержат только login/Enabled; не добавлять hash/stamps, protected/raw payload или delivery message. ConfigurationChangeRequest не принимает actor/origin/system provenance; IDs controls относятся к настоящему local Pending.

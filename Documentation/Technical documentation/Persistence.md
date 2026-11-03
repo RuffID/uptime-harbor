@@ -1,5 +1,7 @@
 # Persistence и транзакции
 
+Приглашения этапа 02 используют onboarding_invitations и прежний projection UoW: запись состояния, decision, receipt и cursor составляют один accepted write set. Локальное хранилище попытки пока имеет только независимые CAS/UoW-порты. [Контракты и схема](Onboarding%20contracts.md), [миграция](Database%20migrations.md#приглашения-2026-11-03). Provider-level atomicity в этой задаче не проверена.
+
 ## Первый запуск и восстановление (09)
 
 ClusterLocalInitializationUnitOfWork в существующей транзакционной сессии создаёт только точную LocalNodeState: чужие shared rows/cursor и identity/WAL mismatch отвергаются, локальные accounts не создаются. Genesis verification проверяет пустые общие наборы до создания JournalPosition; SnapshotProjectionUnitOfWork продолжает whitelist install только общей проекции. Lifecycle records входят в тот же atomic projection write set/cursor/receipt. Emergency offline-tool использует только EF metadata для проверки snapshot, не SQL connection. Fake UoW/model tests не доказывают SQL isolation/locking/commit; реальная provider-проверка не проводилась. [Процедуры](Cluster%20recovery.md).

@@ -3,6 +3,7 @@ using UptimeHarbor.Application.Cluster;
 using UptimeHarbor.Application.Cluster.Models;
 using UptimeHarbor.Application.Security;
 using UptimeHarbor.Domain.Cluster;
+using UptimeHarbor.Application.Cluster.Onboarding;
 
 namespace UptimeHarbor.Infrastructure.Cluster;
 
@@ -22,6 +23,12 @@ public class AcceptedClusterAdministrationState(RevisionStateStore state, Revisi
         }
 
         OperationalNode node = image.Operations.Nodes[change.NodeId];
+        if (!change.Remove && OnboardingMembership.Find(image, node.NodeId) is not null)
+        {
+            // Native Join новой попытки подключается этапом 05 к process-bound протоколу.
+            return ValueTask.FromResult<AcceptedMembershipChange?>(null);
+        }
+
         bool trust = change.Remove || image.Operations.Credentials.Values.Any(item => item.NodeId == node.NodeId
             && !item.RevokedAtUtc.HasValue && item.ExpiresAtUtc > time.GetUtcNow()
             && item.AdmissionId.HasValue && !item.ConsumedAtUtc.HasValue && item.AdmissionExpiresAtUtc > change.RequestedAtUtc);

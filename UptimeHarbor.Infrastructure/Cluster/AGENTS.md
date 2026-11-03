@@ -1,5 +1,7 @@
 # Cluster infrastructure
 
+Onboarding/ добавляет безопасное администрирование и закрытую enrollment authority в прежний pipeline. Snapshot валидирует onboarding/projection и архив всех recovery ancestors; старую compatibility отвергать до записи. Реальные issuer/PoP/grants, local setup и native новый Join здесь ещё не реализованы.
+
 - SnapshotMonitoringCompatibility после проверки manifest/hash/chunks преобразует только точные прежние monitoring rows в единый MonitoredServer. Сохранять ID, родителя, monitoring metadata и binding references; неизвестные поля отвергать. После преобразования остаются обязательными строгие schema/image проверки. Старые узлы новый projection format не читают; смешанный rollout не поддерживается.
 
 - SignedRecoveryAdmission проверяет pinned signature/process challenge/freshness, ручную isolation attestation и настоящий локальный cert/key/CA/SAN/pin. Подпись удостоверяет ручную проверку специалиста, не физическое fencing самим кодом; неполный proof оставляет карантин закрытым.

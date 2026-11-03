@@ -1,5 +1,9 @@
 # Конфигурация и запуск
 
+## Совместимость приглашений (2026-11-03)
+
+Новое API требует согласованного набора ProtocolMajor/CommandSchema/SnapshotFormat/SqlSchema = 2, SerializerVersion = 1, DotNext 6.10.0 (`2.0/2/2/2/1/6.10.0`). Validator сохраняет прежний набор v1; он не принимает новые onboarding command/snapshot. Defaults, config.example.json и установка не менялись. Схему и все voters нужно подготовить отдельно; одна смена версии не даёт права подключения. Production IEnrollmentAuthority всегда отказывает, новый native Join/activation закрыт. Сроки и лимиты описаны в [Onboarding contracts.md](Onboarding%20contracts.md).
+
 ## Локальное управление (09)
 
 `ClusterControl` в config.example.json содержит Directory, PublicKeyPath, PublicKeyDigest (uppercase SHA256 SPKI) и отдельный KeyRingDirectory для защищённой bootstrap-команды. Пути абсолютные; приватный operator key вне узлов, node/Telegram secrets локальны и не реплицируются. Safe status/challenge публикуются в control directory даже при закрытом browser. Пустая/неверная конфигурация или отсутствующее доказательство не открывает gate. Default Disabled сохранён. [Форматы и точные команды](Cluster%20control%20files.md), [первый запуск/сертификаты/обслуживание](Cluster%20operations.md).

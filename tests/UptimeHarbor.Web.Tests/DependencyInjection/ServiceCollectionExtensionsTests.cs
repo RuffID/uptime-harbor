@@ -18,6 +18,7 @@ using UptimeHarbor.Infrastructure.Persistence;
 using UptimeHarbor.Infrastructure.Services.DataBase;
 using UptimeHarbor.Web.Configuration;
 using UptimeHarbor.Web.Pages;
+using UptimeHarbor.Web.Cluster;
 using Xunit;
 
 namespace UptimeHarbor.Tests.Web.DependencyInjection;
@@ -100,6 +101,7 @@ public class ServiceCollectionExtensionsTests
     [Fact]
     public void CompleteRegistration_PassesDiValidationAndConfiguresImmediateCookieInvalidation()
     {
+        // Arrange
         IConfiguration configuration = CreateCompleteConfiguration();
         WebApplicationBuilder builder = WebApplication.CreateBuilder(new WebApplicationOptions
         {
@@ -115,8 +117,10 @@ public class ServiceCollectionExtensionsTests
             .AddApplication()
             .AddApplicationConfiguration(configuration)
             .AddInfrastructure(configuration)
-            .AddWebPresentation();
+            .AddWebPresentation()
+            .AddClusterWeb();
 
+        // Act
         using WebApplication application = builder.Build();
 
         SecurityStampValidatorOptions stampOptions = application.Services
@@ -125,6 +129,9 @@ public class ServiceCollectionExtensionsTests
         IdentityOptions identityOptions = application.Services
             .GetRequiredService<IOptions<IdentityOptions>>()
             .Value;
+        // Assert
+        using IServiceScope scope = application.Services.CreateScope();
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<UptimeHarbor.Infrastructure.Cluster.Onboarding.InvitationAdministration>());
         Assert.Equal(TimeSpan.Zero, stampOptions.ValidationInterval);
         Assert.True(identityOptions.Lockout.AllowedForNewUsers);
         Assert.Equal(5, identityOptions.Lockout.MaxFailedAccessAttempts);

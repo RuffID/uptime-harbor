@@ -1,5 +1,7 @@
 # HTTP request-модели
 
+IssueInvitationRequest/InvitationActionRequest не принимают actor, verifier или внутренние команды. Неизвестные JSON-поля отвергаются, пароль ограничен и redacted в ToString; plaintext Code появляется только в специальном первом ответе, не в URL/SignalR.
+
 CancelPendingRequest содержит только новый OperationId отмены. Target загружается сервером из защищённой local Pending; actor, payload, digest и provenance из запроса не принимать.
 
 Отдельные request-типы описывают настройки объектов, пользователей и Telegram bindings; resource permissions отсутствуют.

@@ -1,5 +1,7 @@
 # EF configurations
 
+OnboardingProjection хранится в onboarding_invitations с version/status constraints и concurrency по LogIndex, в общей projection transaction. Payload содержит verifier, никогда plaintext. Migration/designer/snapshot получать tooling; provider atomicity не выводить из metadata model tests.
+
 ## Ответственность
 
 Каталог задаёт таблицы, ключи, ограничения, индексы, связи и правила удаления для доменной и Identity-модели.

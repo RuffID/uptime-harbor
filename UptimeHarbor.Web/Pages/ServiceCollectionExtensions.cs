@@ -55,6 +55,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUserAccessContext, CurrentUserAccessContext>();
         services.AddScoped<ClusterLegacyWriterFilter>();
         services.AddScoped<UptimeHarbor.Infrastructure.Cluster.ClusterOperationsAdministration>();
+        services.AddScoped<UptimeHarbor.Infrastructure.Cluster.Onboarding.InvitationAdministration>();
         services.AddScoped<IObjectAdministrationChangePublisher, SignalRObjectAdministrationChangePublisher>();
         services.AddScoped<IMonitoringEventHandler, SignalRMonitoringEventHandler>();
 

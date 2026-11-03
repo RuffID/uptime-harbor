@@ -1,5 +1,7 @@
 # Peer perimeter and Raft hosting
 
+OnboardingAcceptance использует ClusterRaftHandle, majority barrier, native term/tokens и текущий accepted proof; не зависеть от ClusterPeerRuntime через dispatcher, чтобы не создавать DI cycle. Peer batch не принимает coordinator onboarding или чужой timestamp. IEnrollmentAuthority по умолчанию отвергает reserve/issuance/admission/critical continuations.
+
 - ClusterControlTool обрабатывает только явный --cluster-control до builder/host/config secrets. Provision/checkpoint/sign/bootstrap/recover работают офлайн с файлами/crypto/metadata; не вызывать startup services, SQL или сеть. Runtime grants — pinned signature + текущий process challenge.
 - ClusterLifecycleWorker проверяет strong read barrier/current term перед internal command. ClusterJoinMembership заполняет только пустой native store точными voters/version проверенного checkpoint; локальный nonvoter не добавлять без принятого membership.
 - Maintenance закрывает native runtime и workers; восстановление consensus по ручному ResumeConsensus не означает Enable. Реальное native membership и local prefix проверять до Start, неполный prefix разрешает только quarantined catch-up.

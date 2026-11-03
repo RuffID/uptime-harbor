@@ -1,5 +1,11 @@
 # Миграции SQL Server
 
+## Приглашения (2026-11-03)
+
+С разрешения пользователя выполнена только генерация `20261103075157_AddOnboardingInvitations` через Infrastructure target/startup и UptimeHarborDesignTimeDbContextFactory без строки подключения. Up добавляет onboarding_invitations и индекс, Down удаляет эту таблицу. Существующие migrations вручную не редактировались; designer и model snapshot обновлены tooling. Metadata-проверка подтверждает constraints/concurrency и нулевой model diff, connection остаётся Closed.
+
+Точная выполненная команда из корня: `dotnet ef migrations add AddOnboardingInvitations --project .\UptimeHarbor.Infrastructure\UptimeHarbor.Infrastructure.csproj --startup-project .\UptimeHarbor.Infrastructure\UptimeHarbor.Infrastructure.csproj --context UptimeHarborDbContext --output-dir Persistence\Migrations`. Restore ограничен локальным cache, NuGetAudit отключён для команды. Tool 10.0.11 предупредил о runtime 10.0.13, генерация завершилась успешно. К БД миграция не применена; SQL/Up/Down/backup и provider atomicity не проверялись. Совместимость/включение описаны в [Onboarding contracts.md](Onboarding%20contracts.md).
+
 ## Объединение Server / Application (2026-11-01)
 
 Модель теперь использует monitored_servers для обоих типов: Type, nullable self FK ServerId, общие Name / NormalizedName. Стабильные коды Type — Server / Application. Target FK Telegram bindings имеют NoAction, удаление bindings выполняет сценарный UoW. Уникальность имени ограничена Type=Server.

@@ -1,6 +1,6 @@
 # 02. Приглашения и контракты
 
-Статус: `not-started`. Зависимости: [01](01-scenarios-and-decisions.md).
+Статус: `completed` (2026-11-03). Зависимости: [01](01-scenarios-and-decisions.md).
 
 ## Цель
 
@@ -40,4 +40,12 @@ Domain/Cluster, Application/Cluster и независимые persistence/UoW-к
 
 ## Результат
 
-Пока не выполнен. Создание моделей и API не означает готовность присоединять узел: setup, доверие и lifecycle завершаются следующими этапами.
+Реализован полный подготовительный объём 02: типизированные состояния/переходы, immutable OperationId/AttemptId/request digest, accepted delegation, UUID v4/verifier/one-time response, атомарные reserve/replace/admit/cancel, отдельные сроки и ProcessEpoch/Pause/Continue. Приглашения и попытки включены в существующие reducer/projection/snapshot/replay и strict codecs; второй журнал и глобальный UoW не создавались. Common data contracts имеют versioned codec/snapshot validation, локальное хранение подготовлено портами с CAS и удалением protected code после reserve.
+
+API выдачи/явной замены/отзыва/Continue/Cancel использует ServiceResult, accepted Administrator и password/lockout, antiforgery/rate limit/no-store; actor из JSON не принимается. Повторные авторизация и credential revision проверяются после await и при принятии. Потерянный ответ не восстанавливает plaintext, held Pending не отправляется автоматически. Structured audit следует за apply, replay известного результата не пишет повторный success; секреты не журналируются.
+
+С разрешения пользователя сгенерирована `20261103075157_AddOnboardingInvitations` без строки подключения; metadata/model snapshot diff = 0. Миграция не применена. Compatibility v2 требует согласованного обновления всех voters, прежняя установка/defaults не менялись. IEnrollmentAuthority всегда false в production, настоящий enrollment/issuer/native Join/activation не реализованы. Старые membership/Activate не обходят новую попытку; issuer/local setup/runtime/import/Telegram dispatcher и экраны остаются запланированными.
+
+Изолированные наборы прошли: **Domain 47, Application 266, Infrastructure Cluster 129, Web 143**, ошибок/пропусков нет. Проверки покрывают UUID/TTL, конкуренцию accepted-порядка, digest/binding, lost response/нового координатора без local Pending, actor change, process takeover, 25-часовой прогресс, held restore, cancellation/voter preservation, strict shared contracts/archives/snapshot и настоящий DotNext WAL reopen/replay; CSRF проверен настоящим MVC filter, API — прямыми вызовами. Отдельные production/test compile-check без warnings/errors. Статическая изоляция выполнена до запуска; provider-набор Infrastructure с БД исключён.
+
+Provider-level SQL locking/atomicity, Up/Down, настоящие выборы/failover, fsync при аварии, сеть/TLS/Ubuntu/browser/полный Join не проверены и относятся к отдельной приёмке 07/следующим реализациям. Противоречия проектному протоколу не обнаружены: legacy 15-минутный Admit сохраняется только для прежних команд, schema-2 использует отдельные 10 минут. [Текущая техническая документация](../../Technical%20documentation/Onboarding%20contracts.md), [команды/матрица проверок](../../Technical%20documentation/Testing.md#приглашения-и-контракты-2026-11-03). Завершённый 01 и исторические планы не редактировались. Работа остановлена после 02.

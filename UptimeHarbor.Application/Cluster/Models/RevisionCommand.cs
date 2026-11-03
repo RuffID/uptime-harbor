@@ -27,6 +27,8 @@ public record RevisionCommand
     public DeliveryCommand? Delivery { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public ClusterOperation? Operation { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public OnboardingCommand? Onboarding { get; init; }
 
     public override string ToString()
     {

@@ -1,5 +1,7 @@
 # Изолированные проверки cluster hosting
 
+InvitationHttpFixture использует настоящие Pending/dispatcher/reducer/apply и закрывает advanced enrollment. InvitationSecurityTests вызывает настоящий antiforgery filter с ephemeral DP: получение токена и POST используют разные HttpContext, а выполняемый filter включён в context.Filters. Полный graph проверять без Start/сети; не возвращать runtime dependency из acceptance в dispatcher.
+
 - Lifecycle HTTP tests проверяют actual accepted actor, protected Pending/held Replace и 202 без запуска host. Peer boundary отвергает internal lifecycle/foreign storage до dispatch. PersistentMembershipTests вызывает production ClusterJoinMembership с настоящим временным native store, исключая joining nonvoter и повторную запись; это не live join/elections.
 
 - Administration HTTP/security/diagnostic tests вызывают production API/filter/read models с реальными MVC options и изолированными хранилищем/health. Проверять 202 как local queue, closed auth, safe conflict variants, stale Telegram и различие peer outage/локальная БД/follower; не называть это browser или peer-network acceptance.

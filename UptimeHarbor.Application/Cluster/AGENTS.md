@@ -1,5 +1,7 @@
 # Cluster application
 
+Onboarding/ владеет schema-2 invitation/attempt reducer и strict contracts. Request digest исключает только coordinator stamp, WAL digest покрывает полный accepted payload; обе проверки сохранять. Legacy membership/activation не должны обходить process-bound onboarding. Общие import/sender модели в этом этапе не предоставляют runtime authority.
+
 - Wire-коды Server / Container сохранены; Container означает ServerType.Application единой сущности MonitoredServer. RevisionDomainMapper и общий Servers write-набор обслуживают оба типа. Смена родителя/имени приложения не сбрасывает мониторинг; Server не допускает ParentId.
 
 - Lifecycle user actions требуют текущего accepted Administrator, internal — ClusterLifecycle provenance без actor и текущего coordinator term. OperationsRevision отделена от native MembershipVersion. Held Node-команды подтверждаются Replace с текущей OperationsRevision, исходная заявка не освобождается.

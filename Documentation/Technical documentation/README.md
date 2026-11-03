@@ -9,6 +9,7 @@
 | Identity, роли и видимость | [Authentication and visibility.md](Authentication%20and%20visibility.md) |
 | EF Core, репозитории и транзакции | [Persistence.md](Persistence.md) |
 | Общие данные, SQL-проекции, Pending и retention | [Shared cluster storage.md](Shared%20cluster%20storage.md) |
+| Приглашения, попытки, delegation и versioned data contracts; production допуск закрыт | [Onboarding contracts.md](Onboarding%20contracts.md) |
 | Peer mTLS, DotNext, reducer/replay, очередь, snapshot и readiness | [Cluster runtime.md](Cluster%20runtime.md) |
 | Локальные DLL, зависимости и обновление | [Libraries.md](Libraries.md) |
 | Миграции и startup backup | [Database migrations.md](Database%20migrations.md) |

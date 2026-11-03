@@ -99,7 +99,7 @@ public class RevisionApplyEngine(RevisionStateStore state, RevisionReducer reduc
             RevisionImage current = state.Current ?? throw new InvalidOperationException("CheckpointUnavailable");
             if (index <= current.Index)
             {
-                if (index != current.Index || current.Digest != RevisionCodec.Digest(command))
+                if (index != current.Index || current.Digest != RevisionCodec.Digest(RevisionCodec.Encode(command)))
                 {
                     throw new InvalidDataException("AppliedPrefixMismatch");
                 }
