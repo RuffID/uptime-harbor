@@ -34,6 +34,18 @@
   <Folder Name="/Documentation/Plans/">
     <File Path="Documentation/Plans/README.md" />
   </Folder>
+  <Folder Name="/Documentation/Plans/node-onboarding-ui-2026-11-02-(not-started)/">
+    <File Path="Documentation/Plans/node-onboarding-ui-2026-11-02-(not-started)/main.md" />
+    <File Path="Documentation/Plans/node-onboarding-ui-2026-11-02-(not-started)/technical-design.md" />
+    <File Path="Documentation/Plans/node-onboarding-ui-2026-11-02-(not-started)/open-questions.md" />
+    <File Path="Documentation/Plans/node-onboarding-ui-2026-11-02-(not-started)/01-scenarios-and-decisions.md" />
+    <File Path="Documentation/Plans/node-onboarding-ui-2026-11-02-(not-started)/02-invitations-and-contracts.md" />
+    <File Path="Documentation/Plans/node-onboarding-ui-2026-11-02-(not-started)/03-initial-setup.md" />
+    <File Path="Documentation/Plans/node-onboarding-ui-2026-11-02-(not-started)/04-enrollment-and-trust.md" />
+    <File Path="Documentation/Plans/node-onboarding-ui-2026-11-02-(not-started)/05-join-orchestration.md" />
+    <File Path="Documentation/Plans/node-onboarding-ui-2026-11-02-(not-started)/06-node-management-ui.md" />
+    <File Path="Documentation/Plans/node-onboarding-ui-2026-11-02-(not-started)/07-verification-and-rollout.md" />
+  </Folder>
   <Folder Name="/Documentation/Plans/multi-node-sync-and-permissions-2026-10-18-(completed)/">
     <File Path="Documentation/Plans/multi-node-sync-and-permissions-2026-10-18-(completed)/main.md" />
     <File Path="Documentation/Plans/multi-node-sync-and-permissions-2026-10-18-(completed)/business-requirements.md" />
