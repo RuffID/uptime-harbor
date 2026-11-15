@@ -4,6 +4,8 @@ OnboardingStorage/BoundaryTests проверяет migration metadata с зак�
 
 - SnapshotMonitoringCompatibilityTests проверяет точное преобразование прежних monitoring rows с сохранением ID/parent/state и отказом на неизвестные поля; metadata-контекст соединение не открывает.
 
+- Enrollment limiter проверять раздельно: 30 всех запросов на endpoint и блокировка IP после пяти `Rejected`, а не пяти успешных запросов. Фиксированный monotonic Clock проверяет сброс обоих лимитов на минутной границе и независимость IP до заполнения endpoint.
+
 - Control/admission tests используют настоящую ECDSA/CA/client certificate и локальный DP keyring во временных каталогах. Проверять stale/revoked proofs, новый process challenge и restart/maintenance без автоматического enable.
 - Emergency tests выбирают snapshot с настоящими accepted attempts/results, проверяют ручной отказ/изоляцию/пароль/lag и новую quarantined identity. Новый WAL и term floor проверяются без Raft Start/сети; это не физическое fencing, SQL locking или crash/fsync.
 - RevisionRecoveryTests.Projection — общий изолированный projection double для replay и emergency WAL tests; его проверки cursor не доказывают SQL semantics.

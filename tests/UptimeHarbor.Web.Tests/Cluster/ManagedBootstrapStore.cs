@@ -14,6 +14,9 @@ public class ManagedBootstrapStore : ILocalSetupUnitOfWork, ILocalInstallationRe
     public Dictionary<Guid, LocalAttemptStep> Steps { get; } = [];
     public Dictionary<Guid, EnrollmentIssuerReference> Issuers { get; } = [];
     public Dictionary<Guid, EnrollmentIssuedArtifact> Issues { get; } = [];
+    public int Commits { get; private set; }
+    public Func<CancellationToken, Task>? BeforeCommit { get; set; }
+    public Func<CancellationToken, Task>? AfterCommit { get; set; }
     public ILocalInstallationRepository Profiles => this;
     public IEnrollmentSigningRepository Signing => this;
 
@@ -76,7 +79,17 @@ public class ManagedBootstrapStore : ILocalSetupUnitOfWork, ILocalInstallationRe
     public async Task ExecuteInTransactionAsync(Func<CancellationToken, Task> action, CancellationToken cancellationToken = default)
     {
         await action(cancellationToken);
+        if (BeforeCommit is not null)
+        {
+            await BeforeCommit(cancellationToken);
+        }
+
         await SaveChangesAsync(cancellationToken);
+        Commits++;
+        if (AfterCommit is not null)
+        {
+            await AfterCommit(cancellationToken);
+        }
     }
 
     public Task<IReadOnlyList<EnrollmentIssuerReference>> ListIssuersAsync(CancellationToken token)

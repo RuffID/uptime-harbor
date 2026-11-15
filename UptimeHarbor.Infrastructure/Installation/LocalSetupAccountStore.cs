@@ -9,6 +9,8 @@ namespace UptimeHarbor.Infrastructure.Installation;
 
 public class LocalSetupAccountStore(UptimeHarborDbContext context) : ILocalSetupAccountStore
 {
+    private const int STEP_PAGE_SIZE = 256;
+
     public async Task<LocalSetupAccount?> ReadAsync(CancellationToken token)
     {
         return await context.Set<LocalSetupAccount>().SingleOrDefaultAsync(token);
@@ -44,36 +46,60 @@ public class LocalSetupAccountStore(UptimeHarborDbContext context) : ILocalSetup
             }
         }
 
-        List<LocalStepRecord> steps = await context.Set<LocalStepRecord>().AsNoTracking().Take(10001).ToListAsync(token);
-        if (steps.Count > 10000 || steps.Any(item => item.AttemptId != profile.AttemptId))
+        Guid? afterId = null;
+        while (true)
+        {
+            IQueryable<LocalStepRecord> query = context.Set<LocalStepRecord>().AsNoTracking();
+            if (afterId.HasValue)
+            {
+                Guid cursor = afterId.Value;
+                query = query.Where(item => item.Id.CompareTo(cursor) > 0);
+            }
+
+            List<LocalStepRecord> steps = await query.OrderBy(item => item.Id).Take(STEP_PAGE_SIZE).ToListAsync(token);
+            foreach (LocalStepRecord row in steps)
+            {
+                token.ThrowIfCancellationRequested();
+                ValidateStep(profile, row);
+            }
+
+            if (steps.Count < STEP_PAGE_SIZE)
+            {
+                return;
+            }
+
+            afterId = steps[^1].Id;
+        }
+    }
+
+    private static void ValidateStep(LocalInstallationProfile profile, LocalStepRecord row)
+    {
+        if (row.AttemptId != profile.AttemptId)
         {
             throw new InvalidDataException("ForeignLocalAttemptStep");
         }
 
-        foreach (LocalStepRecord row in steps)
+        LocalAttemptStep step = JsonSerializer.Deserialize<LocalAttemptStep>(row.Payload)
+            ?? throw new InvalidDataException("LocalStepInvalid");
+        if (step.OperationId != row.Id || step.AttemptId != row.AttemptId)
         {
-            LocalAttemptStep step = JsonSerializer.Deserialize<LocalAttemptStep>(row.Payload)
-                ?? throw new InvalidDataException("LocalStepInvalid");
-            if (step.OperationId != row.Id || step.AttemptId != row.AttemptId)
-            {
-                throw new InvalidDataException("LocalStepIdentityMismatch");
-            }
-
-            if (profile.OperationIds?.Values.Contains(row.Id) == true)
-            {
-                continue;
-            }
-
-            RevisionCommand command = JsonSerializer.Deserialize<RevisionCommand>(step.Evidence
-                ?? throw new InvalidDataException("LocalStepEvidenceMissing"))
-                ?? throw new InvalidDataException("LocalStepEvidenceInvalid");
-            string prefix = string.Empty;
-            if (step.Kind.StartsWith("Enrollment/", StringComparison.Ordinal))
-            {
-                prefix = "Enrollment/";
-            }
-
-            LocalCommandStepValidation.Require(profile, step, command, prefix);
+            throw new InvalidDataException("LocalStepIdentityMismatch");
         }
+
+        if (profile.OperationIds?.Values.Contains(row.Id) == true)
+        {
+            return;
+        }
+
+        RevisionCommand command = JsonSerializer.Deserialize<RevisionCommand>(step.Evidence
+            ?? throw new InvalidDataException("LocalStepEvidenceMissing"))
+            ?? throw new InvalidDataException("LocalStepEvidenceInvalid");
+        string prefix = string.Empty;
+        if (step.Kind.StartsWith("Enrollment/", StringComparison.Ordinal))
+        {
+            prefix = "Enrollment/";
+        }
+
+        LocalCommandStepValidation.Require(profile, step, command, prefix);
     }
 }

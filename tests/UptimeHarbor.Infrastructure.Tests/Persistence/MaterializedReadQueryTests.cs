@@ -25,9 +25,7 @@ public class MaterializedReadQueryTests
         // Arrange
         await using SqliteConnection connection = new("Data Source=:memory:");
         await connection.OpenAsync(TestContext.Current.CancellationToken);
-        DbContextOptions<UptimeHarborDbContext> options = new DbContextOptionsBuilder<UptimeHarborDbContext>()
-            .UseSqlite(connection)
-            .Options;
+        DbContextOptions<UptimeHarborDbContext> options = SqliteTestDatabase.CreateOptions(connection);
         Guid userId = Guid.NewGuid();
         MonitoredServer visibleServer = new(
             Guid.NewGuid(),
@@ -85,8 +83,8 @@ public class MaterializedReadQueryTests
         CountingCommandInterceptor interceptor = new();
         await using SqliteConnection connection = new("Data Source=:memory:");
         await connection.OpenAsync(TestContext.Current.CancellationToken);
-        DbContextOptions<UptimeHarborDbContext> options = new DbContextOptionsBuilder<UptimeHarborDbContext>()
-            .UseSqlite(connection)
+        DbContextOptions<UptimeHarborDbContext> options = new DbContextOptionsBuilder<UptimeHarborDbContext>(
+                SqliteTestDatabase.CreateOptions(connection))
             .AddInterceptors(interceptor)
             .Options;
         Guid administratorId = Guid.NewGuid();

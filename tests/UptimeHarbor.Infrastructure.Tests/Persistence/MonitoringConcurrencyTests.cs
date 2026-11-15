@@ -180,9 +180,7 @@ public class MonitoringConcurrencyTests
     private static UptimeHarborDbContext CreateContext(SqliteConnection connection)
     {
         return new UptimeHarborDbContext(
-            new DbContextOptionsBuilder<UptimeHarborDbContext>()
-                .UseSqlite(connection)
-                .Options);
+            SqliteTestDatabase.CreateOptions(connection));
     }
 
     private static async Task<Guid> AddServerAsync(SqliteConnection connection)

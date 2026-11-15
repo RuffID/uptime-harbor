@@ -76,9 +76,14 @@ public class ManagedStorageSeals(IOptions<InstallationOptions> options, IOptions
             if (Exists)
             {
                 ManagedStorageSeal previous = Read(profile);
-                if (previous.Index > image.Index)
+                if (previous.Index > image.Index || previous.Term > image.Term)
                 {
                     throw new InvalidDataException("ManagedCheckpointRollbackRejected");
+                }
+
+                if (previous.Index == image.Index && (previous.Term != image.Term || previous.HeadDigest != image.Digest))
+                {
+                    throw new InvalidDataException("ManagedCheckpointPrefixMismatch");
                 }
             }
 

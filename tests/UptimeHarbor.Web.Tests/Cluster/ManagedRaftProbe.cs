@@ -11,6 +11,9 @@ public class ManagedRaftProbe : DispatchProxy
     public bool Majority { get; set; } = true;
     public int Barriers { get; private set; }
     public bool LoseResponse { get; set; }
+    public int? LoseResponseAt { get; set; }
+    public int Replications { get; private set; }
+    public int DroppedResponses { get; private set; }
     private object? leader;
 
     protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
@@ -48,9 +51,12 @@ public class ManagedRaftProbe : DispatchProxy
     private async ValueTask ReplicateWithResponseAsync(IRaftLogEntry entry, CancellationToken token)
     {
         await Replicate(entry, token);
-        if (LoseResponse)
+        Replications++;
+        if (LoseResponse || LoseResponseAt == Replications)
         {
             LoseResponse = false;
+            LoseResponseAt = null;
+            DroppedResponses++;
             throw new HttpRequestException("TestResponseLostAfterCommit");
         }
     }

@@ -22,6 +22,7 @@ public class ManagedRestartFixture : IAsyncDisposable
     public InstallationState Installation { get; } = new();
     public RevisionStateStore Accepted { get; } = new();
     public ManagedAdmissionState Admission { get; }
+    public DynamicPeerTls Tls { get; }
     public ManagedStorageSeals Seals { get; }
     public ManagedRestartPreparation Preparation { get; }
     public NodeReadiness Readiness { get; }
@@ -30,6 +31,8 @@ public class ManagedRestartFixture : IAsyncDisposable
     public OnlineEnableState Enable { get; }
     public ManagedBootstrapLifecycle Driver { get; }
     public RevisionClusterRecovery Recovery { get; }
+    public IConsensusWriter Writer { get; }
+    public RevisionDispatcher Dispatcher { get; }
     private readonly ClusterStateMachine machine;
     private readonly ServiceProvider services = new ServiceCollection().BuildServiceProvider();
     private readonly ManagedBootstrapFixture previous;
@@ -56,8 +59,8 @@ public class ManagedRestartFixture : IAsyncDisposable
         ManagedRecoveryAdmission source = new(local, Admission, new(control, configured, previous.Time));
         Projection projection = new(previous.Accepted.Current!);
         RevisionSnapshotStore snapshots = new(configured);
-        DynamicPeerTls tls = new(Installation, Accepted, previous.Time);
-        Preparation = new(Seals, snapshots, projection, Installation, Lease, secrets, Admission, tls, configured, previous.Time);
+        Tls = new(Installation, Accepted, previous.Time);
+        Preparation = new(Seals, snapshots, projection, Installation, Lease, secrets, Admission, Tls, configured, previous.Time);
         Recovery = new(source, Accepted, new(Accepted, new(), projection), projection, snapshots,
             services.GetRequiredService<IServiceScopeFactory>(), configured, managedSeals: Seals, time: previous.Time);
         machine = new(Recovery, Readiness);
@@ -68,8 +71,10 @@ public class ManagedRestartFixture : IAsyncDisposable
         typeof(ClusterRaftHandle).GetProperty(nameof(ClusterRaftHandle.Current))!.SetValue(handle, raft);
         GenesisWriterPermit permit = new();
         ClusterConsensusWriter writer = new(handle, Runtime, Readiness, configured, Accepted, permit);
+        Writer = writer;
         OnboardingAcceptance acceptance = new(handle, Runtime, Readiness, configured, new EnrollmentAuthority(), previous.Time, Accepted, permit);
         RevisionDispatcher dispatcher = new(writer, Accepted, Runtime, time: previous.Time, onboarding: acceptance);
+        Dispatcher = dispatcher;
         OnlineGrantSigningAuthorization authority = new(handle, Runtime, Accepted, Readiness, configured, Admission, Lease, previous.Time);
         SetupAuthority setup = new(new(previous.Store, previous.Store, secrets, Lease, local, previous.Time), Enable);
         InstallationLifecycle lifecycle = new(previous.Store, previous.Store, Installation, new ReadyRuntime(Enable), setup,

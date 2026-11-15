@@ -71,8 +71,6 @@ public class TelegramUniqueConstraintTests
     private static UptimeHarborDbContext CreateContext(SqliteConnection connection)
     {
         return new UptimeHarborDbContext(
-            new DbContextOptionsBuilder<UptimeHarborDbContext>()
-                .UseSqlite(connection)
-                .Options);
+            SqliteTestDatabase.CreateOptions(connection));
     }
 }

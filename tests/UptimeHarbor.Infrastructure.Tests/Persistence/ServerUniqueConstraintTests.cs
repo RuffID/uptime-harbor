@@ -11,12 +11,11 @@ public class ServerUniqueConstraintTests
     [Fact]
     public async Task DuplicateConfiguredNameIgnoringCase_IsRejectedByDatabase()
     {
+        // Arrange
         await using SqliteConnection connection = new("Data Source=:memory:");
         await connection.OpenAsync(TestContext.Current.CancellationToken);
         DbContextOptions<UptimeHarborDbContext> options =
-            new DbContextOptionsBuilder<UptimeHarborDbContext>()
-                .UseSqlite(connection)
-                .Options;
+            SqliteTestDatabase.CreateOptions(connection);
         await using UptimeHarborDbContext context = new(options);
         await context.Database.EnsureCreatedAsync(TestContext.Current.CancellationToken);
         context.MonitoredServers.AddRange(
@@ -33,7 +32,11 @@ public class ServerUniqueConstraintTests
                 null,
                 true));
 
-        await Assert.ThrowsAsync<DbUpdateException>(() =>
+        // Act
+        Exception? failure = await Record.ExceptionAsync(() =>
             context.SaveChangesAsync(TestContext.Current.CancellationToken));
+
+        // Assert
+        Assert.IsType<DbUpdateException>(failure);
     }
 }

@@ -1,6 +1,6 @@
 # 04. Установление доверия
 
-Статус: `in-progress`. Работа приостановлена по просьбе пользователя 2026-11-03, этап не завершён. Зависимости: [01](../01-scenarios-and-decisions/main.md)–[03](../03-initial-setup/main.md).
+Статус: `in-progress`. После паузы 2026-11-03 работа возобновлена по поручению пользователя 2026-11-15: 04.01–04.05 завершены, следующий шаг — 04.06. Этап целиком не завершён. Зависимости: [01](../01-scenarios-and-decisions/main.md)–[03](../03-initial-setup/main.md).
 
 Исходная граница после 03: закрытые production authority-порты и E0 без настоящего Bootstrap/Join. В 04 подключены production адаптеры, genesis/issuer/grants/activation нового первого, accepted ProcessEpoch, E1–E4 и двусторонние probes; сохранены local step CAS, исходные IDs/digests и E0 key. Это ещё не полный объём этапа. [Фактический setup](../../../Technical%20documentation/Local%20installation%20setup.md), [точка остановки](#результат).
 
@@ -58,36 +58,47 @@ Application enrollment/trust contracts, Infrastructure crypto/control/HTTP adapt
 
 Точные текущие контракты — [Onboarding contracts](../../../Technical%20documentation/Onboarding%20contracts.md), проверки и команды — [Testing](../../../Technical%20documentation/Testing.md#точка-остановки-этапа-04-2026-11-03). Последние результаты: Web 28 успешных + отдельно ManagedInvitation 1 успешный; compile-check Web/Infrastructure test projects успешен. Installation: 185/186 успешных, ошибка preflight исправлена, **после исправления сборка и повтор теста не выполнены**. Все обязательные критерии этапа этим не подтверждены.
 
+### Возобновление 2026-11-15
+
+[04.01](04.01-preflight-recheck.md) завершён: Infrastructure.Tests с зависимостями пересобран без предупреждений/ошибок, точный SetupPreflightTests-фильтр — 13 успешно, 0 ошибок/пропусков. Незакрытая проверка preflight подтверждена; код не менялся. Весь Installation и Web повторно не запускались, внешняя приёмка остаётся открытой. Следующая задача — [04.02](04.02-restart-mode-before-effects.md). [Команды и ограничения](../../../Technical%20documentation/Testing.md#повтор-preflight-0401-2026-11-15).
+
+В [04.02](04.02-restart-mode-before-effects.md) Mode=Restart перенесён до эффектов и чтения storage. Добавлены семь негативных вариантов и усилен успешный Restart-тест. Production Infrastructure и Web.Tests пересобраны без предупреждений/ошибок. По просьбе пользователя выполнен только ManagedRestartTests: 13 успешно, 0 ошибок/пропусков; 04.02 завершён.
+
+В [04.03](04.03-unbounded-progress-validation.md) снят общий предел 10000 шагов: история проверяется страницами по 256 с keyset по Id и прежними identity/digest/revision проверками. Регрессионный тест подтвердил прежний отказ на 10001 шаге; после правки точный ProgressValidationTests-фильтр — 32 успешно, 0 ошибок/пропусков. Production Infrastructure и Infrastructure.Tests собраны без предупреждений/ошибок. SQL translation проверена без выполнения SQL, реальная БД не проверялась.
+
+[04.04](04.04-storage-seal-lifecycle.md) завершён: исходные WAL state/checkpoint проверяются до native open, seal запрещает откат term и конфликтующий head того же index, сбой фоновой публикации закрывает accepted recovery. Concurrent apply/snapshot и crash boundaries проверены изолированно; финальные затронутые фильтры — Web 42 и Infrastructure RevisionRecovery 6 успешно, без ошибок/пропусков. Стоимость полного snapshot на каждый apply сохранена и описана; нагрузка/fsync и полный Join не подтверждены.
+
+[04.05](04.05-bootstrap-and-invitation-proof.md) завершён в изолированном объёме: добавлены 17 проверок потери семи native ответов, commit отзыва setup до CommonOpen, отказа Ready, sealed restart со старым genesis/account и schema3 приглашений. Финальный затронутый Web-фильтр — 59 успешно, 0 ошибок/пропусков; последняя локальная правка типов в invitation tests проверена отдельным build и 5/5. Production код не менялся. Неполный первый старт без seal безопасно отказывает; автоматическое resume этой границы остаётся открытым crash/reconciliation объёмом, а не результатом 04.05.
+
 ### Остаток собственного объёма 04
 
 1. Production provisioning/Register/Retire/Revoke/replacement issuer существующего ручного кластера и удалённый issuer/follower: accepted reducers не заменяют полный работающий сценарий. Не импортировать root/operator key и не менять конфигурацию установки.
 2. Полный leaf renewal/rotation/revocation/retirement, новый ключ, exact authorization и overlap ≤24 часов. Текущий signer связан с активной onboarding attempt; одного endpoint renew недостаточно.
 3. Законные online process/activation/enable exchanges последующих voters и ManagedRestart завершённого Join, включая удалённого signer. Snapshot/membership orchestration остаётся 05; нельзя создавать startup cycle всех voters или открывать gate до доказательства.
-4. Завершить negative/crash matrix: TTL на границе секунды, nonce/identity/digest/revocation/replay, SQL/file/WAL reconciliation и crash boundaries. Повторить исправленный preflight и затем необходимые точные безопасные фильтры, не весь Infrastructure.
+4. Завершить negative/crash matrix: TTL на границе секунды, nonce/identity/digest/revocation/replay, SQL/file/WAL reconciliation и crash boundaries. Исправленный preflight повторён в 04.01; дальнейшие проверки выполнять точными безопасными фильтрами, не весь Infrastructure.
 5. Подключить минимальный Join UI к существующему `/api/setup/enroll`, очистку invitation и достоверный статус E4 без фиктивного Ready. На остановке только прочитаны setup.ts/cshtml и frontend tests; UI не изменён. Полный мастер/список узлов остаются 06.
 6. Согласовать все актуальные документы/AGENTS с кодом, проверить ссылки/solution items/UTF-8/EOL, размер новых C# файлов и разнести несколько record из `EnrollmentPeerProbe.cs` по принятому стилю. Прежние результаты 03 не выдавать за регрессию 04.
 
 ### Известные проблемы и ограничения
 
-- `ManagedRestartPreparation.PrepareAsync` проверяет Mode=Restart в конце, после Publish/TLS install; перенести проверку до эффектов при возобновлении.
-- `LocalSetupAccountStore.ValidateProgressAsync` ограничен 10000 steps; требуется безопасная проверка растущей истории, иначе долгоживущая установка может получить отказ.
-- `ManagedStorageSeals` после каждого дальнейшего durable apply публикует snapshot/checkpoint/seal. Это консервативный текущий механизм; стоимость и конкурентность/crash boundaries ещё не оценены. Не ослаблять rollback checks ради ускорения.
+- `ManagedStorageSeals` после каждого дальнейшего durable apply публикует полный snapshot/checkpoint/seal. В 04.04 проверены interleaving и crash boundaries, линейная полному образу стоимость описана без уменьшения частоты. Production throughput/fsync не измерены; native commit ниже SQL/seal после сбоя требует offline recovery.
+- До первого seal прерванный Bootstrap не продолжает native startup автоматически. В 04.05 подтверждён безопасный отказ без второго genesis/account; восстановление произвольных ранних границ остаётся в crash/reconciliation объёме 04.
 - Согласование документации не завершено: в актуальных документах/UI могут оставаться старые фразы о полностью закрытом production Bootstrap. Настоящая граница — этот результат и вводные разделы Onboarding contracts/Local installation setup; UI пока не отражает её полностью.
 - Реальные Ubuntu, сетевые TLS handshakes, ACL/fsync/power loss, SQL/DDL/transaction locking, выборы/majority и переключение живого окружения не проверены. Doubles, local WAL и криптография этого не доказывают.
 
-Начать возобновление с незакрытой проверки preflight и перечисленных известных проблем; затем завершать собственный остаток 04. Перенос 03а/03б, полный Join 05, sender 05а и экраны 06 не реализованы и не начинались. Отсутствие Telegram-токена на несендере не является препятствием допуска.
+После завершения 04.01–04.05 продолжить с 04.06; затем завершать собственный остаток 04. Перенос 03а/03б, полный Join 05, sender 05а и экраны 06 не реализованы и не начинались. Отсутствие Telegram-токена на несендере не является препятствием допуска.
 
 ## Подэтапы
 
-Этап частично реализован и приостановлен. Статус каждой задачи показывает её собственный объём: наличие части кода не закрывает оставшиеся проверки. Подготовка этих файлов не возобновляет реализацию.
+Этап частично реализован, работа возобновлена с 04.01. Статус каждой задачи показывает её собственный объём: наличие части кода не закрывает оставшиеся проверки.
 
 | Подэтап | Зависимости | Статус |
 | --- | --- | --- |
-| [04.01. Повтор незакрытой проверки preflight](04.01-preflight-recheck.md) | Требования этапа | `verification` |
-| [04.02. Mode-проверка ManagedRestart до эффектов](04.02-restart-mode-before-effects.md) | [04.01](04.01-preflight-recheck.md) | `not-started` |
-| [04.03. Проверка растущей истории steps](04.03-unbounded-progress-validation.md) | [04.01](04.01-preflight-recheck.md) | `not-started` |
-| [04.04. Storage seals: конкурентность и стоимость](04.04-storage-seal-lifecycle.md) | [04.01](04.01-preflight-recheck.md), [04.02](04.02-restart-mode-before-effects.md), [04.03](04.03-unbounded-progress-validation.md) | `in-progress` |
-| [04.05. Новый первый: Bootstrap и выдача приглашения](04.05-bootstrap-and-invitation-proof.md) | [04.02](04.02-restart-mode-before-effects.md), [04.04](04.04-storage-seal-lifecycle.md) | `in-progress` |
+| [04.01. Повтор незакрытой проверки preflight](04.01-preflight-recheck.md) | Требования этапа | `completed` |
+| [04.02. Mode-проверка ManagedRestart до эффектов](04.02-restart-mode-before-effects.md) | [04.01](04.01-preflight-recheck.md) | `completed` |
+| [04.03. Проверка растущей истории steps](04.03-unbounded-progress-validation.md) | [04.01](04.01-preflight-recheck.md) | `completed` |
+| [04.04. Storage seals: конкурентность и стоимость](04.04-storage-seal-lifecycle.md) | [04.01](04.01-preflight-recheck.md), [04.02](04.02-restart-mode-before-effects.md), [04.03](04.03-unbounded-progress-validation.md) | `completed` |
+| [04.05. Новый первый: Bootstrap и выдача приглашения](04.05-bootstrap-and-invitation-proof.md) | [04.02](04.02-restart-mode-before-effects.md), [04.04](04.04-storage-seal-lifecycle.md) | `completed` |
 | [04.06. Enrollment E1–E4 и двусторонние probes](04.06-enrollment-through-e4.md) | [04.01](04.01-preflight-recheck.md) | `in-progress` |
 | [04.07. Issuer для существующего ручного кластера](04.07-existing-cluster-issuer.md) | [04.05](04.05-bootstrap-and-invitation-proof.md) | `not-started` |
 | [04.08. Удалённый issuer и follower-координатор](04.08-remote-issuer-routing.md) | [04.06](04.06-enrollment-through-e4.md), [04.07](04.07-existing-cluster-issuer.md) | `not-started` |
@@ -102,4 +113,4 @@ Application enrollment/trust contracts, Infrastructure crypto/control/HTTP adapt
 | [04.17. Актуальные документы и форма новых типов](04.17-current-docs-and-code-shape.md) | [04.02](04.02-restart-mode-before-effects.md), [04.03](04.03-unbounded-progress-validation.md), [04.04](04.04-storage-seal-lifecycle.md), [04.05](04.05-bootstrap-and-invitation-proof.md), [04.06](04.06-enrollment-through-e4.md), [04.07](04.07-existing-cluster-issuer.md), [04.08](04.08-remote-issuer-routing.md), [04.09](04.09-leaf-renewal-and-overlap.md), [04.10](04.10-revocation-and-pool-invalidation.md), [04.11](04.11-issuer-replacement-and-retirement.md), [04.12](04.12-online-process-exchanges.md), [04.13](04.13-joined-managed-restart.md), [04.16](04.16-minimal-enroll-ui.md) | `not-started` |
 | [04.18. Проверки и приёмка собственного объёма 04](04.18-stage-acceptance.md) | [04.01](04.01-preflight-recheck.md), [04.14](04.14-negative-protocol-matrix.md), [04.15](04.15-crash-reconciliation.md), [04.16](04.16-minimal-enroll-ui.md), [04.17](04.17-current-docs-and-code-shape.md) | `not-started` |
 
-После отдельного поручения начать с **04.01**, затем исправить известные проблемы **04.02–04.04**. Дальше выбирать только задачу с выполненными зависимостями; 04.18 закрывает собственный объём доверия, без переноса работ из 03b/05/05a/06.
+**04.01–04.05 завершены**; следующий шаг — **04.06**. Дальше выбирать только задачу с выполненными зависимостями; 04.18 закрывает собственный объём доверия, без переноса работ из 03b/05/05a/06.

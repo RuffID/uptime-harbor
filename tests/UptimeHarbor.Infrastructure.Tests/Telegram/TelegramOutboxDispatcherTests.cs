@@ -15,6 +15,7 @@ using UptimeHarbor.Infrastructure.Monitoring;
 using UptimeHarbor.Infrastructure.Persistence;
 using UptimeHarbor.Infrastructure.Persistence.UnitOfWork;
 using UptimeHarbor.Infrastructure.Telegram;
+using UptimeHarbor.Tests.Infrastructure.Persistence;
 using Xunit;
 
 namespace UptimeHarbor.Tests.Infrastructure.Telegram;
@@ -338,10 +339,8 @@ public class TelegramOutboxDispatcherTests
 
     private static UptimeHarborDbContext CreateContext(SqliteConnection connection)
     {
-        DbContextOptions<UptimeHarborDbContext> options =
-            new DbContextOptionsBuilder<UptimeHarborDbContext>()
-                .UseSqlite(connection)
-                .Options;
+        DbContextOptions<UptimeHarborDbContext> options = SqliteTestDatabase.CreateOptions(connection);
+
         return new UptimeHarborDbContext(options);
     }
 
@@ -436,7 +435,7 @@ public class TelegramOutboxDispatcherTests
         TimeProvider timeProvider)
     {
         ServiceCollection services = new();
-        services.AddDbContext<UptimeHarborDbContext>(options => options.UseSqlite(connection));
+        services.AddDbContext<UptimeHarborDbContext>(options => SqliteTestDatabase.Configure(options, connection));
         services.AddScoped<NotificationOutboxStore>();
         services.AddSingleton(deliveryService);
         services.AddSingleton(sender);

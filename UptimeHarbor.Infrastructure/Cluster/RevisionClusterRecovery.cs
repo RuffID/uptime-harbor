@@ -381,6 +381,17 @@ public class RevisionClusterRecovery(IRecoveryAdmission admissionSource, Revisio
 
             snapshots.ConfirmInstalled(snapshot);
         }
+        catch
+        {
+            if (managedSeals?.Exists == true)
+            {
+                restored = false;
+                replayConfirmed = false;
+                state.Invalidate();
+            }
+
+            throw;
+        }
         finally
         {
             checkpointSerial.Release();

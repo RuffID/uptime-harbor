@@ -53,6 +53,10 @@ public class ManagedBootstrapFixture : IAsyncDisposable
     public InstallationOptions Local { get; }
     public DynamicPeerTls Tls => tls;
     public ManagedStorageSeals? Seals { get; }
+    public ManagedCheckpointProjection Projection { get; } = new();
+    public RevisionSnapshotStore Snapshots { get; }
+    public RevisionClusterRecovery Recovery => recovery;
+    public Action? BeforeReadyPublication { get; set; }
     private readonly LocalSecretStore secrets;
     private readonly GenesisPreparation genesis;
     private readonly GenesisRuntimePreparation preparation;
@@ -119,8 +123,9 @@ public class ManagedBootstrapFixture : IAsyncDisposable
         ManagedRecoveryAdmission source = new(Microsoft.Extensions.Options.Options.Create(local), Admission,
             new SignedRecoveryAdmission(control, Microsoft.Extensions.Options.Options.Create(Options), Time));
         services = new ServiceCollection().BuildServiceProvider();
-        recovery = new(source, Accepted, new(Accepted, new(), new Projection(Accepted)), new Projection(Accepted),
-            new(Microsoft.Extensions.Options.Options.Create(Options)), services.GetRequiredService<IServiceScopeFactory>(), Microsoft.Extensions.Options.Options.Create(Options), managedSeals: Seals, time: Time);
+        Snapshots = new(Microsoft.Extensions.Options.Options.Create(Options));
+        recovery = new(source, Accepted, new(Accepted, new(), Projection), Projection,
+            Snapshots, services.GetRequiredService<IServiceScopeFactory>(), Microsoft.Extensions.Options.Options.Create(Options), managedSeals: Seals, time: Time);
         Runtime = new(recovery, Accepted, control, Microsoft.Extensions.Options.Options.Create(Options), Time);
         machine = new(recovery, Readiness);
         tls = new(Installation, Accepted, Time);
@@ -147,7 +152,8 @@ public class ManagedBootstrapFixture : IAsyncDisposable
             new EnrollmentReadBarrier(handle, Runtime, Accepted, Readiness, Microsoft.Extensions.Options.Options.Create(Options)));
         AccountBootstrap = new(Microsoft.Extensions.Options.Options.Create(Options), new UnusedCredentials(), source, Accepted, writer, new Audit(), dispatcher);
         Authority = new(genesis, Enable);
-        InstallationLifecycle lifecycle = new(Store, Store, Installation, new ReadyRuntime(Installation, Enable), Authority,
+        InstallationLifecycle lifecycle = new(Store, Store, Installation, new ReadyRuntime(Installation, Enable,
+            () => BeforeReadyPublication?.Invoke()), Authority,
             Lease, Time, NullLogger<InstallationLifecycle>.Instance);
         OnlineGrantSigningAuthorization signing = new(handle, Runtime, Accepted, Readiness, Microsoft.Extensions.Options.Options.Create(Options), Admission, Lease, Time);
         Driver = new(Installation, Lease, Admission, Store, new(Store, signing, new(), secrets, Lease, Time),
@@ -244,7 +250,7 @@ public class ManagedBootstrapFixture : IAsyncDisposable
         }
     }
 
-    private class ReadyRuntime(InstallationState state, OnlineEnableState enable) : IInstallationRuntime
+    private class ReadyRuntime(InstallationState state, OnlineEnableState enable, Action beforePublish) : IInstallationRuntime
     {
         public Task<bool> DrainAsync(long expectedGeneration, TimeSpan budget, CancellationToken token)
         {
@@ -258,6 +264,7 @@ public class ManagedBootstrapFixture : IAsyncDisposable
 
         public Task PublishReadyAsync(LocalInstallationProfile profile, CancellationToken token)
         {
+            beforePublish();
             if (state.Current != profile || !enable.Allows())
             {
                 throw new InvalidOperationException("TestReadyAuthorityMissing");
@@ -287,42 +294,4 @@ public class ManagedBootstrapFixture : IAsyncDisposable
         }
     }
 
-    private class Projection(RevisionStateStore accepted) : IRevisionProjectionStore
-    {
-        public Task ApplyAsync(ProjectionWriteSet changes, CancellationToken token)
-        {
-            return Task.CompletedTask;
-        }
-
-        public Task<ProjectionHead?> ReadHeadAsync(CancellationToken token)
-        {
-            RevisionImage? image = accepted.Current;
-            if (image is null || image.Index == 0)
-            {
-                return Task.FromResult<ProjectionHead?>(null);
-            }
-
-            return Task.FromResult<ProjectionHead?>(new(image.ClusterId, image.Generation, image.Index, image.Term, image.Digest));
-        }
-
-        public Task VerifyAsync(RevisionImage image, CancellationToken token)
-        {
-            return Task.CompletedTask;
-        }
-
-        public Task InstallAsync(RevisionImage image, Guid snapshotId, string snapshotDigest, CancellationToken token)
-        {
-            throw new NotSupportedException();
-        }
-
-        public Task<RevisionImage> ExportAsync(RevisionImage image, CancellationToken token)
-        {
-            return Task.FromResult(image);
-        }
-
-        public Task CheckpointAsync(Guid snapshotId, string digest, long index, CancellationToken token)
-        {
-            return Task.CompletedTask;
-        }
-    }
 }

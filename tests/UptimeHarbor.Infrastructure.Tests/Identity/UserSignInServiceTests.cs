@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using UptimeHarbor.Infrastructure.Identity;
 using UptimeHarbor.Infrastructure.Persistence;
 using UptimeHarbor.Application.Security;
+using UptimeHarbor.Tests.Infrastructure.Persistence;
 using Xunit;
 
 namespace UptimeHarbor.Tests.Infrastructure.Identity;
@@ -139,7 +140,7 @@ public class UserSignInServiceTests
             ServiceCollection services = new();
             services.AddLogging();
             services.AddHttpContextAccessor();
-            services.AddDbContext<UptimeHarborDbContext>(options => options.UseSqlite(connection));
+            services.AddDbContext<UptimeHarborDbContext>(options => SqliteTestDatabase.Configure(options, connection));
             services
                 .AddIdentity<ApplicationUser, ApplicationRole>(options =>
                 {

@@ -19,6 +19,11 @@ public class ManagedRestartPreparation(ManagedStorageSeals seals, RevisionSnapsh
 {
     public async Task<bool> PrepareAsync(LocalInstallationProfile profile, CancellationToken token)
     {
+        if (cluster.Value.Mode != "Restart")
+        {
+            return false;
+        }
+
         if (profile != installation.Current || !profile.ManagedRestart || profile.BootId != lease.BootId
             || profile.Phase != InstallationPhase.ClusterQuarantine)
         {
@@ -33,6 +38,7 @@ public class ManagedRestartPreparation(ManagedStorageSeals seals, RevisionSnapsh
             throw new InvalidDataException("ManagedSqlHeadRollbackOrMismatch");
         }
 
+        ManagedWalValidation.RequireCheckpoint(cluster.Value.StoragePath, sql.Index, sql.Term);
         PublishedRevisionSnapshot snapshot = await snapshots.LoadAsync(seal.SnapshotId, seal.SnapshotDigest, token);
         RevisionImage image = snapshot.Image;
         OperationalNode node = image.Operations.Nodes[seal.NodeId];
@@ -83,7 +89,7 @@ public class ManagedRestartPreparation(ManagedStorageSeals seals, RevisionSnapsh
         tls.Install(profile.RuntimeGeneration, certificate, new X509Certificate2(root),
             image.Operations.Credentials.Values.Select(item => item.Fingerprint),
             candidate => EnrollmentLiveTrust.Validate(image, candidate, time.GetUtcNow()), issuer.Epoch);
-        return cluster.Value.Mode == "Restart";
+        return true;
     }
 
     private Guid ReadOriginalActor(LocalInstallationProfile profile)

@@ -1,5 +1,123 @@
 # Тестирование
 
+## Исправление инфраструктурного набора (2026-11-15)
+
+Исходный полный прогон воспроизвёл 24 падения из 488: неверное ожидание limiter в OnboardingBoundaryTests и 23 отказа SQLite EnsureCreated до выполнения сценариев. Требование enrollment — 30 всех запросов/минуту на endpoint и 5 неверных/минуту на IP; тест теперь сообщает `Rejected`, отдельно проверяет успешные запросы и независимость IP/минутный сброс. Production limiter не менялся.
+
+Общая тестовая настройка `SqliteTestDatabase` применяется во всех шести SQLite-классах, включая прямые contexts и DI Identity/Telegram. `SqliteTestModelCustomizer` заменяет только SQL Server DATEADD в lifetime constraint; локальная детерминированная функция сохраняет DateTime.AddYears, 29 февраля и точность ticks. DATALENGTH для бинарных DER реализован как число байтов. Constraints не удалены. Добавлены 16 provider-проверок границ срока issuer и DER (0/1/65536/65537 байт для issuer/issuance), а также две отдельные проверки limiter.
+
+После исправлений полный Infrastructure: **506 успешно, 0 ошибок, 0 пропусков**. После финального разделения Act/Assert отдельно повторены все четыре OnboardingBoundaryTests: 4 успешно, 0 ошибок/пропусков. Сборка конкретного test-проекта без restore: 0 предупреждений/ошибок. Использованы команды:
+
+```powershell
+dotnet build tests/UptimeHarbor.Infrastructure.Tests/UptimeHarbor.Infrastructure.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/infrastructure-tests/
+dotnet test --project tests/UptimeHarbor.Infrastructure.Tests/UptimeHarbor.Infrastructure.Tests.csproj --no-build --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/infrastructure-tests/
+dotnet test --project tests/UptimeHarbor.Infrastructure.Tests/UptimeHarbor.Infrastructure.Tests.csproj --no-build --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/infrastructure-tests/ -- --filter-class UptimeHarbor.Tests.Infrastructure.Cluster.OnboardingBoundaryTests
+```
+
+SQLite in-memory/SQL разрешены пользователем отдельно для этой задачи; это разовое разрешение не меняет ограничения репозитория. Production код, схема и migrations не менялись; новая миграция не нужна. SQL Server, внешняя БД, сеть, приложение и hosting не запускались. Успех SQLite не подтверждает SQL Server DATEADD/DATALENGTH, row locks, применение migrations или crash/fsync. Существующий TelegramOutboxDispatcherTests превышает 20000 байт; точечно изменены только два места настройки SQLite, новая ответственность вынесена в общую тестовую настройку.
+
+## Bootstrap и приглашение 04.05 (2026-11-15)
+
+Production код не менялся. Добавлены 13 ManagedBootstrapRecoveryTests и четыре новых случая ManagedInvitationTests. Общие ManagedBootstrapFixture/ManagedRestartFixture/ManagedRaftProbe/ManagedBootstrapStore дополнены управлением потерей конкретного native ответа, счётчиками effects/commits и границами до/после подставного commit; SQL/rollback этим не моделируется и не доказывается.
+
+Проверены все семь committed ответов InitializeCluster → BootstrapAccount → process → authorize/consume activation → authorize/consume Enable: повтор сохраняет прежние IDs/key reference, единственный account/issuer/credential и ровно семь native effects. Common UI остаётся закрытым до durable отзыва setup; после commit и до runtime publication проверяются Disabled/hash removal/stamp/epoch. Потеря ответа этого commit оставляет UI закрытым; sealed restart использует тот же genesis/account с новым process/Enable и отвергает старый bootstrap payload. Отказ runtime publication сохраняет FailedNeedsAction без повторного genesis и без восстановления setup credential.
+
+InvitationAdministration проверяется через настоящий protected Pending/dispatcher/reducer/локальный WAL: schema3 после Bootstrap и sealed Restart, accepted common actor, отказ setup identity и неверному паролю, потерянный ответ без повторной выдачи code/native effect, явная замена с отзывом предыдущего приглашения. Login/SQL/majority/transport — doubles; middleware вызывается напрямую без browser/host. Новый GET boundary test первоначально упал из-за незаданного HTTP method, который трактовался как mutation и давал 403; исправлена подготовка запроса, production проверки не ослаблялись.
+
+После исправления подготовки запроса и добавления отказа Ready выполнен только затронутый Web-фильтр: **59 успешно, 0 ошибок, 0 пропусков**. Он включает ManagedBootstrapRecoveryTests, ManagedBootstrapTests, ManagedInvitationTests, ManagedRestartTests, ManagedStorageSealTests, EnrollmentGatewayTests и EnrollmentClientTests — все используют изменённые fixtures. Compile-check Web.Tests с зависимостями: **0 предупреждений/ошибок**. После последующей замены var на явные типы в invitation tests повторены build и только ManagedInvitationTests: **5 успешно, 0 ошибок/пропусков**; остальные исходники тестов не менялись.
+
+```powershell
+dotnet build tests/UptimeHarbor.Web.Tests/UptimeHarbor.Web.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/web-tests/ -p:TypeScriptCompileBlocked=true
+dotnet test --project tests/UptimeHarbor.Web.Tests/UptimeHarbor.Web.Tests.csproj --no-build --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/web-tests/ -- --filter-class UptimeHarbor.Tests.Web.Cluster.ManagedBootstrapRecoveryTests --filter-class UptimeHarbor.Tests.Web.Cluster.ManagedStorageSealTests --filter-class UptimeHarbor.Tests.Web.Cluster.ManagedRestartTests --filter-class UptimeHarbor.Tests.Web.Cluster.ManagedBootstrapTests --filter-class UptimeHarbor.Tests.Web.Cluster.ManagedInvitationTests --filter-class UptimeHarbor.Tests.Web.Cluster.EnrollmentGatewayTests --filter-class UptimeHarbor.Tests.Web.Cluster.EnrollmentClientTests
+dotnet test --project tests/UptimeHarbor.Web.Tests/UptimeHarbor.Web.Tests.csproj --no-build --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/web-tests/ -- --filter-class UptimeHarbor.Tests.Web.Cluster.ManagedInvitationTests
+```
+
+Перед запуском проверены csproj, tests/Directory.Build.props, доступные build-настройки и изоляция fixtures; новые executable hooks/пакеты не добавлялись. Новые/изменённые C# файлы меньше 20000 байт. Новые тесты размещены рядом с однородными cluster hosting tests; отдельная папка ради количества не создавалась. UTF-8/ссылки и исходные окончания строк проверяются в рамках этой задачи; новые документы и solution items не добавлялись.
+
+Прерванный первый Bootstrap без первого seal подтверждён только как безопасный отказ до native open, без второго genesis/account; автоматическое resume этой границы не реализовано. Полные suites и неизменённые Infrastructure/Application/Domain тесты не запускались. SQL commit/rollback/locking, fsync/power loss, настоящий второй OS-процесс, majority/elections, сеть/TLS, browser rendering, manual cluster и полный Join не проверялись. Приложение, Docker, migrations/БД и deployment не запускались.
+
+## Storage seals 04.04 (2026-11-15)
+
+До исправления ManagedStorageSealTests воспроизвёл приём пустого/короткого state и checkpoint, stale native term/index, а также сохранение CaughtUp после ошибки фонового checkpoint. Отдельная регрессия seal: 3 ошибки из 4 случаев — понижение term и конфликтующие term/head на том же index; прежний отказ уменьшению index работал. Ошибки подготовки fixture исправлялись отдельно: BinaryLogEntry не предоставляет public IsConfiguration, поэтому interleaving использует настоящую повторную accepted-команду; checkpoint открывается с FileShare.ReadWrite только для снятия тестовой старой копии при работающем локальном WAL.
+
+Финальные проверки после исправлений:
+
+| Точный затронутый набор | Успешно | Ошибки / пропуски |
+| --- | --- | --- |
+| Web: ManagedStorageSealTests, ManagedRestartTests, ManagedBootstrapTests, ManagedInvitationTests, EnrollmentGatewayTests, EnrollmentClientTests | 42 | 0 / 0 |
+| Infrastructure: RevisionRecoveryTests | 6 | 0 / 0 |
+
+Новый ManagedStorageSealTests содержит 21 случай. Проверяет state/checkpoint длиной 0/1/на байт короче, stale term/commit/last, неизвестную версию и отсутствие checkpoint до native open; старый реальный checkpoint при новом seal/snapshot; законное повышение election term без apply; отказ регрессии index/term и другого head/term на том же index. Crash boundaries: новый snapshot до SQL checkpoint, orphan `.next` после SQL checkpoint, seal до Current. При сбое предыдущие Current/seal сохраняются, accepted recovery и Enable закрываются; `.next` блокирует restart. После seal без Current restart выбирает точный sealed snapshot.
+
+Concurrent test приостанавливает ручной snapshot перед SQL checkpoint, дожидается настоящего WAL apply поверх captured cut, затем отпускает публикацию. Проверяет две последовательные exports/checkpoints, монотонный конечный seal/Current и повторное открытие WAL. Используются production recovery/seal/crypto и временные файлы, управляемая SQL-проекция и native majority doubles; listeners, native Start/выборы и БД отсутствуют. RevisionRecoveryTests проверяет затронутый прежний recovery, включая сохранение Current при неудаче checkpoint без managed seal.
+
+До сборок проверены проекты, tests/Directory.Build.props, доступные build-настройки и изоляция выбранных fixtures. Production Infrastructure и оба test-проекта собраны отдельно без restore: 0 предупреждений/ошибок. Выполнены:
+
+```powershell
+dotnet build UptimeHarbor.Infrastructure/UptimeHarbor.Infrastructure.csproj -c Debug --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/installation-production-infrastructure/
+dotnet build tests/UptimeHarbor.Web.Tests/UptimeHarbor.Web.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/web-tests/ -p:TypeScriptCompileBlocked=true
+dotnet build tests/UptimeHarbor.Infrastructure.Tests/UptimeHarbor.Infrastructure.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/installation-infrastructure-tests/
+dotnet test --project tests/UptimeHarbor.Web.Tests/UptimeHarbor.Web.Tests.csproj --no-build --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/web-tests/ -- --filter-class UptimeHarbor.Tests.Web.Cluster.ManagedStorageSealTests --filter-class UptimeHarbor.Tests.Web.Cluster.ManagedRestartTests --filter-class UptimeHarbor.Tests.Web.Cluster.ManagedBootstrapTests --filter-class UptimeHarbor.Tests.Web.Cluster.ManagedInvitationTests --filter-class UptimeHarbor.Tests.Web.Cluster.EnrollmentGatewayTests --filter-class UptimeHarbor.Tests.Web.Cluster.EnrollmentClientTests
+dotnet test --project tests/UptimeHarbor.Infrastructure.Tests/UptimeHarbor.Infrastructure.Tests.csproj --no-build --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/installation-infrastructure-tests/ -- --filter-class UptimeHarbor.Tests.Infrastructure.Cluster.RevisionRecoveryTests
+```
+
+Проверка метаданных привязана к DotNext 6.10.0: [точные исходники state](https://github.com/dotnet/dotNext/blob/3499aedecf58b3c27a5d87af700d99e6b973cfde/src/cluster/DotNext.Net.Cluster/Net/Cluster/Consensus/Raft/StateMachine/WriteAheadLog.NodeState.cs), [checkpoint](https://github.com/dotnet/dotNext/blob/3499aedecf58b3c27a5d87af700d99e6b973cfde/src/cluster/DotNext.Net.Cluster/Net/Cluster/Consensus/Raft/StateMachine/WriteAheadLog.Checkpoint.cs). Она выполняется до конструктора, который обнуляет короткий state и поднимает индексы до snapshot. При обновлении зависимости нужно пересмотреть адаптер. Native commit ниже SQL/seal после аварии консервативно требует offline recovery; это не обещание автоматического восстановления после любого сбоя.
+
+Стоимость полного образа на каждый apply зафиксирована статически и счётчиками, production throughput/latency не измерялись. SQL/locking/atomicity, power-loss/fsync/Ubuntu ACL, реальные majority/elections/TLS и полный Join не проверены. Побитовый клон/откат всей установки с ключами локально неотличим — прежнее ограничение сохранено. Полные test suites, приложение/hosting, Docker и deployment не запускались; frontend, schema и migrations не менялись.
+
+## История steps 04.03 (2026-11-15)
+
+Регрессионный HistoryBeyondTenThousandIsValidated выполнен до исправления: 1 ошибка ForeignLocalAttemptStep на корректных 10001 записях. Ошибки первоначальной подготовки fixture исправлены до этого запуска; дефект подтверждён выполнением production LocalSetupAccountStore, а не ошибкой сборки.
+
+После замены общего лимита на keyset-страницы по 256 выполнен только **UptimeHarbor.Tests.Infrastructure.Installation.ProgressValidationTests: 32 успешно, 0 ошибок, 0 пропусков**. Проверены пустая/короткая история, границы 255/256/257, 9999/10000/10001/10240, обратный исходный порядок, полный обход без повторов/пропусков и bounded materialization. Corruption на границах страницы и в конце проверяет чужую попытку, payload identity/digest, будущие revisions/generation, kind/evidence/JSON; дополнительно проверены foreign attempt, прежние fixed OperationIds, online lifecycle binding и отмена между страницами.
+
+MemoryContext/DbSet исполняет actual store queries над памятью; провайдер и БД для этих запросов не используются. Для проверки перевода LINQ записанные production page expressions передаются SQL Server provider через ToQueryString при закрытом соединении: TOP/ORDER BY и keyset WHERE без OFFSET. SQL не выполняется; это не подтверждает реальные GUID ordering, locking или конкурентную запись. Production код использует один provider для cursor comparison и сортировки, startup — существующие installation/storage locks до запуска writers.
+
+До запусков проверены конкретные csproj/project references, tests/Directory.Build.props, доступные build/restore-настройки и код/инициализация выбранных fixtures. Executable hooks, packages, schema и migrations не менялись. Выполнены:
+
+```powershell
+dotnet build UptimeHarbor.Infrastructure/UptimeHarbor.Infrastructure.csproj -c Debug --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/installation-production-infrastructure/
+dotnet build tests/UptimeHarbor.Infrastructure.Tests/UptimeHarbor.Infrastructure.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/installation-infrastructure-tests/
+dotnet test --project tests/UptimeHarbor.Infrastructure.Tests/UptimeHarbor.Infrastructure.Tests.csproj --no-build --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/installation-infrastructure-tests/ -- --filter-class UptimeHarbor.Tests.Infrastructure.Installation.ProgressValidationTests
+```
+
+Финальные production/test compile-check: 0 предупреждений, 0 ошибок. Промежуточный прогон 31/31 расширен одной проверкой online lifecycle; после неё test project пересобран и весь затронутый фильтр повторён (32/32). Другие наборы не запускались. Приложение/hosting, SQL/БД (включая SQLite), сеть, Docker, Telegram и внешняя Ubuntu/fsync приёмка не выполнялись.
+
+## ManagedRestart 04.02 (2026-11-15)
+
+Проверка Cluster.Mode=Restart в ManagedRestartPreparation перенесена до чтения storage и побочных эффектов. В ManagedRestartTests добавлена теория из семи случаев: Disabled, Bootstrap, Join, пустое/неизвестное значение, другой регистр и лишний пробел. На целом storage проверяются false без admission/TLS/native store/barrier, неизменность профиля, seal/manifest и состава файлов; повтор после удаления seal проверяет отказ до его чтения. Существующий успешный Restart дополнен проверкой TLS, сохраняя карантин и новый ProcessEpoch/Enable.
+
+Перед compile-check проверены конкретные проекты и общие build-настройки. Пользовательские executable hooks не добавлялись; TypeScript в Web-сборке заблокирован. Выполнены команды:
+
+```powershell
+dotnet build UptimeHarbor.Infrastructure/UptimeHarbor.Infrastructure.csproj -c Debug --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/installation-production-infrastructure/
+dotnet build tests/UptimeHarbor.Web.Tests/UptimeHarbor.Web.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/web-tests/ -p:TypeScriptCompileBlocked=true
+```
+
+Обе сборки: 0 предупреждений, 0 ошибок. Затем по явной просьбе пользователя выполнен только точный ManagedRestartTests-фильтр: **13 успешно, 0 ошибок, 0 пропусков**. Семь новых вариантов неправильного Mode, пять прежних отказов повреждённого storage и успешный Restart с новым Enable прошли. Другие тестовые наборы не запускались; 04.02 завершён. Выполненная команда:
+
+```powershell
+dotnet test --project tests/UptimeHarbor.Web.Tests/UptimeHarbor.Web.Tests.csproj --no-build --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/web-tests/ -- --filter-class UptimeHarbor.Tests.Web.Cluster.ManagedRestartTests
+```
+
+Перед запуском проверены ManagedRestartTests, общие fixtures, production preparation/recovery, native proxy и build-настройки: используются память, локальная криптография и временный WAL; SQL/БД, Start host/native, сеть и внешние процессы не вызываются. Изолированный прогон не подтверждает внешнюю приёмку Ubuntu/TLS/ACL/fsync или весь этап 04.
+
+## Повтор preflight 04.01 (2026-11-15)
+
+По поручению продолжить план выполнена задача 04.01. Перед запуском проверены конкретный Infrastructure.Tests.csproj, его зависимости, tests/Directory.Build.props, доступные build/restore-настройки и отсутствие пользовательских executable hooks. Статически проверены SetupPreflightTests и InstallationFixture: in-memory inventory/store, закрытый SQL Server context только для metadata, временные локальные файлы; SQL, соединения с БД, sockets и внешние процессы не используются.
+
+| Проверка | Результат |
+| --- | --- |
+| Compile-check Infrastructure.Tests с зависимостями после прежнего исправления preflight | 0 предупреждений, 0 ошибок |
+| Только UptimeHarbor.Tests.Infrastructure.Installation.SetupPreflightTests | 13 успешно, 0 ошибок, 0 пропусков |
+
+```powershell
+dotnet build tests/UptimeHarbor.Infrastructure.Tests/UptimeHarbor.Infrastructure.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/installation-infrastructure-tests/
+dotnet test --project tests/UptimeHarbor.Infrastructure.Tests/UptimeHarbor.Infrastructure.Tests.csproj --no-build --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/installation-infrastructure-tests/ -- --filter-class UptimeHarbor.Tests.Infrastructure.Installation.SetupPreflightTests
+```
+
+Прежняя ошибка preflight не воспроизводится; новых правок кода не потребовалось. Весь Installation/Infrastructure и Web повторно не запускались: результат 13/13 не заменяет полную регрессию 04. БД/SQL, приложение/hosting, сеть, Ubuntu/TLS/ACL/fsync, реальные majority/elections и внешний ввод не проверялись. Историческая точка остановки ниже сохранена; следующий подэтап — 04.02.
+
 ## Точка остановки этапа 04 (2026-11-03)
 
 Работа приостановлена по просьбе пользователя; при фиксации остановки новые builds/tests не запускались. Ниже последние результаты выполненной реализации, а не финальная приёмка 04. Предварительно проверены csproj/build hooks и изоляция выбранных тестов по `csharp-project-rules/references/build-validation.md`. Полный Infrastructure-набор с provider/БД-тестами не запускался.

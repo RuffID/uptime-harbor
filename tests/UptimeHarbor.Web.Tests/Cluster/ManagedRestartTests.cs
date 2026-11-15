@@ -7,6 +7,62 @@ namespace UptimeHarbor.Tests.Web.Cluster;
 public class ManagedRestartTests
 {
     [Theory]
+    [InlineData("Disabled")]
+    [InlineData("Bootstrap")]
+    [InlineData("Join")]
+    [InlineData("")]
+    [InlineData("restart")]
+    [InlineData("Restart ")]
+    [InlineData("Unknown")]
+    public async Task NonRestartModesRejectBeforeAdmissionTlsOrStorageAccess(string mode)
+    {
+        // Arrange
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await using ManagedBootstrapFixture first = new(durableRestart: true);
+        await EnrollmentGatewayTests.ReadyAsync(first, token);
+        await first.StopStorageAsync();
+        await using ManagedRestartFixture restart = new(first);
+        first.Options.Mode = mode;
+        LocalInstallationProfile profile = restart.Installation.Current!;
+        string sealPath = Path.Combine(first.Local.StateDirectory, "managed-storage.seal");
+        string manifestPath = Path.Combine(first.Options.StoragePath, "manifest.json");
+        byte[] originalSeal = File.ReadAllBytes(sealPath);
+        byte[] originalManifest = File.ReadAllBytes(manifestPath);
+        string[] originalFiles = Directory.GetFiles(first.Root, "*", SearchOption.AllDirectories)
+            .Order(StringComparer.Ordinal).ToArray();
+
+        // Act
+        bool prepared = await restart.Preparation.PrepareAsync(profile, token);
+
+        // Assert
+        Assert.False(prepared);
+        Assert.Null(restart.Admission.Read());
+        Assert.Null(restart.Tls.Certificate);
+        Assert.Same(profile, restart.Installation.Current);
+        Assert.Same(profile, first.Store.Profile);
+        Assert.Equal(0, restart.Native.Barriers);
+        Assert.Null(restart.Native.Store);
+        Assert.False(restart.Installation.CommonOpen);
+        Assert.False(restart.Enable.Allows());
+        Assert.Equal(originalSeal, File.ReadAllBytes(sealPath));
+        Assert.Equal(originalManifest, File.ReadAllBytes(manifestPath));
+        Assert.Equal(originalFiles, Directory.GetFiles(first.Root, "*", SearchOption.AllDirectories)
+            .Order(StringComparer.Ordinal).ToArray());
+
+        // Arrange
+        File.Delete(sealPath);
+
+        // Act
+        bool missingStorage = await restart.Preparation.PrepareAsync(profile, token);
+
+        // Assert
+        Assert.False(missingStorage);
+        Assert.Null(restart.Admission.Read());
+        Assert.Null(restart.Tls.Certificate);
+        Assert.False(File.Exists(sealPath));
+    }
+
+    [Theory]
     [InlineData("manifest")]
     [InlineData("seal")]
     [InlineData("missing-wal")]
@@ -69,6 +125,7 @@ public class ManagedRestartTests
 
         // Assert
         Assert.IsType<ManagedRestartProof>(restart.Admission.Read()!.Proof);
+        Assert.NotNull(restart.Tls.Certificate);
         Assert.False(restart.Admission.Read()!.FencingConfirmed);
         Assert.Null(restart.Admission.Read()!.BootstrapAccount);
         Assert.Equal(0, restart.Native.Barriers);
