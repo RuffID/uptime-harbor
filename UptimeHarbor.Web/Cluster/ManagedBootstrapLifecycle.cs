@@ -11,12 +11,13 @@ using UptimeHarbor.Domain.Cluster;
 using UptimeHarbor.Infrastructure.Cluster;
 using UptimeHarbor.Infrastructure.Cluster.Onboarding;
 using UptimeHarbor.Infrastructure.Installation;
+using UptimeHarbor.Infrastructure.Cluster.Onboarding.Routing;
 
 namespace UptimeHarbor.Web.Cluster;
 
 /// <summary>После native genesis/account принимает разные process/activation/enable операции; setup отзывается lifecycle.</summary>
 public class ManagedBootstrapLifecycle(InstallationState installation, InstallationLease lease,
-    ManagedAdmissionState admission, ILocalSetupUnitOfWork work, OnlineGrantSigner grants,
+    ManagedAdmissionState admission, ILocalSetupUnitOfWork work, EnrollmentIssuanceRouter grants,
     OnlineProcessRenewalSigner renewal, OnlineEnableState enable, RevisionStateStore revisions,
     ClusterRuntimeState runtime, ClusterRaftHandle handle, NodeReadiness readiness,
     RevisionDispatcher dispatcher, InstallationLifecycle lifecycle, IOptions<ClusterOptions> options, TimeProvider time,
@@ -162,6 +163,13 @@ public class ManagedBootstrapLifecycle(InstallationState installation, Installat
                 if (previous is not null && previous.Outcome != OperationOutcome.Committed)
                 {
                     operationId = new Guid(SHA256.HashData(Encoding.UTF8.GetBytes($"{identity}/{previous.Index}")).AsSpan(0, 16));
+                    continue;
+                }
+
+                LocalAttemptStep? grantRequest = await work.Profiles.FindStepAsync(OnlineGrantRequestSignatures.IntentId(operationId), token);
+                if (grantRequest is not null && time.GetUtcNow() >= OnlineGrantRequestSignatures.RequireStep(profile, grantRequest).Grant.ExpiresAtUtc)
+                {
+                    operationId = new Guid(SHA256.HashData(Encoding.UTF8.GetBytes($"{identity}/expired/{operationId:D}")).AsSpan(0, 16));
                     continue;
                 }
 

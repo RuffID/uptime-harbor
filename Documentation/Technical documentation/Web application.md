@@ -1,5 +1,11 @@
 # Web-приложение
 
+## Регистрация manual issuer (04.07)
+
+`ClusterEnrollmentIssuersController`: POST `/api/admin/cluster/enrollment-issuers` принимает только OperationId/Password; GET `/api/admin/cluster/enrollment-issuers/operations/{operationId}` возвращает безопасный status без CA/ключа/digests/refs. Нужен общий Administrator, POST также требует antiforgery, onboarding-administrator limiter и body ≤4096 байт. Неизвестные JSON fields запрещены. Use case повторяет accepted authorization после await и сохраняет исходный Pending до transport. 202 означает существующую локальную заявку; Committed и IssuanceReady=false сохраняют известный commit при недоступном новом majority. Готовность не объявляется по одному HTTP-ответу coordinator.
+
+`EnrollmentIssuerAdministration` зарегистрирован в AddWebPresentation; полный graph включает AddApplication/AddInfrastructure/AddClusterWeb. Конструирование manual graph не открывает volumes и native runtime. У standalone Infrastructure отсутствует browser use case; signer без production signing authorization закрыт. Экран регистрации не добавлен; remote/follower routing и replacement этим API не предоставляются. [Контракт](Onboarding%20contracts.md#первоначальный-issuer-ручного-кластера-0407), [проверки](Testing.md#issuer-ручного-кластера-0407-2026-11-15).
+
 ## Частичный backend этапа 04
 
 OnboardingAcceptance распознаёт закрытые schema-3 issuer/genesis commands, проверяет crypto public anchor и назначает stamp после majority barrier. InitializeCluster не принимается из peer command batch; остальная issuer administration требует того же authenticated peer storage и текущей accepted авторизации. EnrollmentSigningAuthorization использует ClusterRaftHandle без зависимости от runtime/dispatcher. Managed TLS server pin привязан к точному endpoint до отправки HTTP.
@@ -16,7 +22,7 @@ Setup prepare подключает production Bootstrap нового перво�
 
 ClusterInvitationsController предоставляет Issue/Replace/Revoke/Continue/Cancel и безопасный read на `/api/admin/cluster/invitations`. Mutations требуют accepted Administrator, antiforgery, свежий пароль, rate limit и bounded DTO без actor/verifier. Code возвращается только первым запросом после подтверждённой выдачи; потерянный ответ/retry его не восстанавливает. 202 означает существующий local Pending, Unconfirmed — отсутствие подтверждения. Ответы no-store; новые экраны остаются запланированными.
 
-InvitationAdministration регистрируется в AddWebPresentation; полный graph также включает AddClusterWeb с transport/acceptance через ClusterRaftHandle. Enrollment endpoint и реальный новый Join не реализованы, gates закрыты. [Контракты, ошибки и границы проверки](Onboarding%20contracts.md).
+InvitationAdministration регистрируется в AddWebPresentation; полный graph также включает AddClusterWeb с transport/acceptance через ClusterRaftHandle. Dedicated enrollment выполняет E1–E4 до ограниченного nonvoter/probe; полный Join со snapshot/membership/Ready остаётся закрыт до этапа 05. [Контракты, ошибки и границы проверки](Onboarding%20contracts.md).
 
 ## Эксплуатационные команды (09)
 

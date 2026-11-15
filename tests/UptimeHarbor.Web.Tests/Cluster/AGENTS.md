@@ -1,6 +1,10 @@
 # Изолированные проверки cluster hosting
 
+Issuers/ проверяет provisioning существующего ручного кластера, capability всех voters и административный HTTP-контракт через production pipeline без SQL/сокетов/native Start. Сохранять отдельные regression проверки managed secrets/Bootstrap и прежних invitations.
+
 ManagedBootstrap/ManagedRestart tests используют production permit/recovery/signers/validators/lifecycle и реальный локальный WAL; SQL/native majority и membership file — doubles, native Start/elections не выполняются. EnrollmentClient/Gateway tests соединяют production client/server через fake handlers без listeners; TLS policy проверяется локальной криптографией, не handshake. Проверять обе peer-пробы, lost reserve/IssueId/DER, новый BootChallenge/ProcessEpoch/lease, file intent/crash/orphans и закрытый CommonOpen второго. Не запускать реальную сеть или host ради этих тестов.
+
+EnrollmentClientTests отдельно прерывает Bind и каждую peer-пробу: до двух успешных направлений PeerProbes evidence отсутствует. BeforeSave у local store проверяет SQL intent до trust-файла; это порядок вызовов, не provider atomicity. При активной pending TLS session проверять реальный PeerBoundaryMiddleware: Raft/commands/snapshot/common закрыты, runtime не создаётся. Read-state/process-renew без DER до Bind не должны стирать ранее полученные байты; renew проверять с управляемым временем после обрыва Bind.
 
 ManagedRestartTests проверяет ранний отказ для режима, отличного от точного Restart: admission/TLS/native store остаются закрытыми, профиль и файлы не меняются; отсутствующий seal не должен читаться. Успешный Restart отдельно проверяет TLS, карантин и новый ProcessEpoch/Enable.
 

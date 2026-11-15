@@ -10,4 +10,6 @@
 
 Schema-3 EnrollmentTrust commands используют прежний reducer/projection и отдельный bounded payload. InitializeCluster требует точного GenesisAuthorization из trusted initial image, создаёт Node до credential и не принимает самоподписанное входящее разрешение. Issuer retirement/revocation сохраняют public anchor/history. Snapshot сверяет issuer owner/revision/digests и projection rows. Schema-2 WAL сохраняет прежние semantics; новые online команды требуют schema 3.
 
+IEnrollmentIssuerRegistrationBarrier подтверждает majority и capability всех voters до Register; coordinator не должен обходить его через peer batch. PendingCommandService не заменяет reauthenticated actor revision trust-команды текущей revision аккаунта и не принимает готовый coordinator stamp.
+
 Schema-3 попытка сохраняет BootChallenge и IssuanceAuthorizationIndex. Resume ждёт предыдущую lease и меняет boot/challenge/epoch; критичные продолжения проверяют issuer/delegation/credential revocation. CSR extension policy и private signing принадлежат Infrastructure; record/digest сами authority не создают. Import/Telegram dispatcher здесь не реализованы. Локальные signing ports не входят в общий snapshot.

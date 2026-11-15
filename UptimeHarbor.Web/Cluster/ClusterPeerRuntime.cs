@@ -8,6 +8,7 @@ using Microsoft.Extensions.Options;
 using UptimeHarbor.Application.Cluster;
 using UptimeHarbor.Application.Cluster.Models;
 using UptimeHarbor.Infrastructure.Cluster;
+using UptimeHarbor.Infrastructure.Cluster.Onboarding;
 using UptimeHarbor.Infrastructure.Identity;
 
 namespace UptimeHarbor.Web.Cluster;
@@ -454,8 +455,19 @@ public class ClusterPeerRuntime(IServiceProvider services, IOptions<ClusterOptio
             services.GetService<PendingReplicationPump>()?.Progress,
             MonitoringDiagnostics.Read(services.GetRequiredService<RevisionStateStore>(), state.Accepted.CaughtUp, timeProvider.GetUtcNow()))
         {
-            ActivationRequested = control?.ActivationRequested(revisions?.Current?.Operations.Revision ?? 0) == true
+            ActivationRequested = control?.ActivationRequested(revisions?.Current?.Operations.Revision ?? 0) == true,
+            EnrollmentTrustVersion = EnrollmentTrustCapability()
         };
+    }
+
+    private int EnrollmentTrustCapability()
+    {
+        if (configured.Value.Compatibility == OnboardingProtocol.TRUST_COMPATIBILITY)
+        {
+            return 1;
+        }
+
+        return 0;
     }
 
     public async Task WriteHealthAsync(HttpContext context, PeerEnvelope envelope)

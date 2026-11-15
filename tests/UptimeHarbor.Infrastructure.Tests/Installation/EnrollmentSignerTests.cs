@@ -125,7 +125,9 @@ public class EnrollmentSignerTests
     private static EnrollmentSigner Signer(EnrollmentCertificateFixture crypto, InstallationFixture installation,
         EnrollmentSigningJournalTests.MemoryWork work, Authorization authorization, CapturedLog logger)
     {
-        return new(work, new(work, new()), authorization, new(), installation.Lease, installation.Secrets, new FixedTime(crypto.Now), logger);
+        return new(work, new(work, new()), new(), new(Microsoft.Extensions.Options.Options.Create(installation.Options),
+            Microsoft.Extensions.Options.Options.Create(installation.Cluster), installation.Lease, installation.Secrets),
+            new FixedTime(crypto.Now), logger, authorization);
     }
 
     private class Authorization : IEnrollmentSigningAuthorization

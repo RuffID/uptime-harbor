@@ -1,5 +1,7 @@
 # HTTP API
 
+ClusterEnrollmentIssuersController — Administrator API manual Register и safe operation read. POST требует antiforgery, password reauthentication, 4096-byte bound и onboarding-administrator limiter. 202 означает durable local Pending; Committed с IssuanceReady=false сохраняет commit при потере свежего majority. Endpoint не принимает CA/keys/actor и не предоставляет replacement или remote routing.
+
 SetupController отделён own cookie scheme от common API. Login/prepare/enroll/logout требуют antiforgery, exact Origin/Host и rate limit. Enroll принимает bounded origin/invitation без actor/key/stamp, возвращает только safe SetupStatus; секрет и protected evidence не сериализовать в UI. Bootstrap подключает production genesis lifecycle; enroll до E4 не открывает общий доступ. EnrollmentController — отдельный strict bounded PoP protocol без cookie auth; действия purpose-bound, raw exceptions/payload не журналировать.
 
 ClusterInvitationsController обслуживает только Administrator API выдачи/явной замены/отзыва/Continue/Cancel и safe read. Mutations требуют antiforgery, rate limit и password reauthentication; actor берётся сервером. 202 означает существующий local Pending, Unconfirmed не выдумывает очередь. Новых экранов и анонимного enrollment endpoint пока нет.

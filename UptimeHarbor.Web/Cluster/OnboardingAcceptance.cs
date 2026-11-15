@@ -11,7 +11,8 @@ namespace UptimeHarbor.Web.Cluster;
 /// <summary>Время принимающего coordinator фиксируется в WAL после majority barrier.</summary>
 public class OnboardingAcceptance(ClusterRaftHandle handle, IClusterStateView view, NodeReadiness readiness,
     IOptions<ClusterOptions> configured, IEnrollmentAuthority authority, TimeProvider time,
-    RevisionStateStore? revisions = null, GenesisWriterPermit? genesis = null) : IOnboardingAcceptance
+    RevisionStateStore? revisions = null, GenesisWriterPermit? genesis = null,
+    IEnrollmentIssuerRegistrationBarrier? issuerRegistration = null) : IOnboardingAcceptance
 {
     public async ValueTask<RevisionCommand> PrepareAsync(RevisionCommand command, CancellationToken token)
     {
@@ -56,14 +57,25 @@ public class OnboardingAcceptance(ClusterRaftHandle handle, IClusterStateView vi
             }
 
             EnrollmentTrustValidation.Validate(command, time.GetUtcNow());
+            if (command.Action == "RegisterEnrollmentIssuer")
+            {
+                if (issuerRegistration is null)
+                {
+                    throw new InvalidOperationException("IssuerVoterCapabilityUnavailable");
+                }
+
+                await issuerRegistration.ConfirmAsync(token);
+            }
         }
 
-        if (OnboardingCommands.IsCoordinator(command) && command.OriginNodeId != before!.NodeId)
+        bool enrollment = OnboardingCommands.NeedsEnrollmentAuthority(command);
+        bool enrollmentAuthorized = enrollment && await authority.VerifyAsync(command, token);
+        if (OnboardingCommands.IsCoordinator(command) && command.OriginNodeId != before!.NodeId && !enrollmentAuthorized)
         {
             throw new UnauthorizedAccessException("OnboardingCoordinatorRequired");
         }
 
-        if (OnboardingCommands.NeedsEnrollmentAuthority(command) && !await authority.VerifyAsync(command, token))
+        if (enrollment && !enrollmentAuthorized)
         {
             throw new UnauthorizedAccessException("EnrollmentAuthorityUnavailable");
         }

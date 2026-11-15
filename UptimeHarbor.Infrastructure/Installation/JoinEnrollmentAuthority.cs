@@ -117,7 +117,7 @@ public class JoinEnrollmentAuthority(IOnboardingProgressUnitOfWork work, Enrollm
             new(1, Guid.NewGuid(), ACTION, lease.BootId, lease.BootChallenge, accepted.ProcessEpoch, nonce, local.RequestDigest, string.Empty), key);
         EnrollmentDescriptor descriptor = await transport.PostAsync<EnrollmentExchange, EnrollmentDescriptor>(origin,
             EnrollmentEndpoint.Probe, new(1, local.Request, proof, local.CsrDer!, null), token);
-        EnrollmentDescriptorValidation.Bound(descriptor, local, proof, endpoints, time.GetUtcNow());
+        descriptor = EnrollmentDescriptorValidation.Bound(descriptor, local, proof, endpoints, time.GetUtcNow());
         DateTimeOffset expires = new[] { time.GetUtcNow().AddMinutes(2), descriptor.ProcessLeaseUntilUtc,
             descriptor.AdmissionUntilUtc!.Value }.Min();
         LocalOnboardingAttempt next = local with
@@ -177,7 +177,7 @@ public class JoinEnrollmentAuthority(IOnboardingProgressUnitOfWork work, Enrollm
 
         EnrollmentExchange request = new(1, local.Request, proof, local.CsrDer!, invitation);
         EnrollmentDescriptor descriptor = await transport.PostAsync<EnrollmentExchange, EnrollmentDescriptor>(origin, endpoint, request, token);
-        EnrollmentDescriptorValidation.Bound(descriptor, local, proof, endpoints, time.GetUtcNow());
+        descriptor = EnrollmentDescriptorValidation.Bound(descriptor, local, proof, endpoints, time.GetUtcNow());
         LocalOnboardingAttempt next = local with { Revision = local.Revision + 1, Descriptor = descriptor };
         await work.Attempts.ReplaceAsync(next, local.Revision, token);
         await work.SaveChangesAsync(token);
@@ -209,8 +209,8 @@ public class JoinEnrollmentAuthority(IOnboardingProgressUnitOfWork work, Enrollm
             return local;
         }
 
-        EnrollmentDescriptorValidation.Bound(state.Descriptor, local, proof, endpoints, time.GetUtcNow());
-        LocalOnboardingAttempt next = local with { Descriptor = state.Descriptor, Revision = local.Revision + 1 };
+        EnrollmentDescriptor descriptor = EnrollmentDescriptorValidation.Bound(state.Descriptor, local, proof, endpoints, time.GetUtcNow());
+        LocalOnboardingAttempt next = local with { Descriptor = descriptor, Revision = local.Revision + 1 };
         await work.Attempts.ReplaceAsync(next, local.Revision, token);
         await work.SaveChangesAsync(token);
         return next;

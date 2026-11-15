@@ -1,5 +1,9 @@
 # Конфигурация и запуск
 
+## Первоначальный manual issuer (04.07)
+
+Регистрация требует ручного Legacy-кластера с точной compatibility `3.0/3/3/3/1/6.10.0`, текущего локального leader и capability всех voters. Для локального issuer нужны уже явно заданные абсолютные, отдельные persistent Installation:StateDirectory, SecretDirectory и KeyDirectory, отличные от Cluster:StoragePath. Пустые значения приводят к отказу; системный профиль, WAL или legacy CA не используются как запасное хранилище ключа. Defaults и config-файлы не изменены. Schema upgrade/применение ранее созданных миграций этим API не выполняются. [Хранение и границы](Local%20installation%20setup.md), [контракт](Onboarding%20contracts.md#первоначальный-issuer-ручного-кластера-0407).
+
 ## Подготовленные trust-компоненты v3
 
 Validator дополнительно распознаёт `3.0/3/3/3/1/6.10.0` для schema-3 issuer/genesis state и его snapshot/history. Эта версия требует AddEnrollmentTrust и согласованного обновления voters. Defaults, установка и config-файлы не изменены; один выбор версии не включает Bootstrap/admission. EnrollmentTransport использует существующие AllowedPeerNetworks, system browser TLS и фиксированные лимиты 3/10 секунд/64 KiB. [Текущие компоненты и закрытые gates](Onboarding%20contracts.md#промежуточная-граница-этапа-04-2026-11-03).

@@ -21,6 +21,9 @@ using UptimeHarbor.Infrastructure.Cluster.Onboarding;
 using UptimeHarbor.Infrastructure.Identity;
 using UptimeHarbor.Infrastructure.Installation;
 using UptimeHarbor.Web.Cluster;
+using UptimeHarbor.Infrastructure.Cluster.Onboarding.Routing;
+using UptimeHarbor.Web.Cluster.EnrollmentRouting;
+using UptimeHarbor.Tests.Web.Cluster.EnrollmentRouting;
 
 namespace UptimeHarbor.Tests.Web.Cluster;
 
@@ -52,6 +55,13 @@ public class ManagedBootstrapFixture : IAsyncDisposable
     public EnrollmentDescriptors Descriptors { get; }
     public InstallationOptions Local { get; }
     public DynamicPeerTls Tls => tls;
+    public LocalSecretStore Secrets => secrets;
+    public ClusterRaftHandle Handle { get; } = new();
+    public EnrollmentSigner Issuer { get; }
+    public OnlineGrantSigner Grants { get; }
+    public EnrollmentIssuanceRouter Issuance { get; }
+    public EnrollmentReadBarrier ReadBarrier { get; }
+    public OnlineGrantRequests GrantRequests { get; }
     public ManagedStorageSeals? Seals { get; }
     public ManagedCheckpointProjection Projection { get; } = new();
     public RevisionSnapshotStore Snapshots { get; }
@@ -133,7 +143,7 @@ public class ManagedBootstrapFixture : IAsyncDisposable
             Microsoft.Extensions.Options.Options.Create(Options), Time);
         IRaftCluster raft = DispatchProxy.Create<IRaftCluster, ManagedRaftProbe>();
         Native = (ManagedRaftProbe)raft;
-        ClusterRaftHandle handle = new();
+        ClusterRaftHandle handle = Handle;
         typeof(ClusterRaftHandle).GetProperty(nameof(ClusterRaftHandle.Current))!.SetValue(handle, raft);
         ClusterConsensusWriter writer = new(handle, Runtime, Readiness, Microsoft.Extensions.Options.Options.Create(Options), Accepted, Permit);
         Writer = writer;
@@ -142,21 +152,34 @@ public class ManagedBootstrapFixture : IAsyncDisposable
         RevisionDispatcher dispatcher = new(writer, Accepted, Runtime, time: Time, onboarding: acceptance);
         Dispatcher = dispatcher;
         Nonces = new(Time);
-        EnrollmentSigner issuer = new(Store, new(Store, new()),
-            new EnrollmentSigningAuthorization(handle, Runtime, Accepted, Readiness, Microsoft.Extensions.Options.Options.Create(Options), Time),
-            new(), Lease, secrets, Time, NullLogger<EnrollmentSigner>.Instance);
+        EnrollmentSigner issuer = new(Store, new(Store, new()), new(),
+            new(Microsoft.Extensions.Options.Options.Create(local), Microsoft.Extensions.Options.Options.Create(Options), Lease, secrets),
+            Time, NullLogger<EnrollmentSigner>.Instance,
+            new EnrollmentSigningAuthorization(handle, Runtime, Accepted, Readiness, Microsoft.Extensions.Options.Options.Create(Options), Time));
+        Issuer = issuer;
+        ReadBarrier = new(handle, Runtime, Accepted, Readiness, Microsoft.Extensions.Options.Options.Create(Options));
+        OnlineGrantSigningAuthorization signing = new(handle, Runtime, Accepted, Readiness,
+            Microsoft.Extensions.Options.Options.Create(Options), Time, Admission, Lease);
+        Grants = new(Store, signing, new(),
+            new(Microsoft.Extensions.Options.Options.Create(local), Microsoft.Extensions.Options.Options.Create(Options), Lease, secrets), Time);
+        EnrollmentCommandReceiver receiver = new(EnrollmentAuthority, dispatcher, Accepted, Runtime, ReadBarrier,
+            Microsoft.Extensions.Options.Options.Create(Options), Microsoft.Extensions.Options.Options.Create(local), Time);
+        EnrollmentPeerClient peers = new(handle, Runtime, Accepted, ReadBarrier, receiver, new AcceptedPeerTrustSource(Accepted, Time),
+            new NoNetworkPeerClients(), Microsoft.Extensions.Options.Options.Create(Options), Time);
+        GrantRequests = new(Store, Installation, Lease, secrets, Admission, Readiness, Accepted,
+            Microsoft.Extensions.Options.Options.Create(Options), Time);
+        Issuance = new(issuer, Grants, Accepted, peers, Microsoft.Extensions.Options.Options.Create(Options), Time, GrantRequests);
         Descriptors = new(Accepted, Microsoft.Extensions.Options.Options.Create(local), Microsoft.Extensions.Options.Options.Create(Options), Time);
         Enrollment = new(Descriptors,
-            Nonces, new(), new(Store, Installation, Time), EnrollmentAuthority, issuer, dispatcher,
+            Nonces, new(), new(Store, Installation, Time), peers, Issuance,
             Microsoft.Extensions.Options.Options.Create(Options), Microsoft.Extensions.Options.Options.Create(local), Time,
-            new EnrollmentReadBarrier(handle, Runtime, Accepted, Readiness, Microsoft.Extensions.Options.Options.Create(Options)));
+            ReadBarrier);
         AccountBootstrap = new(Microsoft.Extensions.Options.Options.Create(Options), new UnusedCredentials(), source, Accepted, writer, new Audit(), dispatcher);
         Authority = new(genesis, Enable);
         InstallationLifecycle lifecycle = new(Store, Store, Installation, new ReadyRuntime(Installation, Enable,
             () => BeforeReadyPublication?.Invoke()), Authority,
             Lease, Time, NullLogger<InstallationLifecycle>.Instance);
-        OnlineGrantSigningAuthorization signing = new(handle, Runtime, Accepted, Readiness, Microsoft.Extensions.Options.Options.Create(Options), Admission, Lease, Time);
-        Driver = new(Installation, Lease, Admission, Store, new(Store, signing, new(), secrets, Lease, Time),
+        Driver = new(Installation, Lease, Admission, Store, Issuance,
             new(Store, Installation, Lease, Accepted, secrets, Time), Enable, Accepted, Runtime, handle, Readiness,
             dispatcher, lifecycle, Microsoft.Extensions.Options.Options.Create(Options), Time, recovery, Seals);
     }

@@ -5,4 +5,6 @@ namespace UptimeHarbor.Application.Cluster.Onboarding;
 public interface IOnlineGrantSigningAuthorization
 {
     ValueTask ConfirmAsync(OnlineGrant grant, EnrollmentIssuerReference localIssuer, CancellationToken token);
+
+    ValueTask ConfirmRequestAsync(OnlineGrantSigningRequest request, EnrollmentIssuerReference localIssuer, CancellationToken token);
 }

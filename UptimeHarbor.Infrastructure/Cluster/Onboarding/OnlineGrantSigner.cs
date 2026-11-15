@@ -4,14 +4,30 @@ using System.Text;
 using UptimeHarbor.Application.Cluster.Models;
 using UptimeHarbor.Application.Cluster.Onboarding;
 using UptimeHarbor.Infrastructure.Installation;
+using UptimeHarbor.Infrastructure.Cluster.Onboarding.Issuers;
 
 namespace UptimeHarbor.Infrastructure.Cluster.Onboarding;
 
 /// <summary>Подписывает только purpose-bound grant после свежей authority; сохранение request до отправки — у coordinator.</summary>
 public class OnlineGrantSigner(IEnrollmentSigningRepository signing, IOnlineGrantSigningAuthorization authority,
-    EnrollmentIssuerSigningLock issuerLock, LocalSecretStore secrets, InstallationLease lease, TimeProvider time)
+    EnrollmentIssuerSigningLock issuerLock, EnrollmentIssuerStorage storage, TimeProvider time)
 {
     public async Task<OnlineGrant> SignAsync(OnlineGrant grant, CancellationToken token)
+    {
+        return await SignCoreAsync(grant, null, token);
+    }
+
+    public async Task<OnlineGrant> SignRequestAsync(OnlineGrantSigningRequest request, CancellationToken token)
+    {
+        if (request.Version != 1)
+        {
+            throw new InvalidDataException("OnlineGrantRequestVersionInvalid");
+        }
+
+        return await SignCoreAsync(request.Grant, request, token);
+    }
+
+    private async Task<OnlineGrant> SignCoreAsync(OnlineGrant grant, OnlineGrantSigningRequest? request, CancellationToken token)
     {
         OnlineLifecycleCommands.ValidateGrant(grant);
         if (grant.Signature.Length != 0 || grant.Purpose == OnlineGrantPurpose.CatchUp)
@@ -25,13 +41,21 @@ public class OnlineGrantSigner(IEnrollmentSigningRepository signing, IOnlineGran
         {
             EnrollmentIssuerReference localIssuer = await signing.FindIssuerAsync(grant.IssuerEpoch, token)
                 ?? throw new InvalidDataException("LocalEnrollmentIssuerMissing");
+            (InstallationLease lease, LocalSecretStore secrets) = storage.Open(create: false);
             if (localIssuer.InstallIdentity != lease.InstallIdentity || localIssuer.ClusterId != grant.ClusterId
                 || localIssuer.Generation != grant.Generation || localIssuer.CertificateDigest != EnrollmentCertificates.Hash(localIssuer.CertificateDer))
             {
                 throw new InvalidDataException("OnlineGrantIssuerBindingInvalid");
             }
 
-            await authority.ConfirmAsync(grant, localIssuer, token);
+            if (request is null)
+            {
+                await authority.ConfirmAsync(grant, localIssuer, token);
+            }
+            else
+            {
+                await authority.ConfirmRequestAsync(request, localIssuer, token);
+            }
             using X509Certificate2 root = X509CertificateLoader.LoadCertificate(localIssuer.CertificateDer);
             if (!EnrollmentCertificates.ValidateIssuer(root, grant.ClusterId, grant.Generation, grant.IssuerEpoch, time.GetUtcNow()))
             {

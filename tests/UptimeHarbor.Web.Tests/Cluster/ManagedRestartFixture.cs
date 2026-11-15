@@ -12,6 +12,10 @@ using UptimeHarbor.Infrastructure.Cluster;
 using UptimeHarbor.Infrastructure.Cluster.Onboarding;
 using UptimeHarbor.Infrastructure.Installation;
 using UptimeHarbor.Web.Cluster;
+using UptimeHarbor.Infrastructure.Cluster.Onboarding.Routing;
+using UptimeHarbor.Infrastructure.Cluster.Onboarding.Issuers;
+using UptimeHarbor.Web.Cluster.EnrollmentRouting;
+using UptimeHarbor.Tests.Web.Cluster.EnrollmentRouting;
 
 namespace UptimeHarbor.Tests.Web.Cluster;
 
@@ -72,14 +76,25 @@ public class ManagedRestartFixture : IAsyncDisposable
         GenesisWriterPermit permit = new();
         ClusterConsensusWriter writer = new(handle, Runtime, Readiness, configured, Accepted, permit);
         Writer = writer;
-        OnboardingAcceptance acceptance = new(handle, Runtime, Readiness, configured, new EnrollmentAuthority(), previous.Time, Accepted, permit);
+        EnrollmentAuthority enrollment = new();
+        OnboardingAcceptance acceptance = new(handle, Runtime, Readiness, configured, enrollment, previous.Time, Accepted, permit);
         RevisionDispatcher dispatcher = new(writer, Accepted, Runtime, time: previous.Time, onboarding: acceptance);
         Dispatcher = dispatcher;
-        OnlineGrantSigningAuthorization authority = new(handle, Runtime, Accepted, Readiness, configured, Admission, Lease, previous.Time);
+        OnlineGrantSigningAuthorization authority = new(handle, Runtime, Accepted, Readiness, configured, previous.Time, Admission, Lease);
+        EnrollmentReadBarrier barrier = new(handle, Runtime, Accepted, Readiness, configured);
+        EnrollmentCommandReceiver receiver = new(enrollment, dispatcher, Accepted, Runtime, barrier, configured, local, previous.Time);
+        EnrollmentPeerClient peers = new(handle, Runtime, Accepted, barrier, receiver, new AcceptedPeerTrustSource(Accepted, previous.Time),
+            new NoNetworkPeerClients(), configured, previous.Time);
+        EnrollmentIssuerStorage storage = new(local, configured, Lease, secrets);
+        EnrollmentSigner issuer = new(previous.Store, new(previous.Store, new()), new(), storage, previous.Time,
+            NullLogger<EnrollmentSigner>.Instance, new EnrollmentSigningAuthorization(handle, Runtime, Accepted, Readiness, configured, previous.Time));
+        OnlineGrantSigner grantSigner = new(previous.Store, authority, new(), storage, previous.Time);
+        EnrollmentIssuanceRouter routing = new(issuer, grantSigner, Accepted, peers, configured, previous.Time,
+            new(previous.Store, Installation, Lease, secrets, Admission, Readiness, Accepted, configured, previous.Time));
         SetupAuthority setup = new(new(previous.Store, previous.Store, secrets, Lease, local, previous.Time), Enable);
         InstallationLifecycle lifecycle = new(previous.Store, previous.Store, Installation, new ReadyRuntime(Enable), setup,
             Lease, previous.Time, NullLogger<InstallationLifecycle>.Instance);
-        Driver = new(Installation, Lease, Admission, previous.Store, new(previous.Store, authority, new(), secrets, Lease, previous.Time),
+        Driver = new(Installation, Lease, Admission, previous.Store, routing,
             new(previous.Store, Installation, Lease, Accepted, secrets, previous.Time), Enable, Accepted, Runtime, handle, Readiness,
             dispatcher, lifecycle, configured, previous.Time, Recovery, Seals);
     }

@@ -7,6 +7,9 @@ using System.Threading.RateLimiting;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using UptimeHarbor.Application.Installation;
 using UptimeHarbor.Infrastructure.Installation;
+using UptimeHarbor.Infrastructure.Cluster.Onboarding;
+using UptimeHarbor.Infrastructure.Cluster.Onboarding.Routing;
+using UptimeHarbor.Web.Cluster.EnrollmentRouting;
 
 namespace UptimeHarbor.Web.Cluster;
 
@@ -28,9 +31,11 @@ public static class ClusterWebExtensions
         services.AddSingleton<IConsensusWriter, ClusterConsensusWriter>();
         services.TryAddSingleton<IEnrollmentSigningAuthorization, EnrollmentSigningAuthorization>();
         services.TryAddSingleton<IEnrollmentReadBarrier, EnrollmentReadBarrier>();
+        services.TryAddSingleton<IEnrollmentIssuerRegistrationBarrier, EnrollmentIssuerRegistrationBarrier>();
+        services.TryAddSingleton<IOnlineGrantSigningAuthorization, OnlineGrantSigningAuthorization>();
+        services.AddEnrollmentPeerRouting();
         if (configuration?["Installation:InstallationIntent"] == "Setup")
         {
-            services.TryAddSingleton<IOnlineGrantSigningAuthorization, OnlineGrantSigningAuthorization>();
             services.AddScoped<ManagedBootstrapLifecycle>();
         }
         services.AddSingleton<RevisionDispatcher>();

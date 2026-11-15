@@ -22,7 +22,7 @@ public static class EnrollmentDescriptorValidation
         endpoints.ValidateAdvertised(origin, discovery.EnrollmentAddress, discovery.PeerAddress);
     }
 
-    public static void Bound(EnrollmentDescriptor descriptor, LocalOnboardingAttempt local, EnrollmentProof proof,
+    public static EnrollmentDescriptor Bound(EnrollmentDescriptor descriptor, LocalOnboardingAttempt local, EnrollmentProof proof,
         EnrollmentEndpoints endpoints, DateTimeOffset now)
     {
         Uri origin = endpoints.Origin(local.BrowserOrigin ?? throw new InvalidDataException("EnrollmentOriginMissing"));
@@ -57,6 +57,25 @@ public static class EnrollmentDescriptorValidation
         if (local.Descriptor is not null)
         {
             EnrollmentDescriptor previous = local.Descriptor;
+            if (previous.Issuance is not null && previous.Issuance != descriptor.Issuance)
+            {
+                throw new InvalidDataException("EnrollmentDescriptorIssuanceChanged");
+            }
+
+            if (previous.CertificateDer is not null && previous.CertificateDer != descriptor.CertificateDer)
+            {
+                // До Bind read/process ответы могут ещё не иметь DER: сохраняются уже полученные байты.
+                bool processReply = proof.Action is "ReadEnrollmentAttempt" or "ResumeOnboardingAttempt" or "RenewOnboardingProcess";
+                bool awaitingBind = processReply && previous.Status == "CertificateAuthorized"
+                    && descriptor.Status == "CertificateAuthorized" && descriptor.CertificateDer is null;
+                if (!awaitingBind)
+                {
+                    throw new InvalidDataException("EnrollmentDescriptorCertificateChanged");
+                }
+
+                descriptor = descriptor with { CertificateDer = previous.CertificateDer };
+            }
+
             bool issuerChanged = previous.Issuers.Length != descriptor.Issuers.Length || previous.Issuers.Any(old =>
                 !descriptor.Issuers.Any(current => current.Epoch == old.Epoch && current.CertificateDigest == old.CertificateDigest
                     && current.SpkiDigest == old.SpkiDigest && current.CertificateDer == old.CertificateDer));
@@ -74,6 +93,11 @@ public static class EnrollmentDescriptorValidation
             {
                 throw new InvalidDataException("EnrollmentDescriptorOrphanCredential");
             }
+        }
+
+        if (descriptor.AdmissionUntilUtc.HasValue && (descriptor.CertificateDer is null || descriptor.Status != "Admitted"))
+        {
+            throw new InvalidDataException("EnrollmentDescriptorAdmissionInvalid");
         }
 
         if (descriptor.CertificateDer is not null)
@@ -99,7 +123,14 @@ public static class EnrollmentDescriptorValidation
                 {
                     throw new InvalidDataException("EnrollmentDescriptorAdmissionInvalid");
                 }
+
+                if (node.Voting || node.Activated)
+                {
+                    throw new InvalidDataException("EnrollmentDescriptorScopeInvalid");
+                }
             }
         }
+
+        return descriptor;
     }
 }

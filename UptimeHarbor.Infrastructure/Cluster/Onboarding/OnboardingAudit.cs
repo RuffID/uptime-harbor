@@ -24,6 +24,19 @@ public class OnboardingAudit(ILogger<OnboardingAudit> logger) : IOnboardingAudit
 
         if (EnrollmentTrustCommands.IsTrust(command))
         {
+            if (command.Action == "RegisterEnrollmentIssuer")
+            {
+                string eventName = "IssuerRejected";
+                if (result.Outcome == OperationOutcome.Committed)
+                {
+                    eventName = "IssuerRegistered";
+                }
+
+                logger.LogInformation("Enrollment {EventName} {OperationId} {IssuerEpoch} {ActorId} {Outcome} at {Index}.",
+                    eventName, command.OperationId, command.EnrollmentTrust!.IssuerEpoch, command.ActorUserId, result.Outcome, result.Index);
+                return;
+            }
+
             logger.LogInformation("Enrollment trust {Action} {OperationId} {IssuerEpoch} {ActorId} {Outcome} at {Index}.",
                 command.Action, command.OperationId, command.EnrollmentTrust!.IssuerEpoch, command.ActorUserId, result.Outcome, result.Index);
             return;

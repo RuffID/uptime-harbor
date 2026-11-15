@@ -9,6 +9,8 @@ using UptimeHarbor.Infrastructure.Cluster;
 using UptimeHarbor.Infrastructure.Persistence.UnitOfWork;
 using UptimeHarbor.Application.Cluster.Onboarding;
 using UptimeHarbor.Infrastructure.Cluster.Onboarding;
+using UptimeHarbor.Infrastructure.Cluster.Onboarding.Issuers;
+using UptimeHarbor.Infrastructure.Cluster.Onboarding.Routing;
 
 namespace UptimeHarbor.Infrastructure.Installation;
 
@@ -29,6 +31,14 @@ public static class InstallationServiceCollectionExtensions
         services.AddScoped<ILocalSetupAccountStore, LocalSetupAccountStore>();
         services.TryAddSingleton<ISetupAuthority, UnavailableSetupAuthority>();
         services.TryAddSingleton<IManagedRuntimeAdmission, UnavailableManagedRuntimeAdmission>();
+        services.AddScoped<IEnrollmentSigningRepository, EnrollmentSigningRepository>();
+        services.AddScoped<IEnrollmentSigningUnitOfWork, EnrollmentSigningUnitOfWork>();
+        services.AddScoped<EnrollmentSigningJournal>();
+        services.TryAddSingleton<EnrollmentSigningLock>();
+        services.TryAddSingleton<EnrollmentIssuerSigningLock>();
+        services.TryAddSingleton<EnrollmentIssuerStorage>();
+        services.AddScoped<EnrollmentIssuerProvisioning>();
+        services.AddScoped<EnrollmentSigner>();
         if (configuration["Installation:InstallationIntent"] == "Setup")
         {
             services.Replace(ServiceDescriptor.Scoped<ISetupAuthority, SetupAuthority>());
@@ -47,10 +57,6 @@ public static class InstallationServiceCollectionExtensions
             services.AddScoped<InstallationLifecycle>();
             services.AddScoped<OnboardingProgress>();
             services.AddScoped<SetupAuthorityCoordinator>();
-            services.AddScoped<IEnrollmentSigningRepository, EnrollmentSigningRepository>();
-            services.AddScoped<IEnrollmentSigningUnitOfWork, EnrollmentSigningUnitOfWork>();
-            services.AddScoped<EnrollmentSigningJournal>();
-            services.TryAddSingleton<EnrollmentSigningLock>();
             services.TryAddSingleton<EnrollmentNonces>();
             services.TryAddSingleton<EnrollmentExchangeGate>();
             services.TryAddSingleton<EnrollmentAuthority>();
@@ -68,14 +74,13 @@ public static class InstallationServiceCollectionExtensions
             services.TryAddSingleton<EnrollmentProbeReplay>();
             services.TryAddSingleton<EnrollmentPeerProbeTransport>();
             services.AddScoped<EnrollmentPeerProbes>();
-            services.TryAddSingleton<EnrollmentIssuerSigningLock>();
-            services.AddScoped<EnrollmentSigner>();
             services.AddScoped<GenesisPreparation>();
             services.AddScoped<GenesisRuntimePreparation>();
             services.TryAddSingleton<ManagedStorageSeals>();
             services.AddScoped<ManagedRestartPreparation>();
             services.AddScoped<OnlineGrantSigner>();
             services.AddScoped<OnlineProcessRenewalSigner>();
+            services.AddScoped<OnlineGrantRequests>();
         }
 
         return services;

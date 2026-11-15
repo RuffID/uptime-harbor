@@ -10,6 +10,7 @@ using UptimeHarbor.Web.Security;
 using UptimeHarbor.Application.Installation;
 using UptimeHarbor.Web.Controllers;
 using UptimeHarbor.Infrastructure.Cluster.Onboarding;
+using UptimeHarbor.Infrastructure.Cluster.Onboarding.Routing;
 
 namespace UptimeHarbor.Web.Cluster;
 
@@ -119,13 +120,26 @@ public class PeerBoundaryMiddleware(RequestDelegate next, IOptions<ClusterOption
         bool native = context.Request.Path.StartsWithSegments("/internal/raft");
         bool health = context.Request.Path == "/internal/cluster/v1/health";
         bool commands = context.Request.Path == "/internal/cluster/v1/commands";
-        if (!native && !health && !commands)
+        bool enrollmentPeer = EnrollmentPeerProtocol.IsRoute(context.Request.Path.Value);
+        if (!native && !health && !commands && !enrollmentPeer)
         {
             context.Response.StatusCode = StatusCodes.Status404NotFound;
             return;
         }
 
         long limit = options.HealthMaxBytes;
+        if (enrollmentPeer)
+        {
+            limit = EnrollmentPeerProtocol.MAX_BYTES;
+            if (!HttpMethods.IsPost(context.Request.Method) || !context.Request.IsHttps
+                || context.Request.Host.Value != new Uri(options.PublicUri).Authority
+                || context.Request.Headers.ContainsKey("Cookie") || context.Request.Headers.ContainsKey("Authorization"))
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                return;
+            }
+        }
+
         if (commands)
         {
             limit = options.BatchMaxBytes;
@@ -203,7 +217,7 @@ public class PeerBoundaryMiddleware(RequestDelegate next, IOptions<ClusterOption
 
         PeerEnvelope reply = new(options.ClusterId, options.Generation, options.NodeId,
             envelope.FromNodeId, options.StorageGeneration, options.CredentialId, envelope.RequestId,
-            timeProvider.GetUtcNow(), options.Compatibility, envelope.Challenge);
+            timeProvider.GetUtcNow(), options.Compatibility, envelope.Challenge, state?.Consensus?.Term ?? 0);
         context.Response.Headers[PeerHeaders.ENVELOPE] = PeerHeaders.Encode(reply);
         context.Response.Headers.CacheControl = "no-store";
         context.Response.Headers.Remove("Set-Cookie");
@@ -217,6 +231,22 @@ public class PeerBoundaryMiddleware(RequestDelegate next, IOptions<ClusterOption
         if (!runtime.AcceptNonce(envelope))
         {
             context.Response.StatusCode = StatusCodes.Status409Conflict;
+            return;
+        }
+
+        if (enrollmentPeer)
+        {
+            if (!credential.IsVoting || credential.IsAdmission || state is null || !state.Accepted.CaughtUp
+                || !state.Accepted.SnapshotConfirmed || !state.Accepted.AccountStateConfirmed
+                || context.Request.Path == EnrollmentPeerProtocol.COORDINATE
+                    && (state.Consensus?.IsLeader != true || !readiness.CanWork(state)))
+            {
+                context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+                return;
+            }
+
+            context.Items[typeof(PeerEnvelope)] = envelope;
+            await next(context);
             return;
         }
 

@@ -8,6 +8,7 @@ namespace UptimeHarbor.Tests.Web.Cluster;
 public class EnrollmentClientStore : IOnboardingProgressUnitOfWork, ILocalOnboardingAttemptRepository
 {
     public LocalOnboardingAttempt? Current { get; private set; }
+    public Action<LocalOnboardingAttempt?>? BeforeSave { get; set; }
     public ILocalOnboardingAttemptRepository Attempts => this;
 
     public Task<LocalOnboardingAttempt?> FindAsync(Guid attemptId, CancellationToken token)
@@ -38,6 +39,7 @@ public class EnrollmentClientStore : IOnboardingProgressUnitOfWork, ILocalOnboar
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
+        BeforeSave?.Invoke(Current);
         return Task.FromResult(1);
     }
 

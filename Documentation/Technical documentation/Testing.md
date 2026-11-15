@@ -1,5 +1,64 @@
 # Тестирование
 
+## Issuer ручного кластера 04.07 (2026-11-15)
+
+Проверены production manual provisioning/AES-GCM/local signing journal, protected Pending, dispatcher/reducer/apply, all-voter registration barrier и signer. Native IRaftCluster — double над in-memory ConsensusOnlyState без Start; HTTP — fake handler с настоящим PeerClientHandler и authenticated envelope. SQL repositories/projection — память, подключения не открываются. Signer после Register проверяется также с синтетической exact accepted issuance: это проверка policy/crypto, не повтор полной цепочки E1–E4.
+
+Подтверждены: новый P-256 dedicated CA/pathLen=0; legacy material не импортируется и прежние Operations/CA/pins сохраняются; до commit/exact issuance подпись закрыта; после регистрации каждый signer retry требует majority. Проверены прежние key/ref/DER/command/result при Pending/lost response, post-commit majority failure, свежая credential revision и expiry, held Pending, отказ local commit/orphan, три voters и отказ при capability/schema/identity/boot/challenge/term/membership/size mismatch. Structured Registered/Rejected проверяются по accepted результату и доверенному ActorId, без ложного успеха/дубля/секретов. HTTP metadata и фактические MVC JSON options проверяют bounds/Administrator/antiforgery/rate-limit/unknown-fields и safe DTO. Manual и Setup DI графы создаются без host/native storage/сети.
+
+| Проверка | Результат |
+| --- | --- |
+| Production Infrastructure и Web, оба test-проекта | Compile-check: 0 предупреждений, 0 ошибок |
+| Новый Web namespace Cluster.Issuers | 47 успешно, 0 ошибок/пропусков, в составе финального прогона 82 |
+| Затронутые SetupComposition, ClusterComposition, ManagedBootstrap, ManagedBootstrapRecovery, EnrollmentGateway, InvitationHttp | 35 успешно, 0 ошибок/пропусков; финальный совместный прогон с issuer tests: 82 успешно |
+| Infrastructure EnrollmentSignerTests + EnrollmentPeerTrustTests | 7 успешно, 0 ошибок/пропусков |
+
+Итого 82 Web-теста и 7 Infrastructure. Повторные запуски не суммируются как новые тесты. Дополнительно проверен отказ при смене voter address/storage во время capability barrier. Ошибки начальной test fixture (неподдерживаемый IPersistentState DispatchProxy, JsonElement equality и некорректный serial) исправлены до финальных зелёных прогонов; они не выданы за production-дефекты.
+
+```powershell
+dotnet build UptimeHarbor.Infrastructure/UptimeHarbor.Infrastructure.csproj -c Debug --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/installation-production-infrastructure/
+dotnet build UptimeHarbor.Web/UptimeHarbor.Web.csproj -c Debug --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/installation-production-web/ -p:TypeScriptCompileBlocked=true
+dotnet build tests/UptimeHarbor.Web.Tests/UptimeHarbor.Web.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/web-tests/ -p:TypeScriptCompileBlocked=true
+dotnet build tests/UptimeHarbor.Infrastructure.Tests/UptimeHarbor.Infrastructure.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/installation-infrastructure-tests/
+dotnet test --project tests/UptimeHarbor.Web.Tests/UptimeHarbor.Web.Tests.csproj --no-build --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/web-tests/ -- --filter-class 'UptimeHarbor.Tests.Web.Cluster.Issuers.*'
+dotnet test --project tests/UptimeHarbor.Web.Tests/UptimeHarbor.Web.Tests.csproj --no-build --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/web-tests/ -- --filter-class 'UptimeHarbor.Tests.Web.Cluster.Issuers.*' --filter-class 'UptimeHarbor.Tests.Web.Cluster.SetupCompositionTests' --filter-class 'UptimeHarbor.Tests.Web.Cluster.ClusterCompositionTests' --filter-class 'UptimeHarbor.Tests.Web.Cluster.ManagedBootstrapTests' --filter-class 'UptimeHarbor.Tests.Web.Cluster.ManagedBootstrapRecoveryTests' --filter-class 'UptimeHarbor.Tests.Web.Cluster.EnrollmentGatewayTests' --filter-class 'UptimeHarbor.Tests.Web.Cluster.InvitationHttpTests'
+dotnet test --project tests/UptimeHarbor.Infrastructure.Tests/UptimeHarbor.Infrastructure.Tests.csproj --no-build --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/installation-infrastructure-tests/ -- --filter-class UptimeHarbor.Tests.Infrastructure.Installation.EnrollmentSignerTests --filter-class UptimeHarbor.Tests.Infrastructure.Installation.EnrollmentPeerTrustTests
+```
+
+Полный Infrastructure-набор и SQLite не запускались. Новая миграция не нужна. Приложение/host/native Start, SQL/БД, реальные сеть/DNS/TLS, Docker, deployment, Git и внешние процессы не выполнялись. Не подтверждены live majority/elections, SQL locking/durability, реальные mTLS и Ubuntu volumes/ACL/fsync/power-loss. Local save failure проверяет порядок и закрытый отказ, не distributed file/SQL atomicity. Remote/follower routing — 04.08, replacement — 04.11, общий reconciliation — 04.15; полный Join/Ready второго закрыт до 05. ClusterPeerRuntime уже больше 20 KB: добавлены только capability поля существующего health без новой самостоятельной ответственности; остальные новые/изменённые C# файлы 04.07 ниже порога.
+
+## Enrollment E1–E4 04.06 (2026-11-15)
+
+Повторная проверка текущей рабочей копии по поручению продолжить именно 04.06: все четыре приведённых ниже compile-check и три test-команды выполнены заново. Результат совпал: 100 enrollment + 4 limiter/compatibility Infrastructure и 13 Web, 0 ошибок/пропусков; финальные сборки без предупреждений/ошибок. Первый compile-check Web.Tests выявил CS0103 в ранее оставленном EnrollmentRoutingSecurityTests: отсутствовал using для OnboardingProtocol. Добавлен только импорт Infrastructure.Cluster.Onboarding; повторная сборка успешна, production-код не менялся. Повторные прогоны не увеличивают число проверенных случаев. Существующие результаты 04.07 и незавершённые изменения 04.08 сохранены; проверки 04.06 не являются приёмкой 04.08, его SecurityTests не запускались.
+
+Проверена цепочка production client/gateway/accepted reducer/signer/trust installer и двух peer-проб через fake HTTP без listeners. Новый EnrollmentDescriptorTests до исправления: 7 успешно, 6 ошибок — validator пропускал подмену IssueId, serial/template и DER от прежнего CA, отсутствие leaf при Admitted, а также voter/activation вместо ограниченного nonvoter. После фиксации immutable issuance/DER и проверки scopes все варианты проходят; добавлены ещё три положительных проверки read-state/resume/process-renew до Bind, итого 16 случаев. Усиленный клиентский сценарий задержанного Bind воспроизвёл отказ process-renew с EnrollmentDescriptorCertificateChanged; после сохранения возвращённого Bound descriptor с прежними DER read-state и renewal не стирают pin и допускают законное продолжение.
+
+Финальные затронутые наборы:
+
+| Набор | Успешно | Ошибки / пропуски |
+| --- | --- | --- |
+| Infrastructure Installation: EnrollmentDescriptor/Proof/Certificate/Transport/AcceptedBinding/SigningJournal/Signer/DynamicTlsTests | 100 | 0 / 0 |
+| Infrastructure Cluster: OnboardingBoundaryTests (лимиты, минутная граница, compatibility) | 4 | 0 / 0 |
+| Web Cluster: EnrollmentGatewayTests, EnrollmentClientTests, PeerBoundaryTests | 13 | 0 / 0 |
+
+EnrollmentClientTests включает обычный путь и отдельный обрыв Bind/forward/reverse. Сохраняются исходные AttemptId/NodeId/storage/key/CSR/request/digests/IssueId/DER и trust ref; новый процесс ждёт lease и получает новый BootChallenge/ProcessEpoch. В каждом отказе пробы E4 evidence отсутствует, CommonOpen закрыт. До записи trust-файла тестовый BeforeSave проверяет наличие SQL intent и отсутствие файла; повреждение/отсутствие файла, ref/digest/orphan не дают credentials. После двух успешных проб активная pending TLS session всё ещё не пропускает ordinary Raft/commands/snapshot/common через реальный PeerBoundaryMiddleware; native runtime не создаётся. E3 nonvoter/trust-файл при неуспешной E4 могут сохраняться для повторения.
+
+Crypto/transport проверки отвергают неверные origin/capabilities/CA/SAN/pin/ClusterId/CSR/digest/size, redirect и запрещённые DNS IP, stale/replayed nonce/process/delegation. Лимиты проверены отдельно: пять отказов на IP и 30 всех запросов на endpoint, включая сброс на точной минутной границе. Подставные handlers не заменяют проверку system browser TLS и настоящие двусторонние handshakes.
+
+До запуска проверены конкретные csproj/references, tests/Directory.Build.props, доступные общие build/restore-настройки и fixtures. Новых executable hooks или зависимостей нет. Production Infrastructure/Web и оба test-проекта собраны отдельно без restore: 0 предупреждений/ошибок. TypeScript в Web заблокирован; frontend не менялся. Выполнены:
+
+```powershell
+dotnet build UptimeHarbor.Infrastructure/UptimeHarbor.Infrastructure.csproj -c Debug --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/installation-production-infrastructure/
+dotnet build UptimeHarbor.Web/UptimeHarbor.Web.csproj -c Debug --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/installation-production-web/ -p:TypeScriptCompileBlocked=true
+dotnet build tests/UptimeHarbor.Infrastructure.Tests/UptimeHarbor.Infrastructure.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/installation-infrastructure-tests/
+dotnet build tests/UptimeHarbor.Web.Tests/UptimeHarbor.Web.Tests.csproj -c Debug --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/web-tests/ -p:TypeScriptCompileBlocked=true
+dotnet test --project tests/UptimeHarbor.Infrastructure.Tests/UptimeHarbor.Infrastructure.Tests.csproj --no-build --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/installation-infrastructure-tests/ -- --filter-class UptimeHarbor.Tests.Infrastructure.Installation.EnrollmentDescriptorTests --filter-class UptimeHarbor.Tests.Infrastructure.Installation.EnrollmentProofTests --filter-class UptimeHarbor.Tests.Infrastructure.Installation.EnrollmentCertificateTests --filter-class UptimeHarbor.Tests.Infrastructure.Installation.EnrollmentTransportTests --filter-class UptimeHarbor.Tests.Infrastructure.Installation.EnrollmentAcceptedBindingTests --filter-class UptimeHarbor.Tests.Infrastructure.Installation.EnrollmentSigningJournalTests --filter-class UptimeHarbor.Tests.Infrastructure.Installation.EnrollmentSignerTests --filter-class UptimeHarbor.Tests.Infrastructure.Installation.EnrollmentDynamicTlsTests
+dotnet test --project tests/UptimeHarbor.Infrastructure.Tests/UptimeHarbor.Infrastructure.Tests.csproj --no-build --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/installation-infrastructure-tests/ -- --filter-class UptimeHarbor.Tests.Infrastructure.Cluster.OnboardingBoundaryTests
+dotnet test --project tests/UptimeHarbor.Web.Tests/UptimeHarbor.Web.Tests.csproj --no-build --no-restore -p:BaseOutputPath=D:/Media/User/source/repos/uptime-harbor/artifacts/compile-check/web-tests/ -- --filter-class UptimeHarbor.Tests.Web.Cluster.EnrollmentGatewayTests --filter-class UptimeHarbor.Tests.Web.Cluster.EnrollmentClientTests --filter-class UptimeHarbor.Tests.Web.Cluster.PeerBoundaryTests
+```
+
+Полный Infrastructure-набор не запускался; прежние 506 успешных не выданы за текущий прогон. Миграция не потребовалась. Приложение/hosting/native Start, БД/SQLite/SQL, реальные сеть/DNS/TLS, Docker, deployment и внешние процессы не запускались. Provider locking/atomicity, ACL/fsync/power-loss, live majority/elections и browser acceptance не подтверждены. Автоматическое resume первого Bootstrap до первого seal остаётся в 04.15; snapshot/membership/Ready второго и полный Join остаются 05. Проверки 04.06 не закрывают весь этап 04 или внешнюю приёмку 07.
+
 ## Исправление инфраструктурного набора (2026-11-15)
 
 Исходный полный прогон воспроизвёл 24 падения из 488: неверное ожидание limiter в OnboardingBoundaryTests и 23 отказа SQLite EnsureCreated до выполнения сценариев. Требование enrollment — 30 всех запросов/минуту на endpoint и 5 неверных/минуту на IP; тест теперь сообщает `Rejected`, отдельно проверяет успешные запросы и независимость IP/минутный сброс. Production limiter не менялся.

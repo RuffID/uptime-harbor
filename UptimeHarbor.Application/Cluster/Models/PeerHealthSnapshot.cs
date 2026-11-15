@@ -7,4 +7,6 @@ public record PeerHealthSnapshot(Guid NodeId, Guid BootId, long Term, Guid? Lead
     MonitoringProgress? Monitoring = null)
 {
     public bool ActivationRequested { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
+    public int EnrollmentTrustVersion { get; init; }
 }

@@ -1,6 +1,6 @@
 # 04. Установление доверия
 
-Статус: `in-progress`. После паузы 2026-11-03 работа возобновлена по поручению пользователя 2026-11-15: 04.01–04.05 завершены, следующий шаг — 04.06. Этап целиком не завершён. Зависимости: [01](../01-scenarios-and-decisions/main.md)–[03](../03-initial-setup/main.md).
+Статус: `in-progress`. После паузы 2026-11-03 работа возобновлена по поручению пользователя 2026-11-15: 04.01–04.07 завершены, следующий шаг — 04.08. Этап целиком не завершён. Зависимости: [01](../01-scenarios-and-decisions/main.md)–[03](../03-initial-setup/main.md).
 
 Исходная граница после 03: закрытые production authority-порты и E0 без настоящего Bootstrap/Join. В 04 подключены production адаптеры, genesis/issuer/grants/activation нового первого, accepted ProcessEpoch, E1–E4 и двусторонние probes; сохранены local step CAS, исходные IDs/digests и E0 key. Это ещё не полный объём этапа. [Фактический setup](../../../Technical%20documentation/Local%20installation%20setup.md), [точка остановки](#результат).
 
@@ -70,9 +70,15 @@ Application enrollment/trust contracts, Infrastructure crypto/control/HTTP adapt
 
 [04.05](04.05-bootstrap-and-invitation-proof.md) завершён в изолированном объёме: добавлены 17 проверок потери семи native ответов, commit отзыва setup до CommonOpen, отказа Ready, sealed restart со старым genesis/account и schema3 приглашений. Финальный затронутый Web-фильтр — 59 успешно, 0 ошибок/пропусков; последняя локальная правка типов в invitation tests проверена отдельным build и 5/5. Production код не менялся. Неполный первый старт без seal безопасно отказывает; автоматическое resume этой границы остаётся открытым crash/reconciliation объёмом, а не результатом 04.05.
 
+[04.06](04.06-enrollment-through-e4.md) завершён: прослежена и проверена production цепочка E1–E4. Исправлен приём подменённых IssueId/template/DER и недостаточная проверка ограниченного admitted descriptor; read-state/process-resume/renew до Bind сохраняют прежний DER. Проверены потеря reserve, обрыв Bind и каждого направления peer, порядок SQL intent → trust file, resume с прежними IDs/key/digests и закрытые Raft/commands/snapshot/common при активной pending TLS session. Финальные точные фильтры: Infrastructure 100 + отдельно limiter/compatibility 4 и Web 13 успешно, 0 ошибок/пропусков. Production Infrastructure/Web и оба test-проекта собраны без предупреждений/ошибок. Реальная сеть/БД/Ubuntu не проверялись; full Join остаётся закрыт. [Команды и границы](../../../Technical%20documentation/Testing.md#enrollment-e1e4-0406-2026-11-15).
+
+Повторная проверка именно 04.06 на текущей рабочей копии подтвердила те же 104 Infrastructure и 13 Web без ошибок/пропусков и четыре compile-check без предупреждений/ошибок. Устранён отсутствующий using в ранее оставленном EnrollmentRoutingSecurityTests, блокировавший общую сборку Web.Tests; production-код не менялся. Результаты 04.01–04.05 и существующие результаты 04.07 сохранены. Изменения 04.08 остаются незавершёнными и этим поручением не приняты. Этап 04 остаётся `in-progress`.
+
 ### Остаток собственного объёма 04
 
-1. Production provisioning/Register/Retire/Revoke/replacement issuer существующего ручного кластера и удалённый issuer/follower: accepted reducers не заменяют полный работающий сценарий. Не импортировать root/operator key и не менять конфигурацию установки.
+В [04.07](04.07-existing-cluster-issuer.md) подключён первоначальный issuer ручного кластера: новый локальный dedicated CA, fresh accepted Administrator, прежний Pending/pipeline, capability/schema каждого voter и majority до регистрации и после apply. Повтор сохраняет ключ/DER/команду/результат; signer закрыт до exact accepted issuance. Legacy CA/pins сохранены, structured Registered/Rejected завязаны на accepted итог. Проверки: 47 новых +35 затронутых Web и 7 Infrastructure — без ошибок/пропусков; production/test compile-check без warnings/errors. [Команды и ограничения](../../../Technical%20documentation/Testing.md#issuer-ручного-кластера-0407-2026-11-15).
+
+1. Remote issuer/follower routing и orchestration Retire/Revoke/replacement issuer. Первоначальный manual provisioning/Register завершён в 04.07; accepted reducers остальных команд не заменяют полный работающий сценарий. Не импортировать root/operator key и не менять конфигурацию установки.
 2. Полный leaf renewal/rotation/revocation/retirement, новый ключ, exact authorization и overlap ≤24 часов. Текущий signer связан с активной onboarding attempt; одного endpoint renew недостаточно.
 3. Законные online process/activation/enable exchanges последующих voters и ManagedRestart завершённого Join, включая удалённого signer. Snapshot/membership orchestration остаётся 05; нельзя создавать startup cycle всех voters или открывать gate до доказательства.
 4. Завершить negative/crash matrix: TTL на границе секунды, nonce/identity/digest/revocation/replay, SQL/file/WAL reconciliation и crash boundaries. Исправленный preflight повторён в 04.01; дальнейшие проверки выполнять точными безопасными фильтрами, не весь Infrastructure.
@@ -86,7 +92,7 @@ Application enrollment/trust contracts, Infrastructure crypto/control/HTTP adapt
 - Согласование документации не завершено: в актуальных документах/UI могут оставаться старые фразы о полностью закрытом production Bootstrap. Настоящая граница — этот результат и вводные разделы Onboarding contracts/Local installation setup; UI пока не отражает её полностью.
 - Реальные Ubuntu, сетевые TLS handshakes, ACL/fsync/power loss, SQL/DDL/transaction locking, выборы/majority и переключение живого окружения не проверены. Doubles, local WAL и криптография этого не доказывают.
 
-После завершения 04.01–04.05 продолжить с 04.06; затем завершать собственный остаток 04. Перенос 03а/03б, полный Join 05, sender 05а и экраны 06 не реализованы и не начинались. Отсутствие Telegram-токена на несендере не является препятствием допуска.
+После завершения 04.01–04.07 ближайший незавершённый пункт — 04.08: в рабочей копии есть ранее оставленные изменения, статус `in-progress`; проверка 04.06 не завершает и не продолжает его реализацию. Затем остаётся собственный объём 04. Перенос 03а/03б, полный Join 05, sender 05а и экраны 06 не реализованы и не начинались. Отсутствие Telegram-токена на несендере не является препятствием допуска.
 
 ## Подэтапы
 
@@ -99,9 +105,9 @@ Application enrollment/trust contracts, Infrastructure crypto/control/HTTP adapt
 | [04.03. Проверка растущей истории steps](04.03-unbounded-progress-validation.md) | [04.01](04.01-preflight-recheck.md) | `completed` |
 | [04.04. Storage seals: конкурентность и стоимость](04.04-storage-seal-lifecycle.md) | [04.01](04.01-preflight-recheck.md), [04.02](04.02-restart-mode-before-effects.md), [04.03](04.03-unbounded-progress-validation.md) | `completed` |
 | [04.05. Новый первый: Bootstrap и выдача приглашения](04.05-bootstrap-and-invitation-proof.md) | [04.02](04.02-restart-mode-before-effects.md), [04.04](04.04-storage-seal-lifecycle.md) | `completed` |
-| [04.06. Enrollment E1–E4 и двусторонние probes](04.06-enrollment-through-e4.md) | [04.01](04.01-preflight-recheck.md) | `in-progress` |
-| [04.07. Issuer для существующего ручного кластера](04.07-existing-cluster-issuer.md) | [04.05](04.05-bootstrap-and-invitation-proof.md) | `not-started` |
-| [04.08. Удалённый issuer и follower-координатор](04.08-remote-issuer-routing.md) | [04.06](04.06-enrollment-through-e4.md), [04.07](04.07-existing-cluster-issuer.md) | `not-started` |
+| [04.06. Enrollment E1–E4 и двусторонние probes](04.06-enrollment-through-e4.md) | [04.01](04.01-preflight-recheck.md) | `completed` |
+| [04.07. Issuer для существующего ручного кластера](04.07-existing-cluster-issuer.md) | [04.05](04.05-bootstrap-and-invitation-proof.md) | `completed` |
+| [04.08. Удалённый issuer и follower-координатор](04.08-remote-issuer-routing.md) | [04.06](04.06-enrollment-through-e4.md), [04.07](04.07-existing-cluster-issuer.md) | `in-progress` |
 | [04.09. Renewal и ротация leaf с новым ключом](04.09-leaf-renewal-and-overlap.md) | [04.08](04.08-remote-issuer-routing.md) | `not-started` |
 | [04.10. Отзыв credentials и закрытие соединений](04.10-revocation-and-pool-invalidation.md) | [04.09](04.09-leaf-renewal-and-overlap.md) | `not-started` |
 | [04.11. Replacement, отзыв и retirement issuer](04.11-issuer-replacement-and-retirement.md) | [04.07](04.07-existing-cluster-issuer.md), [04.08](04.08-remote-issuer-routing.md), [04.09](04.09-leaf-renewal-and-overlap.md), [04.10](04.10-revocation-and-pool-invalidation.md) | `not-started` |
@@ -113,4 +119,4 @@ Application enrollment/trust contracts, Infrastructure crypto/control/HTTP adapt
 | [04.17. Актуальные документы и форма новых типов](04.17-current-docs-and-code-shape.md) | [04.02](04.02-restart-mode-before-effects.md), [04.03](04.03-unbounded-progress-validation.md), [04.04](04.04-storage-seal-lifecycle.md), [04.05](04.05-bootstrap-and-invitation-proof.md), [04.06](04.06-enrollment-through-e4.md), [04.07](04.07-existing-cluster-issuer.md), [04.08](04.08-remote-issuer-routing.md), [04.09](04.09-leaf-renewal-and-overlap.md), [04.10](04.10-revocation-and-pool-invalidation.md), [04.11](04.11-issuer-replacement-and-retirement.md), [04.12](04.12-online-process-exchanges.md), [04.13](04.13-joined-managed-restart.md), [04.16](04.16-minimal-enroll-ui.md) | `not-started` |
 | [04.18. Проверки и приёмка собственного объёма 04](04.18-stage-acceptance.md) | [04.01](04.01-preflight-recheck.md), [04.14](04.14-negative-protocol-matrix.md), [04.15](04.15-crash-reconciliation.md), [04.16](04.16-minimal-enroll-ui.md), [04.17](04.17-current-docs-and-code-shape.md) | `not-started` |
 
-**04.01–04.05 завершены**; следующий шаг — **04.06**. Дальше выбирать только задачу с выполненными зависимостями; 04.18 закрывает собственный объём доверия, без переноса работ из 03b/05/05a/06.
+**04.01–04.07 завершены**; ближайший незавершённый шаг — **04.08** (`in-progress` в сохранённой рабочей копии). Текущее поручение ограничено повторной проверкой 04.06. Дальше выбирать только задачу с выполненными зависимостями; 04.18 закрывает собственный объём доверия, без переноса работ из 03b/05/05a/06.

@@ -5,13 +5,14 @@ using Microsoft.Extensions.Logging;
 using UptimeHarbor.Application.Cluster.Models;
 using UptimeHarbor.Application.Cluster.Onboarding;
 using UptimeHarbor.Infrastructure.Installation;
+using UptimeHarbor.Infrastructure.Cluster.Onboarding.Issuers;
 
 namespace UptimeHarbor.Infrastructure.Cluster.Onboarding;
 
 /// <summary>Только exact accepted leaf. DER возвращаются после локального durable commit, не до него.</summary>
 public class EnrollmentSigner(IEnrollmentSigningUnitOfWork work, EnrollmentSigningJournal journal,
-    IEnrollmentSigningAuthorization authorization, EnrollmentIssuerSigningLock issuerLock,
-    InstallationLease lease, LocalSecretStore secrets, TimeProvider time, ILogger<EnrollmentSigner> logger)
+    EnrollmentIssuerSigningLock issuerLock, EnrollmentIssuerStorage storage, TimeProvider time,
+    ILogger<EnrollmentSigner> logger, IEnrollmentSigningAuthorization? authorization = null)
 {
     public async Task<EnrollmentIssuedArtifact> IssueAsync(EnrollmentRequest request, EnrollmentIssuance template,
         byte[] csr, CancellationToken token)
@@ -23,12 +24,18 @@ public class EnrollmentSigner(IEnrollmentSigningUnitOfWork work, EnrollmentSigni
         {
             EnrollmentIssuerReference local = await work.Signing.FindIssuerAsync(template.IssuerEpoch, token)
                 ?? throw new InvalidDataException("LocalEnrollmentIssuerMissing");
+            (InstallationLease lease, LocalSecretStore secrets) = storage.Open(create: false);
             if (local.InstallIdentity != lease.InstallIdentity || local.ClusterId != request.ClusterId || local.Generation != request.Generation)
             {
                 throw new InvalidDataException("LocalEnrollmentIssuerIdentityMismatch");
             }
 
             // Проверка выполняется внутри issuer lock. Никакого локального fallback при отсутствии majority.
+            if (authorization is null)
+            {
+                throw new UnauthorizedAccessException("EnrollmentIssuanceNotAuthorized");
+            }
+
             long index = await authorization.ConfirmAsync(request, template, local, token);
             if (index <= 0)
             {

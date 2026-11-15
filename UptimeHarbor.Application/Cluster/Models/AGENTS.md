@@ -1,5 +1,7 @@
 # Cluster contracts
 
+EnrollmentIssuerStatus — browser whitelist операции регистрации, без certificate/digests/key refs. IssuanceReady требует accepted результата и свежего barrier; это не Ready нового узла. PeerHealthSnapshot.EnrollmentTrustVersion — внутренняя authenticated capability, отсутствие поля означает 0; health не является snapshot authority.
+
 LocalOnboardingAttempt сохраняет immutable origin/CSR/trust intent/ref и короткую process-bound PeerProbes evidence. Descriptor/probe DTO не содержат invitation/verifier/accounts/private refs. Это внутренние transport/local contracts, не browser status и не snapshot authority. ManagedRestartProof не содержит BootstrapAccount и не предоставляет offline isolation; текущий actor/credential/process/versions повторно проверяются online grants.
 
 AcceptedEnrollmentIssuer и EnrollmentTrustCommand — внутренние schema-3 public trust contracts, без ключей. OnboardingContracts хранит registry/GenesisInitialized; GenesisAuthorization в initial image должен поступать от проверенного локального preparation, а не из peer payload. BootChallenge и IssuanceAuthorizationIndex новых attempts не переиспользовать после смены процесса. Все отсутствующие optional поля прежних command bytes сохранять omitted, не менять старые digests добавлением null/default.

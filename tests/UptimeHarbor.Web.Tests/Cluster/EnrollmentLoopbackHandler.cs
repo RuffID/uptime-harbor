@@ -10,6 +10,7 @@ public class EnrollmentLoopbackHandler(ManagedBootstrapFixture first) : HttpMess
 {
     public bool LoseReserveResponse { get; set; }
     public Action? BeforeIssue { get; set; }
+    public Action<EnrollmentExchange>? BeforeExchange { get; set; }
     public List<string> Origins { get; } = [];
     public UptimeHarbor.Infrastructure.Cluster.Onboarding.EnrollmentPeerProbes? Probes { get; set; }
 
@@ -36,6 +37,7 @@ public class EnrollmentLoopbackHandler(ManagedBootstrapFixture first) : HttpMess
         else
         {
             EnrollmentExchange exchange = StrictOnboardingJson.Decode<EnrollmentExchange>(body);
+            BeforeExchange?.Invoke(exchange);
             if (action == "state")
             {
                 result = await first.Enrollment.StateAsync(exchange, token);

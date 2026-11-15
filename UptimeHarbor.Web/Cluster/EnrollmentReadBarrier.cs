@@ -16,19 +16,24 @@ public class EnrollmentReadBarrier(ClusterRaftHandle handle, IClusterStateView s
     {
         var raft = handle.Current;
         ConsensusStatus? before = state.Consensus;
-        if (raft is null || before is null || !before.IsLeader || raft.Leader?.IsRemote != false
+        var leader = raft?.Leader;
+        if (raft is null || before is null || leader is null || leader.IsRemote == before.IsLeader
+            || before.NodeId != options.Value.NodeId || before.Term != raft.AuditTrail.Term
+            || !before.VotingNodes.Contains(before.NodeId)
             || options.Value.Compatibility != OnboardingProtocol.TRUST_COMPATIBILITY || !Healthy())
         {
             throw new InvalidOperationException("EnrollmentReadMajorityUnavailable");
         }
 
+        // Follower не владеет LeadershipToken; DotNext strong read подтверждает его локальный applied cut.
         using CancellationTokenSource guard = CancellationTokenSource.CreateLinkedTokenSource(token,
-            raft.LeadershipToken, raft.ConsensusToken, before.LeadershipToken, before.ConsensusToken);
+            raft.ConsensusToken, before.ConsensusToken);
         await raft.ApplyReadBarrierAsync(ReadBarrierType.Strong, guard.Token);
         guard.Token.ThrowIfCancellationRequested();
         ConsensusStatus? after = state.Consensus;
-        if (after is null || !after.IsLeader || after.Term != before.Term || after.MembershipVersion != before.MembershipVersion
-            || handle.Current != raft || raft.Leader?.IsRemote != false || after.Term != raft.AuditTrail.Term
+        if (after is null || after.IsLeader != before.IsLeader || after.Term != before.Term || after.MembershipVersion != before.MembershipVersion
+            || !before.VotingNodes.SetEquals(after.VotingNodes) || after.ConsensusToken.IsCancellationRequested
+            || handle.Current != raft || raft.Leader?.Id != leader.Id || after.Term != raft.AuditTrail.Term
             || !revisions.Available || !state.Accepted.CaughtUp || !state.Accepted.AccountStateConfirmed
             || !state.Accepted.SnapshotConfirmed || state.Accepted.AppliedIndex < raft.AuditTrail.LastCommittedEntryIndex
             || state.Accepted.MembershipVersion != after.MembershipVersion || !Healthy())

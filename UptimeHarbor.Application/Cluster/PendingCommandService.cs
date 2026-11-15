@@ -36,6 +36,12 @@ public class PendingCommandService(IPendingControlUnitOfWork work, IUserAccessCo
             throw new UnauthorizedAccessException("OnboardingReauthenticationChanged");
         }
 
+        if (proposal.EnrollmentTrust is not null && (proposal.ActorUserId != user.UserId
+            || proposal.ActorRevision != account.Revision || proposal.EnrollmentTrust.CoordinatorAtUtc.HasValue))
+        {
+            throw new UnauthorizedAccessException("EnrollmentTrustReauthenticationChanged");
+        }
+
         if (image.Results.TryGetValue(proposal.OperationId, out CommandResult? decision))
         {
             RevisionCommand retry = Stamp(proposal, image, localNodeId, decision.ActorRevision);

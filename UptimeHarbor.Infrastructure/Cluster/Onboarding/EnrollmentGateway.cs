@@ -8,13 +8,14 @@ using UptimeHarbor.Application.Cluster.Onboarding;
 using UptimeHarbor.Domain.Cluster;
 using UptimeHarbor.Infrastructure.Cluster;
 using UptimeHarbor.Infrastructure.Installation;
+using UptimeHarbor.Infrastructure.Cluster.Onboarding.Routing;
 
 namespace UptimeHarbor.Infrastructure.Cluster.Onboarding;
 
 /// <summary>Единственный преддоверенный путь к reserve/issue/bind/admit. Membership/snapshot здесь не выполняются.</summary>
 public class EnrollmentGateway(EnrollmentDescriptors descriptors, EnrollmentNonces nonces,
-    EnrollmentExchangeGate gate, EnrollmentCommandJournal journal, EnrollmentAuthority authority,
-    EnrollmentSigner signer, RevisionDispatcher dispatcher, IOptions<ClusterOptions> options,
+    EnrollmentExchangeGate gate, EnrollmentCommandJournal journal, IEnrollmentPeerClient peers,
+    EnrollmentIssuanceRouter signer, IOptions<ClusterOptions> options,
     IOptions<InstallationOptions> installation, TimeProvider time, IEnrollmentReadBarrier? readBarrier = null)
 {
     public async Task<EnrollmentDescriptor> ConfirmProbeAsync(EnrollmentExchange exchange, CancellationToken token)
@@ -115,7 +116,7 @@ public class EnrollmentGateway(EnrollmentDescriptors descriptors, EnrollmentNonc
             RevisionCommand command = await journal.PrepareAsync(proof.RequestId,
                 () => Prepare(exchange, descriptors.RequireImage(), artifact), token);
             RequireExact(exchange, command, attempt);
-            CommandResult result = await authority.AcceptAsync(dispatcher, command, token);
+            CommandResult result = await peers.AcceptAsync(new(1, command, request, proof, exchange.CsrDer, artifact), token);
             if (result.Outcome != OperationOutcome.Committed)
             {
                 throw new InvalidOperationException("EnrollmentDecisionRejected/" + result.Reason);
@@ -177,8 +178,8 @@ public class EnrollmentGateway(EnrollmentDescriptors descriptors, EnrollmentNonc
         else if (proof.Action == "AuthorizeEnrollmentCertificate")
         {
             AcceptedEnrollmentIssuer issuer = image.OnboardingContracts!.Issuers!.Values.Single(item =>
-                item.NodeId == options.Value.NodeId && item.StorageGeneration == options.Value.StorageGeneration
-                && !item.RetiredAtUtc.HasValue && !item.RevokedAtUtc.HasValue);
+                !item.RetiredAtUtc.HasValue && !item.RevokedAtUtc.HasValue);
+            EnrollmentPeerAuthority.RequireIssuer(image, issuer.Epoch, time.GetUtcNow());
             DateTimeOffset now = EnrollmentCertificates.Seconds(time.GetUtcNow());
             byte[] serial = RandomNumberGenerator.GetBytes(16);
             serial[0] = (byte)((serial[0] & 0x3f) + 1);

@@ -91,6 +91,12 @@ public class LocalSetupAccountStore(UptimeHarborDbContext context) : ILocalSetup
             return;
         }
 
+        if (step.Kind == Cluster.Onboarding.Routing.OnlineGrantRequestSignatures.STEP_KIND)
+        {
+            Cluster.Onboarding.Routing.OnlineGrantRequestSignatures.RequireStep(profile, step);
+            return;
+        }
+
         RevisionCommand command = JsonSerializer.Deserialize<RevisionCommand>(step.Evidence
             ?? throw new InvalidDataException("LocalStepEvidenceMissing"))
             ?? throw new InvalidDataException("LocalStepEvidenceInvalid");
