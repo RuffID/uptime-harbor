@@ -1,26 +1,16 @@
 using UptimeHarbor.Application.Cluster;
 using UptimeHarbor.Infrastructure.Cluster;
 using UptimeHarbor.Infrastructure.Identity;
-using UptimeHarbor.Application.Cluster.Onboarding;
-using Microsoft.AspNetCore.RateLimiting;
-using System.Threading.RateLimiting;
 using Microsoft.Extensions.DependencyInjection.Extensions;
-using UptimeHarbor.Application.Installation;
 using UptimeHarbor.Infrastructure.Installation;
-using UptimeHarbor.Infrastructure.Cluster.Onboarding;
-using UptimeHarbor.Infrastructure.Cluster.Onboarding.Routing;
-using UptimeHarbor.Web.Cluster.EnrollmentRouting;
 
 namespace UptimeHarbor.Web.Cluster;
 
 public static class ClusterWebExtensions
 {
-    public static IServiceCollection AddClusterWeb(this IServiceCollection services, IConfiguration? configuration = null)
+    public static IServiceCollection AddClusterWeb(this IServiceCollection services)
     {
-        services.AddOptions<InstallationOptions>();
-        services.TryAddSingleton<InstallationState>();
         services.TryAddSingleton<RuntimeWriteGate>();
-        services.TryAddSingleton<IManagedRuntimeAdmission, UnavailableManagedRuntimeAdmission>();
         services.AddSingleton<ClusterRaftHandle>();
         services.AddSingleton<ClusterPeerRuntime>();
         services.AddSingleton<ClusterHealthWorker>();
@@ -29,23 +19,7 @@ public static class ClusterWebExtensions
         services.AddSingleton<IClusterAdministrationState, AcceptedClusterAdministrationState>();
         services.AddSingleton<IMembershipProtocol, DotNextMembershipProtocol>();
         services.AddSingleton<IConsensusWriter, ClusterConsensusWriter>();
-        services.TryAddSingleton<IEnrollmentSigningAuthorization, EnrollmentSigningAuthorization>();
-        services.TryAddSingleton<IEnrollmentReadBarrier, EnrollmentReadBarrier>();
-        services.TryAddSingleton<IEnrollmentIssuerRegistrationBarrier, EnrollmentIssuerRegistrationBarrier>();
-        services.TryAddSingleton<IOnlineGrantSigningAuthorization, OnlineGrantSigningAuthorization>();
-        services.AddEnrollmentPeerRouting();
-        if (configuration?["Installation:InstallationIntent"] == "Setup")
-        {
-            services.AddScoped<ManagedBootstrapLifecycle>();
-        }
         services.AddSingleton<RevisionDispatcher>();
-        services.AddSingleton<IOnboardingAcceptance, OnboardingAcceptance>();
-        services.AddRateLimiter(options => options.AddPolicy("onboarding-administrator", context =>
-            RateLimitPartition.GetFixedWindowLimiter(context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-                _ => new FixedWindowRateLimiterOptions
-                {
-                    PermitLimit = 5, Window = TimeSpan.FromMinutes(1), QueueLimit = 0, AutoReplenishment = true
-                })));
         services.AddSingleton<ClusterLifecycleWorker>();
         services.AddSingleton<ISenderConsensus, DeliverySenderConsensus>();
         services.AddSingleton<AcceptedDeliveryDispatcher>();
@@ -58,10 +32,7 @@ public static class ClusterWebExtensions
         services.AddSingleton<ClusterRevisionWorker>();
         services.AddSingleton<ClusterSnapshotWorker>();
         services.AddSingleton<ClusterMonitoringWorker>();
-        services.AddSingleton<ManagedWorkerSupervisor>();
-        services.AddSingleton<IManagedWorkerCatalog, ManagedWorkerCatalog>();
-        services.AddSingleton<UptimeHarbor.Application.Installation.IInstallationRuntime>(provider => provider.GetRequiredService<ManagedWorkerSupervisor>());
-        services.AddHostedService(provider => provider.GetRequiredService<ManagedWorkerSupervisor>());
+        services.AddHostedService<RuntimeWorkerSupervisor>();
         return services;
     }
 

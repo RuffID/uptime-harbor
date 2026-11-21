@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using UptimeHarbor.Application.Cluster.Models;
 using UptimeHarbor.Infrastructure.Cluster.Onboarding;
@@ -8,23 +7,6 @@ namespace UptimeHarbor.Tests.Infrastructure.Installation;
 
 public class EnrollmentCertificateTests
 {
-    [Theory]
-    [InlineData("80FFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")]
-    [InlineData("00FFFFFFFFFFFFFFFFFFFFFFFFFFFFFF")]
-    public void SerialRequiringSignPaddingOrTrimmingIsRejectedBeforeSigning(string serial)
-    {
-        // Arrange
-        using EnrollmentCertificateFixture fixture = new();
-        EnrollmentIssuance template = fixture.Template with { Serial = serial };
-
-        // Act
-        Exception? rejected = Record.Exception(() => EnrollmentCertificates.IssueLeaf(fixture.Issuer,
-            fixture.Request, template, fixture.Csr));
-
-        // Assert
-        Assert.IsType<InvalidDataException>(rejected);
-    }
-
     [Fact]
     public void DedicatedIssuerAndLeafHaveExactIdentityLifetimeAndBothTlsPurposes()
     {
@@ -47,100 +29,6 @@ public class EnrollmentCertificateTests
         Assert.True(ca.HasPathLengthConstraint);
         Assert.Equal(0, ca.PathLengthConstraint);
         Assert.Equal(fixture.Now.AddYears(3).UtcDateTime, fixture.Issuer.NotAfter.ToUniversalTime());
-    }
-
-    [Theory]
-    [InlineData("spki")]
-    [InlineData("csr")]
-    [InlineData("node")]
-    [InlineData("storage")]
-    [InlineData("address")]
-    [InlineData("epoch")]
-    [InlineData("long-lived")]
-    [InlineData("serial")]
-    public void IssuanceRejectsForeignIdentityKeyDigestEpochAndTemplate(string mutation)
-    {
-        // Arrange
-        using EnrollmentCertificateFixture fixture = new();
-        EnrollmentIssuance template = mutation switch
-        {
-            "spki" => fixture.Template with { SpkiDigest = new string('F', 64) },
-            "csr" => fixture.Template with { CsrDigest = new string('F', 64) },
-            "node" => fixture.Template with { NodeId = Guid.NewGuid() },
-            "storage" => fixture.Template with { StorageGeneration = Guid.NewGuid() },
-            "address" => fixture.Template with { PeerUri = "https://other.example.test/internal/raft" },
-            "epoch" => fixture.Template with { IssuerEpoch = Guid.NewGuid() },
-            "long-lived" => fixture.Template with { NotAfterUtc = fixture.Now.AddDays(31) },
-            "serial" => fixture.Template with { Serial = new string('0', 32) },
-            _ => throw new ArgumentOutOfRangeException(nameof(mutation))
-        };
-
-        // Act
-        Exception? failure = Record.Exception(() => EnrollmentCertificates.IssueLeaf(fixture.Issuer, fixture.Request, template, fixture.Csr));
-
-        // Assert
-        Assert.IsType<InvalidDataException>(failure);
-    }
-
-    [Fact]
-    public void CsrSignatureIsVerifiedEvenWhenAttackerSuppliesMatchingDigest()
-    {
-        // Arrange
-        using EnrollmentCertificateFixture fixture = new();
-        byte[] corrupted = fixture.Csr.ToArray();
-        corrupted[^1] ^= 1;
-        EnrollmentRequest request = fixture.Request with { CsrDigest = EnrollmentCertificates.Hash(corrupted) };
-
-        // Act
-        Exception? failure = Record.Exception(() => EnrollmentCertificates.ReadCsr(corrupted, request));
-
-        // Assert
-        Assert.IsType<InvalidDataException>(failure);
-    }
-
-    [Theory]
-    [InlineData("ca")]
-    [InlineData("san")]
-    [InlineData("critical")]
-    [InlineData("weak-curve")]
-    public void CsrCannotRequestCaOrForeignSanOrCriticalExtensionsOrAnotherCurve(string mutation)
-    {
-        // Arrange
-        using EnrollmentCertificateFixture fixture = new();
-        ECCurve curve = ECCurve.NamedCurves.nistP256;
-        if (mutation == "weak-curve")
-        {
-            curve = ECCurve.NamedCurves.nistP384;
-        }
-
-        using ECDsa key = ECDsa.Create(curve);
-        CertificateRequest csr = new("CN=untrusted", key, HashAlgorithmName.SHA256);
-        if (mutation == "ca")
-        {
-            csr.CertificateExtensions.Add(new X509BasicConstraintsExtension(true, true, 1, true));
-        }
-        else if (mutation == "san")
-        {
-            SubjectAlternativeNameBuilder names = new();
-            names.AddDnsName("other.example.test");
-            csr.CertificateExtensions.Add(names.Build());
-        }
-        else if (mutation == "critical")
-        {
-            csr.CertificateExtensions.Add(new X509Extension("1.2.3.4.5", [5, 0], true));
-        }
-
-        byte[] encoded = csr.CreateSigningRequest();
-        EnrollmentRequest request = fixture.Request with
-        {
-            SpkiDigest = EnrollmentCertificates.Hash(key.ExportSubjectPublicKeyInfo()), CsrDigest = EnrollmentCertificates.Hash(encoded)
-        };
-
-        // Act
-        Exception? failure = Record.Exception(() => EnrollmentCertificates.ReadCsr(encoded, request));
-
-        // Assert
-        Assert.IsType<InvalidDataException>(failure);
     }
 
     [Fact]

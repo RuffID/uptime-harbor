@@ -131,7 +131,7 @@ public class ServiceCollectionExtensionsTests
             .Value;
         // Assert
         using IServiceScope scope = application.Services.CreateScope();
-        Assert.NotNull(scope.ServiceProvider.GetRequiredService<UptimeHarbor.Infrastructure.Cluster.Onboarding.InvitationAdministration>());
+        Assert.NotNull(scope.ServiceProvider.GetRequiredService<UptimeHarbor.Infrastructure.Cluster.ClusterOperationsAdministration>());
         Assert.Equal(TimeSpan.Zero, stampOptions.ValidationInterval);
         Assert.True(identityOptions.Lockout.AllowedForNewUsers);
         Assert.Equal(5, identityOptions.Lockout.MaxFailedAccessAttempts);

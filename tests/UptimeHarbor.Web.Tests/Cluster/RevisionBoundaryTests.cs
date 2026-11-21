@@ -149,7 +149,17 @@ public class RevisionBoundaryTests
             DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch.AddDays(30));
         VoterCredentialRenewal renewal = new(Guid.NewGuid(), new string('C', 64), new string('D', 64), 0, leaf);
         VoterCredentialRequest request = new(1, cluster, 1, Guid.NewGuid(), renewal);
-        RevisionCommand typed = VoterCredentialAuthorizationCommand.Create(request);
+        RevisionCommand typed = new()
+        {
+            Schema = 3, ClusterId = cluster, ClusterGeneration = 1,
+            OperationId = request.OperationId, OriginNodeId = node, ActorUserId = Guid.Empty, ActorRevision = 0,
+            EntityId = node, EntityKind = DeletedEntityKind.Node, BaseRevision = 0,
+            Action = "AuthorizeVoterCredential", CreatedAtUtc = DateTimeOffset.UnixEpoch, SystemSource = "VoterCredentialLifecycle",
+            EnrollmentTrust = new(1, storage, leaf.IssuerEpoch, null, null, null, null, 0, null)
+            {
+                Rotation = new(renewal, null, null)
+            }
+        };
         if (continuation)
         {
             string challenge = Convert.ToBase64String(new byte[32]);

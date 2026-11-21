@@ -19,9 +19,9 @@ internal static class VoterContinuationBinding
             return "VoterContinuationRegistrationRequired";
         }
 
-        CommandResult? proposed = RevisionDispatcher.ReadVoterCredentialDecision(image, accepted.Request);
-        CommandResult? approved = RevisionDispatcher.ReadVoterCredentialDecision(image, approval);
-        CommandResult? registered = RevisionDispatcher.ReadVoterCredentialDecision(image, registration);
+        CommandResult? proposed = ReadDecision(image, accepted.Request);
+        CommandResult? approved = ReadDecision(image, approval);
+        CommandResult? registered = ReadDecision(image, registration);
         if (proposed is not { Outcome: OperationOutcome.Committed } || approved is not { Outcome: OperationOutcome.Committed }
             || registered is not { Outcome: OperationOutcome.Committed } || proposed.Index >= approved.Index
             || approved.Index >= registered.Index || registered.Index > minimumIndex
@@ -98,7 +98,7 @@ internal static class VoterContinuationBinding
         EnrollmentIssuance leaf = data.Context.Request.Renewal.Issuance;
         OperationalCredential? previous = image.Operations.Credentials.GetValueOrDefault(data.Context.Request.Renewal.PreviousCredentialId);
         VoterCredentialRotation? latest = VoterCredentialPolicy.Latest(image, leaf.NodeId);
-        CommandResult? decision = RevisionDispatcher.ReadVoterCredentialDecision(image, bind);
+        CommandResult? decision = ReadDecision(image, bind);
         return decision is { Outcome: OperationOutcome.Committed } && decision.Term == data.Context.Term
             && latest?.BindOperationId == bind.OperationId && latest.BindDigest == decision.Digest
             && latest.CredentialRevision == decision.Index && latest.ContinuationRequestId == data.Context.Request.OperationId
@@ -151,5 +151,23 @@ internal static class VoterContinuationBinding
                 Credentials = image.Operations.Credentials.Add(credential.Id, credential), Revision = image.Index
             }
         };
+    }
+
+    internal static CommandResult? ReadDecision(RevisionImage image, RevisionCommand command)
+    {
+        if (!image.Results.TryGetValue(command.OperationId, out CommandResult? result))
+        {
+            return null;
+        }
+
+        if (result.OperationId != command.OperationId || result.Digest != RevisionCodec.Digest(command)
+            || result.Index <= 0 || result.Index > image.Index || result.AppliedRevision != result.Index
+            || result.Term <= 0 || result.Term > image.Term
+            || result.Outcome is not (Domain.Cluster.OperationOutcome.Committed or Domain.Cluster.OperationOutcome.Rejected))
+        {
+            throw new InvalidDataException("VoterCredentialAdmissionDecisionMismatch");
+        }
+
+        return result;
     }
 }

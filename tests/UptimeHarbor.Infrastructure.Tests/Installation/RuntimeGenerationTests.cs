@@ -49,24 +49,6 @@ public class RuntimeGenerationTests
         Assert.True(worker.Completion.IsCompleted);
     }
 
-    [Fact]
-    public void LocalReadyProfileDoesNotOpenCommonAccessAndStaleRevisionCannotReplaceIt()
-    {
-        // Arrange
-        InstallationState state = new();
-        LocalInstallationProfile profile = new(Guid.NewGuid(), "Bootstrap", InstallationPhase.ClusterReady,
-            2, 2, 2, Guid.NewGuid(), DateTimeOffset.UtcNow);
-
-        // Act
-        state.Publish(profile);
-        Exception? stale = Record.Exception(() => state.Publish(profile with { ProfileRevision = 1 }));
-
-        // Assert
-        Assert.False(state.CommonOpen);
-        Assert.IsType<InvalidOperationException>(stale);
-        Assert.Equal(profile, state.Current);
-    }
-
     private class ControlledWorker : RestartableWorker
     {
         public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);

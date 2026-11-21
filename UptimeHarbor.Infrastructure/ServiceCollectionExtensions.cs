@@ -27,7 +27,6 @@ using UptimeHarbor.Application.Visibility;
 using UptimeHarbor.Infrastructure.Services.DataBase;
 using UptimeHarbor.Infrastructure.Cluster;
 using UptimeHarbor.Application.Security;
-using UptimeHarbor.Infrastructure.Installation;
 
 namespace UptimeHarbor.Infrastructure;
 
@@ -43,7 +42,6 @@ public static class ServiceCollectionExtensions
         ArgumentNullException.ThrowIfNull(configuration);
 
         services.AddClusterInfrastructure(configuration);
-        services.AddLocalInstallation(configuration);
         services.AddScoped<IAdministratorAccessPolicy>(provider =>
         {
             if (provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<ClusterOptions>>().Value.Enabled)
@@ -205,15 +203,12 @@ public static class ServiceCollectionExtensions
             return provider.GetRequiredService<MonitoringRecipientReadQuery>();
         });
         ClusterOptions initialCluster = configuration.GetSection(ClusterOptions.SECTION_NAME).Get<ClusterOptions>() ?? new();
-        if (initialCluster.Enabled && configuration["Installation:InstallationIntent"] != "Setup")
+        if (initialCluster.Enabled)
         {
             services.AddDataProtection().SetApplicationName($"UptimeHarbor/{initialCluster.NodeId:N}");
         }
 
-        if (configuration["Installation:InstallationIntent"] != "Setup")
-        {
-            services.AddDataProtection().PersistKeysToDbContext<UptimeHarborDbContext>();
-        }
+        services.AddDataProtection().PersistKeysToDbContext<UptimeHarborDbContext>();
 
         services.AddHttpClient<IHttpApiClient, HttpApiClient>();
         services.AddHttpClient(HttpMonitoringEndpointChecker.HTTP_CLIENT_NAME, client =>
@@ -245,13 +240,6 @@ public static class ServiceCollectionExtensions
 
     private static async Task ValidateEnabledUserAsync(CookieValidatePrincipalContext context)
     {
-        InstallationState installation = context.HttpContext.RequestServices.GetRequiredService<InstallationState>();
-        if (installation.Current is not null && !installation.CommonOpen)
-        {
-            context.RejectPrincipal();
-            return;
-        }
-
         ClusterOptions cluster = context.HttpContext.RequestServices
             .GetRequiredService<Microsoft.Extensions.Options.IOptions<ClusterOptions>>().Value;
         if (cluster.Enabled)

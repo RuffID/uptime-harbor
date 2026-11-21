@@ -1,9 +1,5 @@
 # Razor Pages
 
-Setup.cshtml — отдельный минимальный anonymous route/layout для локального login и E0 preparation. Данные/фазы читает setup.ts; общего мастера подключения, invitations и списка узлов здесь нет. Anonymous разрешение страницы не разрешает mutation или common API.
-
-InvitationAdministration и EnrollmentIssuerAdministration регистрируются рядом с остальными browser use cases в AddWebPresentation; полный graph включает AddApplication/AddInfrastructure/AddClusterWeb. Новые экраны подключения остаются запланированными, в этом этапе изменены только API/контракты.
-
 ## Ответственность
 
 Каталог содержит пользовательские Razor Pages и регистрацию Web-presentation сервисов.

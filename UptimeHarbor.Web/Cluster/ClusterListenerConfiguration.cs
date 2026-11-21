@@ -1,11 +1,8 @@
-using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.AspNetCore.Server.Kestrel.Https;
 using Microsoft.Extensions.Options;
 using UptimeHarbor.Application.Cluster;
-using UptimeHarbor.Application.Cluster.Models;
 using UptimeHarbor.Infrastructure.Cluster;
-using UptimeHarbor.Infrastructure.Installation;
 
 namespace UptimeHarbor.Web.Cluster;
 
@@ -15,12 +12,9 @@ public static class ClusterListenerConfiguration
     {
         ClusterOptions options = new();
         builder.Configuration.GetSection(ClusterOptions.SECTION_NAME).Bind(options);
-        InstallationOptions installation = builder.Configuration.GetSection(InstallationOptions.SECTION_NAME)
-            .Get<InstallationOptions>() ?? new();
-        if (installation.Setup)
+        if (builder.Configuration["Installation:InstallationIntent"] is not (null or "Legacy"))
         {
-            ConfigureSetupPeer(builder, options, installation);
-            return builder;
+            throw new InvalidOperationException("Only Installation:InstallationIntent=Legacy is supported. Configure the cluster node manually.");
         }
 
         if (!options.Enabled)
@@ -36,7 +30,7 @@ public static class ClusterListenerConfiguration
 
         ValidateEndpoint(options, builder.Configuration["Kestrel:Endpoints:Peer:Url"],
             builder.Configuration["Kestrel:Endpoints:Browser:Url"]);
-        ValidateLocalCertificate(options);
+        new PeerCertificateValidator().EnsureLocalCertificate(options, TimeProvider.System.GetUtcNow());
         builder.WebHost.ConfigureKestrel((context, server) =>
         {
             server.Configure(context.Configuration.GetSection("Kestrel"), reloadOnChange: false)
@@ -71,76 +65,6 @@ public static class ClusterListenerConfiguration
         });
 
         return builder;
-    }
-
-    private static void ConfigureSetupPeer(WebApplicationBuilder builder, ClusterOptions cluster, InstallationOptions installation)
-    {
-        string? peerUrl = builder.Configuration["Kestrel:Endpoints:Peer:Url"];
-        string? browserUrl = builder.Configuration["Kestrel:Endpoints:Browser:Url"];
-        bool prepared = Uri.TryCreate(peerUrl, UriKind.Absolute, out Uri? peer)
-            && Uri.TryCreate(browserUrl, UriKind.Absolute, out Uri? browser)
-            && Uri.TryCreate(installation.PeerEndpoint, UriKind.Absolute, out Uri? advertised)
-            && peer.Scheme == "https" && peer.Port == cluster.PeerListenPort && browser.Port != peer.Port
-            && advertised.Scheme == "https" && advertised.AbsolutePath == "/internal/raft"
-            && advertised.UserInfo.Length == 0 && advertised.Query.Length == 0 && advertised.Fragment.Length == 0
-            && advertised.AbsoluteUri == installation.PeerEndpoint && cluster.TlsBoundary == "Direct";
-        builder.Services.AddSingleton(new PreparedPeerEndpoint(prepared, installation.PeerEndpoint));
-        if (!prepared)
-        {
-            return;
-        }
-
-        builder.WebHost.ConfigureKestrel((context, server) =>
-        {
-            server.Configure(context.Configuration.GetSection("Kestrel"), reloadOnChange: false)
-                .Endpoint("Peer", endpoint =>
-                {
-                    DynamicPeerTls credentials = server.ApplicationServices.GetRequiredService<DynamicPeerTls>();
-                    endpoint.HttpsOptions.ServerCertificateSelector = (connection, _) =>
-                    {
-                        DynamicPeerTls.Snapshot? snapshot = credentials.Capture();
-                        connection?.Features.Set(snapshot);
-                        return snapshot?.Certificate ?? credentials.ProbeCertificate;
-                    };
-                    endpoint.HttpsOptions.ClientCertificateMode = ClientCertificateMode.RequireCertificate;
-                    endpoint.HttpsOptions.OnAuthenticate = (connection, ssl) =>
-                    {
-                        // Для привязки envelope требуется выбор server leaf на этом handshake.
-                        ssl.AllowTlsResume = false;
-                        ssl.RemoteCertificateValidationCallback = (_, certificate, _, _) =>
-                        {
-                            if (certificate is null)
-                            {
-                                return false;
-                            }
-
-                            using X509Certificate2 candidate = new(certificate);
-                            DynamicPeerTls.Snapshot? snapshot = connection.Features.Get<DynamicPeerTls.Snapshot>();
-                            if (snapshot is null)
-                            {
-                                return credentials.ValidateProbe(candidate);
-                            }
-
-                            return credentials.Validate(snapshot, candidate);
-                        };
-                    };
-                });
-        });
-    }
-
-    private static void ValidateLocalCertificate(ClusterOptions options)
-    {
-        using X509Certificate2 root = X509CertificateLoader.LoadCertificateFromFile(options.ClientCaPath);
-        using X509Certificate2 certificate = X509Certificate2.CreateFromPemFile(
-            options.ClientCertificatePath, options.ClientKeyPath);
-        PeerCredential local = new(options.CredentialId, options.NodeId, options.StorageGeneration,
-            new Uri(options.PublicUri), certificate.GetCertHashString(HashAlgorithmName.SHA256),
-            false, false, DateTimeOffset.MaxValue);
-        if (!certificate.HasPrivateKey || !new PeerCertificateValidator().Validate(certificate, root,
-            options, local, DateTimeOffset.UtcNow))
-        {
-            throw new InvalidOperationException("Local peer certificate does not match the configured cluster identity.");
-        }
     }
 
     public static void ValidateEndpoint(ClusterOptions options, string? peerUrl, string? browserUrl)

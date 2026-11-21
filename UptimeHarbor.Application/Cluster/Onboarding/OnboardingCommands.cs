@@ -15,14 +15,6 @@ public static class OnboardingCommands
             or "RequestOnboardingMembership" or "AuthorizeOnboardingMembership" or "ConfirmOnboardingMembership";
     }
 
-    public static bool NeedsEnrollmentAuthority(RevisionCommand command)
-    {
-        return command.Action is "AuthorizeEnrollmentCertificate" or "BindEnrollmentCredential"
-            or "AdmitInvitedNode" or "RenewOnboardingAdmission" or "ResumeOnboardingAttempt"
-            or "RecordOnboardingProgress" or "ReserveInvitation" or "RenewOnboardingProcess" or "CompleteOnboardingAttempt"
-            or "RequestOnboardingMembership" or "AuthorizeOnboardingMembership" or "ConfirmOnboardingMembership";
-    }
-
     public static bool IsCoordinator(RevisionCommand command)
     {
         return command.Action is "ExpireInvitation" or "ReserveInvitation" or "AuthorizeEnrollmentCertificate"

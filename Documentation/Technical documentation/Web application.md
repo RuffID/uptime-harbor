@@ -1,46 +1,6 @@
 # Web-приложение
 
-## Внутренний enrollment routing (04.08)
-
-`EnrollmentPeerController` обслуживает только три fixed POST peer routes `/internal/cluster/v1/enrollment/{coordinate,issue,grant}` через verified PeerEnvelope. Cookie/Authorization, browser listener, nonvoter и pending probe session этих прав не получают; arbitrary Sign(bytes) отсутствует. Strict JSON/64 KiB/10 секунд и безопасный отказ без payload сохраняются. AddClusterWeb подключает routing только при наличии signing persistence; IEnrollmentAuthority остаётся узкой, общий commands batch не расширен. Descriptor собирается на ingress с исходным browser origin. [Подробности](Onboarding%20contracts.md#удалённый-issuer-и-follower-routing-0408), [проверки](Testing.md#удалённый-issuer-и-follower-routing-0408-2026-11-17). UI не менялся; полный Join не включён.
-
-## Регистрация manual issuer (04.07)
-
-`ClusterEnrollmentIssuersController`: POST `/api/admin/cluster/enrollment-issuers` принимает только OperationId/Password; GET `/api/admin/cluster/enrollment-issuers/operations/{operationId}` возвращает безопасный status без CA/ключа/digests/refs. Нужен общий Administrator, POST также требует antiforgery, onboarding-administrator limiter и body ≤4096 байт. Неизвестные JSON fields запрещены. Use case повторяет accepted authorization после await и сохраняет исходный Pending до transport. 202 означает существующую локальную заявку; Committed и IssuanceReady=false сохраняют известный commit при недоступном новом majority. Готовность не объявляется по одному HTTP-ответу coordinator.
-
-`EnrollmentIssuerAdministration` зарегистрирован в AddWebPresentation; полный graph включает AddApplication/AddInfrastructure/AddClusterWeb. Конструирование manual graph не открывает volumes и native runtime. У standalone Infrastructure отсутствует browser use case; signer без production signing authorization закрыт. Экран регистрации не добавлен; remote/follower routing и replacement этим API не предоставляются. [Контракт](Onboarding%20contracts.md#первоначальный-issuer-ручного-кластера-0407), [проверки](Testing.md#issuer-ручного-кластера-0407-2026-11-15).
-
-## Частичный backend этапа 04
-
-OnboardingAcceptance распознаёт закрытые schema-3 issuer/genesis commands, проверяет crypto public anchor и назначает stamp после majority barrier. InitializeCluster не принимается из peer command batch; остальная issuer administration требует того же authenticated peer storage и текущей accepted авторизации. EnrollmentSigningAuthorization использует ClusterRaftHandle без зависимости от runtime/dispatcher. Managed TLS server pin привязан к точному endpoint до отправки HTTP.
-
-`POST /internal/cluster/v1/enrollment/renew` проходит тот же peer boundary, что и остальные typed enrollment RPC. Для signing controller требует verified voter envelope и точный client credential, удостоверенный middleware по leaf текущего запроса. Legacy Direct сохраняет online CRL для ручного CA. Dedicated leaf по принятому Bind проверяется при handshake и на каждом запросе по accepted issuer/credential revocation без сетевых загрузок. Действуют strict JSON, replay/rate limits, лимиты 64 KiB и 10 секунд. При отсутствии renewal service controller возвращает 404 после проверки peer perimeter. Production DI сохраняет закрытый допуск ротации. [Контракт и B3b-зависимости](Onboarding%20contracts.md#voter-credential-typed-direct-0409b3b2).
-
-Setup prepare подключает production Bootstrap нового первого; отдельный authenticated/antiforgery POST `/api/setup/enroll` выполняет E1–E4. Dedicated anonymous browser HTTPS routes `/internal/enrollment/v1/*` принимают только фиксированный canonical PoP protocol, system-TLS origin/Host, без cookies/Authorization; лимиты 64 KiB/10 секунд, 30 запросов и 5 отказов/минуту. `/internal/enrollment-peer/v1/probe` обслуживается до runtime только на Direct peer listener с exact mTLS/process/registry проверками; не проходит в commands/Raft. Общий peer authentication не ослаблен. Full Join UI пока не подключён. [Фактическая граница](Onboarding%20contracts.md#промежуточная-граница-этапа-04-2026-11-03).
-
-`VoterContinuationController` принимает только POST `/api/credential-continuation/v1/{nonce,request,status,register,issue,bind,accepted-slice}` на настроенном origin browser listener с фактическим HTTPS. `PeerBoundaryMiddleware` до forwarded headers требует managed ClusterReady/CommonOpen, точный путь и Host, отсутствие cookies, Authorization, Origin, peer envelope и query. Контроллер требует выданный middleware marker, runtime generation и PoP. Strict JSON ограничен 64 KiB, время обработки — 10 секундами. Отдельный лимит ContinueCredential допускает 30 запросов в минуту и блокирует источник после пяти отказов. Ответы помечаются no-store. HTTP за TLS-терминирующим proxy с одной лишь forwarded-схемой закрыт для всех этих маршрутов. Для выдачи `/nonce` принимает `Purpose: "issue"` и `RegistrationDigest`. POST `/issue` принимает `Call` с новым PoP и `RegistrationDigest`, возвращает `OperationId`, `IssueId`, `CertificateDer` в Base64 и `CertificateDigest`.
-
-`/accepted-slice` принимает `Call` с подписью отдельного challenge, `Replay`, `NativeTerm` и `VotersDigest`. Серверский replay cache предотвращает повтор того же challenge. Маршрут ограничен точной операцией managed Bootstrap Direct, подтверждённой работающим лидером. Предел ответа 64 KiB. [Контракт среза](Onboarding%20contracts.md#доказательство-continuecredential-040904).
-
-Для Bind `/nonce` принимает `Purpose: "bind"`, `RegistrationDigest` и `CertificateDigest`. В подписанном challenge поле `AuthorizationDigest` содержит SHA-256 канонического JSON с полями `Domain` (`UptimeHarbor.VoterCredential.ContinuationBind.v1`), `Registration` и `Certificate` в указанном порядке. POST `/bind` принимает `Call` с исходным запросом и CSR, PoP со свежим Bind nonce и оба digest. Ответ содержит `OperationId`, `IssueId`, `Decision` и `CredentialRevision`. После потери ответа повторяется обмен Bind nonce/PoP для тех же идентификаторов и digest. [Контракт ContinueCredential](Onboarding%20contracts.md#доказательство-continuecredential-040904).
-
-Для подтверждения ContinueCredential администратор берёт `RequestId` из события `VoterContinuationRequestAccepted` в штатном журнале восстанавливаемого узла и открывает этот ID в общей панели мониторинга действующего лидера. Событие появляется после сверки и локального закрепления принятого запроса. Поля события ограничены ID запроса. [Запуск ContinueCredential](Local%20installation%20setup.md#voter-continuation-local-installation-040904).
-
-`ClusterVoterContinuationController` обслуживает GET и POST `/api/admin/cluster/credential-continuation/{requestId}`. Общая цепочка браузерной аутентификации проверяет Identity application cookie. Контроллер сверяет роль Administrator, точный HTTPS BrowserOrigin после trusted forwarded headers и Origin для POST. POST также требует antiforgery, ограничен 8192 байтами и использует onboarding-administrator limiter. GET возвращает ID запроса и voter, digest для привязки и ID принятого подтверждения при наличии. POST принимает только digest и пароль и возвращает исходный ID принятого решения при точном повторе. Ответы no-store. В журнале остаются доверенный ID актора, ID запроса и ID принятого решения либо исход отказа. Материал удостоверения и пароль в ответы и журнал не попадают.
-
-Раздел «Продолжение действия удостоверения узла» расположен рядом с диагностикой узлов на кластерной «Панели мониторинга» (`/`). Общий Administrator открывает запрос по ID, сверяет ID узла и подтверждает своим паролем. Форма использует общий cluster.ts и очищает пароль при отправке без перезагрузки страницы. После потери ответа повторное чтение того же запроса показывает принятое подтверждение, если оно есть. [Проверки и критерии пользовательской приёмки](../Plans/node-onboarding-ui-2026-11-02-%28in-progress%29/04-enrollment-and-trust/04.09-credential-renewal/04.09.04-continue-credential.md#nui-04-20261121-12).
-
-## Локальная первоначальная настройка (этап 03)
-
-`/Setup` — минимальная отдельная страница локального входа и E0-подготовки нового первого/второго узла. `/api/setup/session|login|logout|status|prepare` использует собственную cookie scheme, bounded DTO/ServiceResult, antiforgery, exact HTTPS Origin/Host, rate limit, no-store и общие security headers. Setup identity не открывает common API; общий cookie не даёт setup-права. После login обновляется CSRF token, пароли очищаются в finally, автоматического повтора mutation нет. PageModel не загружает рабочие данные.
-
-До доказанного online Enable общий API закрыт middleware gate. Первый подготавливает отдельного общего администратора, второй не создаёт Bootstrap. Production Bootstrap открывает общий доступ и выдачу приглашений после accepted результата и отзыва setup; E1–E4 второго этого не делает. Мастер и список узлов остаются 06. [Cookies, durable фазы, TLS и inventory](Local%20installation%20setup.md).
-
-## API приглашений (2026-11-03)
-
-ClusterInvitationsController предоставляет Issue/Replace/Revoke/Continue/Cancel и безопасный read на `/api/admin/cluster/invitations`. Mutations требуют accepted Administrator, antiforgery, свежий пароль, rate limit и bounded DTO без actor/verifier. Code возвращается только первым запросом после подтверждённой выдачи; потерянный ответ/retry его не восстанавливает. 202 означает существующий local Pending, Unconfirmed — отсутствие подтверждения. Ответы no-store; новые экраны остаются запланированными.
-
-InvitationAdministration регистрируется в AddWebPresentation; полный graph также включает AddClusterWeb с transport/acceptance через ClusterRaftHandle. Dedicated enrollment выполняет E1–E4 до ограниченного nonvoter/probe; полный Join со snapshot/membership/Ready остаётся закрыт до этапа 05. [Контракты, ошибки и границы проверки](Onboarding%20contracts.md).
+NodeId и время результата каждого наблюдателя видны в разделе «Наблюдения по узлам» на кластерной панели мониторинга. Время последней связи с соседом показывается отдельно в диагностике. Ручной допуск сертификата и управление составом идут через lifecycle API. [Операции кластера](Cluster%20operations.md).
 
 ## Эксплуатационные команды (09)
 
@@ -79,9 +39,8 @@ Peer batch до dispatch сверяет storage generation monitoring/delivery/l
 
 ## Peer-периметр этапа 03
 
-`ConfigureClusterListeners` проверяет отдельные именованные Kestrel `Browser`/`Peer` endpoints; Direct требует mTLS, внутренний HTTP разрешён только в режиме `NginxIsolatedHttp` с изоляцией/точным allowlist. `UseClusterPeerBoundary` находится до forwarded headers и cookie authentication: browser listener не обслуживает `/internal`, peer listener не обслуживает пользовательские endpoints. Enabled-режим до готовности будущих lifecycle/activation возвращает 503 на browser routes, включая login и account API: регистрация компонентов 05 не открывает gate. Peer health и native Raft доступны только после envelope/certificate/trust проверки; неизвестные будущие routes не открыты. Это не новое административное UI. Composition и ограничения — [Cluster runtime.md](Cluster%20runtime.md).
+`ConfigureClusterListeners` проверяет отдельные именованные Kestrel `Browser`/`Peer` endpoints; Direct требует mTLS, внутренний HTTP разрешён только в режиме `NginxIsolatedHttp` с изоляцией/точным allowlist. `UseClusterPeerBoundary` находится до forwarded headers и cookie authentication: browser listener не обслуживает `/internal`, peer listener не обслуживает пользовательские endpoints. Enabled-режим до ручного Enable возвращает 503 на browser routes, включая login и account API. Peer health и native Raft доступны только после envelope/certificate/trust проверки; неизвестные будущие routes не открыты. Это не новое административное UI. Composition и ограничения — [Cluster runtime.md](Cluster%20runtime.md).
 
-Managed Direct listener сохраняет снимок server leaf в feature соединения. Peer middleware и typed renewal берут ID ответа и локального issuer credential из этого снимка. После публикации новой ревизии запрос без снимка отклоняется. TLS session resumption на managed listener отключён для выбора leaf на каждом handshake. `RENEW` требует Direct и HTTPS до обработки forwarded headers. Внутренний HTTP и certificate headers обслуживают существующий ручной режим `NginxIsolatedHttp`. Production renewal admission закрыт. [Runtime](Cluster%20runtime.md#частичная-интеграция-trust-v3-этап-04).
 
 ## Composition root
 
@@ -102,7 +61,7 @@ Managed Direct listener сохраняет снимок server leaf в feature �
 
 TLS завершается на Nginx. Web всегда принимает внутренний HTTP и не вызывает `UseHttpsRedirection`; внешний HTTP → HTTPS redirect и передача доверенного `X-Forwarded-Proto: https` принадлежат Nginx.
 
-До построения pipeline `InitializeInfrastructureAsync` проверяет подключение к SQL Server, при наличии pending migrations создаёт backup и применяет их, после чего выполняет bootstrap ролей и начального администратора. Ошибка или 60-секундный timeout database startup останавливают запуск до построения HTTP pipeline.
+В режиме `Disabled` до построения pipeline `InitializeInfrastructureAsync` проверяет подключение к SQL Server, при наличии pending migrations создаёт backup и применяет их, после чего выполняет bootstrap ролей и начального администратора. Ошибка или 60-секундный timeout database startup останавливают запуск до построения HTTP pipeline.
 
 ## Типы endpoint
 

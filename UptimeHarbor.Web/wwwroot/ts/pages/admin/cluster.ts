@@ -4,7 +4,6 @@ import { LatestRequest } from "./clusterDraft.js";
 import { AdministrationRefresh } from "./clusterRefresh.js";
 import { ClusterEditor } from "./clusterEditor.js";
 import { ClusterViews } from "./clusterViews.js";
-import { initializeCredentialContinuation } from "./credentialContinuation.js";
 import { operationText, delegateActions } from "./clusterDom.js";
 import type { AccountChange, Change, Diagnostic, EntityKind, Pending, Snapshot, LifecycleChange, ResourceFilter } from "./clusterModels.js";
 
@@ -16,7 +15,6 @@ function initialize(): void {
     const root = document.querySelector<HTMLElement>("[data-cluster-page]");
     if (!root || root.dataset.initialized === "true") return;
     root.dataset.initialized = "true";
-    const continuation = initializeCredentialContinuation(root);
     delegateActions(root);
     const require = <T extends HTMLElement>(key: string): T => {
         const node = root.querySelector<T>(`[data-cluster-${key}]`);
@@ -66,7 +64,6 @@ function initialize(): void {
     const failure = (value: unknown): void => {
         if (isAbortError(value)) return;
         if (value instanceof ApiError && (value.status === 401 || value.status === 403)) {
-            continuation?.close();
             denied = true; latest.invalidate(); refreshRequests.invalidate(); snapshot = null; pending = []; diagnostic = null;
             editor.close(); views.clear(); outcome.textContent = ""; create.disabled = true;
             status.textContent = "Защищённый доступ закрыт. Войдите действующим аккаунтом заново.";
@@ -177,7 +174,6 @@ function initialize(): void {
         catch (value: unknown) { if (!stopped && !denied) { quietRefresh(); } }
     };
     window.addEventListener("pagehide", () => {
-        continuation?.reset();
         stopped = true; latest.invalidate(); refreshRequests.invalidate(); editor.close(); cancelIds.clear(); lifecycleCancels.clear();
         if (timer) clearTimeout(timer);
         void hub?.stop();

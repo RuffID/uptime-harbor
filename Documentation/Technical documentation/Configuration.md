@@ -1,28 +1,6 @@
 # Конфигурация и запуск
 
-`Installation:CredentialContinuationOrigin` — доверенный browser HTTPS origin работающего лидера для machine ContinueCredential. Формат `https://leader.example.org` или `https://leader.example.org:8443`. Клиент требует точный origin без пути, query, fragment или завершающего слэша и применяет `AllowedPeerNetworks` к адресам.
-
-`Installation:CredentialContinuationPeerAddress` — точный принятый Raft URL того же лидера, например `https://peer.example.org:8443/internal/raft`. Startup выбирает по этому адресу активированного voter из локального replay и связывает URL с подписью. Для первого intent требуется один действующий принятый peer issuer этого voter. Обе настройки нужны для восстановления истёкшего managed Bootstrap Direct leaf. При неполной или несовпадающей настройке startup останавливается до HTTPS. Существующий intent закрепляет пару адресов на исходный boot. [Контракт и границы](Onboarding%20contracts.md#доказательство-continuecredential-040904).
-
-## Первоначальный manual issuer (04.07)
-
-Регистрация требует ручного Legacy-кластера с точной compatibility `3.0/3/3/3/1/6.10.0`, текущего локального leader и capability всех voters. Для локального issuer нужны уже явно заданные абсолютные, отдельные persistent Installation:StateDirectory, SecretDirectory и KeyDirectory, отличные от Cluster:StoragePath. Пустые значения приводят к отказу; системный профиль, WAL или legacy CA не используются как запасное хранилище ключа. Defaults и config-файлы не изменены. Schema upgrade/применение ранее созданных миграций этим API не выполняются. [Хранение и границы](Local%20installation%20setup.md), [контракт](Onboarding%20contracts.md#первоначальный-issuer-ручного-кластера-0407).
-
-## Подготовленные trust-компоненты v3
-
-Validator дополнительно распознаёт `3.0/3/3/3/1/6.10.0` для schema-3 issuer/genesis state и его snapshot/history. Эта версия требует AddEnrollmentTrust и согласованного обновления voters. Defaults, установка и config-файлы не изменены; один выбор версии не включает Bootstrap/admission. EnrollmentTransport использует существующие AllowedPeerNetworks, system browser TLS и фиксированные лимиты 3/10 секунд/64 KiB. [Текущие компоненты и закрытые gates](Onboarding%20contracts.md#промежуточная-граница-этапа-04-2026-11-03).
-
-## Явная локальная настройка (этап 03)
-
-Новая секция `Installation`: InstallationIntent (`Legacy` по умолчанию, явный `Setup`), абсолютные StateDirectory/SecretDirectory/KeyDirectory, точный HTTPS BrowserOrigin, canonical HTTPS PeerEndpoint `/internal/raft`, AllowedPeerNetworks (CIDR для разрешённых private/VPN адресов). Cluster:Mode до подготовки остаётся Disabled; StoragePath — отдельный persistent volume. State/secret/key/storage пути не пересекаются. Нужны заранее подготовленные Browser/Peer Kestrel endpoints с отдельными портами, Direct/TLS passthrough и schema v2. Пути/ACL/endpoint/schema не исправляются из HTTP. Конфигурация установки и config.example.json в этой задаче не изменялись по прямому ограничению пользователя; описанные prerequisites требуется подготовить отдельно перед будущей приёмкой.
-
-Setup создаёт отдельный LocalSetupAccount из защищённых BootstrapAdmin credentials до legacy bootstrap, без дополнительного секрета. Изменение config не сбрасывает пароль. Постоянная InstallIdentity задаёт файловый DP keyring в StateDirectory/data-protection; отдельный wrapping.key автоматически создаётся в SecretDirectory, private envelopes — в KeyDirectory, DPAPI не используется. Все эти volumes локальны и не реплицируются.
-
-Setup/кластерные несендеры не требуют BotToken при startup. Первый определяет публичный BotId из положительного ExpectedBotId либо bounded getMe своего локального токена; при отсутствии обоих preparation отказывается. Join получает BotId/cluster identity через authenticated enrollment descriptor и не создаёт общего администратора. ActiveClusterOptions выбирает trust v3 из durable evidence, конфигурацию установки не переписывает. ManagedRestart использует прежнюю identity с Mode=Restart и новым process proof; файл managed-storage.seal хранится в StateDirectory. Production Bootstrap нового первого и E1–E4 подключены; полный Join и dispatch закрыты до своих этапов. Обычный Disabled сохраняет прежнюю обязательность token. [Границы](Local%20installation%20setup.md).
-
-## Совместимость приглашений (2026-11-03)
-
-Новое API требует согласованного набора ProtocolMajor/CommandSchema/SnapshotFormat/SqlSchema = 2, SerializerVersion = 1, DotNext 6.10.0 (`2.0/2/2/2/1/6.10.0`). Validator сохраняет прежний набор v1; он не принимает новые onboarding command/snapshot. Defaults, config.example.json и установка не менялись. Схему и все voters нужно подготовить отдельно; одна смена версии не даёт права подключения. Production IEnrollmentAuthority всегда отказывает, новый native Join/activation закрыт. Сроки и лимиты описаны в [Onboarding contracts.md](Onboarding%20contracts.md).
+Для ручной настройки можно опустить `Installation:InstallationIntent` или явно задать `Legacy`. Другое значение останавливает запуск. Идентификаторы, адрес и файлы сертификатов задаются в `Cluster`, подписанные разрешения — в `ClusterControl`. Минимально необходимый локальный набор зависит от режима `Disabled`, `Bootstrap`, `Join` или `Restart`. [Ручная настройка](Cluster%20operations.md).
 
 ## Локальное управление (09)
 

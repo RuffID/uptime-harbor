@@ -142,44 +142,4 @@ public class OnboardingDataContractTests
         });
     }
 
-    [Fact]
-    public void LocalReserveDeletesProtectedCodeAndKeepsStableOperationIds()
-    {
-        // Arrange
-        OnboardingScenario scenario = new();
-        LocalOnboardingAttempt local = new(scenario.Request.AttemptId, scenario.Request, EnrollmentRequestCodec.Digest(scenario.Request),
-            "local-key-ref", 1, ImmutableDictionary<string, Guid>.Empty.Add("Reserve", Guid.NewGuid()), "encrypted-code", null);
-
-        // Act
-        LocalOnboardingAttempt reserved = local.Reserved(8);
-
-        // Assert
-        Assert.Null(reserved.ProtectedInvitation);
-        Assert.Equal(local.Request, reserved.Request);
-        Assert.Equal(local.OperationIds, reserved.OperationIds);
-        Assert.Equal(2, reserved.Revision);
-        Assert.Equal(8, reserved.ReservationIndex);
-        Assert.DoesNotContain("encrypted-code", local.ToString());
-    }
-
-    [Fact]
-    public void RandomCodesHaveUuidVersionFourAndRfcVariant()
-    {
-        // Arrange
-        HashSet<Guid> codes = [];
-
-        // Act
-        foreach (int unused in Enumerable.Range(0, 128))
-        {
-            codes.Add(InvitationSecrets.CreateCode());
-        }
-
-        // Assert
-        Assert.Equal(128, codes.Count);
-        Assert.All(codes, code =>
-        {
-            Assert.Equal(4, code.Version);
-            Assert.Equal(0x80, code.ToByteArray(bigEndian: true)[8] & 0xc0);
-        });
-    }
 }

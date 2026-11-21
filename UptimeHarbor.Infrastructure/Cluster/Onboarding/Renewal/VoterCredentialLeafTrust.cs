@@ -78,23 +78,4 @@ public static class VoterCredentialLeafTrust
             && EnrollmentCertificates.ValidateLeaf(leaf, root, request, template, credential.Fingerprint, now, server);
     }
 
-    public static bool ValidatePrevious(RevisionImage image, OperationalCredential credential, X509Certificate2 leaf,
-        DateTimeOffset now, VoterCredentialLegacyTrust? legacy)
-    {
-        OperationalNode? node = image.Operations.Nodes.GetValueOrDefault(credential.NodeId);
-        if (node is not { Voting: true } || credential.AdmissionId.HasValue && !credential.ConsumedAtUtc.HasValue
-            || !VoterCredentialPolicy.IsUsable(image, credential, now)
-            || credential.PublicCertificate != Convert.ToBase64String(leaf.RawData)
-            || !string.Equals(credential.Fingerprint, EnrollmentCertificates.Hash(leaf.RawData), StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        if (RequiresDedicatedTrust(image, credential, leaf))
-        {
-            return ValidateDedicated(image, credential, leaf, now, server: false);
-        }
-
-        return legacy?.Validate(image, node, credential, leaf, now) == true;
-    }
 }

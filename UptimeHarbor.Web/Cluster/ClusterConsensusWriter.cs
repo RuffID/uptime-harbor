@@ -1,13 +1,11 @@
 using Microsoft.Extensions.Options;
 using UptimeHarbor.Application.Cluster;
 using UptimeHarbor.Infrastructure.Cluster;
-using UptimeHarbor.Infrastructure.Cluster.Onboarding;
 
 namespace UptimeHarbor.Web.Cluster;
 
 public class ClusterConsensusWriter(ClusterRaftHandle handle, ClusterRuntimeState state,
-    NodeReadiness readiness, IOptions<ClusterOptions> options, RevisionStateStore? accepted = null,
-    GenesisWriterPermit? genesis = null) : IConsensusWriter
+    NodeReadiness readiness, IOptions<ClusterOptions> options, RevisionStateStore? accepted = null) : IConsensusWriter
 {
     public ValueTask<long> ReplicateAsync(ReadOnlyMemory<byte> payload, int commandId, CancellationToken cancellationToken)
     {
@@ -17,7 +15,7 @@ public class ClusterConsensusWriter(ClusterRaftHandle handle, ClusterRuntimeStat
             throw new InvalidOperationException("Raft recovery is unconfirmed.");
         }
 
-        DotNextConsensusAdapter adapter = new(raft, state, readiness, options.Value, accepted, genesis);
+        DotNextConsensusAdapter adapter = new(raft, state, readiness, options.Value, accepted);
         return adapter.ReplicateAsync(payload, commandId, cancellationToken);
     }
 

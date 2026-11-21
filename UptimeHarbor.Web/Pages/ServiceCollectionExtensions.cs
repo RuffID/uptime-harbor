@@ -8,7 +8,6 @@ using UptimeHarbor.Web.Security;
 using Microsoft.AspNetCore.RateLimiting;
 using System.Threading.RateLimiting;
 using UptimeHarbor.Web.Http;
-using UptimeHarbor.Infrastructure.Cluster.Onboarding.Issuers;
 
 public static class ServiceCollectionExtensions
 {
@@ -56,8 +55,6 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUserAccessContext, CurrentUserAccessContext>();
         services.AddScoped<ClusterLegacyWriterFilter>();
         services.AddScoped<UptimeHarbor.Infrastructure.Cluster.ClusterOperationsAdministration>();
-        services.AddScoped<UptimeHarbor.Infrastructure.Cluster.Onboarding.InvitationAdministration>();
-        services.AddScoped<EnrollmentIssuerAdministration>();
         services.AddScoped<IObjectAdministrationChangePublisher, SignalRObjectAdministrationChangePublisher>();
         services.AddScoped<IMonitoringEventHandler, SignalRMonitoringEventHandler>();
 

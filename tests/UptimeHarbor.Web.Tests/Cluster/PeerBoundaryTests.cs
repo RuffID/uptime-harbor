@@ -18,6 +18,8 @@ public class PeerBoundaryTests
     [InlineData("/api/admin/notifications", 8443, 404)]
     [InlineData("/api/admin/notifications", 443, 503)]
     [InlineData("/internal/cluster/v1/health", 8443, 401)]
+    [InlineData("/internal/enrollment/v1/discovery", 443, 404)]
+    [InlineData("/internal/enrollment/v1/admit", 8443, 404)]
     public async Task PeerListenerNeverFallsThroughToCookieEndpoints(string path, int port, int expected)
     {
         // Arrange

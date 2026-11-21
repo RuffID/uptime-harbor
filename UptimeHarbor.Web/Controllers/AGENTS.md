@@ -1,13 +1,5 @@
 # HTTP API
 
-ClusterEnrollmentIssuersController — Administrator API manual Register и safe operation read. POST требует antiforgery, password reauthentication, 4096-byte bound и onboarding-administrator limiter. 202 означает durable local Pending; Committed с IssuanceReady=false сохраняет commit при потере свежего majority. Endpoint не принимает CA/keys/actor и не предоставляет replacement или remote routing.
-
-SetupController отделён own cookie scheme от common API. Login/prepare/enroll/logout требуют antiforgery, exact Origin/Host и rate limit. Enroll принимает bounded origin/invitation без actor/key/stamp, возвращает только safe SetupStatus; секрет и protected evidence не сериализовать в UI. Bootstrap подключает production genesis lifecycle; enroll до E4 не открывает общий доступ. EnrollmentController — отдельный strict bounded PoP protocol без cookie auth; действия purpose-bound, raw exceptions/payload не журналировать.
-
-VoterContinuationController принимает machine POST с trusted ingress marker. Status требует exact PoP/CSR и одноразовый status nonce. `/issue` возвращает DER по отдельному nonce и digest принятой регистрации. `/bind` возвращает принятое решение и CredentialRevision по отдельному Bind nonce. `/accepted-slice` возвращает узкое принятое состояние по подписанному запросу, связанному с локальным replay. ClusterVoterContinuationController использует общий Identity application ticket и точный BrowserOrigin. POST требует antiforgery, onboarding-administrator limiter и password reauthentication на свежем accepted срезе. ID берётся из маршрута, digest привязывает POST к открытому accepted запросу. Отдавать минимальный статус и ID принятого подтверждения, без материала удостоверения и внутренних причин отказа.
-
-ClusterInvitationsController обслуживает только Administrator API выдачи/явной замены/отзыва/Continue/Cancel и safe read. Mutations требуют antiforgery, rate limit и password reauthentication; actor берётся сервером. 202 означает существующий local Pending, Unconfirmed не выдумывает очередь. Новых экранов и анонимного enrollment endpoint пока нет.
-
 AdminObjectsController сохраняет совместимые routes servers / containers для Server / Application. Аудит создания/изменения/удаления записывает фактический итог, тип, ID и доверенный actor ID; имена, URL, описания и raw errors не журналировать.
 
 ClusterOperationsController обслуживает lifecycle GET/POST с accepted Administrator/antiforgery. 202 означает Pending, internal lifecycle через endpoint запрещён. Safe registry не выдаёт public certificate/payload/hash/stamps; обычные resource editors не принимают Node-команды.

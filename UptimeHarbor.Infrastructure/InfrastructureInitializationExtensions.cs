@@ -18,13 +18,6 @@ public static class InfrastructureInitializationExtensions
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(services);
-        if (services.GetRequiredService<IOptions<InstallationOptions>>().Value.Setup)
-        {
-            await using AsyncServiceScope setupScope = services.CreateAsyncScope();
-            await setupScope.ServiceProvider.GetRequiredService<SetupInitialization>().InitializeAsync(cancellationToken);
-            return;
-        }
-
         if (services.GetRequiredService<IOptions<ClusterOptions>>().Value.Enabled)
         {
             // Cluster schema/provisioning и общий bootstrap выполняются controlled lifecycle этапа 09.
@@ -56,7 +49,7 @@ public static class InfrastructureInitializationExtensions
         UptimeHarborDbContext context = scope.ServiceProvider.GetRequiredService<UptimeHarborDbContext>();
         if (await context.Set<LocalProfileRecord>().AnyAsync(cancellationToken))
         {
-            throw new InvalidOperationException("ManagedInstallationRequiresSetupIntent");
+            throw new InvalidOperationException("The database contains a managed installation profile. Use an empty database for manual setup.");
         }
 
         InitialAdministratorBootstrapper bootstrapper =

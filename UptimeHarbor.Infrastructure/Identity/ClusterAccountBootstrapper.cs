@@ -11,8 +11,7 @@ namespace UptimeHarbor.Infrastructure.Identity;
 
 /// <summary>Аккаунтная часть controlled bootstrap. Внешний lifecycle обязан сохранить и подтвердить точную команду.</summary>
 public class ClusterAccountBootstrapper(IOptions<ClusterOptions> configured, IAccountCredentialService credentials,
-    IRecoveryAdmission admission, RevisionStateStore state, IConsensusWriter consensus, IRevisionAudit audit,
-    RevisionDispatcher? dispatcher = null)
+    IRecoveryAdmission admission, RevisionStateStore state, IConsensusWriter consensus, IRevisionAudit audit)
 {
     public async Task<ServiceResult<RevisionCommand>> PrepareAsync(Guid operationId, Guid userId, Guid roleId,
         DateTimeOffset createdAtUtc, string login, string password, CancellationToken token)
@@ -72,22 +71,6 @@ public class ClusterAccountBootstrapper(IOptions<ClusterOptions> configured, IAc
 
         string digest = RevisionCodec.Digest(command);
         RevisionImage image = state.Current!;
-        if (proof.Proof is FreshBootstrapProof genesis && image.OnboardingContracts?.GenesisInitialized == false)
-        {
-            if (dispatcher is null)
-            {
-                return false;
-            }
-
-            CommandResult initialized = await dispatcher.AcceptAsync(genesis.InitializeCluster, options.NodeId, token);
-            if (initialized.Outcome != OperationOutcome.Committed)
-            {
-                throw new InvalidOperationException("GenesisInitializeNotApplied");
-            }
-
-            image = state.Current ?? throw new InvalidOperationException("GenesisImageUnavailable");
-        }
-
         if (image.BootstrapAccountDigest != digest || image.Results.ContainsKey(command.OperationId)
             || image.Values.Values.Any(value => value.Kind == DeletedEntityKind.Account))
         {

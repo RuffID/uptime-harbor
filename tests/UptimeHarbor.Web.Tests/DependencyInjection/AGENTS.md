@@ -1,6 +1,6 @@
 # Тесты composition root
 
-CompleteRegistration повторяет полный набор production modules, включая AddClusterWeb; InvitationAdministration должен разрешаться в scope. Build графа не запускает host/hosted services и не проверяет сеть или БД.
+CompleteRegistration повторяет полный набор production modules, включая AddClusterWeb; ClusterOperationsAdministration для ручного допуска должен разрешаться в scope. Build графа не запускает host/hosted services и не проверяет сеть или БД.
 
 Service collection тестируется без запуска приложения; проверяются lifetime, разрешение сервисов и инфраструктурные registrations.
 

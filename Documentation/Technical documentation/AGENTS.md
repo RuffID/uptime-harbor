@@ -14,9 +14,7 @@
 
 ## Правила
 
-- `Local installation setup.md` владеет setup login/preflight/secret storage/runtime supervisor, production Bootstrap/ManagedRestart нового первого, локальной trust installation и voter intent/pins/Bind/manifest/ref/confirmation с recovery. Установленную CredentialRevision подтверждает полная цепочка на свежем accepted срезе. Рабочая композиция и плановый проход managed Bootstrap Direct описаны в том же документе. Полный Join, перенос, snapshot/membership orchestration и sender описываются отдельно.
-
-- `Onboarding contracts.md` владеет invitation/attempt/delegation/TTL и частичной границей 04: issuer/crypto/journal/exact permit/schema v3, production Bootstrap и E1–E4 trust/admission/probes, отдельное accepted-состояние и типизированные authority, signing и рабочий допуск ротации voter. Accepted Bind/CredentialRevision и overlap policy не означают локальную установку ключа или подключение runtime trust; рабочий допуск проверять по узкому typed пути managed Bootstrap Direct. Helper, accepted record или double не описывать как законченный полный Join. Оставшийся issuer/leaf/последующие online exchanges объём 04 не переносить в 05. Команды, результаты и оставшиеся проверки назначения фиксировать в документе подэтапа. Testing.md владеет общими процедурами проекта. Общие import/sender форматы не означают исполнения следующих этапов.
+`Local installation setup.md` и `Onboarding contracts.md` описывают прежнюю автоматику. Текущая инструкция по запуску и смене сертификата находится в `Cluster operations.md`.
 
 - Отделять текущее реализованное состояние от целевого решения следующих этапов.
 - `Web application.md` владеет безопасным accepted/Pending/conflict UI/API и lifecycle; сборка не подтверждает browser acceptance или controlled enable.

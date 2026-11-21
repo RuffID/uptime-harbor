@@ -9,129 +9,11 @@ using UptimeHarbor.Domain.Cluster;
 
 namespace UptimeHarbor.Infrastructure.Cluster.Onboarding;
 
-/// <summary>Фиксированные application CA/leaf templates; CSR extensions не определяют политику выдачи.</summary>
+/// <summary>Проверяет CA и leaf по шаблонам принятых удостоверений.</summary>
 public static class EnrollmentCertificates
 {
-    public const int MAX_DER_BYTES = 65536;
     private const string CLIENT_AUTH = "1.3.6.1.5.5.7.3.2";
     private const string SERVER_AUTH = "1.3.6.1.5.5.7.3.1";
-
-    public static X509Certificate2 CreateIssuer(ECDsa key, Guid clusterId, long generation, Guid epoch, DateTimeOffset now)
-    {
-        ValidateKey(key);
-        StorageGuards.Id(clusterId, nameof(clusterId));
-        StorageGuards.Id(epoch, nameof(epoch));
-        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(generation);
-        StorageGuards.Utc(now);
-        // X.509 имеет секундную точность; канонический шаблон хранит те же значения.
-        DateTimeOffset start = Seconds(now);
-        CertificateRequest request = new($"CN=UptimeHarbor Enrollment {epoch:D}", key, HashAlgorithmName.SHA256);
-        request.CertificateExtensions.Add(new X509BasicConstraintsExtension(true, true, 0, true));
-        request.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.KeyCertSign | X509KeyUsageFlags.CrlSign, true));
-        SubjectAlternativeNameBuilder names = new();
-        names.AddUri(new Uri(IssuerIdentity(clusterId, generation, epoch)));
-        request.CertificateExtensions.Add(names.Build());
-
-        return request.CreateSelfSigned(start, start.AddYears(3));
-    }
-
-    public static CertificateRequest ReadCsr(ReadOnlySpan<byte> der, EnrollmentRequest expected)
-    {
-        EnrollmentRequestCodec.Validate(expected);
-        if (der.IsEmpty || der.Length > MAX_DER_BYTES || Hash(der) != expected.CsrDigest)
-        {
-            throw new InvalidDataException("EnrollmentCsrDigestInvalid");
-        }
-
-        try
-        {
-            AsnReader envelope = new(der.ToArray(), AsnEncodingRules.DER);
-            AsnReader body = envelope.ReadSequence();
-            envelope.ThrowIfNotEmpty();
-            body.ReadEncodedValue();
-            AsnReader algorithm = body.ReadSequence();
-            if (algorithm.ReadObjectIdentifier() != "1.2.840.10045.4.3.2")
-            {
-                throw new InvalidDataException("EnrollmentCsrAlgorithmInvalid");
-            }
-
-            algorithm.ThrowIfNotEmpty();
-            body.ReadBitString(out _);
-            body.ThrowIfNotEmpty();
-            // Подпись проверяется; v1 принимает только CSR без запрашиваемых extensions.
-            CertificateRequest csr = CertificateRequest.LoadSigningRequest(der, HashAlgorithmName.SHA256,
-                out int consumed, CertificateRequestLoadOptions.UnsafeLoadCertificateExtensions);
-            if (consumed != der.Length || csr.PublicKey.Oid.Value != "1.2.840.10045.2.1"
-                || csr.CertificateExtensions.Count != 0)
-            {
-                throw new InvalidDataException("EnrollmentCsrInvalid");
-            }
-
-            using ECDsa key = ECDsa.Create();
-            key.ImportSubjectPublicKeyInfo(csr.PublicKey.ExportSubjectPublicKeyInfo(), out _);
-            ValidateKey(key);
-            if (Hash(key.ExportSubjectPublicKeyInfo()) != expected.SpkiDigest)
-            {
-                throw new InvalidDataException("EnrollmentCsrKeyMismatch");
-            }
-
-            return csr;
-        }
-        catch (CryptographicException)
-        {
-            throw new InvalidDataException("EnrollmentCsrInvalid");
-        }
-        catch (AsnContentException)
-        {
-            throw new InvalidDataException("EnrollmentCsrInvalid");
-        }
-    }
-
-    public static X509Certificate2 IssueLeaf(X509Certificate2 issuer, EnrollmentRequest request,
-        EnrollmentIssuance template, ReadOnlySpan<byte> csrDer)
-    {
-        ValidateTemplate(request, template);
-        if (!ValidateIssuer(issuer, request.ClusterId, request.Generation, template.IssuerEpoch, template.NotBeforeUtc))
-        {
-            throw new InvalidDataException("EnrollmentIssuerInvalid");
-        }
-
-        if (template.NotAfterUtc.UtcDateTime > issuer.NotAfter.ToUniversalTime())
-        {
-            throw new InvalidDataException("EnrollmentLeafExceedsIssuerLifetime");
-        }
-
-        CertificateRequest csr = ReadCsr(csrDer, request);
-        CertificateRequest leaf = new(new X500DistinguishedName($"CN=UptimeHarbor {request.NodeId:D}"),
-            csr.PublicKey, HashAlgorithmName.SHA256);
-        leaf.CertificateExtensions.Add(new X509BasicConstraintsExtension(false, false, 0, true));
-        leaf.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature, true));
-        leaf.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension(
-            new OidCollection { new(CLIENT_AUTH), new(SERVER_AUTH) }, true));
-        SubjectAlternativeNameBuilder names = new();
-        names.AddUri(new Uri(NodeIdentity(request.ClusterId, request.Generation, request.NodeId)));
-        names.AddUri(new Uri(BindingIdentity(request.StorageGeneration, template.IssueId)));
-        string host = new Uri(request.PeerUri).IdnHost;
-        if (IPAddress.TryParse(host, out IPAddress? address))
-        {
-            names.AddIpAddress(address);
-        }
-        else
-        {
-            names.AddDnsName(host);
-        }
-
-        leaf.CertificateExtensions.Add(names.Build());
-        using ECDsa signer = issuer.GetECDsaPrivateKey() ?? throw new InvalidDataException("EnrollmentIssuerKeyMissing");
-        byte[] serial = Convert.FromHexString(template.Serial);
-        if (serial.All(item => item == 0))
-        {
-            throw new InvalidDataException("EnrollmentSerialInvalid");
-        }
-
-        return leaf.Create(issuer.SubjectName, X509SignatureGenerator.CreateForECDsa(signer),
-            template.NotBeforeUtc, template.NotAfterUtc, serial);
-    }
 
     public static bool ValidateIssuer(X509Certificate2 issuer, Guid clusterId, long generation, Guid epoch, DateTimeOffset now)
     {
@@ -353,7 +235,7 @@ public static class EnrollmentCertificates
         }
     }
 
-    public static DateTimeOffset Seconds(DateTimeOffset value)
+    private static DateTimeOffset Seconds(DateTimeOffset value)
     {
         return new DateTimeOffset(value.Ticks - value.Ticks % TimeSpan.TicksPerSecond, TimeSpan.Zero);
     }
@@ -382,13 +264,5 @@ public static class EnrollmentCertificates
     {
         ECParameters parameters = key.ExportParameters(false);
         return key.KeySize == 256 && parameters.Curve.Oid.Value == ECCurve.NamedCurves.nistP256.Oid.Value;
-    }
-
-    private static void ValidateKey(ECDsa key)
-    {
-        if (!IsP256(key))
-        {
-            throw new InvalidDataException("EnrollmentKeyMustBeP256");
-        }
     }
 }

@@ -36,7 +36,7 @@ internal static class VoterContinuationBoundRecovery
             }
         }
 
-        if (RevisionDispatcher.ReadVoterCredentialDecision(image, prior) is not { Outcome: OperationOutcome.Committed } registered
+        if (VoterContinuationBinding.ReadDecision(image, prior) is not { Outcome: OperationOutcome.Committed } registered
             || predecessor != VoterContinuationReducer.Lease(prior, registered.Index))
         {
             return false;
@@ -54,7 +54,7 @@ internal static class VoterContinuationBoundRecovery
             || image.OnboardingContracts?.VoterContinuations?.GetValueOrDefault(source.RequestId)?.Bind is not { } original
             || original.VoterContinuation?.Context is not { BoundSource: null } issuing
             || issuing.Request.Renewal != request.Renewal
-            || RevisionDispatcher.ReadVoterCredentialDecision(image, original) is not { Outcome: OperationOutcome.Committed } bound
+            || VoterContinuationBinding.ReadDecision(image, original) is not { Outcome: OperationOutcome.Committed } bound
             || bound.Digest != source.BindDigest || bound.Index != source.CredentialRevision)
         {
             return false;

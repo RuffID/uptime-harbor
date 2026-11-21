@@ -5,13 +5,12 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Options;
 using UptimeHarbor.Application.Cluster;
 using UptimeHarbor.Infrastructure.Cluster.Models;
-using UptimeHarbor.Infrastructure.Installation;
 
 namespace UptimeHarbor.Infrastructure.Cluster;
 
 /// <summary>Проверяет подпись оператора, freshness и одноразовый challenge. Не утверждает внешнее fencing.</summary>
 public class ClusterLocalControl(IOptions<ClusterOptions> cluster, IOptions<ClusterControlOptions> configured,
-    TimeProvider time, NodeReadiness readiness, ManagedAdmissionState? online = null, OnlineEnableState? onlineEnable = null)
+    TimeProvider time, NodeReadiness readiness)
 {
     private static readonly JsonSerializerOptions JSON = new()
     {
@@ -83,7 +82,7 @@ public class ClusterLocalControl(IOptions<ClusterOptions> cluster, IOptions<Clus
         {
             if (!Configured)
             {
-                return online?.AllowsConsensus(maintenanceId) == true && latchedMaintenance == Guid.Empty;
+                return false;
             }
 
             if (File.Exists(Path.Combine(configured.Value.Directory, "blocked")))
@@ -187,16 +186,6 @@ public class ClusterLocalControl(IOptions<ClusterOptions> cluster, IOptions<Clus
     {
         lock (sync)
         {
-            if (online?.Read() is not null)
-            {
-                if (maintenanceId != Guid.Empty || latchedMaintenance != Guid.Empty || !online.AllowsConsensus(maintenanceId))
-                {
-                    return false;
-                }
-
-                return onlineEnable?.Allows() == true;
-            }
-
             if (!Configured || File.Exists(Path.Combine(configured.Value.Directory, "blocked")))
             {
                 enabled = null;

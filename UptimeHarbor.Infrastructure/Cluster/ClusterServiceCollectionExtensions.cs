@@ -6,9 +6,6 @@ using UptimeHarbor.Application.Cluster;
 using UptimeHarbor.Application.Security;
 using UptimeHarbor.Infrastructure.Telegram;
 using UptimeHarbor.Infrastructure.Monitoring;
-using UptimeHarbor.Application.Cluster.Onboarding;
-using UptimeHarbor.Infrastructure.Cluster.Onboarding;
-using UptimeHarbor.Infrastructure.Installation;
 
 namespace UptimeHarbor.Infrastructure.Cluster;
 
@@ -35,10 +32,6 @@ public static class ClusterServiceCollectionExtensions
         services.TryAddSingleton<IRevisionAudit, RevisionAudit>();
         services.TryAddSingleton<IMonitoringAudit, MonitoringAudit>();
         services.TryAddSingleton<IDeliveryAudit, DeliveryAudit>();
-        services.TryAddSingleton<IOnboardingAudit, OnboardingAudit>();
-        services.TryAddSingleton<IEnrollmentAuthority, UnavailableEnrollmentAuthority>();
-        services.TryAddSingleton<EnrollmentRateLimiter>();
-        services.TryAddSingleton<GenesisWriterPermit>();
         services.TryAddSingleton<IPeerTrustSource, AcceptedPeerTrustSource>();
         services.TryAddSingleton<ISenderConsensus, UnavailableSenderConsensus>();
         services.AddSingleton<IClusterAudit, ClusterAudit>();
@@ -60,15 +53,7 @@ public static class ClusterServiceCollectionExtensions
             .ConfigurePrimaryHttpMessageHandler(provider =>
             {
                 ClusterOptions options = provider.GetRequiredService<IOptions<ClusterOptions>>().Value;
-                if (provider.GetRequiredService<IOptions<InstallationOptions>>().Value.Setup)
-                {
-                    return ManagedPeerTransport.Create(provider.GetRequiredService<DynamicPeerTls>(),
-                        provider.GetRequiredService<IOptions<InstallationOptions>>().Value,
-                        provider.GetRequiredService<IPeerTrustSource>(), provider.GetRequiredService<TimeProvider>());
-                }
-
-                return LegacyPeerTransport.Create(options, provider.GetRequiredService<IPeerTrustSource>(),
-                    provider.GetRequiredService<TimeProvider>(), provider.GetRequiredService<RevisionStateStore>());
+                return LegacyPeerTransport.Create(options);
             })
             .AddHttpMessageHandler<PeerClientHandler>();
         services.AddHttpClient(TelegramHealthProbe.CLIENT_NAME, client =>

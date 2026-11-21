@@ -10,7 +10,7 @@ public class OnboardingScenario
     public RevisionScenario Journal { get; } = new();
     public Guid Storage { get; } = Guid.NewGuid();
     public Guid InvitationId { get; } = Guid.NewGuid();
-    public Guid Code { get; } = InvitationSecrets.CreateCode();
+    public Guid Code { get; } = Guid.NewGuid();
     public Guid Boot { get; } = Guid.NewGuid();
     public DateTimeOffset Now { get; set; } = new(2026, 11, 3, 0, 0, 0, TimeSpan.Zero);
     public EnrollmentRequest Request { get; }

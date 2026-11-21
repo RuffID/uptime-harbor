@@ -121,6 +121,62 @@ public class MonitoringRuntimeTests
         Assert.Equal([1L, 2L], runtime.Storage.Saved.Select(item => item.Sequence));
     }
 
+    [Fact]
+    public async Task TwoAssignedNodesCheckOneTargetAndPublishTheirOwnResultTimes()
+    {
+        // Arrange
+        using MonitoringHarness leader = new();
+        using MonitoringHarness follower = new();
+        using Endpoint firstEndpoint = new();
+        using Endpoint secondEndpoint = new();
+        RevisionImage image = leader.State.Current!;
+        AcceptedValue target = image.Values.Values.Single(value => value.Kind == DeletedEntityKind.Server);
+        Guid first = leader.Options.NodeId;
+        Guid second = follower.Options.NodeId;
+        DateTimeOffset firstCheck = leader.Time.Now;
+        DateTimeOffset secondCheck = firstCheck.AddSeconds(10);
+        follower.Time.Now = secondCheck;
+        follower.Options.ClusterId = image.ClusterId;
+        follower.Options.Generation = image.Generation;
+        HashSet<Guid> voters = [first, second];
+        leader.Consensus = leader.Consensus! with { VotingNodes = voters };
+        follower.Consensus = leader.Consensus with { NodeId = second, IsLeader = false };
+        Assert.True(follower.Readiness.ConfirmRecovery(follower.Readiness.RecoveryVersion, follower.Accepted, follower.Consensus));
+        RevisionImage shared = image with
+        {
+            Values = image.Values.SetItem(target.Id, target with { Value = target.Value with { ObserverNodes = [first, second] } }),
+            Monitoring = image.Monitoring with { Nodes = image.Monitoring.Nodes.Add(second, follower.Options.StorageGeneration) }
+        };
+        leader.State.Publish(shared);
+        follower.State.Publish(shared);
+
+        // Act
+        await CheckAndReplicateAsync(leader, firstEndpoint);
+        leader.Time.Now = secondCheck;
+        await CheckAndReplicateAsync(follower, secondEndpoint);
+
+        AdministrationTargetDto admin = AdministrationMonitoring.Read(leader.State.Current!, target.Id, secondCheck);
+
+        // Assert
+        Assert.Equal(1, firstEndpoint.Calls);
+        Assert.Equal(1, secondEndpoint.Calls);
+        Assert.Equal(2, admin.Observers.Count);
+        Assert.Equal(firstCheck, admin.Observers.Single(observer => observer.NodeId == first).CheckedAtUtc);
+        Assert.Equal(secondCheck, admin.Observers.Single(observer => observer.NodeId == second).CheckedAtUtc);
+
+        async Task CheckAndReplicateAsync(MonitoringHarness node, Endpoint endpoint)
+        {
+            IServiceScopeFactory scopes = node.Services.GetRequiredService<IServiceScopeFactory>();
+            IOptions<ClusterOptions> options = Options.Create(node.Options);
+            ClusterMonitoringCycle cycle = new(node.State, node, node.Readiness, options, scopes, endpoint,
+                new(node.Readiness, Options.Create(new MonitoringOptions())), node.Time, NullLogger<ClusterMonitoringCycle>.Instance);
+            ObservationReplicationPump pump = new(scopes, node.State, leader, options);
+            CancellationToken token = TestContext.Current.CancellationToken;
+            await cycle.RunOnceAsync(token);
+            await pump.PumpAsync(token);
+        }
+    }
+
     [Theory]
     [InlineData(null, "PeerUnavailable")]
     [InlineData("Database", "DatabaseUnavailable")]

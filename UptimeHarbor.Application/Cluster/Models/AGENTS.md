@@ -1,16 +1,10 @@
 # Cluster contracts
 
-VoterContinuation и VoterContinuations хранят точный запрос, accepted решение администратора и регистрацию. Маркер CredentialContinuation в OnlineProcessLease резервирует процесс в том же реестре. Он не заменяет OnlineGrant. Для прежних форматов отсутствующие поля и маркер сохранять omitted.
+VoterContinuation и VoterContinuations описывают ранее принятые данные формата WAL/снимка. Маркер CredentialContinuation удерживает обычный peer ingress закрытым для такой записи.
 
 EnrollmentTrustCommand.Rotation и OnboardingContractImage.VoterCredentialRotations — отдельный public-material accepted lifecycle voter, без invitation/private keys. Отсутствующие поля сохранять omitted. Его records/policy находятся в Onboarding/Renewal; CredentialRevision — индекс Bind, не membership version и не разрешение процесса.
 
-EnrollmentIssuerStatus — browser whitelist операции регистрации, без certificate/digests/key refs. IssuanceReady требует accepted результата и свежего barrier; это не Ready нового узла. PeerHealthSnapshot.EnrollmentTrustVersion — внутренняя authenticated capability, отсутствие поля означает 0; health не является snapshot authority.
-
-LocalOnboardingAttempt сохраняет immutable origin/CSR/trust intent/ref и короткую process-bound PeerProbes evidence. Descriptor/probe DTO не содержат invitation/verifier/accounts/private refs. Это внутренние transport/local contracts, не browser status и не snapshot authority. ManagedRestartProof не содержит BootstrapAccount и не предоставляет offline isolation; текущий actor/credential/process/versions повторно проверяются online grants.
-
 AcceptedEnrollmentIssuer и EnrollmentTrustCommand — внутренние schema-3 public trust contracts, без ключей. OnboardingContracts хранит registry/GenesisInitialized; GenesisAuthorization в initial image должен поступать от проверенного локального preparation, а не из peer payload. BootChallenge и IssuanceAuthorizationIndex новых attempts не переиспользовать после смены процесса. Все отсутствующие optional поля прежних command bytes сохранять omitted, не менять старые digests добавлением null/default.
-
-OnboardingCommand/Image/Attempt/Delegation и EnrollmentIssuance — внутренние versioned контракты. InvitationResponse — browser whitelist; Code допускается только в первом подтверждённом ответе выдачи. LocalOnboardingAttempt хранит только ссылку на ключ и защищённый код до reserve. Genesis/import/legacy/sender/cut/coverage — форматы без исполнения; RecoveryBaseline архивирует прежние данные без действующих полномочий.
 
 - ClusterOperationsImage/RecoveryBaseline — внутренние snapshot-контракты. Browser получает только ClusterOperationsStatus/ClusterTrustStatus без публичного сертификата, protected command и account credentials. RequestedAtUtc membership сохраняет время принятой заявки при поздней сверке admission.
 

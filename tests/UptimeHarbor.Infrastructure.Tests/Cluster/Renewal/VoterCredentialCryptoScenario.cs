@@ -19,7 +19,6 @@ public class VoterCredentialCryptoScenario : IDisposable
     public X509Certificate2 Previous { get; }
     public X509Certificate2 Next { get; }
     public DateTimeOffset Now { get; }
-    public byte[] Csr { get; }
     public VoterCredentialRenewal Intent { get; }
     public RevisionImage State { get; set; }
 
@@ -27,17 +26,17 @@ public class VoterCredentialCryptoScenario : IDisposable
     {
         Previous = Crypto.Issue();
         Now = Crypto.Now.AddDays(23);
-        Csr = new CertificateRequest("CN=rotation", NewKey, HashAlgorithmName.SHA256).CreateSigningRequest();
+        byte[] csr = new CertificateRequest("CN=rotation", NewKey, HashAlgorithmName.SHA256).CreateSigningRequest();
         EnrollmentRequest request = Crypto.Request with
         {
-            SpkiDigest = EnrollmentCertificates.Hash(NewKey.ExportSubjectPublicKeyInfo()), CsrDigest = EnrollmentCertificates.Hash(Csr)
+            SpkiDigest = EnrollmentCertificates.Hash(NewKey.ExportSubjectPublicKeyInfo()), CsrDigest = EnrollmentCertificates.Hash(csr)
         };
         EnrollmentIssuance issuance = Crypto.Template with
         {
             IssueId = Guid.NewGuid(), SpkiDigest = request.SpkiDigest, CsrDigest = request.CsrDigest,
             NotBeforeUtc = Now.AddMinutes(-2), NotAfterUtc = Now.AddDays(30)
         };
-        Next = EnrollmentCertificates.IssueLeaf(Crypto.Issuer, request, issuance, Csr);
+        Next = Crypto.Issue(NewKey, issuance);
         OperationalCredential old = new(Crypto.Template.IssueId, request.NodeId, EnrollmentCertificates.Hash(Previous.RawData),
             Convert.ToBase64String(Previous.RawData), Crypto.Template.NotAfterUtc, null, null);
         Intent = new(old.Id, old.Fingerprint, Crypto.Request.SpkiDigest, 0, issuance);

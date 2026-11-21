@@ -1,11 +1,9 @@
 # Identity и вход
 
-DI selectors sign-in/account/administrator читают активный профиль при создании scoped adapter. LocalSetupAccount живёт в Installation вне users/roles; его cookie/hash никогда не использовать как accepted account или BootstrapAccount. В Setup DP keyring файловый локальный, SQL registration его не переопределяет.
-
 `ApplicationUser`/`ApplicationRole` принадлежат Infrastructure. `IdentityUserAccountStore` реализует прикладной account store и bootstrap store; sign-in service изолирует cookie-сценарии.
 
 Использовать общий scoped `UptimeHarborDbContext`. Bootstrap создаёт только отсутствующего администратора; блокировка обновляет security stamp. `IsEnabled`, Identity lockout и результат входа не смешивать; пароль и stamp не логировать.
 
 Целевая роль только Administrator. `ApplicationUser.ApplySharedAccount` переносит общие credential-поля и UserRevision, сохраняя локальные lockout counters. Принятый аккаунт + роль + версия + cursor подготавливает `ProjectionRepository` в одном tracker и сохраняет projection UoW, без auto-commit `UserManager`. Общие account/hash/stamps/роль применяются через reducer/snapshot 04. Enabled использует AcceptedUserSignInService, AcceptedUserAccountStore и AcceptedAccountSession. Пароль подготавливает AccountCredentialService (Identity V3, 100000 iterations) до durable Pending; login не вызывает rehash/UserManager.Update. LocalLoginUnitOfWork сохраняет только локальные counters/lockout, общий credential проверяется повторно перед выдачей cookie. Локальный session epoch меняется при restart/recovery; cookie валидируется на каждом запросе, ключи Data Protection разделены NodeId и не реплицируются. Legacy store/bootstrap остаются только путём Disabled.
 
-ClusterAccountBootstrapper готовит единственную точную команду для trusted admission и подаёт её только в Bootstrap новой сетки. Join/Restart не создают пользователей/роли. Новый первый Setup использует production genesis intent/permit и отдельный accepted common account; повтор после потерянного ответа читает прежние результаты, не создаёт новый genesis/account. Process/activation/Enable и durable отзыв setup до CommonOpen координирует ManagedBootstrapLifecycle. Сохранение локального intent или setup identity не заменяют accepted authority; остальные сценарии admission остаются закрытыми до своих проверенных proof.
+ClusterAccountBootstrapper подаёт единственную точную команду из ручного signed Admission в Bootstrap новой сетки. Join и Restart восстанавливают принятые аккаунты из общего состояния.

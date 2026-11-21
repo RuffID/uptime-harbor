@@ -34,13 +34,11 @@ public static class ServiceCollectionExtensions
             .AddOptions<TelegramOptions>()
             .Bind(configuration.GetSection(TelegramOptions.SECTION_NAME))
             .Validate(
-                options => configuration["Installation:InstallationIntent"] == "Setup"
-                    || configuration["Cluster:Mode"] is "Bootstrap" or "Join" or "Restart"
+                options => configuration["Cluster:Mode"] is "Bootstrap" or "Join" or "Restart"
                     || !string.IsNullOrWhiteSpace(options.BotToken),
                 "Telegram:BotToken is required.")
             .Validate(
-                options => configuration["Installation:InstallationIntent"] == "Setup"
-                    || configuration["Cluster:Mode"] is "Bootstrap" or "Join" or "Restart"
+                options => configuration["Cluster:Mode"] is "Bootstrap" or "Join" or "Restart"
                     || options.HasValidBotToken(),
                 "Telegram:BotToken в Config/config.json должен содержать token от BotFather, а не заглушку или ID чата.")
             .ValidateOnStart();

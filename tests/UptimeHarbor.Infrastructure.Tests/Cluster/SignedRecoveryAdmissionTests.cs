@@ -93,6 +93,74 @@ public class SignedRecoveryAdmissionTests
         Assert.True(proof.FencingConfirmed);
     }
 
+    [Fact]
+    public async Task ManualJoinRejectsCertificateMismatchAndAcceptsCorrectedSignedAdmission()
+    {
+        // Arrange
+        using ClusterControlFixture fixture = new();
+        RecoveryAdmission prepared = Prepare(fixture, out _);
+        fixture.Options.Mode = "Join";
+        Guid nodeId = fixture.Options.NodeId;
+        OperationalNode node = prepared.Operations.Nodes[nodeId] with { Voting = false };
+        Guid voterId = Guid.NewGuid();
+        string voterUri = "https://existing.example/internal/raft";
+        string nativeId = ClusterMemberId.FromEndPoint(new UriEndPoint(new Uri(voterUri))).ToString();
+        OperationalNode voter = new(voterId, Guid.NewGuid(), voterUri, nativeId, true, true, false, 0);
+        OperationalCredential credential = prepared.Operations.Credentials[fixture.Options.CredentialId] with
+        {
+            AdmissionId = Guid.NewGuid(), AdmissionExpiresAtUtc = fixture.Time.Now.AddMinutes(15)
+        };
+        RecoveryAdmission join = prepared with
+        {
+            SnapshotId = Guid.NewGuid(), SnapshotDigest = new string('A', 64), MinimumCommittedIndex = 5,
+            MonitoringNodes = prepared.MonitoringNodes.Add(voterId, voter.StorageGeneration),
+            Operations = prepared.Operations with
+            {
+                Nodes = prepared.Operations.Nodes.SetItem(nodeId, node).Add(voterId, voter),
+                Credentials = prepared.Operations.Credentials.SetItem(credential.Id, credential)
+            }
+        };
+        ManualIsolationConfirmation isolation = new(Guid.NewGuid(), Guid.NewGuid(), fixture.Time.Now,
+            [new(nodeId, node.StorageGeneration, true, true, true, true, true, new string('A', 64))],
+            123, false, false, new string('B', 64));
+        CancellationToken token = TestContext.Current.CancellationToken;
+
+        Sign(fixture.Control, join with { Operations = join.Operations with
+        {
+            Credentials = join.Operations.Credentials.SetItem(credential.Id, credential with { Fingerprint = new string('0', 64) })
+        } });
+        SignedRecoveryAdmission rejected = new(fixture.Control, Options.Create(fixture.Options), fixture.Time);
+        // Act
+        Exception? failure = await Record.ExceptionAsync(async () => await rejected.ReadAsync(token));
+
+        // Assert
+        Assert.Contains("fingerprint does not match the accepted credential", Assert.IsType<InvalidDataException>(failure).Message);
+
+        ClusterLocalControl restarted = fixture.NewControl();
+        Sign(restarted, join);
+        SignedRecoveryAdmission retry = new(restarted, Options.Create(fixture.Options), fixture.Time);
+        // Act
+        RecoveryAdmission? accepted = await retry.ReadAsync(token);
+
+        // Assert
+        Assert.NotNull(accepted);
+        Assert.Equal(join.SnapshotId, accepted.SnapshotId);
+        Assert.Equal(join.SnapshotDigest, accepted.SnapshotDigest);
+        Assert.IsType<SignedOfflineRecoveryProof>(accepted.Proof);
+        Assert.False(accepted.Operations.Nodes[nodeId].Voting);
+        Assert.True(accepted.Operations.Nodes[voterId].Voting);
+
+        void Sign(ClusterLocalControl control, RecoveryAdmission proof)
+        {
+            fixture.Sign("admission.json", fixture.Request("Admission", control) with
+            {
+                Admission = proof, Isolation = isolation,
+                IsolationEvidenceDigest = ManualIsolationValidation.Validate(isolation,
+                    new Dictionary<Guid, Guid> { [nodeId] = node.StorageGeneration }, fixture.Time.Now, 123, false)
+            });
+        }
+    }
+
     private static RecoveryAdmission Prepare(ClusterControlFixture fixture, out RevisionCommand command)
     {
         using RSA rootKey = RSA.Create(2048);

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Builder;
 using UptimeHarbor.Infrastructure.Cluster;
 using UptimeHarbor.Web.Cluster;
 using Xunit;
@@ -24,5 +25,19 @@ public class ListenerConfigurationTests
 
         // Assert
         Assert.Equal(valid, error is null);
+    }
+
+    [Fact]
+    public void RemovedSetupIntentFailsBeforeStartingAListener()
+    {
+        // Arrange
+        WebApplicationBuilder builder = WebApplication.CreateEmptyBuilder(new());
+        builder.Configuration["Installation:InstallationIntent"] = "Setup";
+
+        // Act
+        Exception? error = Record.Exception(() => builder.ConfigureClusterListeners());
+
+        // Assert
+        Assert.Contains("Legacy", Assert.IsType<InvalidOperationException>(error).Message);
     }
 }

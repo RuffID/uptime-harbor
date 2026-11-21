@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Security.Cryptography.X509Certificates;
 using DotNext.Net.Cluster;
 using Microsoft.AspNetCore.Connections;
 using Microsoft.Extensions.Options;
@@ -68,10 +67,19 @@ public class SignedRecoveryAdmission(ClusterLocalControl control, IOptions<Clust
         OperationalNode? local = proof.Operations.Nodes.GetValueOrDefault(options.NodeId);
         OperationalCredential? credential = proof.Operations.Credentials.GetValueOrDefault(options.CredentialId);
         if (local is null || local.StorageGeneration != options.StorageGeneration || local.Address != options.PublicUri
-            || credential is null || credential.NodeId != local.NodeId || credential.RevokedAtUtc.HasValue
             || proof.Operations.BotId != options.ExpectedBotId)
         {
             throw new InvalidDataException("AdmissionIdentityNotTrusted");
+        }
+
+        if (credential is null || credential.NodeId != local.NodeId)
+        {
+            throw new InvalidDataException($"Credential {options.CredentialId:D} is not accepted for node {local.NodeId:D}.");
+        }
+
+        if (credential.RevokedAtUtc.HasValue)
+        {
+            throw new InvalidDataException($"Credential {credential.Id:D} for node {local.NodeId:D} was revoked at {credential.RevokedAtUtc:O}.");
         }
 
         if (proof.Operations.MembershipVersion != proof.MembershipVersion || local.Removed
@@ -92,14 +100,9 @@ public class SignedRecoveryAdmission(ClusterLocalControl control, IOptions<Clust
             }
         }
 
-        using X509Certificate2 certificate = X509Certificate2.CreateFromPemFile(options.ClientCertificatePath, options.ClientKeyPath);
-        using X509Certificate2 root = X509CertificateLoader.LoadCertificateFromFile(options.ClientCaPath);
         PeerCredential peer = new(credential.Id, local.NodeId, local.StorageGeneration, new Uri(local.Address),
             credential.Fingerprint, local.Voting, credential.AdmissionId.HasValue, credential.ExpiresAtUtc);
-        if (!new PeerCertificateValidator().Validate(certificate, root, options, peer, time.GetUtcNow()))
-        {
-            throw new InvalidDataException("LocalPeerIdentityUnconfirmed");
-        }
+        new PeerCertificateValidator().EnsureLocalCertificate(options, time.GetUtcNow(), peer);
 
         if (proof.Operations.Nodes.Values.Where(item => !item.Removed).Select(item => item.Address).Distinct(StringComparer.Ordinal).Count()
             != proof.Operations.Nodes.Values.Count(item => !item.Removed) || !proof.MonitoringNodes.OrderBy(item => item.Key)

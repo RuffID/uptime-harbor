@@ -15,7 +15,6 @@ if (await ClusterControlTool.TryExecuteAsync(args))
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Configuration.AddJsonFile("Config/config.json", optional: false, reloadOnChange: false);
-builder.ConfigureLocalInstallation();
 builder.ConfigureClusterListeners();
 
 builder.Host.UseSerilog((_, loggerConfiguration) =>
@@ -35,7 +34,7 @@ builder.Services
     .AddApplicationConfiguration(builder.Configuration)
     .AddInfrastructure(builder.Configuration)
     .AddWebPresentation()
-    .AddClusterWeb(builder.Configuration);
+    .AddClusterWeb();
 
 var app = builder.Build();
 
@@ -51,7 +50,6 @@ app.UseSecurityHeaders();
 app.UseClusterPeerBoundary();
 app.UseForwardedHeaders();
 app.UseRouting();
-app.UseMiddleware<SetupBoundaryMiddleware>();
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();

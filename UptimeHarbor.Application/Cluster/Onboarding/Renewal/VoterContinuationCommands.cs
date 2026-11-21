@@ -31,21 +31,6 @@ public static class VoterContinuationCommands
         }));
     }
 
-    internal static RevisionCommand Create(string action, VoterContinuationContext context, DateTimeOffset atUtc,
-        string? priorDigest, VoterContinuationEvidence? evidence, Guid actor = default, long actorRevision = 0,
-        OperationalCredential? credential = null)
-    {
-        VoterCredentialRequest request = context.Request;
-        return new RevisionCommand
-        {
-            Schema = 3, ClusterId = request.ClusterId, ClusterGeneration = request.Generation,
-            Action = action, OperationId = OperationId(action, request.OperationId), OriginNodeId = context.AudienceNodeId,
-            ActorUserId = actor, ActorRevision = actorRevision, EntityId = request.Renewal.Issuance.NodeId,
-            EntityKind = DeletedEntityKind.Node, BaseRevision = request.Renewal.PreviousCredentialRevision,
-            CreatedAtUtc = atUtc, VoterContinuation = new(context, priorDigest, evidence, null) { Credential = credential }
-        };
-    }
-
     internal static void Validate(RevisionCommand command)
     {
         VoterContinuationCommand data = command.VoterContinuation ?? throw new InvalidDataException("VoterContinuationMissing");

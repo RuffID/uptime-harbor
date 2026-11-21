@@ -7,12 +7,8 @@ using Microsoft.AspNetCore.Connections;
 using Microsoft.Extensions.Options;
 using UptimeHarbor.Application.Cluster;
 using UptimeHarbor.Application.Cluster.Models;
-using UptimeHarbor.Application.Installation;
 using UptimeHarbor.Infrastructure.Cluster;
-using UptimeHarbor.Infrastructure.Cluster.Onboarding;
 using UptimeHarbor.Infrastructure.Identity;
-using UptimeHarbor.Infrastructure.Installation;
-using UptimeHarbor.Infrastructure.Installation.Renewal;
 
 namespace UptimeHarbor.Web.Cluster;
 
@@ -30,8 +26,6 @@ public class ClusterPeerRuntime(IServiceProvider services, IOptions<ClusterOptio
     private PeerReplayInbox? inbox;
     private volatile bool rpcOpen;
     private bool recoveryLogged;
-    private Guid? reportedContinuationRequest;
-    private long? continuationPolledAt;
     private readonly Guid bootId = Guid.NewGuid();
     public Guid? LeaderNodeId { get; private set; }
     public IRaftHttpCluster? Raft => raft;
@@ -104,11 +98,7 @@ public class ClusterPeerRuntime(IServiceProvider services, IOptions<ClusterOptio
                     continue;
                 }
 
-                if (continuationPolledAt is not long previousPoll
-                    || timeProvider.GetElapsedTime(previousPoll) >= TimeSpan.FromSeconds(5))
-                {
-                    await StartNodeAsync(stoppingToken);
-                }
+                await StartNodeAsync(stoppingToken);
 
                 await RefreshStatusAsync(stoppingToken);
                 ConsensusStatus? status = state.Consensus;
@@ -157,32 +147,6 @@ public class ClusterPeerRuntime(IServiceProvider services, IOptions<ClusterOptio
     }
 
     public async Task StartNodeAsync(CancellationToken cancellationToken)
-    {
-        if (raft is not null)
-        {
-            return;
-        }
-
-        InstallationState? installation = services.GetService<InstallationState>();
-        if (installation?.Current?.ManagedRestart != true)
-        {
-            await StartNodeCoreAsync(null, cancellationToken);
-            return;
-        }
-
-        // Match installation transition → runtime lifecycle before reading the protected slot.
-        await installation.Transition.WaitAsync(cancellationToken);
-        try
-        {
-            await StartNodeCoreAsync(installation, cancellationToken);
-        }
-        finally
-        {
-            installation.Transition.Release();
-        }
-    }
-
-    private async Task StartNodeCoreAsync(InstallationState? installation, CancellationToken cancellationToken)
     {
         await lifecycle.WaitAsync(cancellationToken);
         try
@@ -258,16 +222,6 @@ public class ClusterPeerRuntime(IServiceProvider services, IOptions<ClusterOptio
                 }
             }
 
-            if (installation?.Current is { } managed && options.TlsBoundary == "Direct"
-                && recovery is RevisionClusterRecovery continuationRecovery && revisions?.Current is { } localReplay
-                && ManagedVoterContinuationStartup.RequiresContinuation(localReplay, managed, timeProvider.GetUtcNow()))
-            {
-                await ContinueManagedVoterLockedAsync(installation, managed, continuationRecovery, wal, saved.Version,
-                    cancellationToken);
-                await DisposeNodeAsync();
-                return;
-            }
-
             bool replayConfirmed = await recovery.ConfirmLocalReplayAsync(wal.LastCommittedEntryIndex,
                 wal.LastAppliedIndex, saved.Version, cancellationToken);
             if (!replayConfirmed)
@@ -280,12 +234,6 @@ public class ClusterPeerRuntime(IServiceProvider services, IOptions<ClusterOptio
                     await DisposeNodeAsync();
                     return;
                 }
-            }
-
-            if (installation?.Current is { ManagedRestart: true } profile)
-            {
-                await using AsyncServiceScope scope = services.CreateAsyncScope();
-                scope.ServiceProvider.GetRequiredService<ManagedRestartPreparation>().PreparePeerAfterReplay(profile);
             }
 
             machine.ConfirmReplay(replayConfirmed);
@@ -314,43 +262,6 @@ public class ClusterPeerRuntime(IServiceProvider services, IOptions<ClusterOptio
     protected virtual Task StartNativeAsync(IRaftHttpCluster candidate, CancellationToken cancellationToken)
     {
         return ((IHostedService)candidate).StartAsync(cancellationToken);
-    }
-
-    private async Task ContinueManagedVoterLockedAsync(InstallationState installation,
-        LocalInstallationProfile profile, RevisionClusterRecovery recovery,
-        WriteAheadLog wal, long membershipVersion, CancellationToken cancellationToken)
-    {
-        rpcOpen = false;
-        continuationPolledAt = timeProvider.GetTimestamp();
-        gate.Close();
-        state.Publish(null);
-        machine.ConfirmReplay(false);
-        readiness.Report("Storage", false, "StorageUnavailable", TimeSpan.FromSeconds(10));
-        DynamicPeerTls tls = services.GetRequiredService<DynamicPeerTls>();
-        tls.Revoke();
-        try
-        {
-            var replay = await recovery.VerifyManagedContinuationReplayAsync(installation, wal.LastCommittedEntryIndex,
-                wal.LastAppliedIndex, ((IPersistentState)wal).Term, membershipVersion, cancellationToken);
-            await using AsyncServiceScope scope = services.CreateAsyncScope();
-            await scope.ServiceProvider.GetRequiredService<ManagedVoterContinuationStartup>()
-                .ContinueLockedAsync(profile, replay, ReportAcceptedRequest, cancellationToken);
-        }
-        catch (Exception error) when (!cancellationToken.IsCancellationRequested && error is
-            (HttpRequestException or IOException or InvalidDataException or UnauthorizedAccessException
-                or System.Security.Cryptography.CryptographicException or FormatException or OperationCanceledException))
-        {
-            logger.LogDebug("VoterContinuationStartupDeferred {FailureType}", error.GetType().Name);
-        }
-
-        void ReportAcceptedRequest(Guid requestId)
-        {
-            if (reportedContinuationRequest != requestId)
-            {
-                logger.LogInformation("VoterContinuationRequestAccepted {RequestId}", requestId);
-                reportedContinuationRequest = requestId;
-            }
-        }
     }
 
     public async Task RefreshStatusAsync(CancellationToken cancellationToken)
@@ -549,19 +460,8 @@ public class ClusterPeerRuntime(IServiceProvider services, IOptions<ClusterOptio
             services.GetService<PendingReplicationPump>()?.Progress,
             MonitoringDiagnostics.Read(services.GetRequiredService<RevisionStateStore>(), state.Accepted.CaughtUp, timeProvider.GetUtcNow()))
         {
-            ActivationRequested = control?.ActivationRequested(revisions?.Current?.Operations.Revision ?? 0) == true,
-            EnrollmentTrustVersion = EnrollmentTrustCapability()
+            ActivationRequested = control?.ActivationRequested(revisions?.Current?.Operations.Revision ?? 0) == true
         };
-    }
-
-    private int EnrollmentTrustCapability()
-    {
-        if (configured.Value.Compatibility == OnboardingProtocol.TRUST_COMPATIBILITY)
-        {
-            return 1;
-        }
-
-        return 0;
     }
 
     public async Task WriteHealthAsync(HttpContext context, PeerEnvelope envelope)

@@ -1,11 +1,27 @@
 import assert from "node:assert/strict";
 import { beforeEach, test } from "node:test";
 import { registerHooks } from "node:module";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { CommandDraft, LatestRequest } from "../../UptimeHarbor.Web/wwwroot/ts/pages/admin/clusterDraft.ts";
 import type { Snapshot, Entity, Change, AccountChange, Operation, Diagnostic } from "../../UptimeHarbor.Web/wwwroot/ts/pages/admin/clusterModels.ts";
 
 // Зависимости production TS используют браузерные .js specifiers; здесь разрешаются к тем же исходникам.
 registerHooks({ resolve(specifier, context, nextResolve) {
+    if (context.parentURL?.endsWith("/clusterViews.js") && specifier === "../../shared/dataTable.js") {
+        const tableDouble = `export function createDataTable(host) {
+            return { body: host, refresh() {}, row(values) {
+                const row = document.createElement("tr");
+                for (const value of values) {
+                    const cell = document.createElement("td");
+                    cell.append(typeof value === "string" ? document.createTextNode(value) : value);
+                    row.append(cell);
+                }
+                return row;
+            }};
+        }`;
+        return nextResolve(`data:text/javascript,${encodeURIComponent(tableDouble)}`, context);
+    }
     if (context.parentURL?.includes("/wwwroot/ts/pages/admin/") && specifier.startsWith("./") && specifier.endsWith(".js")) {
         return nextResolve(specifier.slice(0, -3) + ".ts", context);
     }
@@ -14,6 +30,16 @@ registerHooks({ resolve(specifier, context, nextResolve) {
 const { ClusterEditor } = await import("../../UptimeHarbor.Web/wwwroot/ts/pages/admin/clusterEditor.ts");
 const { delegateActions, operationText } = await import("../../UptimeHarbor.Web/wwwroot/ts/pages/admin/clusterDom.ts");
 const { AdministrationRefresh } = await import("../../UptimeHarbor.Web/wwwroot/ts/pages/admin/clusterRefresh.ts");
+const { ClusterViews } = await import(compiledModule("clusterViews.js"));
+
+function compiledModule(name: string): string {
+    const buildDirectory = process.env.UPTIME_HARBOR_FRONTEND_TEST_BUILD;
+    if (buildDirectory) {
+        return pathToFileURL(resolve(buildDirectory, "pages/admin", name)).href;
+    }
+
+    return new URL(`../../UptimeHarbor.Web/wwwroot/dist/pages/admin/${name}`, import.meta.url).href;
+}
 
 class Dom {
     tag: string;
@@ -237,9 +263,36 @@ test("current refresh authorization failure propagates and cannot become accepte
     await assert.rejects(refresher.read(0), error => error === forbidden);
 });
 
+test("observer rows display each node with the time of its own check", () => {
+    const sections = new Map(["accepted", "pending", "targets", "observers", "deliveries", "nodes", "conflicts", "diagnostic-summary"]
+        .map(key => [`[data-cluster-${key}]`, new Dom("section")]));
+    const root = { querySelector: (selector: string) => sections.get(selector) ?? null };
+    const views = new ClusterViews(root as unknown as HTMLElement, { edit() {}, cancel() {}, find() {} });
+    const server = entity();
+    const observers = [
+        { nodeId: "node-1", checkedAtUtc: "2026-11-21T10:00:00Z" },
+        { nodeId: "node-2", checkedAtUtc: "2026-11-21T10:01:00Z" }
+    ].map(observer => ({ ...observer, status: "Available", failure: null, endpointName: null,
+        startedAtUtc: null, metadataAtUtc: null, uptimeSeconds: null }));
+    const accepted = { ...snapshot(server), targets: [{
+        id: server.id, availability: "Available", coverage: "Complete", evaluatedAtUtc: null,
+        evaluationStale: false, observers
+    }] };
+
+    views.render(accepted, [], { nodes: [], telegramAgeSeconds: null } as unknown as Diagnostic, "Monitoring");
+
+    const rows = sections.get("[data-cluster-observers]")!.children;
+    assert.equal(rows.length, observers.length);
+    for (const [index, observer] of observers.entries()) {
+        const [identity, result] = rows[index].children;
+        assert.ok(identity.textContent.endsWith(`/ ${observer.nodeId}`));
+        assert.ok(result.textContent.includes(new Date(observer.checkedAtUtc).toLocaleString()));
+    }
+});
+
 test("compiled API uses common antiforgery HTTP helper; HTTP 202 remains queued and 403 propagates", async () => {
     // Штатная Web-сборка создаёт эти модули; тест не компилирует/запускает приложение.
-    const { clusterApi } = await import("../../UptimeHarbor.Web/wwwroot/dist/pages/admin/clusterApi.js");
+    const { clusterApi } = await import(compiledModule("clusterApi.js"));
     const calls: { url: string; options: RequestInit }[] = [];
     Object.assign(globalThis, { document: { querySelector: () => ({ content: "test-antiforgery" }) },
         fetch: async (url: string, options: RequestInit) => {

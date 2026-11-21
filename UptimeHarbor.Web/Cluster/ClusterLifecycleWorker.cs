@@ -10,8 +10,7 @@ namespace UptimeHarbor.Web.Cluster;
 public class ClusterLifecycleWorker(ClusterPeerRuntime runtime, ClusterRuntimeState state, RevisionStateStore revisions,
     ClusterLocalControl control, ClusterHealthWorker health, RevisionDispatcher dispatcher, SenderAuthorityGate gate,
     IServiceScopeFactory scopes, IOptions<ClusterOptions> options, TimeProvider time,
-    ILogger<ClusterLifecycleWorker> logger,
-    IOptions<UptimeHarbor.Infrastructure.Installation.InstallationOptions>? installation = null)
+    ILogger<ClusterLifecycleWorker> logger)
     : UptimeHarbor.Infrastructure.Installation.RestartableWorker
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -42,13 +41,6 @@ public class ClusterLifecycleWorker(ClusterPeerRuntime runtime, ClusterRuntimeSt
 
     public async Task TickAsync(CancellationToken token)
     {
-        if (installation?.Value.Setup == true)
-        {
-            await using AsyncServiceScope managedScope = scopes.CreateAsyncScope();
-            await managedScope.ServiceProvider.GetRequiredService<ManagedBootstrapLifecycle>().TickAsync(token);
-            return;
-        }
-
         ConsensusStatus? status = state.Consensus;
         RevisionImage? image = revisions.Current;
         if (!revisions.Available || image is null || status is null || !status.IsLeader
@@ -115,11 +107,6 @@ public class ClusterLifecycleWorker(ClusterPeerRuntime runtime, ClusterRuntimeSt
         }
 
         if (!state.Accepted.Activated || !state.Accepted.ManuallyEnabled || !state.Accepted.DeliveryStateConfirmed)
-        {
-            return;
-        }
-
-        if (installation?.Value.Setup == true)
         {
             return;
         }

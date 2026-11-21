@@ -5,18 +5,12 @@ using UptimeHarbor.Application.Cluster;
 using UptimeHarbor.Application.Cluster.Models;
 using UptimeHarbor.Infrastructure.Cluster.Models;
 using UptimeHarbor.Application.Cluster.Onboarding;
-using UptimeHarbor.Application.Cluster.Onboarding.Renewal;
-using UptimeHarbor.Infrastructure.Installation;
-using UptimeHarbor.Infrastructure.Cluster.Onboarding;
-using UptimeHarbor.Infrastructure.Cluster.Onboarding.Renewal;
-using UptimeHarbor.Application.Installation;
 
 namespace UptimeHarbor.Infrastructure.Cluster;
 
 public class RevisionClusterRecovery(IRecoveryAdmission admissionSource, RevisionStateStore state,
     RevisionApplyEngine engine, IRevisionProjectionStore projection, RevisionSnapshotStore snapshots,
-    IServiceScopeFactory scopes, IOptions<ClusterOptions> configured, IClusterLocalInitialization? initialization = null,
-    ManagedStorageSeals? managedSeals = null, TimeProvider? time = null) : IClusterRecovery
+    IServiceScopeFactory scopes, IOptions<ClusterOptions> configured, IClusterLocalInitialization? initialization = null) : IClusterRecovery
 {
     private RecoveryAdmission? admission;
     private bool replayConfirmed;
@@ -73,10 +67,6 @@ public class RevisionClusterRecovery(IRecoveryAdmission admissionSource, Revisio
             Monitoring = new MonitoringImage { Nodes = proof.MonitoringNodes },
             Operations = proof.Operations
         };
-        if (proof.Proof is FreshBootstrapProof genesis)
-        {
-            checkpoint = checkpoint with { OnboardingContracts = new OnboardingContractImage { Genesis = genesis.Authorization } };
-        }
         if (proof.BootstrapAccount is not null)
         {
             RevisionCommand bootstrap = proof.BootstrapAccount;
@@ -176,11 +166,6 @@ public class RevisionClusterRecovery(IRecoveryAdmission admissionSource, Revisio
                     configured.Value.NodeId, token);
             }
 
-            if (replayConfirmed && managedSeals?.Exists == true)
-            {
-                await CreateSnapshotAsync(token);
-            }
-
             return entry.Index;
         }
         catch
@@ -219,26 +204,6 @@ public class RevisionClusterRecovery(IRecoveryAdmission admissionSource, Revisio
             }
 
             await projection.VerifyAsync(image, token);
-            if (admission.Proof is ManagedRestartProof)
-            {
-                OperationalNode? node = image.Operations.Nodes.GetValueOrDefault(admission.NodeId);
-                if (node is null || node.Removed || !node.Voting || node.StorageGeneration != admission.StorageGeneration
-                    || image.Operations.MaintenanceId != Guid.Empty)
-                {
-                    return false;
-                }
-
-                Guid credentialId = VoterCredentialPolicy.Latest(image, node.NodeId)?.Renewal.Issuance.IssueId
-                    ?? configured.Value.CredentialId;
-                OperationalCredential? credential = image.Operations.Credentials.GetValueOrDefault(credentialId);
-                if (credential is null || credential.NodeId != node.NodeId
-                    || !EnrollmentPeerTrustPolicy.IsActive(image, node, credential, (time ?? TimeProvider.System).GetUtcNow())
-                    || credential.RevokedAtUtc.HasValue || (time ?? TimeProvider.System).GetUtcNow() >= credential.ExpiresAtUtc)
-                {
-                    return false;
-                }
-            }
-
             if (admission.OldBackup && !backupReconciled)
             {
                 await ReconcileBackupAsync(image, token);
@@ -263,53 +228,12 @@ public class RevisionClusterRecovery(IRecoveryAdmission admissionSource, Revisio
         return persisted == admission!.MembershipVersion || persisted == verifiedNativeMembership;
     }
 
-    /// <summary>Verifies the sealed local prefix for ContinueCredential without promoting it to an available projection.</summary>
-    public async Task<ManagedContinuationReplay> VerifyManagedContinuationReplayAsync(InstallationState installation,
-        long committedIndex, long appliedIndex, long nativeTerm, long persistedMembershipVersion, CancellationToken token)
-    {
-        ClusterOptions local = configured.Value;
-        LocalInstallationProfile? profile = installation.Current;
-        RecoveryAdmission? admitted = admission;
-        RevisionImage? image = state.Current;
-        long recoveryVersion = state.RecoveryVersion;
-        if (profile is not { Mode: "Bootstrap", ManagedRestart: true, Phase: InstallationPhase.ClusterQuarantine }
-            || admitted?.Proof is not ManagedRestartProof process || image is null || !IsCurrent()
-            || local.Mode != "Restart" || local.TlsBoundary != "Direct" || local.Compatibility != OnboardingProtocol.TRUST_COMPATIBILITY
-            || process.InstallIdentity != profile.InstallIdentity || process.BootId != profile.BootId
-            || local.ClusterId != admitted.ClusterId || local.Generation != admitted.Generation || local.NodeId != admitted.NodeId
-            || local.StorageGeneration != admitted.StorageGeneration || local.PublicUri != profile.PeerAddress
-            || admitted.ClusterId != profile.ClusterId || admitted.Generation != profile.ClusterGeneration
-            || admitted.NodeId != profile.NodeId || admitted.StorageGeneration != profile.StorageGeneration
-            || image.ClusterId != admitted.ClusterId || image.Generation != admitted.Generation
-            || image.Index < admitted.MinimumCommittedIndex || image.Index > appliedIndex
-            || committedIndex != appliedIndex || nativeTerm < image.Term
-            || persistedMembershipVersion != verifiedNativeMembership || persistedMembershipVersion != image.Operations.MembershipVersion
-            || image.Operations.Nodes.GetValueOrDefault(admitted.NodeId) is not { Voting: true, Removed: false } node
-            || node.Address != profile.PeerAddress || node.StorageGeneration != admitted.StorageGeneration
-            || image.Operations.MaintenanceId != Guid.Empty || image.Operations.Changes.Values.Any(change => !change.ConfirmedVersion.HasValue)
-            || image.RecoveryBaseline is not null
-            || image.OnboardingContracts?.GenesisInitialized != true)
-        {
-            throw new InvalidDataException("VoterContinuationLocalReplayUnconfirmed");
-        }
-
-        await projection.VerifyAsync(image, token);
-        ManagedContinuationReplay replay = new(image, nativeTerm, admitted.NodeId, process, recoveryVersion, IsCurrent);
-        replay.RequireCurrent(token);
-        return replay;
-
-        bool IsCurrent() => restored && !replayConfirmed && !state.Available && !installation.CommonOpen
-            && ReferenceEquals(installation.Current, profile) && ReferenceEquals(admission, admitted)
-            && ReferenceEquals(state.Current, image) && state.RecoveryVersion == recoveryVersion
-            && verifiedNativeMembership == persistedMembershipVersion;
-    }
-
     public async Task<bool> VerifyCatchUpStartAsync(long committedIndex, long appliedIndex, long persistedMembershipVersion,
         CancellationToken token)
     {
         RevisionImage? image = state.Current;
         long version = state.RecoveryVersion;
-        if (!restored || admission is null || admission.Proof is ManagedRestartProof || image is null || appliedIndex != committedIndex
+        if (!restored || admission is null || image is null || appliedIndex != committedIndex
             || image.Index > appliedIndex || committedIndex >= admission.MinimumCommittedIndex
             || !MembershipMatches(persistedMembershipVersion))
         {
@@ -333,19 +257,6 @@ public class RevisionClusterRecovery(IRecoveryAdmission admissionSource, Revisio
 
         HashSet<Guid> expected = operations.Nodes.Values.Where(node => node.Voting && !node.Removed)
             .Select(node => node.NodeId).ToHashSet();
-        if (admission.Proof is FreshBootstrapProof genesis && state.Current?.OnboardingContracts?.GenesisInitialized == false)
-        {
-            // Provisional identity разрешает только singleton native membership до accepted InitializeCluster.
-            // Она не попадает в operational registry/peer allowlist и не создаёт account authority.
-            expected = [genesis.Authorization.NodeId];
-            bool singleton = expected.SetEquals(voters);
-            if (singleton)
-            {
-                verifiedNativeMembership = version;
-                return true;
-            }
-        }
-
         bool matches = expected.SetEquals(voters) && version == operations.MembershipVersion;
         if (initialEmpty && voters.Count == 0 && version == admission.MembershipVersion)
         {
@@ -384,20 +295,8 @@ public class RevisionClusterRecovery(IRecoveryAdmission admissionSource, Revisio
             return null;
         }
 
-        OperationalNode? node = image.Operations.Nodes.Values.SingleOrDefault(item =>
-            item.Voting && !item.Removed && item.Address == address);
-        if (node is not null)
-        {
-            return node.NodeId;
-        }
-
-        if (admission.Proof is FreshBootstrapProof genesis && image.OnboardingContracts?.GenesisInitialized == false
-            && genesis.Authorization.PeerUri == address && image.Operations.Nodes.Count == 0)
-        {
-            return genesis.Authorization.NodeId;
-        }
-
-        return null;
+        return image.Operations.Nodes.Values.SingleOrDefault(item =>
+            item.Voting && !item.Removed && item.Address == address)?.NodeId;
     }
 
     private async Task ReconcileBackupAsync(RevisionImage image, CancellationToken token)
@@ -420,23 +319,7 @@ public class RevisionClusterRecovery(IRecoveryAdmission admissionSource, Revisio
             RevisionImage image = await engine.CaptureAsync(token);
             PublishedRevisionSnapshot snapshot = await snapshots.PublishAsync(image, token);
             await projection.CheckpointAsync(snapshot.Manifest.SnapshotId, snapshot.Digest, image.Index, token);
-            if (managedSeals is not null)
-            {
-                await managedSeals.WriteAsync(snapshot, token);
-            }
-
             snapshots.ConfirmInstalled(snapshot);
-        }
-        catch
-        {
-            if (managedSeals?.Exists == true)
-            {
-                restored = false;
-                replayConfirmed = false;
-                state.Invalidate();
-            }
-
-            throw;
         }
         finally
         {
