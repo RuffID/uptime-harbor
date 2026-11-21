@@ -1,57 +1,14 @@
-# 04. Установление доверия
+# Шаг 1. Ручное подключение узлов
 
-Статус на момент остановки: `in-progress`. 04.01–04.08 завершены. Работа остановлена на 04.09.04. Продолжение этапа исключено из MVP. Следующий шаг указан в [действующем плане](../main.md). Далее сохранены прежние требования и результаты.
+**Для MVP работа завершена.** Удалены веб-приглашения, мастер настройки и автоматическое восстановление после сбоя при смене сертификата. Ручной режим Legacy сохраняет допуск по сертификату, загрузку снимка, вступление в состав и синхронизацию.
 
-Для MVP инженер вручную настраивает сертификат. При ошибке узел сообщает причину и останавливает подключение. Во время сверки нужно проверить этот ручной путь. Автоматическое восстановление после сбоя при смене сертификата отложено.
+Собраны затронутые проекты .NET и TypeScript. Прошли 174 теста .NET и 14 frontend-тестов. Проверены отказ при неверном сертификате, повторный ручной допуск, чтение снимка и отображение времени результата каждого из двух наблюдателей. Проверка в браузере на реальных узлах входит в [шаг 3](../07-verification-and-rollout/main.md).
 
-Исходная граница после 03: закрытые production authority-порты и E0 без настоящего Bootstrap/Join. В 04 подключены production адаптеры, genesis/issuer/grants/activation нового первого, accepted ProcessEpoch, E1–E4 и двусторонние probes; сохранены local step CAS, исходные IDs/digests и E0 key. Это ещё не полный объём этапа. [Фактический setup](../../../Technical%20documentation/Local%20installation%20setup.md), [точка остановки](#результат).
-
-## Цель
-
-Назначения, отчёты исполнителей и продолжение: [сводка выполнения этапа](progress.md).
-
-**Пауза с 2026-11-18 по 2026-11-21.** К началу паузы в B3c2 был изолированно проверен проход расписания. Первый шаг после возобновления по команде пользователя — [04.09.01. Повтор Authorize](04.09-credential-renewal/04.09.01-authorize-retry.md). [Состояние до паузы](04.09-credential-renewal/04.09.02-automatic-rotation.md#voter-credential-scheduled-pass-0409b3c2).
-
-**Координация возобновлена 2026-11-18 по команде пользователя.** Исполнитель завершил статические проверки и документацию B2b1 с сохранённой точки; production C# и логика тестов не менялись. Уточнены AAA-комментарии двух тестовых файлов, дополнительный compile-check Infrastructure.Tests успешен; MTP-прогоны не повторялись. Затем отдельным назначением выполнена B2b2.
-
-**Возобновление 2026-11-18 по команде пользователя:** сохранённая до паузы 2026-11-17 часть 04.09-A завершена с compile-check и изолированными тестами; затем отдельными назначениями выполнены authority/signing core B1 и pre-Bind B2a. История паузы/A/B1 сохранена в 04.09. Деления B2a/B2b и B2b1/B2b2 установлены координатором по оценке исполнителя в рамках порученной координации; прежняя формулировка о подтверждении деления пользователем была неточной. Это не новое бизнес-решение пользователя. NUI-04-20261118-05 закрыло B2b1, NUI-04-20261118-06 — B2b2. B3/C и родитель 04.09 остаются открытыми.
-
-Превратить принятое приглашение в узкий проверяемый допуск конкретной новой установки, сохранив защиту peer-связи и восстановления.
-
-## Работы
-
-1. Реализовать согласованный enrollment-протокол на выделенных endpoints с явными capabilities, версиями, размером и timeout. Не размещать преддоверенный handshake в закрытом для него existing peer RPC и не ослаблять peer authentication ради доступа к форме.
-2. Проверять адрес первого сервера и собственные advertised endpoints по правилам technical-design.md. Учитывать разрешённые частные сети, двустороннюю связность, DNS rebinding, redirect и запрет утечки кода на другой origin. Доступность HTTP UI не подменяет успешную peer-проверку.
-3. Создавать private key локально, передавать только CSR/public material. Привязать принятую reservation к NodeId/storage/address/key. Реализовать встроенный ограниченный issuer по дизайну этапа 01: автоматическую подготовку первого узла, выдачу/установку сертификата и trust anchor, обновление/отзыв и проверку CA/SAN/pin/expiry. Внешний сервис, ручная выдача сертификатов и перенос ключей пользователем не требуются.
-4. Реализовать process-bound online admission и отдельные узкие полномочия активации по дизайну этапа 01. Не синтезировать ручное подтверждение изоляции, не подписывать произвольный control из Web и не устанавливать operator-private/root CA key на узлы. Встроенный issuer не получает emergency/backup/maintenance-полномочий.
-5. Проверять свежесть принятого приглашения и актуальную авторизацию инициатора перед выдачей полномочий. Ограничить количество параллельных попыток и срок reservation; обеспечить resume без повторной выдачи identity.
-6. Сохранить ручные Restart/rejoin/backup/emergency/maintenance процедуры. Использованное приглашение не становится постоянным ключом восстановления или разрешением присоединить удалённый NodeId.
-7. Не передавать Telegram-токен в enrollment, общих командах, snapshot или UI DTO. Его отсутствие на новом узле допустимо: токен остаётся только у назначенного отправителя. Готовность доставки и её authority реализуются этапом 05а отдельно от допуска нового узла.
-8. Логировать принятый enrollment, отказ/expiry/revoke и безопасную идентичность сертификата; исключить private keys, invitation plaintext, токены и тела защищённых команд. Успех выдачи полномочия отделять от принятого членства и готовности.
-
-## Затрагиваемые части
-
-### Контракт, разработанный этапом 01
-
-Реализовать [протокол issuer/E0–E8/grants/validators](../technical-design.md#enrollment). Новый dedicated pathLen=0 application CA создаётся первым автоматически, закрытый ключ остаётся только issuer node; существующий root/offline operator key не импортировать. GenesisAuthorization либо accepted RegisterEnrollmentIssuer разрывают цикл начального доверия. Browser HTTPS authenticates origin, CSR PoP/accepted template/Bind fingerprint дают конкретный leaf. Durable IssueId возвращает те же DER; CA signature сама не предоставляет authority.
-
-Tagged proof заменяет общий FencingConfirmed только в новых online ветках, включая ClusterAccountBootstrapper; offline signature/manual isolation/CRL/maintenance сохраняются. DotNextConsensusAdapter получает exact genesis writer permit без раннего общего CanWork и произвольных команд. ManagedRestart разрешает карантинный запуск ранее целого хранилища до большинства, затем новый barrier/Enable; restore/clone/removed identity остаются offline. Exact changes перечислены по классам; server name/pin/KU/EKU, application revocation на каждый RPC, renew/retire/issuer replacement и process-epoch replay tests обязательны. Сроки — [parameters](../technical-design.md#parameters), события/негативные случаи — [verification](../technical-design.md#verification).
-
-При реализации актуализировать устаревшую пометку Identity/AGENTS.md о будущем ручном lifecycle; не менять исторические планы. Интеграционный результат 03+04 — новый первый готовый кластер, но snapshot/membership orchestration второго реализуется 05.
-
-Application enrollment/trust contracts, Infrastructure crypto/control/HTTP adapters и безопасное локальное хранение, Web setup/enrollment controllers и perimeter. Актуализировать местные AGENTS.md, Cluster runtime, Cluster control files, Configuration, Web application и Testing по фактическим изменениям.
-
-## Проверки и приёмка
-
-- Внешний сервер не получает полномочий без допустимой установки, приглашения и привязанного ключа.
-- Нормальный путь сам подготавливает сертификаты без внешнего issuer и ручного копирования файлов; новый peer не требует Telegram-токена.
-- Неверные TLS/CA/SAN/pin, чужой ClusterId, устаревший challenge, иной request digest и отозванный автор дают отказ.
-- Изменение адреса через redirect/DNS не выводит запрос за разрешённые endpoints и не раскрывает код.
-- Online grant не открывает emergency recovery, maintenance, clone или обычный Restart; прежние offline проверки продолжают действовать.
-- Interrupted enrollment возобновляется той же попыткой; orphan credentials не активируют voter, автоматически не продлеваются и доступны для контролируемого отзыва.
-- Fake crypto/HTTP/probes тестируют протокол изолированно. Настоящие TLS/issuer/Nginx и права файлов подтверждаются только этапом 07.
+Следующая работа — [ручное переключение Telegram](../05a-telegram-sender-and-backlog/main.md).
 
 ## Результат
+
+Ниже сохранены результаты прежнего этапа 04 на дату выполнения. Работу над автоматизацией остановили внутри 04.09.04. Подробные назначения и проверки перечислены в [исторической сводке](progress.md).
 
 ### Точка остановки 2026-11-03
 
@@ -84,17 +41,6 @@ Application enrollment/trust contracts, Infrastructure crypto/control/HTTP adapt
 
 Повторная проверка именно 04.06 на текущей рабочей копии подтвердила те же 104 Infrastructure и 13 Web без ошибок/пропусков и четыре compile-check без предупреждений/ошибок. Устранён отсутствующий using в ранее оставленном EnrollmentRoutingSecurityTests, блокировавший общую сборку Web.Tests; production-код не менялся. Результаты 04.01–04.05 и существующие результаты 04.07 сохранены. Изменения 04.08 остаются незавершёнными и этим поручением не приняты. Этап 04 остаётся `in-progress`.
 
-### Остаток собственного объёма 04
-
-В [04.07](04.07-existing-cluster-issuer.md) подключён первоначальный issuer ручного кластера: новый локальный dedicated CA, fresh accepted Administrator, прежний Pending/pipeline, capability/schema каждого voter и majority до регистрации и после apply. Повтор сохраняет ключ/DER/команду/результат; signer закрыт до exact accepted issuance. Legacy CA/pins сохранены, structured Registered/Rejected завязаны на accepted итог. Проверки: 47 новых +35 затронутых Web и 7 Infrastructure — без ошибок/пропусков; production/test compile-check без warnings/errors. [Команды и ограничения](../../../Technical%20documentation/Testing.md#issuer-ручного-кластера-0407-2026-11-15).
-
-1. Orchestration Retire/Revoke/replacement issuer. Первоначальный manual provisioning/Register завершён в 04.07, typed remote issuer/follower routing — в 04.08; accepted reducers остальных команд не заменяют полный работающий сценарий. Не импортировать root/operator key и не менять конфигурацию установки.
-2. Полный leaf renewal/rotation/revocation/retirement, новый ключ, exact authorization и overlap ≤24 часов. Accepted policy, PoP/CSR/majority, durable local install и typed peer signing проверены в A/B1/B2/B3a. Legacy/dedicated runtime trust, TLS/pools и overlap остаются B3b, scheduler/retirement и проверка готовности production admission — B3c. ContinueCredential с отдельным accepted admin proof — C. Production admission закрыт до готовности всех зависимостей.
-3. Законные online process/activation/enable exchanges последующих voters и ManagedRestart завершённого Join, включая удалённого signer. Snapshot/membership orchestration остаётся 05; нельзя создавать startup cycle всех voters или открывать gate до доказательства.
-4. Завершить negative/crash matrix: TTL на границе секунды, nonce/identity/digest/revocation/replay, SQL/file/WAL reconciliation и crash boundaries. Исправленный preflight повторён в 04.01; дальнейшие проверки выполнять точными безопасными фильтрами, не весь Infrastructure.
-5. Подключить минимальный Join UI к существующему `/api/setup/enroll`, очистку invitation и достоверный статус E4 без фиктивного Ready. На остановке только прочитаны setup.ts/cshtml и frontend tests; UI не изменён. Полный мастер/список узлов остаются 06.
-6. Согласовать все актуальные документы/AGENTS с кодом, проверить ссылки/solution items/UTF-8/EOL, размер новых C# файлов и разнести несколько record из `EnrollmentPeerProbe.cs` по принятому стилю. Прежние результаты 03 не выдавать за регрессию 04.
-
 ### Известные проблемы и ограничения
 
 - `ManagedStorageSeals` после каждого дальнейшего durable apply публикует полный snapshot/checkpoint/seal. В 04.04 проверены interleaving и crash boundaries, линейная полному образу стоимость описана без уменьшения частоты. Production throughput/fsync не измерены; native commit ниже SQL/seal после сбоя требует offline recovery.
@@ -112,27 +58,15 @@ Application enrollment/trust contracts, Infrastructure crypto/control/HTTP adapt
 
 В задании `NUI-04-20261118-04` выполнена только **B2a ДО Bind**. Реальные protected intent/key/authorization/DER files/reopen и fault/replay/concurrency проверены: **62 новых B2a**, финально **Infrastructure 187** (62+125 regression) и **Application 76 regression** успешно, 0 ошибок/пропусков; четыре compile-check без предупреждений/ошибок. [Доказательства/границы](../../../Technical%20documentation/Testing.md#voter-credential-local-prebind-0409b2a-2026-11-18). SQL/физический fsync/runtime/UI не доказаны, migrations нет. Ближайший шаг — **B2b** по [декомпозиции 04.09](04.09-leaf-renewal-and-overlap.md#ограниченная-декомпозиция): exact Bind/CredentialRevision, install/confirmation и interrupted recovery; B2/04.09 открыты, production dispatcher deny/DI/routes сохранены.
 
-Этап частично реализован, работа возобновлена с 04.01. Статус каждой задачи показывает её собственный объём: наличие части кода не закрывает оставшиеся проверки.
+Завершённые подэтапы прежнего плана.
 
-| Подэтап | Зависимости | Статус |
-| --- | --- | --- |
-| [04.01. Повтор незакрытой проверки preflight](04.01-preflight-recheck.md) | Требования этапа | `completed` |
-| [04.02. Mode-проверка ManagedRestart до эффектов](04.02-restart-mode-before-effects.md) | [04.01](04.01-preflight-recheck.md) | `completed` |
-| [04.03. Проверка растущей истории steps](04.03-unbounded-progress-validation.md) | [04.01](04.01-preflight-recheck.md) | `completed` |
-| [04.04. Storage seals: конкурентность и стоимость](04.04-storage-seal-lifecycle.md) | [04.01](04.01-preflight-recheck.md), [04.02](04.02-restart-mode-before-effects.md), [04.03](04.03-unbounded-progress-validation.md) | `completed` |
-| [04.05. Новый первый: Bootstrap и выдача приглашения](04.05-bootstrap-and-invitation-proof.md) | [04.02](04.02-restart-mode-before-effects.md), [04.04](04.04-storage-seal-lifecycle.md) | `completed` |
-| [04.06. Enrollment E1–E4 и двусторонние probes](04.06-enrollment-through-e4.md) | [04.01](04.01-preflight-recheck.md) | `completed` |
-| [04.07. Issuer для существующего ручного кластера](04.07-existing-cluster-issuer.md) | [04.05](04.05-bootstrap-and-invitation-proof.md) | `completed` |
-| [04.08. Удалённый issuer и follower-координатор](04.08-remote-issuer-routing.md) | [04.06](04.06-enrollment-through-e4.md), [04.07](04.07-existing-cluster-issuer.md) | `completed` |
-| [04.09. Renewal и ротация leaf с новым ключом](04.09-leaf-renewal-and-overlap.md) | [04.08](04.08-remote-issuer-routing.md) | `in-progress` — 04.09.01–03 завершены в изолированном объёме. В [04.09.04](04.09-credential-renewal/04.09.04-continue-credential.md#nui-04-20261121-21) подтверждены первые карантинные публикации исходного и нового boot. Остаток 04.09.04 и 04.09.05 открыт. UI-приёмка в 07 |
-| [04.10. Отзыв credentials и закрытие соединений](04.10-revocation-and-pool-invalidation.md) | [04.09](04.09-leaf-renewal-and-overlap.md) | `not-started` |
-| [04.11. Replacement, отзыв и retirement issuer](04.11-issuer-replacement-and-retirement.md) | [04.07](04.07-existing-cluster-issuer.md), [04.08](04.08-remote-issuer-routing.md), [04.09](04.09-leaf-renewal-and-overlap.md), [04.10](04.10-revocation-and-pool-invalidation.md) | `not-started` |
-| [04.12. Online exchanges последующих voters](04.12-online-process-exchanges.md) | [04.08](04.08-remote-issuer-routing.md), [04.10](04.10-revocation-and-pool-invalidation.md) | `in-progress` |
-| [04.13. ManagedRestart завершённого Join](04.13-joined-managed-restart.md) | [04.04](04.04-storage-seal-lifecycle.md), [04.12](04.12-online-process-exchanges.md) | `not-started` |
-| [04.14. Негативная матрица протокола и сроков](04.14-negative-protocol-matrix.md) | [04.06](04.06-enrollment-through-e4.md), [04.09](04.09-leaf-renewal-and-overlap.md), [04.10](04.10-revocation-and-pool-invalidation.md), [04.11](04.11-issuer-replacement-and-retirement.md), [04.12](04.12-online-process-exchanges.md), [04.13](04.13-joined-managed-restart.md) | `not-started` |
-| [04.15. Crash: SQL, файлы, WAL и DER journal](04.15-crash-reconciliation.md) | [04.04](04.04-storage-seal-lifecycle.md), [04.06](04.06-enrollment-through-e4.md), [04.08](04.08-remote-issuer-routing.md), [04.12](04.12-online-process-exchanges.md), [04.13](04.13-joined-managed-restart.md) | `in-progress` |
-| [04.16. Минимальный Join UI до E4](04.16-minimal-enroll-ui.md) | [04.06](04.06-enrollment-through-e4.md) | `not-started` |
-| [04.17. Актуальные документы и форма новых типов](04.17-current-docs-and-code-shape.md) | [04.02](04.02-restart-mode-before-effects.md), [04.03](04.03-unbounded-progress-validation.md), [04.04](04.04-storage-seal-lifecycle.md), [04.05](04.05-bootstrap-and-invitation-proof.md), [04.06](04.06-enrollment-through-e4.md), [04.07](04.07-existing-cluster-issuer.md), [04.08](04.08-remote-issuer-routing.md), [04.09](04.09-leaf-renewal-and-overlap.md), [04.10](04.10-revocation-and-pool-invalidation.md), [04.11](04.11-issuer-replacement-and-retirement.md), [04.12](04.12-online-process-exchanges.md), [04.13](04.13-joined-managed-restart.md), [04.16](04.16-minimal-enroll-ui.md) | `not-started` |
-| [04.18. Проверки и приёмка собственного объёма 04](04.18-stage-acceptance.md) | [04.01](04.01-preflight-recheck.md), [04.14](04.14-negative-protocol-matrix.md), [04.15](04.15-crash-reconciliation.md), [04.16](04.16-minimal-enroll-ui.md), [04.17](04.17-current-docs-and-code-shape.md) | `not-started` |
+- [04.01. Повтор незакрытой проверки preflight](04.01-preflight-recheck.md)
+- [04.02. Mode-проверка ManagedRestart до эффектов](04.02-restart-mode-before-effects.md)
+- [04.03. Проверка растущей истории steps](04.03-unbounded-progress-validation.md)
+- [04.04. Storage seals: конкурентность и стоимость](04.04-storage-seal-lifecycle.md)
+- [04.05. Новый первый: Bootstrap и выдача приглашения](04.05-bootstrap-and-invitation-proof.md)
+- [04.06. Enrollment E1–E4 и двусторонние probes](04.06-enrollment-through-e4.md)
+- [04.07. Issuer для существующего ручного кластера](04.07-existing-cluster-issuer.md)
+- [04.08. Удалённый issuer и follower-координатор](04.08-remote-issuer-routing.md)
 
-**04.01–04.08 и изолированные 04.09-A/B1/B2/B3a/B3b/B3c1, 04.09.01–02 завершены.** В 04.09.02 подтверждены worker, штатное восстановление вокруг Bind и цикл через взаимную проверку, retirement и следующий PoP. [Итог 04.09.02](04.09-credential-renewal/04.09.02-automatic-rotation.md#nui-04-20261121-04). Узкий production admission в managed Bootstrap Direct подтверждён в [04.09.03](04.09-credential-renewal/04.09.03-production-admission.md#nui-04-20261121-08). Реальные handshake, online CRL, reuse и TCP passthrough остаются 07.04. 04.18 закрывает собственный объём доверия. [Проверки B3c1](04.09-credential-renewal/04.09-b3c1-renewal-and-restart.md#voter-credential-managed-restart-0409b3c1), [сводка](progress.md).
+Частичные результаты сохранились в материалах [04.09](04.09-leaf-renewal-and-overlap.md), [04.12](04.12-online-process-exchanges.md) и [04.15](04.15-crash-reconciliation.md).
