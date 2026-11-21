@@ -129,6 +129,11 @@ public class LocalSecretStore(IOptions<InstallationOptions> configured, Installa
         return ProtectState(attemptId, "managed-restart", state, 8192);
     }
 
+    public string ProtectVoterRenewal(Guid slot, ReadOnlySpan<byte> state)
+    {
+        return ProtectState(slot, "voter-renewal", state, 65536);
+    }
+
     private string ProtectState(Guid attemptId, string purpose, ReadOnlySpan<byte> invitation, int maximum)
     {
         if (attemptId == Guid.Empty || invitation.Length < 1 || invitation.Length > maximum)
@@ -162,6 +167,11 @@ public class LocalSecretStore(IOptions<InstallationOptions> configured, Installa
     public byte[] ReadRestart(Guid attemptId, string protectedState)
     {
         return ReadState(attemptId, "managed-restart", protectedState, 8192);
+    }
+
+    public byte[] ReadVoterRenewal(Guid slot, string protectedState)
+    {
+        return ReadState(slot, "voter-renewal", protectedState, 65536);
     }
 
     private byte[] ReadState(Guid attemptId, string purpose, string protectedInvitation, int maximum)

@@ -3,6 +3,8 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using UptimeHarbor.Application.Cluster.Models;
 using UptimeHarbor.Application.Cluster.Onboarding;
+using UptimeHarbor.Application.Cluster.Onboarding.Renewal;
+using UptimeHarbor.Infrastructure.Cluster.Onboarding.Renewal;
 using UptimeHarbor.Infrastructure.Installation;
 
 namespace UptimeHarbor.Infrastructure.Cluster.Onboarding;
@@ -71,7 +73,26 @@ public class EnrollmentSigningJournal(IEnrollmentSigningUnitOfWork work, Enrollm
     public async Task<EnrollmentIssuedArtifact> SaveIssueOnceAsync(EnrollmentIssuedArtifact artifact,
         EnrollmentRequest request, EnrollmentIssuance template, DateTimeOffset now, CancellationToken token)
     {
-        ValidateArtifact(artifact, request, template);
+        return await SaveCoreAsync(artifact, request, template, EnrollmentRequestCodec.Digest(request), now, token);
+    }
+
+    public async Task<EnrollmentIssuedArtifact> SaveVoterIssueOnceAsync(EnrollmentIssuedArtifact artifact,
+        VoterCredentialRequest request, DateTimeOffset now, CancellationToken token)
+    {
+        return await SaveVoterIssueOnceAsync(artifact, request, VoterCredentialProofs.Digest(request), now, token);
+    }
+
+    internal Task<EnrollmentIssuedArtifact> SaveVoterIssueOnceAsync(EnrollmentIssuedArtifact artifact,
+        VoterCredentialRequest request, string requestDigest, DateTimeOffset now, CancellationToken token)
+    {
+        return SaveCoreAsync(artifact, VoterCredentialProofs.CertificateIdentity(request), request.Renewal.Issuance,
+            requestDigest, now, token);
+    }
+
+    private async Task<EnrollmentIssuedArtifact> SaveCoreAsync(EnrollmentIssuedArtifact artifact,
+        EnrollmentRequest request, EnrollmentIssuance template, string requestDigest, DateTimeOffset now, CancellationToken token)
+    {
+        ValidateArtifact(artifact, request, template, requestDigest);
         await signingLock.Semaphore.WaitAsync(token);
         try
         {
@@ -87,7 +108,7 @@ public class EnrollmentSigningJournal(IEnrollmentSigningUnitOfWork work, Enrollm
             EnrollmentIssuedArtifact? existing = await work.Signing.FindIssueAsync(artifact.IssueId, token);
             if (existing is not null)
             {
-                ValidateArtifact(existing, request, template);
+                ValidateArtifact(existing, request, template, requestDigest);
                 bool same = existing.IssuerEpoch == artifact.IssuerEpoch && existing.AttemptId == artifact.AttemptId
                     && existing.RequestDigest == artifact.RequestDigest && existing.TemplateDigest == artifact.TemplateDigest
                     && existing.GenesisId == artifact.GenesisId && existing.AuthorizationIndex == artifact.AuthorizationIndex;
@@ -117,7 +138,8 @@ public class EnrollmentSigningJournal(IEnrollmentSigningUnitOfWork work, Enrollm
         return EnrollmentCertificates.Hash(StrictOnboardingJson.Encode(template));
     }
 
-    private static void ValidateArtifact(EnrollmentIssuedArtifact artifact, EnrollmentRequest request, EnrollmentIssuance template)
+    private static void ValidateArtifact(EnrollmentIssuedArtifact artifact, EnrollmentRequest request,
+        EnrollmentIssuance template, string requestDigest)
     {
         EnrollmentCertificates.ValidateTemplate(request, template);
         bool authorization = artifact.AuthorizationIndex > 0 && artifact.GenesisId is null;
@@ -127,7 +149,7 @@ public class EnrollmentSigningJournal(IEnrollmentSigningUnitOfWork work, Enrollm
         }
 
         if (!authorization || artifact.IssueId != template.IssueId || artifact.IssuerEpoch != template.IssuerEpoch
-            || artifact.AttemptId != request.AttemptId || artifact.RequestDigest != EnrollmentRequestCodec.Digest(request)
+            || artifact.AttemptId != request.AttemptId || artifact.RequestDigest != requestDigest
             || artifact.TemplateDigest != TemplateDigest(template) || artifact.CertificateDer.Length is < 1 or > EnrollmentCertificates.MAX_DER_BYTES
             || artifact.CertificateDigest != EnrollmentCertificates.Hash(artifact.CertificateDer))
         {

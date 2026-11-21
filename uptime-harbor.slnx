@@ -93,6 +93,7 @@
   </Folder>
   <Folder Name="/Documentation/Plans/node-onboarding-ui-2026-11-02-(in-progress)/04-enrollment-and-trust/">
     <File Path="Documentation/Plans/node-onboarding-ui-2026-11-02-(in-progress)/04-enrollment-and-trust/main.md" />
+    <File Path="Documentation/Plans/node-onboarding-ui-2026-11-02-(in-progress)/04-enrollment-and-trust/progress.md" />
     <File Path="Documentation/Plans/node-onboarding-ui-2026-11-02-(in-progress)/04-enrollment-and-trust/04.01-preflight-recheck.md" />
     <File Path="Documentation/Plans/node-onboarding-ui-2026-11-02-(in-progress)/04-enrollment-and-trust/04.02-restart-mode-before-effects.md" />
     <File Path="Documentation/Plans/node-onboarding-ui-2026-11-02-(in-progress)/04-enrollment-and-trust/04.03-unbounded-progress-validation.md" />
@@ -111,6 +112,21 @@
     <File Path="Documentation/Plans/node-onboarding-ui-2026-11-02-(in-progress)/04-enrollment-and-trust/04.16-minimal-enroll-ui.md" />
     <File Path="Documentation/Plans/node-onboarding-ui-2026-11-02-(in-progress)/04-enrollment-and-trust/04.17-current-docs-and-code-shape.md" />
     <File Path="Documentation/Plans/node-onboarding-ui-2026-11-02-(in-progress)/04-enrollment-and-trust/04.18-stage-acceptance.md" />
+  </Folder>
+  <Folder Name="/Documentation/Plans/node-onboarding-ui-2026-11-02-(in-progress)/04-enrollment-and-trust/04.09-credential-renewal/">
+    <File Path="Documentation/Plans/node-onboarding-ui-2026-11-02-(in-progress)/04-enrollment-and-trust/04.09-credential-renewal/04.09.01-authorize-retry.md" />
+    <File Path="Documentation/Plans/node-onboarding-ui-2026-11-02-(in-progress)/04-enrollment-and-trust/04.09-credential-renewal/04.09.02-automatic-rotation.md" />
+    <File Path="Documentation/Plans/node-onboarding-ui-2026-11-02-(in-progress)/04-enrollment-and-trust/04.09-credential-renewal/04.09.03-production-admission.md" />
+    <File Path="Documentation/Plans/node-onboarding-ui-2026-11-02-(in-progress)/04-enrollment-and-trust/04.09-credential-renewal/04.09.04-continue-credential.md" />
+    <File Path="Documentation/Plans/node-onboarding-ui-2026-11-02-(in-progress)/04-enrollment-and-trust/04.09-credential-renewal/04.09.05-isolated-verification.md" />
+    <File Path="Documentation/Plans/node-onboarding-ui-2026-11-02-(in-progress)/04-enrollment-and-trust/04.09-credential-renewal/04.09-a-accepted-state.md" />
+    <File Path="Documentation/Plans/node-onboarding-ui-2026-11-02-(in-progress)/04-enrollment-and-trust/04.09-credential-renewal/04.09-b1-authority-and-signing.md" />
+    <File Path="Documentation/Plans/node-onboarding-ui-2026-11-02-(in-progress)/04-enrollment-and-trust/04.09-credential-renewal/04.09-b2-local-install-and-recovery.md" />
+    <File Path="Documentation/Plans/node-onboarding-ui-2026-11-02-(in-progress)/04-enrollment-and-trust/04.09-credential-renewal/04.09-b3a-peer-signing-exchange.md" />
+    <File Path="Documentation/Plans/node-onboarding-ui-2026-11-02-(in-progress)/04-enrollment-and-trust/04.09-credential-renewal/04.09-b3b1-accepted-leaf-policy.md" />
+    <File Path="Documentation/Plans/node-onboarding-ui-2026-11-02-(in-progress)/04-enrollment-and-trust/04.09-credential-renewal/04.09-b3b2-managed-direct.md" />
+    <File Path="Documentation/Plans/node-onboarding-ui-2026-11-02-(in-progress)/04-enrollment-and-trust/04.09-credential-renewal/04.09-b3b2-legacy-direct-and-nginx.md" />
+    <File Path="Documentation/Plans/node-onboarding-ui-2026-11-02-(in-progress)/04-enrollment-and-trust/04.09-credential-renewal/04.09-b3c1-renewal-and-restart.md" />
   </Folder>
   <Folder Name="/Documentation/Plans/node-onboarding-ui-2026-11-02-(in-progress)/05-join-orchestration/">
     <File Path="Documentation/Plans/node-onboarding-ui-2026-11-02-(in-progress)/05-join-orchestration/main.md" />

@@ -5,6 +5,7 @@ using UptimeHarbor.Application.Cluster;
 using UptimeHarbor.Application.Cluster.Models;
 using UptimeHarbor.Infrastructure.Cluster;
 using UptimeHarbor.Application.Cluster.Onboarding;
+using UptimeHarbor.Application.Cluster.Onboarding.Renewal;
 
 namespace UptimeHarbor.Web.Cluster;
 
@@ -25,7 +26,8 @@ public class ClusterRevisionController(RevisionDispatcher dispatcher, IOptions<C
             byte[] bytes = await RevisionBatchCodec.ReadAsync(Request.Body, options.Value.BatchMaxBytes, cancellationToken);
             IReadOnlyList<RevisionCommand> commands = RevisionBatchCodec.Decode(bytes, options.Value);
             if (commands.Any(command => ClusterOperationValidation.IsInternal(command) || OnboardingCommands.IsCoordinator(command)
-                || OnlineLifecycleCommands.IsOnline(command)
+                || OnlineLifecycleCommands.IsOnline(command) || VoterCredentialCommands.IsRotation(command)
+                || VoterContinuationCommands.IsContinuation(command)
                 || command.OriginNodeId != peer.FromNodeId
                 || command.Monitoring is not null && command.Monitoring.StorageGeneration != peer.StorageGeneration
                 || command.Delivery is not null && command.Delivery.StorageGeneration != peer.StorageGeneration

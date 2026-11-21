@@ -46,7 +46,8 @@ public static class OnlineLifecycleReducer
             {
                 ImmutableDictionary<Guid, OnlineProcessLease> processes = contracts.OnlineProcesses ?? ImmutableDictionary<Guid, OnlineProcessLease>.Empty;
                 OnlineProcessLease? previous = processes.GetValueOrDefault(grant.NodeId);
-                bool sameProcess = previous is not null && previous.BootId == grant.BootId
+                bool sameProcess = previous is not null && (!previous.CredentialContinuation || renewing)
+                    && previous.BootId == grant.BootId
                     && previous.BootChallenge == grant.BootChallenge && previous.ProcessEpoch == grant.ProcessEpoch
                     && previous.RecoveryVersion <= grant.RecoveryVersion;
                 bool nextProcess = previous is not null && previous.BootId != grant.BootId && previous.BootChallenge != grant.BootChallenge

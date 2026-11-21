@@ -66,7 +66,11 @@ public static class OnlineGrantRequestSignatures
         Canonical(grant);
         bool identity = grant.AttemptId == profile.AttemptId && grant.ClusterId == profile.ClusterId
             && grant.Generation == profile.ClusterGeneration && grant.NodeId == profile.NodeId
-            && grant.StorageGeneration == profile.StorageGeneration && grant.CredentialId == profile.CredentialId
+            && grant.StorageGeneration == profile.StorageGeneration
+            // A restarted Bootstrap keeps its original profile. Live requests also verify the
+            // published credential and accepted peer-key proof before using a historical step.
+            && (grant.CredentialId == profile.CredentialId
+                || profile is { Mode: "Bootstrap", ManagedRestart: true } && grant.InvitationId is null)
             && grant.PeerUri == profile.PeerAddress;
         bool intent = step.Kind == STEP_KIND && step.ExpectedResult == "SignedOnlineGrant" && request.Version == 1
             && step.OperationId == IntentId(grant.GrantId) && step.AttemptId == profile.AttemptId

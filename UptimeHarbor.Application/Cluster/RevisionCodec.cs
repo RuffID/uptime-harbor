@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using UptimeHarbor.Application.Cluster.Models;
 using UptimeHarbor.Domain.Cluster;
 using UptimeHarbor.Application.Cluster.Onboarding;
+using UptimeHarbor.Application.Cluster.Onboarding.Renewal;
 
 namespace UptimeHarbor.Application.Cluster;
 
@@ -59,6 +60,11 @@ public static class RevisionCodec
 
     public static string Digest(RevisionCommand command)
     {
+        if (command.VoterContinuation is not null)
+        {
+            command = command with { VoterContinuation = command.VoterContinuation with { Acceptance = null } };
+        }
+
         if (command.Onboarding is not null)
         {
             command = command with { Onboarding = command.Onboarding with { CoordinatorAtUtc = null, CoordinatorTerm = 0 } };
@@ -134,7 +140,9 @@ public static class RevisionCodec
         bool delivery = DeliveryCommands.IsSystem(command);
         bool operation = ClusterOperationValidation.IsOperation(command);
         bool system = MonitoringCommandValidation.IsSystem(command) || delivery || operation || onboarding || trust || online;
-        if ((!onboarding && !trust && !online && command.Schema != 1) || !system && command.Action is not ("Upsert" or "Delete" or "Cancel" or "Replace" or "BootstrapAccount" or "TestDelivery")
+        bool continuation = VoterContinuationCommands.IsContinuation(command);
+        if ((!onboarding && !trust && !online && !continuation && command.Schema != 1)
+            || !system && !continuation && command.Action is not ("Upsert" or "Delete" or "Cancel" or "Replace" or "BootstrapAccount" or "TestDelivery")
             || !Enum.IsDefined(command.EntityKind))
         {
             throw new InvalidDataException("UnsupportedCommand");
@@ -147,6 +155,17 @@ public static class RevisionCodec
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(command.ClusterGeneration);
         ArgumentOutOfRangeException.ThrowIfNegative(command.BaseRevision);
         StorageGuards.Utc(command.CreatedAtUtc);
+        if (continuation)
+        {
+            VoterContinuationCommands.Validate(command);
+            return;
+        }
+
+        if (command.VoterContinuation is not null)
+        {
+            throw new InvalidDataException("UnexpectedVoterContinuationPayload");
+        }
+
         if (online)
         {
             OnlineLifecycleCommands.Validate(command);

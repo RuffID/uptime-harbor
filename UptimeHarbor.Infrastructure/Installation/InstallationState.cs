@@ -9,6 +9,7 @@ public class InstallationState
     private bool commonOpen;
     public LocalInstallationProfile? Current => Volatile.Read(ref current);
     public SemaphoreSlim Transition { get; } = new(1, 1);
+    internal SemaphoreSlim VoterRenewal { get; } = new(1, 1);
 
     public void Publish(LocalInstallationProfile profile)
     {

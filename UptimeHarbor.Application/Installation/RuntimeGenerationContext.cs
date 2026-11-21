@@ -11,6 +11,16 @@ public class RuntimeGenerationContext : IDisposable
         CHECK.Value = check;
     }
 
+    public static RuntimeGenerationContext Extend(Action check)
+    {
+        Action? inherited = CHECK.Value;
+        return new(() =>
+        {
+            inherited?.Invoke();
+            check();
+        });
+    }
+
     public static void Verify()
     {
         CHECK.Value?.Invoke();

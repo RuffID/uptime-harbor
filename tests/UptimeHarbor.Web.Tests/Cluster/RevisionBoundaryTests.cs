@@ -4,8 +4,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using UptimeHarbor.Application.Cluster;
 using UptimeHarbor.Application.Cluster.Models;
+using UptimeHarbor.Application.Cluster.Onboarding.Renewal;
 using UptimeHarbor.Domain.Cluster;
 using UptimeHarbor.Infrastructure.Cluster;
+using UptimeHarbor.Infrastructure.Cluster.Onboarding;
 using UptimeHarbor.Web.Cluster;
 using Xunit;
 
@@ -130,6 +132,60 @@ public class RevisionBoundaryTests
 
         // Assert
         Assert.Equal(expectedStatus, Assert.IsType<StatusCodeResult>(result).StatusCode);
+        Assert.Equal(0, consensus.Calls);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task TypedCredentialTailClosesTheWholeOrdinaryPeerBatch(bool continuation)
+    {
+        // Arrange
+        Guid cluster = Guid.NewGuid();
+        Guid node = Guid.NewGuid();
+        Guid storage = Guid.NewGuid();
+        EnrollmentIssuance leaf = new(1, Guid.NewGuid(), Guid.NewGuid(), "0123456789ABCDEF0123456789ABCDEF",
+            node, storage, "https://peer.invalid/internal/raft", new string('A', 64), new string('B', 64),
+            DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch.AddDays(30));
+        VoterCredentialRenewal renewal = new(Guid.NewGuid(), new string('C', 64), new string('D', 64), 0, leaf);
+        VoterCredentialRequest request = new(1, cluster, 1, Guid.NewGuid(), renewal);
+        RevisionCommand typed = VoterCredentialAuthorizationCommand.Create(request);
+        if (continuation)
+        {
+            string challenge = Convert.ToBase64String(new byte[32]);
+            VoterContinuationContext pins = new(request, VoterContinuationCommands.IntentDigest(request), node, storage,
+                1, 1, 0, new(Guid.NewGuid(), challenge, 1, 0), null, leaf.IssuerEpoch, 1, 1);
+            typed = typed with
+            {
+                Action = "RequestVoterContinuation", SystemSource = null, EnrollmentTrust = null,
+                VoterContinuation = new(pins, null, new(challenge, new string('E', 64)), null)
+            };
+        }
+
+        RevisionCommand ordinary = new()
+        {
+            ClusterId = cluster, ClusterGeneration = 1, OperationId = Guid.NewGuid(), OriginNodeId = node,
+            ActorUserId = Guid.NewGuid(), ActorRevision = 1, EntityId = Guid.NewGuid(), EntityKind = DeletedEntityKind.Server,
+            BaseRevision = 0, Action = "Upsert", CreatedAtUtc = DateTimeOffset.UnixEpoch,
+            Value = new ConfigurationValue { Name = "server", Endpoint = "https://test.invalid/health", Generation = Guid.NewGuid() }
+        };
+        DefaultHttpContext context = new();
+        context.Request.Body = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(new[] { ordinary, typed }));
+        context.Items[typeof(PeerEnvelope)] = new PeerEnvelope(cluster, 1, node, storage, Guid.NewGuid(),
+            Guid.NewGuid(), Guid.NewGuid(), DateTimeOffset.UnixEpoch, OnboardingProtocol.TRUST_COMPATIBILITY, Guid.NewGuid());
+        Consensus consensus = new();
+        RevisionStateStore state = new();
+        state.Publish(new(cluster, 1));
+        ClusterRevisionController controller = new(new(consensus, state), Options.Create(new ClusterOptions { CommandSchema = 3 }))
+        {
+            ControllerContext = new() { HttpContext = context }
+        };
+
+        // Act
+        IActionResult result = await controller.SubmitAsync(TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(403, Assert.IsType<StatusCodeResult>(result).StatusCode);
         Assert.Equal(0, consensus.Calls);
     }
 

@@ -13,6 +13,7 @@
 - Реализовывать чистые Application-контракты, не протаскивая инфраструктурные типы наружу.
 - Все EF-запросы, tracking и materialization держать внутри Infrastructure.
 - Регистрировать зависимости модулем `AddInfrastructure`, а не напрямую в `Program.cs`.
+- Изолированные voter renewal authority/signing компоненты в `Cluster/Onboarding/Renewal` пока не регистрируются: подключение требует durable local key install и trust/runtime policy, существующий dispatcher остаётся закрытым.
 - Для production persistence использовать провайдер EF Core SQL Server и строку подключения `ConnectionStrings:SqlServer`.
 - Типизированные настройки получать через options; `IConfiguration` использовать только при регистрации.
 - При изменении интеграций, Identity или persistence обновлять этот файл и тематическую документацию `Documentation/Technical documentation`.

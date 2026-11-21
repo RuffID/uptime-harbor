@@ -1,5 +1,6 @@
 @model string
 @inject Microsoft.AspNetCore.Antiforgery.IAntiforgery Antiforgery
+@inject UptimeHarbor.Infrastructure.Installation.InstallationState Installation
 @{
     string token = Antiforgery.GetAndStoreTokens(ViewContext.HttpContext).RequestToken
         ?? throw new InvalidOperationException("Не удалось создать antiforgery token.");
@@ -44,6 +45,31 @@
     <h2 class="h5 mb-0">Диагностика узлов</h2>
     <div class="small" data-cluster-diagnostic-summary></div>
     <div data-cluster-nodes></div>
+    @if (Model == "Monitoring" && Installation.CommonOpen
+        && User.IsInRole(UptimeHarbor.Application.Security.ApplicationRoles.ADMINISTRATOR))
+    {
+        <section class="d-flex flex-column gap-2" aria-labelledby="credentialContinuationHeading" data-credential-continuation>
+            <h2 class="h5 mb-0" id="credentialContinuationHeading">Продолжение действия удостоверения узла</h2>
+            <form method="post" class="d-flex flex-wrap align-items-end gap-2" data-continuation-lookup>
+                <div>
+                    <label class="form-label" for="continuationRequestId">ID операции восстановления</label>
+                    <input class="form-control" id="continuationRequestId" name="requestId" required maxlength="36" autocomplete="off" />
+                </div>
+                <button class="btn btn-outline-secondary" type="submit" disabled>Открыть запрос</button>
+            </form>
+            <p class="mb-0" role="status" data-continuation-status></p>
+            <p class="text-danger mb-0" role="alert" data-continuation-error></p>
+            <form method="post" data-continuation-form hidden>
+                <fieldset class="d-flex flex-wrap align-items-end gap-2" disabled>
+                    <div>
+                        <label class="form-label" for="continuationPassword">Ваш пароль общего администратора</label>
+                        <input class="form-control" id="continuationPassword" name="password" type="password" autocomplete="current-password" required maxlength="1024" />
+                    </div>
+                    <button class="btn btn-primary" type="submit">Подтвердить запрос</button>
+                </fieldset>
+            </form>
+        </section>
+    }
     <h2 class="h5 mb-0">Принятая очередь и результаты доставок</h2>
     <p class="small mb-0">202 / принятая тестовая команда означают очередь, а не доставку Telegram. Окончательная ошибка после пяти реальных попыток остаётся видимой. Ручного retry и обещанного времени восстановления нет.</p>
     <div data-cluster-deliveries></div>

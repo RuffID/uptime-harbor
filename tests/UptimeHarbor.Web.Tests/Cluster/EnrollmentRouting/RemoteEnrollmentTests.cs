@@ -196,4 +196,49 @@ public class RemoteEnrollmentTests
         Assert.Equal(writes, fixture.Projection.Writes.Count);
         Assert.Equal(operation, fixture.State.Current!.Onboarding!.Invitations[key.Request.InvitationId].Attempt!.ReserveOperationId);
     }
+
+    [Fact]
+    public async Task ConcurrentRemoteIssueWaitsForIssuerCommitAndReturnsOneOriginalDer()
+    {
+        // Arrange
+        await using EnrollmentRoutingFixture fixture = new();
+        CancellationToken token = TestContext.Current.CancellationToken;
+        await fixture.InitializeAsync(token);
+        using EnrollmentRoutingFixture.JoiningKey key = await fixture.InviteAsync(token);
+        await fixture.Ingress.Gateway.ExchangeAsync(key.Exchange(fixture.Ingress, "ReserveInvitation"), token);
+        fixture.OfflineSigner = true;
+        await Assert.ThrowsAsync<HttpRequestException>(() => fixture.Ingress.Gateway.ExchangeAsync(
+            key.Exchange(fixture.Ingress, "AuthorizeEnrollmentCertificate"), token));
+        EnrollmentSigningRequest request = StrictOnboardingJson.Decode<EnrollmentSigningRequest>(fixture.Sent.Last().Body);
+        fixture.OfflineSigner = false;
+        TaskCompletionSource entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        fixture.First.Store.BeforeSaveChanges = async cancellation =>
+        {
+            entered.TrySetResult();
+            await release.Task.WaitAsync(cancellation);
+        };
+        int saves = fixture.First.Store.Saves;
+
+        // Act
+        Task<EnrollmentIssuedArtifact> first = fixture.Ingress.Client.IssueAsync(fixture.Issuer.Options.NodeId, request, token);
+        await Task.WhenAny(first, entered.Task).WaitAsync(TimeSpan.FromSeconds(10), token);
+        if (first.IsCompleted)
+        {
+            await first;
+        }
+
+        Task<EnrollmentIssuedArtifact> second = fixture.Ingress.Client.IssueAsync(fixture.Issuer.Options.NodeId, request, token);
+        bool returnedBeforeCommit = first.IsCompleted || second.IsCompleted;
+        release.SetResult();
+        EnrollmentIssuedArtifact[] issued = await Task.WhenAll(first, second);
+
+        // Assert
+        Assert.False(returnedBeforeCommit);
+        Assert.Equal(issued[0].CertificateDer, issued[1].CertificateDer);
+        Assert.Equal(issued[0].CertificateDer, fixture.First.Store.Issues[request.Issuance.IssueId].CertificateDer);
+        Assert.Equal(saves + 1, fixture.First.Store.Saves);
+        Assert.Equal(2, fixture.First.Store.Issues.Count);
+        Assert.Null(fixture.State.Current!.Onboarding!.Invitations[key.Request.InvitationId].Attempt!.CertificateDigest);
+    }
 }

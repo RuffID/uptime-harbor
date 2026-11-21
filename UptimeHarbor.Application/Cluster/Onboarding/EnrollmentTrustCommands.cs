@@ -8,7 +8,8 @@ public static class EnrollmentTrustCommands
 {
     public static bool IsTrust(RevisionCommand command)
     {
-        return command.Action is "InitializeCluster" or "RegisterEnrollmentIssuer" or "RetireEnrollmentIssuer" or "RevokeEnrollmentIssuer";
+        return command.Action is "InitializeCluster" or "RegisterEnrollmentIssuer" or "RetireEnrollmentIssuer" or "RevokeEnrollmentIssuer"
+            || Renewal.VoterCredentialCommands.IsRotation(command);
     }
 
     public static void Validate(RevisionCommand command)
@@ -19,7 +20,14 @@ public static class EnrollmentTrustCommands
         bool mixed = command.Onboarding is not null || command.Operation is not null || command.Value is not null
             || command.Monitoring is not null || command.Delivery is not null || command.Target is not null
             || command.Replacement is not null || command.AccountAction is not null || command.ResolvesConflictId.HasValue;
+        if (Renewal.VoterCredentialCommands.IsRotation(command) && !mixed && command.OnlineLifecycle is null)
+        {
+            Renewal.VoterCredentialCommands.Validate(command);
+            return;
+        }
+
         if (!IsTrust(command) || command.Schema != 3 || data.Version != 1 || mixed
+            || data.Rotation is not null
             || command.EntityKind != DeletedEntityKind.Node || command.EntityId != data.IssuerEpoch
             || registration != (data.Issuer is not null) || genesis != (data.Genesis is not null)
             || genesis != (data.Node is not null) || genesis != (data.Credential is not null)

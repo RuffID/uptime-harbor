@@ -8,6 +8,8 @@ public static class OnboardingContractSnapshot
     {
         EnrollmentTrustSnapshot.Validate(image);
         OnlineLifecycleSnapshot.Validate(image);
+        Renewal.VoterCredentialSnapshot.Validate(image);
+        Renewal.VoterContinuationSnapshot.Validate(image);
         OnboardingContractImage? data = image.OnboardingContracts;
         if (data is null)
         {

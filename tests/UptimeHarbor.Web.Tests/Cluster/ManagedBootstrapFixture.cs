@@ -76,7 +76,7 @@ public class ManagedBootstrapFixture : IAsyncDisposable
     private readonly ServiceProvider services;
     private WriteAheadLog? wal;
 
-    public ManagedBootstrapFixture(bool durableRestart = false)
+    public ManagedBootstrapFixture(bool durableRestart = false, IEnrollmentPeerClient? signingPeers = null)
     {
         InstallationOptions local = new()
         {
@@ -128,7 +128,8 @@ public class ManagedBootstrapFixture : IAsyncDisposable
         genesis = new(Store, Store, secrets, Lease, Microsoft.Extensions.Options.Options.Create(local), Time);
         Admission = new(Installation, Microsoft.Extensions.Options.Options.Create(local), Microsoft.Extensions.Options.Options.Create(new ClusterControlOptions()), Lease);
         Readiness = new(Time);
-        Enable = new(Accepted, Installation, Lease, Readiness, Time);
+        tls = new(Installation, Accepted, Time);
+        Enable = new(Accepted, Installation, Lease, Readiness, Time, tls);
         ClusterLocalControl control = new(Microsoft.Extensions.Options.Options.Create(Options), Microsoft.Extensions.Options.Options.Create(new ClusterControlOptions()), Time, Readiness, Admission, Enable);
         ManagedRecoveryAdmission source = new(Microsoft.Extensions.Options.Options.Create(local), Admission,
             new SignedRecoveryAdmission(control, Microsoft.Extensions.Options.Options.Create(Options), Time));
@@ -136,9 +137,8 @@ public class ManagedBootstrapFixture : IAsyncDisposable
         Snapshots = new(Microsoft.Extensions.Options.Options.Create(Options));
         recovery = new(source, Accepted, new(Accepted, new(), Projection), Projection,
             Snapshots, services.GetRequiredService<IServiceScopeFactory>(), Microsoft.Extensions.Options.Options.Create(Options), managedSeals: Seals, time: Time);
-        Runtime = new(recovery, Accepted, control, Microsoft.Extensions.Options.Options.Create(Options), Time);
+        Runtime = new(recovery, Accepted, control, Microsoft.Extensions.Options.Options.Create(Options), Time, Installation, tls);
         machine = new(recovery, Readiness);
-        tls = new(Installation, Accepted, Time);
         preparation = new(Store, Store, secrets, Installation, Lease, tls, Admission, Permit, Accepted,
             Microsoft.Extensions.Options.Options.Create(Options), Time);
         IRaftCluster raft = DispatchProxy.Create<IRaftCluster, ManagedRaftProbe>();
@@ -168,7 +168,7 @@ public class ManagedBootstrapFixture : IAsyncDisposable
             new NoNetworkPeerClients(), Microsoft.Extensions.Options.Options.Create(Options), Time);
         GrantRequests = new(Store, Installation, Lease, secrets, Admission, Readiness, Accepted,
             Microsoft.Extensions.Options.Options.Create(Options), Time);
-        Issuance = new(issuer, Grants, Accepted, peers, Microsoft.Extensions.Options.Options.Create(Options), Time, GrantRequests);
+        Issuance = new(issuer, Grants, Accepted, signingPeers ?? peers, Microsoft.Extensions.Options.Options.Create(Options), Time, GrantRequests);
         Descriptors = new(Accepted, Microsoft.Extensions.Options.Options.Create(local), Microsoft.Extensions.Options.Options.Create(Options), Time);
         Enrollment = new(Descriptors,
             Nonces, new(), new(Store, Installation, Time), peers, Issuance,

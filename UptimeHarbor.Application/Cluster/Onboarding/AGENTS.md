@@ -1,5 +1,9 @@
 # Приглашения и подготовительные контракты
 
+Renewal/ владеет отдельным accepted lifecycle voter credentials: Authorize/Bind/RetireOldCredential, revision chain и overlap policy. Не связывать его с активной invitation/attempt и не открывать production admission без PoP/CSR/majority authority. Accepted registry и snapshot не доказывают локальную установку нового ключа.
+
+Typed renewal authority/signing contracts также принадлежат Renewal/. Их наличие и подготовленный immutable command не открывают RevisionDispatcher: подключение возможно только вместе с durable local install и runtime trust policy.
+
 Приглашения используют RevisionDispatcher → RevisionReducer → прежний projection UoW. Вторая очередь согласования и глобальный UoW запрещены. OnboardingCommand — внутренний формат, не browser request.
 
 Сроки отсчитываются от CoordinatorAtUtc, назначенного принимающим leader. Эти поля не входят в digest исходного запроса, но входят в байты WAL/receipt. Replay не читает часы. Invitation TTL не заменяет reservation/admission/process lease.
@@ -13,3 +17,5 @@ Schema-3 EnrollmentTrust commands используют прежний reducer/pr
 IEnrollmentIssuerRegistrationBarrier подтверждает majority и capability всех voters до Register; coordinator не должен обходить его через peer batch. PendingCommandService не заменяет reauthenticated actor revision trust-команды текущей revision аккаунта и не принимает готовый coordinator stamp.
 
 Schema-3 попытка сохраняет BootChallenge и IssuanceAuthorizationIndex. Resume ждёт предыдущую lease и меняет boot/challenge/epoch; критичные продолжения проверяют issuer/delegation/credential revocation. CSR extension policy и private signing принадлежат Infrastructure; record/digest сами authority не создают. Import/Telegram dispatcher здесь не реализованы. Локальные signing ports не входят в общий snapshot.
+ContinueCredential фиксирует lease в общем OnlineProcesses, связывая её с committed registration из VoterContinuations. Единственный переход в обычную lease из неё проходит через `RenewOnlineProcess` с точным Bind digest, новым bound leaf и теми же boot/challenge/epoch/recovery до expiry. `RegisterOnlineProcess`, Activation и Enable не принимают continuation lease. Snapshot валидирует источник lease в текущем образе и recovery history.
+

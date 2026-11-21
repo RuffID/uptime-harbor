@@ -1,8 +1,12 @@
 # Изолированный setup
 
+Renewal/ проверяет durable voter bundle/pins, Bind intent/result и manifest/ref/install/confirmation на реальных temporary files/reopen, с fault injection до/после immutable записей и memory B1 authority/journal/transport. SQL, физический fsync и production integration за пределами этого набора. Точные границы в Renewal/AGENTS.md.
+
 ProgressValidationTests вызывает production LocalSetupAccountStore через MemoryContext/DbSet над памятью, проверяет полный обход и размер страниц, историю больше 10000, corruption и отмену. SQL Server query shape проверяется ToQueryString на закрытом context, без выполнения SQL. Эти tests не подтверждают provider ordering/locking или конкурентные записи в реальную БД.
 
 EnrollmentDynamicTlsTests повторяет live registry/credential/issuer revocation после TLS installation и проверяет name/chain/pin/expiry/orphan без sockets. Installation namespace допускает точный filter-class после проверки fixtures: providers не открываются, model tests используют только закрытый context metadata. Полный Infrastructure project не запускать по этому основанию.
+
+EnrollmentPeerTrustTests, EnrollmentDynamicTlsTests и PeerServerPinTests используют локальную X.509 и accepted images или подставной trust для expiry/overlap, отзыва, legacy chain и точной привязки credential. Legacy Direct проверять в режиме offline без CRL, а proxy chain — после границы доверенного proxy. Handshake, повторное использование соединений и смена pools требуют отдельных проверок.
 
 Enrollment* tests используют реальные локальные P-256/CSR/X.509 и production codecs/reducer/journal/signer, fake majority authorization, HttpMessageHandler и локальные временные файлы. EnrollmentJoinScenario проверяет Committed у каждой предпосылки. GenesisWriterPermit tests доказывают exact payload gate, не native startup/elections. DNS проверяется на переданных IP без resolver/network; TLS pin policy — на локальных сертификатах без handshakes/listeners. Metadata/migration model diff не выполняют SQL. Эти тесты не подтверждают production admission или file/SQL atomicity.
 

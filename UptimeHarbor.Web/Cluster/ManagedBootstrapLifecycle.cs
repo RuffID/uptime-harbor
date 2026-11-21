@@ -6,12 +6,14 @@ using Microsoft.Extensions.Options;
 using UptimeHarbor.Application.Cluster;
 using UptimeHarbor.Application.Cluster.Models;
 using UptimeHarbor.Application.Cluster.Onboarding;
+using UptimeHarbor.Application.Cluster.Onboarding.Renewal;
 using UptimeHarbor.Application.Installation;
 using UptimeHarbor.Domain.Cluster;
 using UptimeHarbor.Infrastructure.Cluster;
 using UptimeHarbor.Infrastructure.Cluster.Onboarding;
 using UptimeHarbor.Infrastructure.Installation;
 using UptimeHarbor.Infrastructure.Cluster.Onboarding.Routing;
+using UptimeHarbor.Infrastructure.Installation.Renewal;
 
 namespace UptimeHarbor.Web.Cluster;
 
@@ -21,7 +23,9 @@ public class ManagedBootstrapLifecycle(InstallationState installation, Installat
     OnlineProcessRenewalSigner renewal, OnlineEnableState enable, RevisionStateStore revisions,
     ClusterRuntimeState runtime, ClusterRaftHandle handle, NodeReadiness readiness,
     RevisionDispatcher dispatcher, InstallationLifecycle lifecycle, IOptions<ClusterOptions> options, TimeProvider time,
-    RevisionClusterRecovery? recovery = null, ManagedStorageSeals? seals = null)
+    RevisionClusterRecovery? recovery = null, ManagedStorageSeals? seals = null,
+    LocalVoterCredentialPublication? credentialPublication = null, DynamicPeerTls? tls = null,
+    LocalVoterContinuationPublication? continuationPublication = null)
 {
     public async Task TickAsync(CancellationToken token)
     {
@@ -29,7 +33,36 @@ public class ManagedBootstrapLifecycle(InstallationState installation, Installat
         RecoveryAdmission? local = admission.Read();
         if (profile is null || profile.Mode != "Bootstrap" || local?.Proof is not (FreshBootstrapProof or ManagedRestartProof)
             || profile.Phase is not (InstallationPhase.ClusterQuarantine or InstallationPhase.CatchingUp
-                or InstallationPhase.AwaitingActivation or InstallationPhase.ClusterReady) || !await BarrierAsync(token))
+                or InstallationPhase.AwaitingActivation or InstallationPhase.ClusterReady))
+        {
+            return;
+        }
+
+        VoterCredentialRotation? latest = null;
+        if (revisions.Current is { } initial)
+        {
+            latest = VoterCredentialPolicy.Latest(initial, profile.NodeId!.Value);
+        }
+
+        bool continuation = latest?.ContinuationRequestId is not null;
+        if (continuation)
+        {
+            DynamicPeerTls.Snapshot? published = tls?.Capture();
+            if (published is null || published.CredentialId != latest!.Renewal.Issuance.IssueId
+                || published.CredentialRevision != latest.CredentialRevision)
+            {
+                return;
+            }
+        }
+
+        if (!continuation && local.Proof is ManagedRestartProof && (runtime.Consensus is null || !runtime.Accepted.AccountStateConfirmed
+            || !await (credentialPublication ?? throw new InvalidOperationException("ManagedRestartPublicationRequired"))
+                .ConfirmRestartAsync(token)))
+        {
+            return;
+        }
+
+        if (!await BarrierAsync(token))
         {
             return;
         }
@@ -53,6 +86,28 @@ public class ManagedBootstrapLifecycle(InstallationState installation, Installat
         }
 
         OnlineProcessLease? process = image.OnboardingContracts.OnlineProcesses?.GetValueOrDefault(profile.NodeId!.Value);
+        if (tls?.Capture()?.ContinuationReference is string reference)
+        {
+            if (process is { CredentialContinuation: true })
+            {
+                if (process.RecoveryVersion == readiness.RecoveryVersion)
+                {
+                    await SubmitAsync(OnlineGrantPurpose.Process, "RenewOnlineProcess", token);
+                }
+
+                return;
+            }
+
+            await (continuationPublication ?? throw new InvalidOperationException("VoterContinuationPublicationRequired"))
+                .PublishAsync(reference, token);
+            return;
+        }
+
+        if (process is { CredentialContinuation: true })
+        {
+            return;
+        }
+
         if (process is null || process.BootId != lease.BootId || process.BootChallenge != lease.BootChallenge
             || process.RecoveryVersion != readiness.RecoveryVersion || time.GetUtcNow() >= process.LeaseUntilUtc)
         {
@@ -148,6 +203,7 @@ public class ManagedBootstrapLifecycle(InstallationState installation, Installat
             {
                 throw new UnauthorizedAccessException("OnlineProcessUnconfirmed");
             }
+
             OnlineProcessLease? process = image.OnboardingContracts!.OnlineProcesses?.GetValueOrDefault(profile.NodeId!.Value);
             Guid predecessor = Guid.Empty;
             if (purpose == OnlineGrantPurpose.Process && process is not null)
@@ -155,8 +211,31 @@ public class ManagedBootstrapLifecycle(InstallationState installation, Installat
                 predecessor = process.GrantId;
             }
 
+            DynamicPeerTls.Snapshot? working = null;
+            if (profile.ManagedRestart || VoterCredentialPolicy.Latest(image, profile.NodeId!.Value) is not null)
+            {
+                if (action == "RenewOnlineProcess")
+                {
+                    working = tls?.CaptureBootstrapProcessRenewal(image, installation.Current!);
+                }
+                else
+                {
+                    working = tls?.CaptureWorkingBootstrap(image, installation.Current!);
+                }
+
+                if (working is null)
+                {
+                    throw new InvalidOperationException("VoterCredentialWorkingPublicationRequired");
+                }
+            }
+
             string identity = $"UptimeHarbor.ManagedLifecycle.v1/{profile.AttemptId:D}/{lease.BootId:D}/{lease.BootChallenge}/{action}/{readiness.RecoveryVersion}/{image.Operations.Revision}/{image.Operations.MembershipVersion}/{predecessor:D}";
+            if (working is { CredentialRevision: > 0 })
+            {
+                identity += $"/{working.CredentialId:D}/{working.CredentialRevision}";
+            }
             Guid operationId = new(SHA256.HashData(Encoding.UTF8.GetBytes(identity)).AsSpan(0, 16));
+            OnlineGrantSigningRequest? originalRequest = null;
             while (true)
             {
                 CommandResult? previous = image.Results.GetValueOrDefault(operationId);
@@ -176,6 +255,11 @@ public class ManagedBootstrapLifecycle(InstallationState installation, Installat
                 LocalAttemptStep? saved = await work.Profiles.FindStepAsync(operationId, token);
                 if (saved is null)
                 {
+                    if (grantRequest is not null)
+                    {
+                        originalRequest = OnlineGrantRequestSignatures.RequireStep(profile, grantRequest);
+                    }
+
                     break;
                 }
 
@@ -200,23 +284,53 @@ public class ManagedBootstrapLifecycle(InstallationState installation, Installat
                 return original;
             }
 
-            PreparedGenesis prepared = JsonSerializer.Deserialize<SetupAuthorityEvidence>(profile.Evidence!)!.Genesis!;
-            RecoveryAdmission local = admission.Read()!;
-            Guid actorId = local.Proof is ManagedRestartProof restart ? restart.ActorId : local.BootstrapAccount!.ActorUserId;
-            AcceptedValue actor = image.Values[actorId];
-            long processEpoch = process?.ProcessEpoch ?? 1;
-            if (process is not null && process.BootId != lease.BootId)
+            DateTimeOffset now = time.GetUtcNow();
+            OnlineGrant request;
+            if (originalRequest is not null)
             {
-                processEpoch++;
+                // После lost RPC response локальный cut мог вырасти; исходный template не пересобирается.
+                request = originalRequest.Grant;
+                now = request.IssuedAtUtc;
+            }
+            else
+            {
+                PreparedGenesis prepared = JsonSerializer.Deserialize<SetupAuthorityEvidence>(profile.Evidence!)!.Genesis!;
+                RecoveryAdmission local = admission.Read()!;
+                Guid actorId;
+                if (local.Proof is ManagedRestartProof restart)
+                {
+                    actorId = restart.ActorId;
+                }
+                else
+                {
+                    actorId = local.BootstrapAccount!.ActorUserId;
+                }
+
+                AcceptedValue actor = image.Values[actorId];
+                long processEpoch = process?.ProcessEpoch ?? 1;
+                if (process is not null && process.BootId != lease.BootId)
+                {
+                    processEpoch++;
+                }
+
+                string spki = working is { CredentialRevision: > 0 }
+                    ? EnrollmentCertificates.Hash(working.Certificate.PublicKey.ExportSubjectPublicKeyInfo()) : prepared.Request.SpkiDigest;
+                string? bindDigest = null;
+                if (working?.ContinuationReference is not null)
+                {
+                    bindDigest = VoterCredentialPolicy.Latest(image, profile.NodeId!.Value)!.BindDigest;
+                }
+
+                request = new(1, purpose, image.ClusterId, image.Generation, profile.AttemptId!.Value,
+                    null, null, profile.NodeId!.Value, profile.StorageGeneration!.Value, profile.PeerAddress!, spki,
+                    working?.CredentialId ?? profile.CredentialId!.Value,
+                    working?.Fingerprint ?? prepared.InitializeCluster.EnrollmentTrust!.Credential!.Fingerprint,
+                    working?.IssuerEpoch ?? prepared.Template.IssuerEpoch,
+                    operationId, profile.BootstrapAccountDigest!, lease.BootId, lease.BootChallenge,
+                    processEpoch, actor.Id, actor.Revision, 0, readiness.RecoveryVersion, image.Operations.Revision,
+                    image.Operations.MembershipVersion, image.Index, bindDigest, now, now.AddMinutes(2), string.Empty);
             }
 
-            DateTimeOffset now = time.GetUtcNow();
-            OnlineGrant request = new(1, purpose, image.ClusterId, image.Generation, profile.AttemptId!.Value,
-                null, null, profile.NodeId!.Value, profile.StorageGeneration!.Value, profile.PeerAddress!, prepared.Request.SpkiDigest,
-                profile.CredentialId!.Value, prepared.InitializeCluster.EnrollmentTrust!.Credential!.Fingerprint,
-                prepared.Template.IssuerEpoch, operationId, profile.BootstrapAccountDigest!, lease.BootId, lease.BootChallenge,
-                processEpoch, actor.Id, actor.Revision, 0, readiness.RecoveryVersion, image.Operations.Revision,
-                image.Operations.MembershipVersion, image.Index, null, now, now.AddMinutes(2), string.Empty);
             OnlineGrant signed;
             if (action == "RenewOnlineProcess")
             {
@@ -230,17 +344,18 @@ public class ManagedBootstrapLifecycle(InstallationState installation, Installat
             RevisionCommand command = new()
             {
                 Schema = 3, ClusterId = image.ClusterId, ClusterGeneration = image.Generation,
-                OperationId = operationId, OriginNodeId = profile.NodeId.Value, ActorUserId = Guid.Empty, ActorRevision = 0,
-                EntityId = profile.NodeId.Value, EntityKind = DeletedEntityKind.Node, Action = action,
+                OperationId = operationId, OriginNodeId = request.NodeId, ActorUserId = Guid.Empty, ActorRevision = 0,
+                EntityId = request.NodeId, EntityKind = DeletedEntityKind.Node, Action = action,
                 BaseRevision = signed.OperationsRevision, CreatedAtUtc = now, SystemSource = "OnlineLifecycle",
-                OnlineLifecycle = new(1, profile.StorageGeneration.Value, signed)
+                OnlineLifecycle = new(1, request.StorageGeneration, signed)
             };
             await work.ExecuteInTransactionAsync(_ =>
             {
-                work.Profiles.AddStep(new(operationId, profile.AttemptId.Value, action, RevisionCodec.Digest(command),
+                work.Profiles.AddStep(new(operationId, request.AttemptId, action, RevisionCodec.Digest(command),
                     "AcceptedOnlineLifecycle", profile.ProfileRevision, profile.RuntimeGeneration, now, JsonSerializer.Serialize(command)));
                 return Task.CompletedTask;
             }, token);
+
             return command;
         }
         finally

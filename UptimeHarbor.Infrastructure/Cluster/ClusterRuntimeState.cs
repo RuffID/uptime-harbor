@@ -1,11 +1,14 @@
 using UptimeHarbor.Application.Cluster;
 using UptimeHarbor.Application.Cluster.Models;
+using UptimeHarbor.Application.Cluster.Onboarding.Renewal;
+using UptimeHarbor.Infrastructure.Installation;
 using Microsoft.Extensions.Options;
 
 namespace UptimeHarbor.Infrastructure.Cluster;
 
 public class ClusterRuntimeState(IClusterRecovery recovery, RevisionStateStore? revisions = null,
-    ClusterLocalControl? control = null, IOptions<ClusterOptions>? options = null, TimeProvider? time = null) : IClusterStateView
+    ClusterLocalControl? control = null, IOptions<ClusterOptions>? options = null, TimeProvider? time = null,
+    InstallationState? installation = null, DynamicPeerTls? tls = null) : IClusterStateView
 {
     private ConsensusStatus? status;
     public ConsensusStatus? Consensus => Volatile.Read(ref status);
@@ -24,7 +27,14 @@ public class ClusterRuntimeState(IClusterRecovery recovery, RevisionStateStore? 
 
             ClusterOperationsImage operations = image.Operations;
             OperationalNode? local = operations.Nodes.GetValueOrDefault(options.Value.NodeId);
-            OperationalCredential? credential = operations.Credentials.GetValueOrDefault(options.Value.CredentialId);
+            Guid? credentialId = options.Value.CredentialId;
+            if (installation?.Current is { Mode: "Bootstrap" } profile
+                && VoterCredentialPolicy.Latest(image, options.Value.NodeId) is not null)
+            {
+                credentialId = tls?.CaptureWorkingBootstrap(image, profile)?.CredentialId;
+            }
+
+            OperationalCredential? credential = credentialId is Guid id ? operations.Credentials.GetValueOrDefault(id) : null;
             bool trusted = local is not null && local.StorageGeneration == options.Value.StorageGeneration
                 && local.Address == options.Value.PublicUri && !local.Removed && credential is not null
                 && credential.NodeId == local.NodeId && !credential.RevokedAtUtc.HasValue

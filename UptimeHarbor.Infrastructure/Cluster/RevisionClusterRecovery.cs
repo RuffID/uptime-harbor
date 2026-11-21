@@ -5,8 +5,11 @@ using UptimeHarbor.Application.Cluster;
 using UptimeHarbor.Application.Cluster.Models;
 using UptimeHarbor.Infrastructure.Cluster.Models;
 using UptimeHarbor.Application.Cluster.Onboarding;
+using UptimeHarbor.Application.Cluster.Onboarding.Renewal;
 using UptimeHarbor.Infrastructure.Installation;
 using UptimeHarbor.Infrastructure.Cluster.Onboarding;
+using UptimeHarbor.Infrastructure.Cluster.Onboarding.Renewal;
+using UptimeHarbor.Application.Installation;
 
 namespace UptimeHarbor.Infrastructure.Cluster;
 
@@ -225,7 +228,9 @@ public class RevisionClusterRecovery(IRecoveryAdmission admissionSource, Revisio
                     return false;
                 }
 
-                OperationalCredential? credential = image.Operations.Credentials.GetValueOrDefault(configured.Value.CredentialId);
+                Guid credentialId = VoterCredentialPolicy.Latest(image, node.NodeId)?.Renewal.Issuance.IssueId
+                    ?? configured.Value.CredentialId;
+                OperationalCredential? credential = image.Operations.Credentials.GetValueOrDefault(credentialId);
                 if (credential is null || credential.NodeId != node.NodeId
                     || !EnrollmentPeerTrustPolicy.IsActive(image, node, credential, (time ?? TimeProvider.System).GetUtcNow())
                     || credential.RevokedAtUtc.HasValue || (time ?? TimeProvider.System).GetUtcNow() >= credential.ExpiresAtUtc)
@@ -256,6 +261,47 @@ public class RevisionClusterRecovery(IRecoveryAdmission admissionSource, Revisio
     private bool MembershipMatches(long persisted)
     {
         return persisted == admission!.MembershipVersion || persisted == verifiedNativeMembership;
+    }
+
+    /// <summary>Verifies the sealed local prefix for ContinueCredential without promoting it to an available projection.</summary>
+    public async Task<ManagedContinuationReplay> VerifyManagedContinuationReplayAsync(InstallationState installation,
+        long committedIndex, long appliedIndex, long nativeTerm, long persistedMembershipVersion, CancellationToken token)
+    {
+        ClusterOptions local = configured.Value;
+        LocalInstallationProfile? profile = installation.Current;
+        RecoveryAdmission? admitted = admission;
+        RevisionImage? image = state.Current;
+        long recoveryVersion = state.RecoveryVersion;
+        if (profile is not { Mode: "Bootstrap", ManagedRestart: true, Phase: InstallationPhase.ClusterQuarantine }
+            || admitted?.Proof is not ManagedRestartProof process || image is null || !IsCurrent()
+            || local.Mode != "Restart" || local.TlsBoundary != "Direct" || local.Compatibility != OnboardingProtocol.TRUST_COMPATIBILITY
+            || process.InstallIdentity != profile.InstallIdentity || process.BootId != profile.BootId
+            || local.ClusterId != admitted.ClusterId || local.Generation != admitted.Generation || local.NodeId != admitted.NodeId
+            || local.StorageGeneration != admitted.StorageGeneration || local.PublicUri != profile.PeerAddress
+            || admitted.ClusterId != profile.ClusterId || admitted.Generation != profile.ClusterGeneration
+            || admitted.NodeId != profile.NodeId || admitted.StorageGeneration != profile.StorageGeneration
+            || image.ClusterId != admitted.ClusterId || image.Generation != admitted.Generation
+            || image.Index < admitted.MinimumCommittedIndex || image.Index > appliedIndex
+            || committedIndex != appliedIndex || nativeTerm < image.Term
+            || persistedMembershipVersion != verifiedNativeMembership || persistedMembershipVersion != image.Operations.MembershipVersion
+            || image.Operations.Nodes.GetValueOrDefault(admitted.NodeId) is not { Voting: true, Removed: false } node
+            || node.Address != profile.PeerAddress || node.StorageGeneration != admitted.StorageGeneration
+            || image.Operations.MaintenanceId != Guid.Empty || image.Operations.Changes.Values.Any(change => !change.ConfirmedVersion.HasValue)
+            || image.RecoveryBaseline is not null
+            || image.OnboardingContracts?.GenesisInitialized != true)
+        {
+            throw new InvalidDataException("VoterContinuationLocalReplayUnconfirmed");
+        }
+
+        await projection.VerifyAsync(image, token);
+        ManagedContinuationReplay replay = new(image, nativeTerm, admitted.NodeId, process, recoveryVersion, IsCurrent);
+        replay.RequireCurrent(token);
+        return replay;
+
+        bool IsCurrent() => restored && !replayConfirmed && !state.Available && !installation.CommonOpen
+            && ReferenceEquals(installation.Current, profile) && ReferenceEquals(admission, admitted)
+            && ReferenceEquals(state.Current, image) && state.RecoveryVersion == recoveryVersion
+            && verifiedNativeMembership == persistedMembershipVersion;
     }
 
     public async Task<bool> VerifyCatchUpStartAsync(long committedIndex, long appliedIndex, long persistedMembershipVersion,

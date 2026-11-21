@@ -1,4 +1,3 @@
-using System.Security.Cryptography.X509Certificates;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -63,61 +62,13 @@ public static class ClusterServiceCollectionExtensions
                 ClusterOptions options = provider.GetRequiredService<IOptions<ClusterOptions>>().Value;
                 if (provider.GetRequiredService<IOptions<InstallationOptions>>().Value.Setup)
                 {
-                    DynamicPeerTls credentials = provider.GetRequiredService<DynamicPeerTls>();
-                    SocketsHttpHandler managed = new()
-                    {
-                        AllowAutoRedirect = false, UseCookies = false, UseProxy = false,
-                        ConnectTimeout = TimeSpan.FromSeconds(3), PooledConnectionLifetime = TimeSpan.Zero
-                    };
-                    SetupPeerAddressPolicy addresses = new(provider.GetRequiredService<IOptions<InstallationOptions>>().Value);
-                    managed.ConnectCallback = addresses.ConnectAsync;
-                    managed.SslOptions.LocalCertificateSelectionCallback = (_, _, _, _, _) => credentials.Certificate;
-                    managed.SslOptions.RemoteCertificateValidationCallback = (_, certificate, _, errors) =>
-                    {
-                        if (certificate is null || (errors & System.Net.Security.SslPolicyErrors.RemoteCertificateNameMismatch) != 0)
-                        {
-                            return false;
-                        }
-
-                        using X509Certificate2 candidate = new(certificate);
-                        return credentials.Validate(candidate);
-                    };
-                    managed.PlaintextStreamFilter = async (context, token) =>
-                    {
-                        UptimeHarbor.Application.Installation.RuntimeGenerationContext.Verify();
-                        Uri target = context.InitialRequestMessage.RequestUri
-                            ?? throw new HttpRequestException("PeerServerPinMissing");
-                        if (context.PlaintextStream is not System.Net.Security.SslStream tls || tls.RemoteCertificate is null)
-                        {
-                            throw new HttpRequestException("PeerServerTlsMissing");
-                        }
-
-                        using X509Certificate2 server = new(tls.RemoteCertificate);
-                        IPeerTrustSource acceptedTrust = provider.GetRequiredService<IPeerTrustSource>();
-                        if (!await PeerServerPin.MatchesAsync(target, server, acceptedTrust,
-                            provider.GetRequiredService<TimeProvider>().GetUtcNow(), token))
-                        {
-                            throw new HttpRequestException("PeerServerPinRejected");
-                        }
-
-                        return context.PlaintextStream;
-                    };
-                    return managed;
+                    return ManagedPeerTransport.Create(provider.GetRequiredService<DynamicPeerTls>(),
+                        provider.GetRequiredService<IOptions<InstallationOptions>>().Value,
+                        provider.GetRequiredService<IPeerTrustSource>(), provider.GetRequiredService<TimeProvider>());
                 }
 
-                X509Certificate2 certificate = X509Certificate2.CreateFromPemFile(
-                    options.ClientCertificatePath, options.ClientKeyPath);
-                SocketsHttpHandler handler = new()
-                {
-                    AllowAutoRedirect = false,
-                    UseCookies = false,
-                    UseProxy = false,
-                    ConnectTimeout = TimeSpan.FromSeconds(3),
-                    PooledConnectionLifetime = TimeSpan.FromMinutes(1)
-                };
-                handler.SslOptions.ClientCertificates = [certificate];
-                handler.SslOptions.CertificateRevocationCheckMode = X509RevocationMode.Online;
-                return handler;
+                return LegacyPeerTransport.Create(options, provider.GetRequiredService<IPeerTrustSource>(),
+                    provider.GetRequiredService<TimeProvider>(), provider.GetRequiredService<RevisionStateStore>());
             })
             .AddHttpMessageHandler<PeerClientHandler>();
         services.AddHttpClient(TelegramHealthProbe.CLIENT_NAME, client =>

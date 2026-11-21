@@ -33,7 +33,8 @@ public static class OnboardingProtocol
     private static bool HasTrust(OnboardingContractImage? contracts)
     {
         return contracts?.Issuers is not null || contracts?.GenesisInitialized == true
-            || contracts?.OnlineGrants is not null || contracts?.OnlineProcesses is not null;
+            || contracts?.OnlineGrants is not null || contracts?.OnlineProcesses is not null
+            || contracts?.VoterCredentialRotations is not null || contracts?.VoterContinuations is not null;
     }
 
     private static bool HasTrustHistory(RecoveryBaseline? baseline)

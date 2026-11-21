@@ -1,5 +1,9 @@
 # Конфигурация и запуск
 
+`Installation:CredentialContinuationOrigin` — доверенный browser HTTPS origin работающего лидера для machine ContinueCredential. Формат `https://leader.example.org` или `https://leader.example.org:8443`. Клиент требует точный origin без пути, query, fragment или завершающего слэша и применяет `AllowedPeerNetworks` к адресам.
+
+`Installation:CredentialContinuationPeerAddress` — точный принятый Raft URL того же лидера, например `https://peer.example.org:8443/internal/raft`. Startup выбирает по этому адресу активированного voter из локального replay и связывает URL с подписью. Для первого intent требуется один действующий принятый peer issuer этого voter. Обе настройки нужны для восстановления истёкшего managed Bootstrap Direct leaf. При неполной или несовпадающей настройке startup останавливается до HTTPS. Существующий intent закрепляет пару адресов на исходный boot. [Контракт и границы](Onboarding%20contracts.md#доказательство-continuecredential-040904).
+
 ## Первоначальный manual issuer (04.07)
 
 Регистрация требует ручного Legacy-кластера с точной compatibility `3.0/3/3/3/1/6.10.0`, текущего локального leader и capability всех voters. Для локального issuer нужны уже явно заданные абсолютные, отдельные persistent Installation:StateDirectory, SecretDirectory и KeyDirectory, отличные от Cluster:StoragePath. Пустые значения приводят к отказу; системный профиль, WAL или legacy CA не используются как запасное хранилище ключа. Defaults и config-файлы не изменены. Schema upgrade/применение ранее созданных миграций этим API не выполняются. [Хранение и границы](Local%20installation%20setup.md), [контракт](Onboarding%20contracts.md#первоначальный-issuer-ручного-кластера-0407).

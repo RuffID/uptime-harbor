@@ -26,11 +26,27 @@ public class EnrollmentRoutingFixture : IAsyncDisposable
     public EnrollmentRoutingNode Leader { get; private set; } = null!;
     public EnrollmentRoutingNode Ingress => Nodes[2];
     public List<(Guid Source, Guid Target, string Path, byte[] Body)> Sent { get; } = [];
+    internal Dictionary<Guid, IServiceProvider> ControllerServices { get; } = [];
+    internal bool UsePublishedPeerLeaves { get; set; }
     public bool OfflineSigner { get; set; }
+    public bool RenewalEnabled { get; set; }
+    public bool RotationAdmissionEnabled { get; set; }
+    public bool SkipRenewalConnectionBinding { get; set; }
+    public X509Certificate2? RenewalClientLeaf { get; set; }
+    public X509Certificate2? RenewalServerLeaf { get; set; }
+    public DynamicPeerTls.Snapshot? RenewalConnectionSnapshot { get; set; }
+    public X509Certificate2? RenewalIngressLeaf { get; set; }
+    public Action? BeforeRenewalBinding { get; set; }
+    public Func<PeerEnvelope, PeerEnvelope>? EditRenewalRequest { get; set; }
+    public Func<PeerEnvelope, PeerEnvelope>? EditRenewalReply { get; set; }
     public string? LoseResponse { get; set; }
     public Action<EnrollmentRoutingNode, string>? BeforeSend { get; set; }
+    public Func<HttpContent, CancellationToken, Task>? BeforeReadBody { get; set; }
+    public bool UseManagedPools { get; set; }
+    public int ManagedHandshakes { get; set; }
     public Action<EnrollmentRoutingNode, string>? AfterSend { get; set; }
     public Func<string, byte[], byte[]>? EditResponse { get; set; }
+    public Func<string, byte[], byte[]>? EditBody { get; set; }
     public long Term { get; set; } = 1;
     private readonly List<InstallationLease> preparedLeases = [];
 
@@ -44,7 +60,21 @@ public class EnrollmentRoutingFixture : IAsyncDisposable
             First.Store, First.Tls.Certificate!, false));
         Nodes.Add(new(this, leader.Options, leader.Local, leader.Lease, leader.Installation, leader.Secrets, leader.Store, leader.Certificate, true));
         Nodes.Add(new(this, ingress.Options, ingress.Local, ingress.Lease, ingress.Installation, ingress.Secrets, ingress.Store, ingress.Certificate, true));
+        if (RenewalEnabled)
+        {
+            EnableManagedRotationProfiles();
+        }
+
         SetLeader(Nodes[1]);
+    }
+
+    internal void EnableManagedRotationProfiles()
+    {
+        foreach (EnrollmentRoutingNode node in Nodes)
+        {
+            var profile = node.Installation.Current!;
+            node.Installation.Publish(profile with { Mode = "Bootstrap", ProfileRevision = profile.ProfileRevision + 1 });
+        }
     }
 
     public void SetLeader(EnrollmentRoutingNode node)

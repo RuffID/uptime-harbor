@@ -1,8 +1,14 @@
 # Cluster application
 
+ContinueCredential использует отдельный typed вход под тем же serial lock. Общий dispatcher отвергает Request, Authorize, Register и Bind даже при наличии решения. При позднем WAL-повторе с тем же OperationId первая запись остаётся единственным решением, typed вход сверяет точный digest.
+
+Accepted voter rotation хранится отдельно от onboarding attempt в Onboarding/Renewal. Общий RevisionDispatcher отклоняет команды ротации до поиска решения. Внутренний вход Authorize/Bind/Retire использует тот же serial lock, под которым лидер повторно проверяет authority и доказательства. Лидер ставит время и term только для новой записи. Exact replay возвращает первоначальное решение. Production composition использует этот вход только через typed admission managed Bootstrap Direct. До записи и возврата exact replay повторно проверять fence поколения.
+
 EnrollmentTrustCommands schema 3 проходят тот же dispatcher/reducer/write set; mixed payload запрещён общей RevisionCodec boundary. Request digest исключает только coordinator stamp trust/onboarding, WAL digest покрывает весь payload. Genesis/init и issuer registration не превращать в общий write permit; старые control/account paths сохраняют прежнюю авторизацию.
 
 Publication/ConfirmRecovery в RevisionStateStore проверяют текущий RuntimeGenerationContext. Устаревший callback не публикует новый принятый образ/права. Контекст не подменяет consensus/replay proof и не вводит зависимости от hosting/EF.
+
+TryAtCurrent сериализует короткую локальную публикацию с accepted publish/recovery. До вызова нужен fresh barrier. Под lock допустима только синхронная атомарная смена снимка без I/O и повторного входа в store.
 
 Onboarding/ владеет schema-2 invitation/attempt reducer и strict contracts. Request digest исключает только coordinator stamp, WAL digest покрывает полный accepted payload; обе проверки сохранять. Legacy membership/activation не должны обходить process-bound onboarding. Общие import/sender модели в этом этапе не предоставляют runtime authority.
 

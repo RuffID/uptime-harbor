@@ -2,6 +2,8 @@
 
 _ClusterAdministration и _ClusterScripts задают общий статический UI enabled-режима: accepted/Pending/conflicts/observers/diagnostics/delivery и Bootstrap modal редактора. PageModel не загружает коллекции; antiforgery meta выдаётся partial, данные читает один cluster TypeScript entry point. Не подключать одновременно legacy module.
 
+На кластерной «Панели мониторинга» общий Administrator открывает ContinueCredential по ID операции и подтверждает точный запрос после просмотра ID узла. Общий entry point инициализирует формы, сервер проверяет доступ на каждом чтении и действии.
+
 `_Layout.cshtml` задаёт навигацию и подключает локальные Bootstrap CSS и JS bundle из `wwwroot/lib/bootstrap`. jQuery и плагины jQuery Validation не используются и не поставляются; partial для их подключения удалён.
 
 В меню только «Панель мониторинга» (/), Telegram и пользователи. _MonitoringEditor содержит общую modal Server / Application; необязательный родитель показывается только для приложения.

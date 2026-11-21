@@ -17,28 +17,24 @@ public class AcceptedPeerTrustSource(RevisionStateStore state, TimeProvider time
     {
         cancellationToken.ThrowIfCancellationRequested();
         RevisionImage? image = state.Current;
-        ClusterOperationsImage? operations = image?.Operations;
-        if (operations is null)
+        if (image is null)
         {
             return ValueTask.FromResult<IReadOnlyList<PeerCredential>>([]);
         }
 
+        ClusterOperationsImage operations = image.Operations;
         List<PeerCredential> result = [];
+        DateTimeOffset now = time.GetUtcNow();
         foreach (OperationalCredential credential in operations.Credentials.Values)
         {
             OperationalNode? node = operations.Nodes.GetValueOrDefault(credential.NodeId);
-            if (node is null || node.Removed || credential.RevokedAtUtc.HasValue || credential.ExpiresAtUtc <= time.GetUtcNow())
-            {
-                continue;
-            }
-
-            if (!EnrollmentPeerTrustPolicy.IsActive(image!, node, credential, time.GetUtcNow()))
+            if (node is null || !EnrollmentPeerTrustPolicy.IsActive(image, node, credential, now))
             {
                 continue;
             }
 
             bool admission = credential.AdmissionId.HasValue && !credential.ConsumedAtUtc.HasValue
-                && credential.AdmissionExpiresAtUtc > time.GetUtcNow();
+                && credential.AdmissionExpiresAtUtc > now;
             if (!node.Voting && !admission)
             {
                 continue;
@@ -48,6 +44,6 @@ public class AcceptedPeerTrustSource(RevisionStateStore state, TimeProvider time
                 credential.Fingerprint, node.Voting, admission, credential.ExpiresAtUtc));
         }
 
-        return ValueTask.FromResult<IReadOnlyList<PeerCredential>>(result);
+        return ValueTask.FromResult<IReadOnlyList<PeerCredential>>(ReferenceEquals(image, state.Current) ? result : []);
     }
 }

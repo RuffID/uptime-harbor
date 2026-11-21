@@ -15,6 +15,10 @@ public record OnboardingContractImage
     public ImmutableDictionary<Guid, AcceptedOnlineGrant>? OnlineGrants { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public ImmutableDictionary<Guid, OnlineProcessLease>? OnlineProcesses { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public ImmutableDictionary<Guid, Onboarding.Renewal.VoterCredentialRotation>? VoterCredentialRotations { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public ImmutableDictionary<Guid, Onboarding.Renewal.AcceptedVoterContinuation>? VoterContinuations { get; init; }
     public ImportBaselineRef? Import { get; init; }
     public ImmutableArray<LegacyHistory> LegacyHistory { get; init; } = [];
     public SenderAssignment? SenderAssignment { get; init; }

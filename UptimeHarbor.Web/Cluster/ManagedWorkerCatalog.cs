@@ -1,11 +1,16 @@
+using Microsoft.Extensions.Options;
+using UptimeHarbor.Application.Installation;
+using UptimeHarbor.Infrastructure.Cluster;
 using UptimeHarbor.Infrastructure.Installation;
+using UptimeHarbor.Infrastructure.Installation.Renewal;
 using UptimeHarbor.Infrastructure.Monitoring;
 using UptimeHarbor.Infrastructure.Telegram;
 
 namespace UptimeHarbor.Web.Cluster;
 
 /// <summary>Полный deferred inventory. Resolve вызывается только после runtime admission.</summary>
-public class ManagedWorkerCatalog(IServiceProvider services) : IManagedWorkerCatalog
+public class ManagedWorkerCatalog(IServiceProvider services, InstallationState installation,
+    IOptions<ClusterOptions> options) : IManagedWorkerCatalog
 {
     public IReadOnlyList<RestartableWorker> Resolve(bool cluster, bool quarantine, bool managedSetup)
     {
@@ -26,6 +31,11 @@ public class ManagedWorkerCatalog(IServiceProvider services) : IManagedWorkerCat
             if (!managedSetup)
             {
                 workers.Add(services.GetRequiredService<ClusterDeliveryWorker>());
+            }
+            else if (installation.Current is { Phase: InstallationPhase.ClusterReady, Mode: "Bootstrap" }
+                && options.Value.TlsBoundary == "Direct")
+            {
+                workers.Add(services.GetRequiredService<VoterCredentialRotationWorker>());
             }
         }
 

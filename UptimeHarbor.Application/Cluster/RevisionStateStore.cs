@@ -17,6 +17,21 @@ public class RevisionStateStore : IAcceptedAccountReader
     public long RecoveryVersion => Interlocked.Read(ref recoveryVersion);
     public event Action? Changed;
 
+    /// <summary>Короткая локальная публикация под тем же lock, что и смена accepted cut.</summary>
+    public bool TryAtCurrent(RevisionImage expected, long expectedRecoveryVersion, Action publish)
+    {
+        lock (sync)
+        {
+            if (!available || !ReferenceEquals(image, expected) || recoveryVersion != expectedRecoveryVersion)
+            {
+                return false;
+            }
+
+            publish();
+            return true;
+        }
+    }
+
     public AcceptedAccount? Find(Guid userId)
     {
         lock (sync)

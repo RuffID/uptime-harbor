@@ -40,17 +40,27 @@ public static class OnlineLifecycleSnapshot
 
         foreach (KeyValuePair<Guid, OnlineProcessLease> item in image.OnboardingContracts?.OnlineProcesses ?? [])
         {
-            OnlineProcessLease process = item.Value;
-            AcceptedOnlineGrant? accepted = image.OnboardingContracts!.OnlineGrants?.GetValueOrDefault(process.GrantId);
-            OnlineGrant? grant = accepted?.Grant;
-            if (item.Key != process.NodeId || grant is null || grant.Purpose != OnlineGrantPurpose.Process
-                || process.Index != accepted!.AuthorizedIndex || process.NodeId != grant.NodeId || process.BootId != grant.BootId
-                || process.BootChallenge != grant.BootChallenge || process.ProcessEpoch != grant.ProcessEpoch
-                || process.RecoveryVersion != grant.RecoveryVersion || process.LeaseUntilUtc.Offset != TimeSpan.Zero
-                || process.LeaseUntilUtc <= grant.IssuedAtUtc || process.LeaseUntilUtc > grant.ExpiresAtUtc.AddMinutes(2))
-            {
-                throw new InvalidDataException("OnlineProcessSnapshotInvalid");
-            }
+            ValidateLease(image, item.Key, item.Value);
+        }
+    }
+
+    internal static void ValidateLease(RevisionImage image, Guid nodeId, OnlineProcessLease process)
+    {
+        if (process.CredentialContinuation)
+        {
+            Renewal.VoterContinuationSnapshot.ValidateProcess(image, nodeId, process);
+            return;
+        }
+
+        AcceptedOnlineGrant? accepted = image.OnboardingContracts?.OnlineGrants?.GetValueOrDefault(process.GrantId);
+        OnlineGrant? grant = accepted?.Grant;
+        if (nodeId != process.NodeId || grant is null || grant.Purpose != OnlineGrantPurpose.Process
+            || process.Index != accepted!.AuthorizedIndex || process.NodeId != grant.NodeId || process.BootId != grant.BootId
+            || process.BootChallenge != grant.BootChallenge || process.ProcessEpoch != grant.ProcessEpoch
+            || process.RecoveryVersion != grant.RecoveryVersion || process.LeaseUntilUtc.Offset != TimeSpan.Zero
+            || process.LeaseUntilUtc <= grant.IssuedAtUtc || process.LeaseUntilUtc > grant.ExpiresAtUtc.AddMinutes(2))
+        {
+            throw new InvalidDataException("OnlineProcessSnapshotInvalid");
         }
     }
 }

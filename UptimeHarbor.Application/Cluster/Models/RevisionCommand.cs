@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using UptimeHarbor.Domain.Cluster;
 
 namespace UptimeHarbor.Application.Cluster.Models;
@@ -25,14 +26,16 @@ public record RevisionCommand
     public string? SystemSource { get; init; }
     public MonitoringCommand? Monitoring { get; init; }
     public DeliveryCommand? Delivery { get; init; }
-    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public ClusterOperation? Operation { get; init; }
-    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public OnboardingCommand? Onboarding { get; init; }
-    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public EnrollmentTrustCommand? EnrollmentTrust { get; init; }
-    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public OnlineLifecycleCommand? OnlineLifecycle { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Onboarding.Renewal.VoterContinuationCommand? VoterContinuation { get; init; }
 
     public override string ToString()
     {

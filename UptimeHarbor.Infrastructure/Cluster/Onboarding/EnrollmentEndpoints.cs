@@ -1,5 +1,6 @@
 using System.Net;
 using UptimeHarbor.Application.Cluster.Models;
+using UptimeHarbor.Infrastructure.Cluster.Onboarding.Renewal;
 using UptimeHarbor.Infrastructure.Installation;
 
 namespace UptimeHarbor.Infrastructure.Cluster.Onboarding;
@@ -53,5 +54,16 @@ public class EnrollmentEndpoints(SetupPeerAddressPolicy addresses)
         }
 
         addresses.ValidateUri(peerAddress);
+    }
+
+    internal Uri ResolveContinuation(Uri browserOrigin, string operation)
+    {
+        Uri origin = Origin(browserOrigin.AbsoluteUri);
+        if (operation is not ("nonce" or "request" or "status" or "register" or "issue" or "bind" or VoterContinuationAuthority.SLICE))
+        {
+            throw new InvalidDataException("VoterContinuationRouteInvalid");
+        }
+
+        return new Uri(origin, VoterContinuationWire.ROOT + "/" + operation);
     }
 }

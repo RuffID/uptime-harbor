@@ -1,4 +1,5 @@
 using UptimeHarbor.Application.Cluster.Models;
+using UptimeHarbor.Application.Cluster.Onboarding.Renewal;
 using UptimeHarbor.Domain.Cluster;
 
 namespace UptimeHarbor.Application.Cluster.Onboarding;
@@ -67,14 +68,18 @@ public static class OnlineGrantPolicy
             return false;
         }
 
-        if (!registeringProcess)
+        OnlineProcessLease? process = image.OnboardingContracts?.OnlineProcesses?.GetValueOrDefault(grant.NodeId);
+        if (process is { CredentialContinuation: true })
         {
-            OnlineProcessLease? process = image.OnboardingContracts?.OnlineProcesses?.GetValueOrDefault(grant.NodeId);
-            return process is not null && process.BootId == grant.BootId && process.BootChallenge == grant.BootChallenge
-                && process.ProcessEpoch == grant.ProcessEpoch && process.RecoveryVersion == grant.RecoveryVersion
-                && now < process.LeaseUntilUtc;
+            return !registeringProcess && processRenewal && VoterContinuationHandoff.AllowsRenewal(image, process, grant, now);
         }
 
-        return true;
+        if (processRenewal && grant.SnapshotDigest is not null)
+        {
+            return false;
+        }
+
+        return registeringProcess || process is not null && VoterContinuationHandoff.MatchesProcess(process, grant)
+            && now < process.LeaseUntilUtc;
     }
 }

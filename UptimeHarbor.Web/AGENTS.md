@@ -12,6 +12,8 @@
 - `Program.cs` после создания builder загружает обязательный внешний `Config/config.json`, настраивает Serilog через host и только затем вызывает модульные DI-расширения.
 - `appsettings.json` содержит только Serilog; operational/security settings находятся в неотслеживаемом и не публикуемом `Config/config.json`, а безопасная полная структура — в `Config/config.example.json`.
 - HTTP API реализовывать контроллерами; не добавлять `MapGet`, `MapPost` и другие Minimal API handlers.
+- Machine HTTPS ContinueCredential обслуживает отдельный контроллер на точном browser origin. Ingress marker ставится до forwarded headers и cookie auth. Выдача DER требует отдельный issue nonce и PoP, привязанные к принятой регистрации. Административное чтение и подтверждение используют общий browser pipeline и проверенный Identity application ticket на origin текущего лидера. Обычный peer TLS gate сохраняет проверку срока leaf.
+- Typed peer RENEW обслуживается существующим enrollment controller только на Direct peer listener и с доступным renewal service. Production DI оставляет этот обработчик закрытым. Инварианты peer RPC находятся в [Cluster/EnrollmentRouting/AGENTS.md](Cluster/EnrollmentRouting/AGENTS.md).
 - Razor Pages использовать для страниц, контроллеры — для HTTP API, SignalR hub — для push-обновлений.
 - Не обращаться к EF Core или Telegram API напрямую из UI.
 - Изменяющие запросы защищать авторизацией и antiforgery согласно типу клиента.

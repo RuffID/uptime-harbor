@@ -2,6 +2,17 @@ import { sendJsonRequest, unwrapServiceResult } from "../../shared/http.js";
 import type { ServiceResultWithData } from "../../shared/http.js";
 import type { Snapshot, Pending, Diagnostic, Change, AccountChange, AccountOperation, Operation, LifecycleChange } from "./clusterModels.js";
 
+export interface CredentialContinuationStatus {
+    requestId: string;
+    nodeId: string;
+    requestDigest: string;
+    confirmationId: string | null;
+}
+
+function continuationUrl(requestId: string): string {
+    return `/api/admin/cluster/credential-continuation/${encodeURIComponent(requestId)}`;
+}
+
 async function read<T>(url: string, signal: AbortSignal): Promise<T> {
     return unwrapServiceResult(await sendJsonRequest<ServiceResultWithData<T>>(url, "GET", null, signal));
 }
@@ -9,6 +20,9 @@ async function post<T>(url: string, body: object): Promise<T> {
     return unwrapServiceResult(await sendJsonRequest<ServiceResultWithData<T>>(url, "POST", body));
 }
 export const clusterApi = {
+    continuation: (requestId: string, signal: AbortSignal) => read<CredentialContinuationStatus>(continuationUrl(requestId), signal),
+    confirmContinuation: (requestId: string, requestDigest: string, password: string) =>
+        post<string>(continuationUrl(requestId), { requestDigest, password }),
     snapshot: (signal: AbortSignal) => read<Snapshot>("/api/admin/cluster", signal),
     pending: (offset: number, signal: AbortSignal) => read<Pending[]>(`/api/admin/cluster/pending?offset=${offset}`, signal),
     diagnostics: (signal: AbortSignal) => read<Diagnostic>("/api/admin/cluster/diagnostics", signal),

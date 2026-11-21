@@ -1,5 +1,7 @@
 using System.Security.Cryptography.X509Certificates;
 using UptimeHarbor.Application.Cluster.Models;
+using UptimeHarbor.Application.Cluster.Onboarding.Renewal;
+using UptimeHarbor.Infrastructure.Cluster.Onboarding.Renewal;
 
 namespace UptimeHarbor.Infrastructure.Cluster.Onboarding;
 
@@ -8,6 +10,12 @@ public static class EnrollmentPeerTrustPolicy
 {
     public static bool IsActive(RevisionImage image, OperationalNode node, OperationalCredential credential, DateTimeOffset now)
     {
+        if (node.NodeId != credential.NodeId || image.Operations.Nodes.GetValueOrDefault(node.NodeId) != node
+            || !VoterCredentialPolicy.IsUsable(image, credential, now))
+        {
+            return false;
+        }
+
         if (image.OnboardingContracts?.Issuers is null)
         {
             return true;
@@ -16,6 +24,11 @@ public static class EnrollmentPeerTrustPolicy
         try
         {
             using X509Certificate2 leaf = X509CertificateLoader.LoadCertificate(Convert.FromBase64String(credential.PublicCertificate));
+            if (image.OnboardingContracts.VoterCredentialRotations?.ContainsKey(credential.Id) == true)
+            {
+                return VoterCredentialLeafTrust.ValidateDedicated(image, credential, leaf, now, server: true);
+            }
+
             foreach (AcceptedEnrollmentIssuer issuer in image.OnboardingContracts.Issuers.Values)
             {
                 using X509Certificate2 root = X509CertificateLoader.LoadCertificate(Convert.FromBase64String(issuer.CertificateDer));

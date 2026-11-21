@@ -3,6 +3,7 @@ using System.Security.Cryptography.X509Certificates;
 using UptimeHarbor.Application.Cluster;
 using UptimeHarbor.Application.Cluster.Models;
 using UptimeHarbor.Application.Installation;
+using UptimeHarbor.Infrastructure.Cluster;
 using UptimeHarbor.Infrastructure.Cluster.Onboarding;
 using UptimeHarbor.Infrastructure.Installation;
 using Xunit;
@@ -29,9 +30,14 @@ public class EnrollmentDynamicTlsTests
             1, 1, 1, Guid.NewGuid(), fixture.Crypto.Now.AddMinutes(2), TrustAnchorFingerprint: issuer.CertificateDigest));
         DynamicPeerTls tls = new(installation, accepted, new FixedTime(fixture.Crypto.Now));
         tls.Install(1, localCertificate, fixture.Crypto.Issuer, [credential.Fingerprint], _ => true, issuer.Epoch);
+        ClusterOptions options = new() { ClusterId = image.ClusterId, Generation = image.Generation };
+        PeerCredential peer = new(credential.Id, node.NodeId, node.StorageGeneration, new(node.Address),
+            credential.Fingerprint, true, false, credential.ExpiresAtUtc);
 
         // Act
         bool valid = tls.Validate(leaf);
+        bool validRequest = tls.ValidateRequest(leaf, options, peer, fixture.Crypto.Now);
+        bool wrongBinding = tls.ValidateRequest(leaf, options, peer with { CredentialId = Guid.NewGuid() }, fixture.Crypto.Now);
         bool nameMismatch = EnrollmentPeerProbeTransport.ValidateServer(leaf, SslPolicyErrors.RemoteCertificateNameMismatch,
             image, node.NodeId, fixture.Crypto.Now);
         bool customChain = EnrollmentPeerProbeTransport.ValidateServer(leaf, SslPolicyErrors.RemoteCertificateChainErrors,
@@ -56,6 +62,8 @@ public class EnrollmentDynamicTlsTests
 
         // Assert
         Assert.True(valid);
+        Assert.True(validRequest);
+        Assert.False(wrongBinding);
         Assert.True(customChain);
         Assert.False(nameMismatch);
         Assert.False(foreignNode);

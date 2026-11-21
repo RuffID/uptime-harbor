@@ -11,11 +11,23 @@ using UptimeHarbor.Application.Cluster.Onboarding;
 using UptimeHarbor.Infrastructure.Cluster.Onboarding;
 using UptimeHarbor.Infrastructure.Cluster.Onboarding.Issuers;
 using UptimeHarbor.Infrastructure.Cluster.Onboarding.Routing;
+using UptimeHarbor.Infrastructure.Cluster.Onboarding.Renewal;
+using UptimeHarbor.Infrastructure.Installation.Renewal;
 
 namespace UptimeHarbor.Infrastructure.Installation;
 
 public static class InstallationServiceCollectionExtensions
 {
+    public static IServiceCollection AddManagedVoterCredentialRotation(this IServiceCollection services)
+    {
+        services.AddScoped<VoterCredentialSigner>();
+        services.AddScoped<VoterCredentialIssuanceRouter>();
+        services.AddScoped<LocalVoterCredentialRetirement>();
+        services.AddScoped<LocalVoterRenewal>();
+        services.AddSingleton<VoterCredentialRotationWorker>();
+        return services;
+    }
+
     public static IServiceCollection AddLocalInstallation(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddOptions<InstallationOptions>().Bind(configuration.GetSection(InstallationOptions.SECTION_NAME));
@@ -65,6 +77,7 @@ public static class InstallationServiceCollectionExtensions
             services.AddScoped<EnrollmentCommandJournal>();
             services.AddScoped<EnrollmentGateway>();
             services.TryAddSingleton<EnrollmentTransport>();
+            services.TryAddSingleton<VoterContinuationClient>();
             services.TryAddSingleton(provider => new EnrollmentEndpoints(new SetupPeerAddressPolicy(
                 provider.GetRequiredService<IOptions<InstallationOptions>>().Value)));
             services.AddScoped<JoinEnrollmentPreparation>();
@@ -78,6 +91,16 @@ public static class InstallationServiceCollectionExtensions
             services.AddScoped<GenesisRuntimePreparation>();
             services.TryAddSingleton<ManagedStorageSeals>();
             services.AddScoped<ManagedRestartPreparation>();
+            services.AddScoped<VoterCredentialRenewalAuthority>();
+            services.AddScoped<LocalVoterCredentialFiles>();
+            services.AddScoped<LocalVoterCredentialPreparation>();
+            services.AddScoped<LocalVoterCredentialBindingCoordinator>();
+            services.AddScoped<LocalVoterCredentialInstallationCoordinator>();
+            services.AddScoped<LocalVoterCredentialPublication>();
+            services.AddScoped<LocalVoterContinuationInstallation>();
+            services.AddScoped<LocalVoterContinuationPublication>();
+            services.AddScoped<ManagedVoterContinuationStartup>();
+            services.AddScoped<ManagedVoterContinuationInstallation>();
             services.AddScoped<OnlineGrantSigner>();
             services.AddScoped<OnlineProcessRenewalSigner>();
             services.AddScoped<OnlineGrantRequests>();

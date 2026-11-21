@@ -9,6 +9,7 @@ public class ListenerConfigurationTests
     [Theory]
     [InlineData("Direct", "https://127.0.0.1:8443", "http://127.0.0.1:5000", true)]
     [InlineData("NginxIsolatedHttp", "http://127.0.0.1:8443", "http://127.0.0.1:5000", true)]
+    [InlineData("NginxIsolatedHttp", "https://127.0.0.1:8443", "http://127.0.0.1:5000", false)]
     [InlineData("Direct", "http://127.0.0.1:8443", "http://127.0.0.1:5000", false)]
     [InlineData("Direct", "https://127.0.0.1:8443", "https://127.0.0.1:8443", false)]
     [InlineData("Direct", "https://127.0.0.1:8444", "http://127.0.0.1:5000", false)]

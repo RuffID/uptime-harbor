@@ -9,6 +9,42 @@ namespace UptimeHarbor.Tests.Infrastructure.Installation;
 
 public class PeerServerPinTests
 {
+    [Theory]
+    [InlineData("same-voter", true)]
+    [InlineData("different-voter", false)]
+    [InlineData("different-storage", false)]
+    [InlineData("duplicate-fingerprint", false)]
+    [InlineData("revoked-during-lookup", false)]
+    public async Task PresentedLeafResolvesItsExactCredentialDuringOverlap(string scenario, bool expected)
+    {
+        // Arrange
+        using EnrollmentCertificateFixture crypto = new();
+        using EnrollmentCertificateFixture replacement = new();
+        using X509Certificate2 leaf = crypto.Issue();
+        using X509Certificate2 other = replacement.Issue();
+        PeerCredential presented = Credential(crypto, leaf);
+        PeerCredential alternate = presented with { CredentialId = replacement.Template.IssueId,
+            Fingerprint = EnrollmentCertificates.Hash(other.RawData) };
+        alternate = scenario switch
+        {
+            "different-voter" => alternate with { NodeId = Guid.NewGuid() },
+            "different-storage" => alternate with { StorageGeneration = Guid.NewGuid() },
+            "duplicate-fingerprint" => alternate with { Fingerprint = presented.Fingerprint },
+            _ => alternate
+        };
+        Trust trust = new(presented, alternate) { RevokedDuringLookup = scenario == "revoked-during-lookup" };
+        Uri target = new("https://peer.example.test/internal/cluster/v1/health");
+        CancellationToken token = TestContext.Current.CancellationToken;
+
+        // Act
+        PeerCredential? resolved = await PeerServerPin.ResolvePresentedAsync(target, leaf, trust, crypto.Now, token);
+        bool singleOnly = await PeerServerPin.MatchesAsync(target, leaf, trust, crypto.Now, token);
+
+        // Assert
+        Assert.Equal(expected ? presented : null, resolved);
+        Assert.False(singleOnly);
+    }
+
     [Fact]
     public async Task AcceptedCertificateMustBelongToExactServerAuthorityIncludingPort()
     {
@@ -59,7 +95,7 @@ public class PeerServerPinTests
             EnrollmentCertificates.Hash(leaf.RawData), true, false, crypto.Template.NotAfterUtc);
     }
 
-    private class Trust(PeerCredential credential) : IPeerTrustSource
+    private class Trust(params PeerCredential[] credentials) : IPeerTrustSource
     {
         public bool RevokedDuringLookup { get; set; }
 
@@ -70,12 +106,12 @@ public class PeerServerPinTests
                 return ValueTask.FromResult<PeerCredential?>(null);
             }
 
-            return ValueTask.FromResult<PeerCredential?>(credential);
+            return ValueTask.FromResult(credentials.SingleOrDefault(credential => credential.CredentialId == id));
         }
 
         public ValueTask<IReadOnlyList<PeerCredential>> ListAsync(CancellationToken token)
         {
-            return ValueTask.FromResult<IReadOnlyList<PeerCredential>>([credential]);
+            return ValueTask.FromResult<IReadOnlyList<PeerCredential>>(credentials);
         }
     }
 }

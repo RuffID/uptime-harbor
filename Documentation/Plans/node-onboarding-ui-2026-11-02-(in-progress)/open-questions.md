@@ -8,7 +8,11 @@
 
 ## Технические вопросы разработчику
 
-Открытых вопросов нет.
+Принятое решение об источнике HTTPS-адреса ContinueCredential перенесено в [контракт адреса](technical-design.md#credential-continuation-origin).
+
+<a id="voter-retirement-handoff"></a>
+
+Принятое правило подтверждения перенесено в [требования 04.09.02](04-enrollment-and-trust/04.09-credential-renewal/04.09.02-automatic-rotation.md#voter-retirement-handoff). Следом отдельный [production admission 04.09.03](04-enrollment-and-trust/04.09-credential-renewal/04.09.03-production-admission.md) поддерживает [exact replay и окончательный отказ](04-enrollment-and-trust/04.09-credential-renewal/04.09.01-authorize-retry.md#механизм-и-порядок-записей). Реальные handshake, CRL, reuse, повтор после обрыва и TCP TLS passthrough остаются в 07.04.
 
 Проектирование [01](01-scenarios-and-decisions/main.md) завершено: конкретные контракты, параметры и границы приведены в [technical-design.md](technical-design.md). Неопределённость runtime-поведения не выдана за открытое бизнес-решение: issuer/TLS, SQL/fsync/ACL, переключение workers, реальный перенос и доставка сводки подтверждаются будущими этапами, прежде всего 07. Новое реальное противоречие требованиям при реализации фиксируется здесь до зависимой работы; требования автоматически не ослабляются.
 

@@ -3,10 +3,14 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using UptimeHarbor.Application;
+using UptimeHarbor.Application.Cluster.Onboarding.Renewal;
 using UptimeHarbor.Application.Installation;
 using UptimeHarbor.Infrastructure;
+using UptimeHarbor.Infrastructure.Cluster.Onboarding.Renewal;
 using UptimeHarbor.Infrastructure.Installation;
+using UptimeHarbor.Infrastructure.Installation.Renewal;
 using UptimeHarbor.Web.Cluster;
+using UptimeHarbor.Web.Cluster.EnrollmentRouting;
 using UptimeHarbor.Web.Configuration;
 using UptimeHarbor.Web.Pages;
 using Xunit;
@@ -65,8 +69,16 @@ public class SetupCompositionTests
             Assert.IsType<SetupAuthority>(scope.ServiceProvider.GetRequiredService<ISetupAuthority>());
             Assert.IsType<ManagedRuntimeAdmission>(provider.GetRequiredService<IManagedRuntimeAdmission>());
             Assert.NotNull(scope.ServiceProvider.GetRequiredService<ManagedBootstrapLifecycle>());
+            Assert.NotNull(scope.ServiceProvider.GetRequiredService<ManagedVoterContinuationStartup>());
             Assert.False(provider.GetRequiredService<InstallationState>().CommonOpen);
             Assert.Null(provider.GetRequiredService<DynamicPeerTls>().Certificate);
+            Assert.NotNull(scope.ServiceProvider.GetRequiredService<VoterCredentialPeerService>());
+            Assert.IsType<EnrollmentPeerClient>(scope.ServiceProvider.GetRequiredService<IVoterCredentialSignerClient>());
+            Assert.NotNull(scope.ServiceProvider.GetRequiredService<VoterCredentialAdmission>());
+            var client = scope.ServiceProvider.GetRequiredService<VoterCredentialAdmissionClient>();
+            Assert.Same(client, scope.ServiceProvider.GetRequiredService<IVoterCredentialAdmissionClient>());
+            Assert.Same(client, scope.ServiceProvider.GetRequiredService<IVoterCredentialRetirementClient>());
+            Assert.DoesNotContain(provider.GetServices<IHostedService>(), worker => worker is VoterCredentialRotationWorker);
         }
         finally
         {

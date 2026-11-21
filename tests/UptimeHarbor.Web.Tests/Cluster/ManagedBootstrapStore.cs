@@ -2,6 +2,7 @@ using UptimeHarbor.Application.Cluster.Models;
 using UptimeHarbor.Application.Cluster.Onboarding;
 using UptimeHarbor.Application.Installation;
 using UptimeHarbor.Infrastructure.Installation;
+using System.Text.Json;
 
 namespace UptimeHarbor.Tests.Web.Cluster;
 
@@ -10,11 +11,14 @@ public class ManagedBootstrapStore : ILocalSetupUnitOfWork, ILocalInstallationRe
     ILocalSetupAccountStore, IEnrollmentSigningRepository, IEnrollmentSigningUnitOfWork
 {
     public LocalInstallationProfile? Profile { get; set; }
+    public bool RoundTripProfile { get; set; }
     public LocalSetupAccount Account { get; } = new() { Id = Guid.NewGuid(), PasswordHash = "setup-only", Revision = 1 };
     public Dictionary<Guid, LocalAttemptStep> Steps { get; } = [];
     public Dictionary<Guid, EnrollmentIssuerReference> Issuers { get; } = [];
     public Dictionary<Guid, EnrollmentIssuedArtifact> Issues { get; } = [];
     public int Commits { get; private set; }
+    public int Saves { get; private set; }
+    public Func<CancellationToken, Task>? BeforeSaveChanges { get; set; }
     public Func<CancellationToken, Task>? BeforeCommit { get; set; }
     public Func<CancellationToken, Task>? AfterCommit { get; set; }
     public ILocalInstallationRepository Profiles => this;
@@ -22,7 +26,9 @@ public class ManagedBootstrapStore : ILocalSetupUnitOfWork, ILocalInstallationRe
 
     public Task<LocalInstallationProfile?> ReadAsync(CancellationToken token)
     {
-        return Task.FromResult(Profile);
+        return Task.FromResult(RoundTripProfile
+            ? JsonSerializer.Deserialize<LocalInstallationProfile>(JsonSerializer.Serialize(Profile))
+            : Profile);
     }
 
     Task<LocalSetupAccount?> ILocalSetupAccountStore.ReadAsync(CancellationToken token)
@@ -71,9 +77,15 @@ public class ManagedBootstrapStore : ILocalSetupUnitOfWork, ILocalInstallationRe
         Steps.Add(step.OperationId, step);
     }
 
-    public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    public async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {
-        return Task.FromResult(1);
+        if (BeforeSaveChanges is not null)
+        {
+            await BeforeSaveChanges(cancellationToken);
+        }
+
+        Saves++;
+        return 1;
     }
 
     public async Task ExecuteInTransactionAsync(Func<CancellationToken, Task> action, CancellationToken cancellationToken = default)

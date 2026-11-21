@@ -1,5 +1,7 @@
 # Cluster application tests
 
+Renewal/ проверяет отдельный accepted voter lifecycle: codec/reducer/write set, expiry/overlap/revision/replay, snapshot/ancestors и production dispatcher deny. Fake public bytes не доказывают X.509; реальные локальные сертификаты проверяет Infrastructure Cluster/Renewal.
+
 OnboardingScenario проверяет accepted порядок настоящего reducer с fake certificate text: TTL 15/30/10, ProcessEpoch, inactivity/progress, delegation, atomic admit/cancel, strict snapshot/contracts и replay. Это симуляция записей, не настоящий допуск/сертификат/native Join.
 
 ClusterOperationsTests проверяет реальный reducer/controls: admission без activation/vote, actor revision, clone, membership confirmation/reauthorization, last voter, maintenance, internal term/provenance и неизменность encoding старых команд. Это не доказательство native elections/majority.

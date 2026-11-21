@@ -10,6 +10,13 @@ public class PeerCertificateValidator
     public bool Validate(X509Certificate2 certificate, X509Certificate2 root, ClusterOptions options,
         PeerCredential credential, DateTimeOffset now, bool offlineRevocation = false)
     {
+        return Validate(certificate, root, options, credential, now,
+            (leaf, anchor, policy, checkedAt) => ValidateChain(leaf, anchor, policy, checkedAt, offlineRevocation));
+    }
+
+    internal bool Validate(X509Certificate2 certificate, X509Certificate2 root, ClusterOptions options,
+        PeerCredential credential, DateTimeOffset now, Func<X509Certificate2, X509Certificate2, ClusterOptions, DateTimeOffset, bool> validateChain)
+    {
         string rootHash = root.GetCertHashString(HashAlgorithmName.SHA256);
         string hash = certificate.GetCertHashString(HashAlgorithmName.SHA256);
         if (!string.Equals(rootHash, options.ClientCaFingerprint, StringComparison.OrdinalIgnoreCase)
@@ -39,7 +46,7 @@ public class PeerCertificateValidator
             return false;
         }
 
-        return ValidateChain(certificate, root, options, now, offlineRevocation);
+        return validateChain(certificate, root, options, now);
     }
 
     public bool ValidateChain(X509Certificate2 certificate, X509Certificate2 root, ClusterOptions options, DateTimeOffset now,

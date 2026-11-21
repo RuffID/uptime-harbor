@@ -19,6 +19,7 @@ public static class SnapshotImageValidation
     {
         SnapshotSchema.Validate(context, image.ProjectionRows);
         OnboardingSnapshot.Validate(image);
+        Onboarding.Renewal.VoterCredentialArtifacts.ValidateSnapshot(image);
         foreach (AcceptedOnlineGrant accepted in image.OnboardingContracts?.OnlineGrants?.Values ?? [])
         {
             if (!Onboarding.OnlineGrantSignatures.Verify(image, accepted.Grant, accepted.Grant.IssuedAtUtc,

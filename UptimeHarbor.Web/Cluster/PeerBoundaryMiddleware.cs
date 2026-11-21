@@ -1,6 +1,9 @@
 using System.Net;
+using System.Net.Security;
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Server.Kestrel.Core.Features;
 using Microsoft.Extensions.Options;
 using UptimeHarbor.Application.Cluster;
 using UptimeHarbor.Application.Cluster.Models;
@@ -10,22 +13,33 @@ using UptimeHarbor.Web.Security;
 using UptimeHarbor.Application.Installation;
 using UptimeHarbor.Web.Controllers;
 using UptimeHarbor.Infrastructure.Cluster.Onboarding;
+using UptimeHarbor.Infrastructure.Cluster.Onboarding.Renewal;
 using UptimeHarbor.Infrastructure.Cluster.Onboarding.Routing;
+using UptimeHarbor.Web.Cluster.EnrollmentRouting;
 
 namespace UptimeHarbor.Web.Cluster;
 
 public class PeerBoundaryMiddleware(RequestDelegate next, IOptions<ClusterOptions> configured,
     IOptions<InstallationOptions>? installationOptions = null, InstallationState? installation = null)
 {
+    internal record RenewalServer(Guid CredentialId, string Fingerprint, X509Certificate2? LegacyCertificate = null);
+
     public async Task InvokeAsync(HttpContext context, IPeerTrustSource trust,
         NodeReadiness readiness, TimeProvider timeProvider, ClusterPeerRuntime runtime, IClusterStateView? state = null,
         DynamicPeerTls? dynamicTls = null, RuntimeWriteGate? writes = null,
-        EnrollmentPeerProbes? probes = null, EnrollmentRateLimiter? enrollmentLimits = null)
+        EnrollmentPeerProbes? probes = null, EnrollmentRateLimiter? enrollmentLimits = null, RevisionStateStore? revisions = null)
     {
         ClusterOptions options = configured.Value;
         bool peerPath = context.Request.Path.StartsWithSegments("/internal");
         bool managed = installationOptions?.Value.Setup == true;
         bool peerListener = (options.Enabled || managed) && context.Connection.LocalPort == options.PeerListenPort;
+        if (VoterContinuationEndpoint.Owns(context.Request.Path))
+        {
+            await VoterContinuationEndpoint.EnterAsync(context, next, peerListener, installationOptions?.Value,
+                installation, writes);
+            return;
+        }
+
         if (context.Request.Path == EnrollmentPeerProbeTransport.PATH)
         {
             string? address = installationOptions?.Value.PeerEndpoint;
@@ -121,6 +135,10 @@ public class PeerBoundaryMiddleware(RequestDelegate next, IOptions<ClusterOption
         bool health = context.Request.Path == "/internal/cluster/v1/health";
         bool commands = context.Request.Path == "/internal/cluster/v1/commands";
         bool enrollmentPeer = EnrollmentPeerProtocol.IsRoute(context.Request.Path.Value);
+        bool handoff = context.Request.Path.Value is EnrollmentPeerProtocol.HANDOFF or EnrollmentPeerProtocol.RETIREMENT_HANDOFF;
+        bool rotationAdmission = EnrollmentPeerProtocol.IsRotationAdmission(context.Request.Path.Value);
+        bool renewal = handoff || context.Request.Path == EnrollmentPeerProtocol.RENEW;
+        bool managedRotation = rotationAdmission || managed && renewal;
         if (!native && !health && !commands && !enrollmentPeer)
         {
             context.Response.StatusCode = StatusCodes.Status404NotFound;
@@ -131,7 +149,10 @@ public class PeerBoundaryMiddleware(RequestDelegate next, IOptions<ClusterOption
         if (enrollmentPeer)
         {
             limit = EnrollmentPeerProtocol.MAX_BYTES;
-            if (!HttpMethods.IsPost(context.Request.Method) || !context.Request.IsHttps
+            if ((renewal || rotationAdmission) && options.TlsBoundary != "Direct"
+                || managedRotation && (!managed || installation?.CommonOpen != true
+                    || installation.Current is not { Phase: InstallationPhase.ClusterReady, Mode: "Bootstrap" })
+                || !HttpMethods.IsPost(context.Request.Method) || !context.Request.IsHttps
                 || context.Request.Host.Value != new Uri(options.PublicUri).Authority
                 || context.Request.Headers.ContainsKey("Cookie") || context.Request.Headers.ContainsKey("Authorization"))
             {
@@ -183,6 +204,13 @@ public class PeerBoundaryMiddleware(RequestDelegate next, IOptions<ClusterOption
             return;
         }
 
+        if (!native && revisions?.Current?.OnboardingContracts?.OnlineProcesses?.GetValueOrDefault(credential.NodeId)
+            is { CredentialContinuation: true })
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return;
+        }
+
         if (native && !NativeRaftIdentity.Validate(credential, context.Request.Headers["X-Raft-Node-ID"].ToString(),
             context.Request.Headers["X-Raft-Message-Type"].ToString(), context.Request.Headers["X-Raft-Term"].ToString(),
             context.Request.Headers["X-Raft-State-Version"].ToString(), envelope))
@@ -199,9 +227,22 @@ public class PeerBoundaryMiddleware(RequestDelegate next, IOptions<ClusterOption
         }
 
         bool validCertificate;
+        DynamicPeerTls.Snapshot? local = null;
         if (managed)
         {
-            validCertificate = dynamicTls?.ValidateRequest(certificate, options, credential, timeProvider.GetUtcNow()) == true;
+            local = context.Features.Get<DynamicPeerTls.Snapshot>();
+            if (!managedRotation && local is null && dynamicTls?.Capture() is { CredentialRevision: 0 } initial)
+            {
+                local = initial;
+            }
+
+            validCertificate = local is not null && (native || !local.Quarantined)
+                && dynamicTls?.ValidateRequest(local, certificate, options, credential, timeProvider.GetUtcNow()) == true;
+        }
+        else if (options.TlsBoundary == "Direct")
+        {
+            validCertificate = LegacyDirectPeerTrust.ValidateClient(certificate, options,
+                revisions is { Available: true } ? revisions.Current : null, timeProvider.GetUtcNow(), credential);
         }
         else
         {
@@ -215,8 +256,27 @@ public class PeerBoundaryMiddleware(RequestDelegate next, IOptions<ClusterOption
             return;
         }
 
+        RenewalServer? renewalServer = null;
+        if (renewal)
+        {
+            if (managed && local?.CredentialId is Guid id)
+            {
+                renewalServer = new(id, local.Fingerprint);
+            }
+            else if (!managed)
+            {
+                renewalServer = await ReadLegacyRenewalServerAsync(context, options, certificate, trust, timeProvider);
+            }
+
+            if (renewalServer is null)
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                return;
+            }
+        }
+
         PeerEnvelope reply = new(options.ClusterId, options.Generation, options.NodeId,
-            envelope.FromNodeId, options.StorageGeneration, options.CredentialId, envelope.RequestId,
+            envelope.FromNodeId, options.StorageGeneration, renewalServer?.CredentialId ?? local?.CredentialId ?? options.CredentialId, envelope.RequestId,
             timeProvider.GetUtcNow(), options.Compatibility, envelope.Challenge, state?.Consensus?.Term ?? 0);
         context.Response.Headers[PeerHeaders.ENVELOPE] = PeerHeaders.Encode(reply);
         context.Response.Headers.CacheControl = "no-store";
@@ -238,7 +298,8 @@ public class PeerBoundaryMiddleware(RequestDelegate next, IOptions<ClusterOption
         {
             if (!credential.IsVoting || credential.IsAdmission || state is null || !state.Accepted.CaughtUp
                 || !state.Accepted.SnapshotConfirmed || !state.Accepted.AccountStateConfirmed
-                || context.Request.Path == EnrollmentPeerProtocol.COORDINATE
+                || (handoff || managedRotation) && !readiness.CanWork(state)
+                || (rotationAdmission || context.Request.Path == EnrollmentPeerProtocol.COORDINATE)
                     && (state.Consensus?.IsLeader != true || !readiness.CanWork(state)))
             {
                 context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
@@ -246,6 +307,24 @@ public class PeerBoundaryMiddleware(RequestDelegate next, IOptions<ClusterOption
             }
 
             context.Items[typeof(PeerEnvelope)] = envelope;
+            if (managedRotation && (local is null || local.Generation != generation
+                || rotationAdmission && !ReferenceEquals(dynamicTls?.Capture(), local)))
+            {
+                context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                return;
+            }
+
+            if (rotationAdmission)
+            {
+                context.Items[typeof(VoterCredentialAdmissionOrigin)] = new VoterCredentialAdmissionOrigin(local!, envelope, credential);
+            }
+
+            if (renewal)
+            {
+                context.Items[typeof(PeerCredential)] = credential;
+                context.Items[typeof(RenewalServer)] = renewalServer;
+            }
+
             await next(context);
             return;
         }
@@ -264,6 +343,27 @@ public class PeerBoundaryMiddleware(RequestDelegate next, IOptions<ClusterOption
         }
 
         await runtime.WriteHealthAsync(context, envelope);
+    }
+
+    private static async ValueTask<RenewalServer?> ReadLegacyRenewalServerAsync(HttpContext context, ClusterOptions options,
+        X509Certificate2 client, IPeerTrustSource trust, TimeProvider time)
+    {
+        if (options.TlsBoundary != "Direct"
+            || context.Features.Get<ISslStreamFeature>()?.SslStream is not SslStream
+                { IsServer: true, IsMutuallyAuthenticated: true, LocalCertificate: { } local, RemoteCertificate: { } remote }
+            || !remote.GetRawCertData().AsSpan().SequenceEqual(client.RawData))
+        {
+            return null;
+        }
+
+        Uri address = new(options.PublicUri);
+        using X509Certificate2 server = new(local);
+        PeerCredential? accepted = await PeerServerPin.ResolvePresentedAsync(address, server, trust,
+            time.GetUtcNow(), context.RequestAborted);
+        return accepted is { IsVoting: true, IsAdmission: false }
+            && accepted.NodeId == options.NodeId && accepted.StorageGeneration == options.StorageGeneration
+            && accepted.Address == address && time.GetUtcNow() < accepted.ExpiresAtUtc
+            ? new(accepted.CredentialId, server.GetCertHashString(HashAlgorithmName.SHA256), local as X509Certificate2) : null;
     }
 
     private static async Task<X509Certificate2?> GetCertificateAsync(HttpContext context, ClusterOptions options)

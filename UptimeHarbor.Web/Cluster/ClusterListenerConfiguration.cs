@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.AspNetCore.Server.Kestrel.Https;
 using Microsoft.Extensions.Options;
+using UptimeHarbor.Application.Cluster;
 using UptimeHarbor.Application.Cluster.Models;
 using UptimeHarbor.Infrastructure.Cluster;
 using UptimeHarbor.Infrastructure.Installation;
@@ -49,10 +50,21 @@ public static class ClusterListenerConfiguration
                         }
 
                         endpoint.HttpsOptions.ClientCertificateMode = ClientCertificateMode.RequireCertificate;
+                        endpoint.HttpsOptions.OnAuthenticate = (_, ssl) =>
+                        {
+                            ssl.AllowTlsResume = false;
+                            ssl.AllowRenegotiation = false;
+                            ssl.CertificateChainPolicy = new X509ChainPolicy
+                            {
+                                DisableCertificateDownloads = true,
+                                RevocationMode = X509RevocationMode.NoCheck
+                            };
+                        };
                         endpoint.HttpsOptions.ClientCertificateValidation = (certificate, _, _) =>
                         {
-                            using X509Certificate2 root = X509CertificateLoader.LoadCertificateFromFile(options.ClientCaPath);
-                            return new PeerCertificateValidator().ValidateChain(certificate, root, options, DateTimeOffset.UtcNow);
+                            RevisionStateStore revisions = server.ApplicationServices.GetRequiredService<RevisionStateStore>();
+                            return LegacyDirectPeerTrust.ValidateClient(certificate, options,
+                                revisions.Available ? revisions.Current : null, DateTimeOffset.UtcNow);
                         };
                     }
                 });
@@ -84,9 +96,34 @@ public static class ClusterListenerConfiguration
                 .Endpoint("Peer", endpoint =>
                 {
                     DynamicPeerTls credentials = server.ApplicationServices.GetRequiredService<DynamicPeerTls>();
-                    endpoint.HttpsOptions.ServerCertificateSelector = (_, _) => credentials.Certificate;
+                    endpoint.HttpsOptions.ServerCertificateSelector = (connection, _) =>
+                    {
+                        DynamicPeerTls.Snapshot? snapshot = credentials.Capture();
+                        connection?.Features.Set(snapshot);
+                        return snapshot?.Certificate ?? credentials.ProbeCertificate;
+                    };
                     endpoint.HttpsOptions.ClientCertificateMode = ClientCertificateMode.RequireCertificate;
-                    endpoint.HttpsOptions.ClientCertificateValidation = (certificate, _, _) => credentials.Validate(certificate);
+                    endpoint.HttpsOptions.OnAuthenticate = (connection, ssl) =>
+                    {
+                        // Для привязки envelope требуется выбор server leaf на этом handshake.
+                        ssl.AllowTlsResume = false;
+                        ssl.RemoteCertificateValidationCallback = (_, certificate, _, _) =>
+                        {
+                            if (certificate is null)
+                            {
+                                return false;
+                            }
+
+                            using X509Certificate2 candidate = new(certificate);
+                            DynamicPeerTls.Snapshot? snapshot = connection.Features.Get<DynamicPeerTls.Snapshot>();
+                            if (snapshot is null)
+                            {
+                                return credentials.ValidateProbe(candidate);
+                            }
+
+                            return credentials.Validate(snapshot, candidate);
+                        };
+                    };
                 });
         });
     }

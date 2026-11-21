@@ -13,6 +13,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\UptimeHarbor.Domain\UptimeHarbor.Domain.csproj" />
+    <InternalsVisibleTo Include="UptimeHarbor.Infrastructure" />
   </ItemGroup>
 
 </Project>

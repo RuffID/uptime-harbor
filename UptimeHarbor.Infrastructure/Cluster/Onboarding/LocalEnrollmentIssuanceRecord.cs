@@ -5,6 +5,7 @@ public class LocalEnrollmentIssuanceRecord
 {
     public Guid Id { get; set; }
     public Guid IssuerEpoch { get; set; }
+    // Legacy correlation column: enrollment AttemptId либо voter renewal OperationId, без FK на attempt.
     public Guid AttemptId { get; set; }
     public string RequestDigest { get; set; } = string.Empty;
     public string TemplateDigest { get; set; } = string.Empty;

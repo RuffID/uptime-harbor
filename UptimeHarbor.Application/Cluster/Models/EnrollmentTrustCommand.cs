@@ -7,6 +7,8 @@ public record EnrollmentTrustCommand(int Version, Guid StorageGeneration, Guid I
 {
     public DateTimeOffset? CoordinatorAtUtc { get; init; }
     public long CoordinatorTerm { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public Onboarding.Renewal.VoterCredentialCommand? Rotation { get; init; }
     [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault)]
     public long GenesisMembershipVersion { get; init; }
 

@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Logging;
+using UptimeHarbor.Application.Cluster;
 using UptimeHarbor.Application.Cluster.Models;
 using UptimeHarbor.Application.Cluster.Onboarding;
+using UptimeHarbor.Application.Cluster.Onboarding.Renewal;
 using UptimeHarbor.Domain.Cluster;
 
 namespace UptimeHarbor.Infrastructure.Cluster.Onboarding;
@@ -14,6 +16,65 @@ public class OnboardingAudit(ILogger<OnboardingAudit> logger) : IOnboardingAudit
 
     public void Accepted(RevisionImage before, RevisionImage after, RevisionCommand command, CommandResult result)
     {
+        if (command.Action == VoterContinuationCommands.BIND)
+        {
+            AuditContinuationBind(before, after, command, result);
+            return;
+        }
+
+        if (VoterCredentialCommands.IsRotation(command))
+        {
+            if (before.Results.ContainsKey(command.OperationId))
+            {
+                return;
+            }
+
+            if (after.Results.GetValueOrDefault(command.OperationId) != result
+                || result.Digest != RevisionCodec.Digest(command))
+            {
+                throw new InvalidDataException("VoterCredentialAuditDecisionUnconfirmed");
+            }
+
+            string eventName = "CertificateRejected";
+            if (result.Outcome == OperationOutcome.Committed)
+            {
+                VoterCredentialRotation rotation = after.OnboardingContracts?.VoterCredentialRotations?
+                    .GetValueOrDefault(command.EnrollmentTrust!.Rotation!.Renewal.Issuance.IssueId)
+                    ?? throw new InvalidDataException("VoterCredentialAuditStateMissing");
+                Guid? operationId;
+                long? index;
+                if (command.Action == "AuthorizeVoterCredential")
+                {
+                    eventName = "CertificateAuthorized";
+                    operationId = rotation.AuthorizationOperationId;
+                    index = rotation.AuthorizedIndex;
+                }
+                else if (command.Action == "BindVoterCredential")
+                {
+                    eventName = "CertificateBound";
+                    operationId = rotation.BindOperationId;
+                    index = rotation.CredentialRevision;
+                }
+                else
+                {
+                    eventName = "CertificateRetired";
+                    operationId = rotation.RetireOperationId;
+                    index = rotation.RetiredIndex;
+                }
+
+                if (operationId != command.OperationId || index != result.Index)
+                {
+                    throw new InvalidDataException("VoterCredentialAuditBoundaryUnconfirmed");
+                }
+            }
+
+            VoterCredentialRenewal renewal = command.EnrollmentTrust!.Rotation!.Renewal;
+            logger.LogInformation("Enrollment {EventName} {OperationId} {NodeId} {CredentialId} {SystemSource} {Outcome} at {Index}.",
+                eventName, command.OperationId, renewal.Issuance.NodeId, renewal.Issuance.IssueId,
+                "VoterCredentialLifecycle", result.Outcome, result.Index);
+            return;
+        }
+
         if (OnlineLifecycleCommands.IsOnline(command))
         {
             OnlineGrant grant = command.OnlineLifecycle!.Grant;
@@ -110,6 +171,37 @@ public class OnboardingAudit(ILogger<OnboardingAudit> logger) : IOnboardingAudit
             logger.LogInformation("Onboarding {EventName} {OperationId} {InvitationId} {AttemptId} {NodeId} {ActorId} at {Index}.",
                 eventName, command.OperationId, invitation.Id, invitation.Attempt?.Request.AttemptId,
                 invitation.Attempt?.Request.NodeId, actorId, result.Index);
+        }
+    }
+
+    private void AuditContinuationBind(RevisionImage before, RevisionImage after, RevisionCommand command, CommandResult result)
+    {
+        if (before.Results.ContainsKey(command.OperationId))
+        {
+            return;
+        }
+
+        if (after.Results.GetValueOrDefault(command.OperationId) != result
+            || RevisionDispatcher.ReadVoterCredentialDecision(after, command) != result)
+        {
+            throw new InvalidDataException("VoterContinuationBindAuditDecisionUnconfirmed");
+        }
+
+        VoterCredentialRequest request = command.VoterContinuation!.Context.Request;
+        if (result.Outcome == OperationOutcome.Committed)
+        {
+            if (!VoterContinuationBinding.IsCurrentBinding(after, command))
+            {
+                throw new InvalidDataException("VoterContinuationBindAuditBoundaryUnconfirmed");
+            }
+
+            logger.LogInformation("Enrollment CertificateBound by continuation {BindId} {RequestId} {IssueId} {NodeId} {ActorId} at {Index}.",
+                command.OperationId, request.OperationId, request.Renewal.Issuance.IssueId, command.EntityId, command.ActorUserId, result.Index);
+        }
+        else
+        {
+            logger.LogWarning("Enrollment CertificateRejected by continuation {BindId} {RequestId} {IssueId} {NodeId} {ActorId} at {Index}.",
+                command.OperationId, request.OperationId, request.Renewal.Issuance.IssueId, command.EntityId, command.ActorUserId, result.Index);
         }
     }
 }

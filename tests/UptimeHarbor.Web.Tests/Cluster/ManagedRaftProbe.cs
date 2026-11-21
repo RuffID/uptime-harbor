@@ -9,7 +9,9 @@ public class ManagedRaftProbe : DispatchProxy
     public IPersistentState Store { get; set; } = null!;
     public Func<IRaftLogEntry, CancellationToken, ValueTask> Replicate { get; set; } = null!;
     public bool Majority { get; set; } = true;
+    public bool RemoteLeader { get; set; }
     public int Barriers { get; private set; }
+    public Action? OnReadBarrier { get; set; }
     public bool LoseResponse { get; set; }
     public int? LoseResponseAt { get; set; }
     public int Replications { get; private set; }
@@ -27,6 +29,7 @@ public class ManagedRaftProbe : DispatchProxy
                 return CancellationToken.None;
             case "get_Leader":
                 leader ??= Create(targetMethod.ReturnType, typeof(LocalMember));
+                ((LocalMember)leader).Remote = RemoteLeader;
                 return leader;
             case "ApplyReadBarrierAsync":
                 Barriers++;
@@ -35,6 +38,7 @@ public class ManagedRaftProbe : DispatchProxy
                     throw new InvalidOperationException("TestMajorityUnavailable");
                 }
 
+                OnReadBarrier?.Invoke();
                 if (targetMethod.ReturnType == typeof(ValueTask))
                 {
                     return ValueTask.CompletedTask;
@@ -63,6 +67,8 @@ public class ManagedRaftProbe : DispatchProxy
 
     public class LocalMember : DispatchProxy
     {
+        public bool Remote { get; set; }
+
         protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
         {
             if (targetMethod?.Name == "get_Id")
@@ -72,7 +78,7 @@ public class ManagedRaftProbe : DispatchProxy
 
             if (targetMethod?.Name == "get_IsRemote")
             {
-                return false;
+                return Remote;
             }
 
             throw new NotSupportedException(targetMethod?.Name);

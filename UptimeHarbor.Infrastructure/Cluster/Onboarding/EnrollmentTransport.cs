@@ -41,7 +41,7 @@ public sealed class EnrollmentTransport : IDisposable
 
     public async Task<TResponse> DiscoverAsync<TResponse>(Uri origin, CancellationToken token)
     {
-        return await SendAsync<TResponse>(origin, EnrollmentEndpoint.Discovery, null, token);
+        return await SendAsync<TResponse>(endpoints.Resolve(origin, EnrollmentEndpoint.Discovery), null, token);
     }
 
     public async Task<TResponse> PostAsync<TRequest, TResponse>(Uri origin, EnrollmentEndpoint endpoint,
@@ -52,6 +52,17 @@ public sealed class EnrollmentTransport : IDisposable
             throw new InvalidDataException("EnrollmentMethodInvalid");
         }
 
+        return await PostAsync<TRequest, TResponse>(endpoints.Resolve(origin, endpoint), request, token);
+    }
+
+    internal Task<TResponse> PostContinuationAsync<TRequest, TResponse>(Uri origin, string operation,
+        TRequest request, CancellationToken token)
+    {
+        return PostAsync<TRequest, TResponse>(endpoints.ResolveContinuation(origin, operation), request, token);
+    }
+
+    private async Task<TResponse> PostAsync<TRequest, TResponse>(Uri address, TRequest request, CancellationToken token)
+    {
         byte[] body = StrictOnboardingJson.Encode(request);
         try
         {
@@ -60,7 +71,7 @@ public sealed class EnrollmentTransport : IDisposable
                 throw new InvalidDataException("EnrollmentRequestLimit");
             }
 
-            return await SendAsync<TResponse>(origin, endpoint, body, token);
+            return await SendAsync<TResponse>(address, body, token);
         }
         finally
         {
@@ -68,12 +79,11 @@ public sealed class EnrollmentTransport : IDisposable
         }
     }
 
-    private async Task<TResponse> SendAsync<TResponse>(Uri origin, EnrollmentEndpoint endpoint,
-        byte[]? body, CancellationToken token)
+    private async Task<TResponse> SendAsync<TResponse>(Uri address, byte[]? body, CancellationToken token)
     {
         using CancellationTokenSource timeout = CancellationTokenSource.CreateLinkedTokenSource(token);
         timeout.CancelAfter(TimeSpan.FromSeconds(10));
-        using HttpRequestMessage request = new(HttpMethod.Get, endpoints.Resolve(origin, endpoint));
+        using HttpRequestMessage request = new(HttpMethod.Get, address);
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         request.Version = HttpVersion.Version11;
         request.VersionPolicy = HttpVersionPolicy.RequestVersionExact;

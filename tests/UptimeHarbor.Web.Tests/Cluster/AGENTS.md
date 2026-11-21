@@ -1,14 +1,22 @@
 # Изолированные проверки cluster hosting
 
+PeerBoundaryTests проверяет блок ordinary ingress для continuation lease через DefaultHttpContext и memory projection. Сетевой транспорт и хост не запускаются.
+
+ManagedRestart проверяет реальный локальный WAL и защищённые файлы на новых InstallationLease, с подставной SQL projection и majority. Для ротации fixture подаёт принятые reducer-команды в тестовый WAL. Native Start и реальная сеть не участвуют. Сквозные тесты рабочего supervisor/DI и typed admission находятся в EnrollmentRouting.
+
 Issuers/ проверяет provisioning существующего ручного кластера, capability всех voters и административный HTTP-контракт через production pipeline без SQL/сокетов/native Start. Сохранять отдельные regression проверки managed secrets/Bootstrap и прежних invitations.
 
 ManagedBootstrap/ManagedRestart tests используют production permit/recovery/signers/validators/lifecycle и реальный локальный WAL; SQL/native majority и membership file — doubles, native Start/elections не выполняются. EnrollmentClient/Gateway tests соединяют production client/server через fake handlers без listeners; TLS policy проверяется локальной криптографией, не handshake. Проверять обе peer-пробы, lost reserve/IssueId/DER, новый BootChallenge/ProcessEpoch/lease, file intent/crash/orphans и закрытый CommonOpen второго. Не запускать реальную сеть или host ради этих тестов.
 
 EnrollmentClientTests отдельно прерывает Bind и каждую peer-пробу: до двух успешных направлений PeerProbes evidence отсутствует. BeforeSave у local store проверяет SQL intent до trust-файла; это порядок вызовов, не provider atomicity. При активной pending TLS session проверять реальный PeerBoundaryMiddleware: Raft/commands/snapshot/common закрыты, runtime не создаётся. Read-state/process-renew без DER до Bind не должны стирать ранее полученные байты; renew проверять с управляемым временем после обрыва Bind.
 
-ManagedRestartTests проверяет ранний отказ для режима, отличного от точного Restart: admission/TLS/native store остаются закрытыми, профиль и файлы не меняются; отсутствующий seal не должен читаться. Успешный Restart отдельно проверяет TLS, карантин и новый ProcessEpoch/Enable.
+ManagedRestartTests проверяет ранний отказ для других режимов, sealed WAL replay, прерывание после каждой durable стадии от Bind до confirmation, native-only TLS и восстановление на двух последовательных lease. Majority/follower моделирует native double. Изменившийся срез, повреждённые pins, expiry и revocation проверяет ManagedRestartCredentialFailureTests. Новый ProcessEpoch/Enable остаётся отдельным условием рабочего допуска.
+
+До сохранения bind-intent штатный ManagedRestart поднимает прежний credential, lifecycle открывает CommonOpen после majority и нового Process/Enable. Если bind-intent опережает WAL, проверять native-only прежний leaf и три случая. Свежий срез без Bind ведёт к штатному входу и точному retry, commit до или после первого чтения восстанавливается без повторной отправки. Проверять смену term во время чтения и отказ при нарушении префикса или свежей evidence. Изолированный проход продолжает закреплённый Authorize/DER через тестовый WAL transport.
 
 ManagedBootstrapRecoveryTests теряет ответ после каждого из семи committed шагов genesis/account/process/activation/Enable. ManagedRaftProbe считает native calls и позволяет потерять конкретный ответ; ManagedBootstrapStore предоставляет управляемые границы до/после подставного commit, не моделирует SQL rollback/locking. Common UI проверяется прямым вызовом SetupBoundaryMiddleware с явно заданными method/scheme/Host, без host/browser. Отдельно проверять commit отзыва setup до публикации, неизвестный ответ commit, отказ Ready и новый process после sealed restart. Неполный первый старт без seal должен безопасно отказывать без нового genesis/account; это не доказательство его автоматического resume.
+
+Signing journal сохраняет через SaveChanges, поэтому его concurrent/lost-response границы проверять отдельным BeforeSaveChanges/Saves, а не transaction BeforeCommit. Не считать эти memory hooks подтверждением SQL durability. Signing peer в ManagedBootstrapFixture подменяется только для узкого caller replay; настоящий remote authorization проверяется в EnrollmentRouting/.
 
 ManagedInvitationTests проверяет schema3 после Bootstrap/Restart, accepted common actor и отказ setup identity/неверному паролю. Потерянный ответ не возвращает code повторно; для нового кода нужна явная замена. Повтор известного OperationId не должен делать новый native effect.
 
@@ -28,4 +36,4 @@ InvitationHttpFixture использует настоящие Pending/dispatcher
 - Вызывать middleware и DI напрямую, без host/start, слушающих портов и реальных запросов.
 - Persistent configuration DotNext проверять в отдельном временном каталоге. Не запускать Raft-узлы и не называть store/API tests проверкой выборов или crash recovery.
 - AccountSessionTests вызывает production apply/reducer/session и fake HubCallerContext: password/stamp/disable/delete/fault должны отзывать защищённую подписку, обычный offline/recheck — сохранять её. Это не WebSocket/browser acceptance.
-- Controller batch проверять до consensus dispatch, включая malformed tail и отсутствие verified peer item. Cluster composition должна разрешать production recovery с закрытым admission, не создавать native state в DI validation.
+- Controller batch проверять до consensus dispatch, включая malformed tail, команду ротации или ContinueCredential в хвосте и отсутствие verified peer item. Cluster composition должна разрешать production recovery с закрытым admission, не создавать native state в DI validation.

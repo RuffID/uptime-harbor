@@ -16,6 +16,11 @@ public static class EnrollmentTrustReducer
         }
 
         DateTimeOffset now = data.CoordinatorAtUtc.Value;
+        if (Renewal.VoterCredentialCommands.IsRotation(command))
+        {
+            return Renewal.VoterCredentialReducer.Apply(image, command, now);
+        }
+
         OnboardingContractImage contracts = image.OnboardingContracts ?? new();
         ImmutableDictionary<Guid, AcceptedEnrollmentIssuer> issuers = contracts.Issuers ?? ImmutableDictionary<Guid, AcceptedEnrollmentIssuer>.Empty;
         if (command.Action == "InitializeCluster")

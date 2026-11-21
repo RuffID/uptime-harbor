@@ -1,5 +1,7 @@
 using UptimeHarbor.Application.Cluster.Models;
 using UptimeHarbor.Application.Cluster.Onboarding;
+using UptimeHarbor.Application.Cluster.Onboarding.Renewal;
+using UptimeHarbor.Application.Installation;
 
 namespace UptimeHarbor.Application.Cluster;
 
@@ -8,6 +10,127 @@ public class RevisionDispatcher(IConsensusWriter consensus, RevisionStateStore a
     IOnboardingAcceptance? onboarding = null, IOnboardingAudit? onboardingAudit = null)
 {
     private readonly SemaphoreSlim serial = new(1, 1);
+
+    internal Task<CommandResult> AcceptVoterCredentialAsync(RevisionCommand command,
+        Func<CancellationToken, Task<(RevisionImage Image, long Recovery, ConsensusStatus Leader, DateTimeOffset AtUtc)>> confirm,
+        CancellationToken token)
+    {
+        if (!Onboarding.Renewal.VoterCredentialCommands.IsRotation(command))
+        {
+            throw new UnauthorizedAccessException("VoterCredentialAdmissionScopeInvalid");
+        }
+
+        return AcceptCredentialAsync(async cancellationToken =>
+        {
+            var (image, recovery, leader, now) = await confirm(cancellationToken);
+            RevisionCommand stamped = command with
+            {
+                EnrollmentTrust = command.EnrollmentTrust! with { CoordinatorAtUtc = now, CoordinatorTerm = leader.Term }
+            };
+            return (stamped, image, recovery, leader);
+        }, null, token);
+    }
+
+    internal Task<CommandResult> AcceptVoterContinuationAsync(
+        Func<CancellationToken, Task<(RevisionCommand Command, RevisionImage Image, long Recovery, ConsensusStatus Leader)>> confirm,
+        Action<RevisionImage, RevisionCommand> verifyResult, CancellationToken token)
+    {
+        return AcceptCredentialAsync(async cancellationToken =>
+        {
+            var acceptance = await confirm(cancellationToken);
+            if (!VoterContinuationCommands.IsContinuation(acceptance.Command) || acceptance.Command.VoterContinuation?.Acceptance is null)
+            {
+                throw new UnauthorizedAccessException("VoterContinuationAdmissionScopeInvalid");
+            }
+
+            return acceptance;
+        }, verifyResult, token);
+    }
+
+    private async Task<CommandResult> AcceptCredentialAsync(
+        Func<CancellationToken, Task<(RevisionCommand Command, RevisionImage Image, long Recovery, ConsensusStatus Leader)>> confirm,
+        Action<RevisionImage, RevisionCommand>? verifyResult, CancellationToken token)
+    {
+        await serial.WaitAsync(token);
+        try
+        {
+            var (command, image, recovery, leader) = await confirm(token);
+            using CancellationTokenSource guard = CancellationTokenSource.CreateLinkedTokenSource(token,
+                leader.ConsensusToken, leader.LeadershipToken);
+            CommandResult? previous = ReadVoterCredentialDecision(image, command);
+            if (previous is not null)
+            {
+                verifyResult?.Invoke(image, command);
+                RequireCurrent();
+                return previous;
+            }
+
+            byte[] payload = RevisionCodec.Encode(command);
+            RequireCurrent();
+            await consensus.ReplicateAsync(payload, RevisionCodec.COMMAND_ID, guard.Token);
+            guard.Token.ThrowIfCancellationRequested();
+            RevisionImage applied = accepted.Current ?? throw new InvalidOperationException("DecisionUnavailable");
+            if (!accepted.TryAtCurrent(applied, recovery, static () => { }))
+            {
+                throw new InvalidOperationException("DecisionUnavailable");
+            }
+
+            CommandResult result = ReadVoterCredentialDecision(applied, command)
+                ?? throw new InvalidOperationException("DecisionUnavailable");
+            if (verifyResult is null)
+            {
+                onboardingAudit?.Accepted(image, applied, command, result);
+            }
+            else
+            {
+                if (command.Action == VoterContinuationCommands.BIND)
+                {
+                    onboardingAudit?.Accepted(image, applied, command, result);
+                }
+
+                verifyResult(applied, command);
+                guard.Token.ThrowIfCancellationRequested();
+                RuntimeGenerationContext.Verify();
+                if (!accepted.TryAtCurrent(applied, recovery, static () => { }))
+                {
+                    throw new InvalidOperationException("DecisionUnavailable");
+                }
+            }
+            return result;
+
+            void RequireCurrent()
+            {
+                guard.Token.ThrowIfCancellationRequested();
+                RuntimeGenerationContext.Verify();
+                if (!accepted.TryAtCurrent(image, recovery, static () => { }))
+                {
+                    throw new UnauthorizedAccessException("VoterCredentialAdmissionProjectionChanged");
+                }
+            }
+        }
+        finally
+        {
+            serial.Release();
+        }
+    }
+
+    internal static CommandResult? ReadVoterCredentialDecision(RevisionImage image, RevisionCommand command)
+    {
+        if (!image.Results.TryGetValue(command.OperationId, out CommandResult? result))
+        {
+            return null;
+        }
+
+        if (result.OperationId != command.OperationId || result.Digest != RevisionCodec.Digest(command)
+            || result.Index <= 0 || result.Index > image.Index || result.AppliedRevision != result.Index
+            || result.Term <= 0 || result.Term > image.Term
+            || result.Outcome is not (Domain.Cluster.OperationOutcome.Committed or Domain.Cluster.OperationOutcome.Rejected))
+        {
+            throw new InvalidDataException("VoterCredentialAdmissionDecisionMismatch");
+        }
+
+        return result;
+    }
 
     public async Task<CommandResult> AcceptAsync(RevisionCommand command, Guid trustedOriginNodeId,
         CancellationToken cancellationToken)
@@ -102,6 +225,17 @@ public class RevisionDispatcher(IConsensusWriter consensus, RevisionStateStore a
             }
         }
 
+        // The generic dispatcher cannot authenticate renewal evidence, including an exact replay.
+        if (VoterContinuationCommands.IsContinuation(command))
+        {
+            throw new UnauthorizedAccessException("VoterContinuationTypedAuthorityRequired");
+        }
+
+        if (Onboarding.Renewal.VoterCredentialCommands.IsRotation(command))
+        {
+            throw new InvalidOperationException("VoterCredentialRenewalAuthorityUnavailable");
+        }
+
         if (image.Results.TryGetValue(command.OperationId, out CommandResult? previous))
         {
             if (previous.Digest != RevisionCodec.Digest(command))
@@ -112,7 +246,6 @@ public class RevisionDispatcher(IConsensusWriter consensus, RevisionStateStore a
             return previous;
         }
 
-        // Окончательная повторная авторизация выполняется reducer на позиции принятия.
         RevisionImage before = image;
         if (OnboardingCommands.IsOnboarding(command) || EnrollmentTrustCommands.IsTrust(command) || OnlineLifecycleCommands.IsOnline(command))
         {

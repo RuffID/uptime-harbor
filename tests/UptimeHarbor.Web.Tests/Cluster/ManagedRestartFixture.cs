@@ -14,6 +14,8 @@ using UptimeHarbor.Infrastructure.Installation;
 using UptimeHarbor.Web.Cluster;
 using UptimeHarbor.Infrastructure.Cluster.Onboarding.Routing;
 using UptimeHarbor.Infrastructure.Cluster.Onboarding.Issuers;
+using UptimeHarbor.Infrastructure.Cluster.Onboarding.Renewal;
+using UptimeHarbor.Infrastructure.Installation.Renewal;
 using UptimeHarbor.Web.Cluster.EnrollmentRouting;
 using UptimeHarbor.Tests.Web.Cluster.EnrollmentRouting;
 
@@ -37,6 +39,11 @@ public class ManagedRestartFixture : IAsyncDisposable
     public RevisionClusterRecovery Recovery { get; }
     public IConsensusWriter Writer { get; }
     public RevisionDispatcher Dispatcher { get; }
+    public LocalVoterCredentialPublication Publication { get; }
+    public OnlineGrantRequests GrantRequests { get; }
+    private readonly Func<LocalVoterRenewal> composeRenewal;
+    private readonly ManagedRestartRotation.WalTransport renewalTransport;
+    internal int RenewalSends => renewalTransport.Sends;
     private readonly ClusterStateMachine machine;
     private readonly ServiceProvider services = new ServiceCollection().BuildServiceProvider();
     private readonly ManagedBootstrapFixture previous;
@@ -58,17 +65,16 @@ public class ManagedRestartFixture : IAsyncDisposable
         Seals = new(local, configured, Installation, secrets);
         Admission = new(Installation, local, Options.Create(new ClusterControlOptions()), Lease);
         Readiness = new(previous.Time);
-        Enable = new(Accepted, Installation, Lease, Readiness, previous.Time);
+        Tls = new(Installation, Accepted, previous.Time);
+        Enable = new(Accepted, Installation, Lease, Readiness, previous.Time, Tls);
         ClusterLocalControl control = new(configured, Options.Create(new ClusterControlOptions()), previous.Time, Readiness, Admission, Enable);
         ManagedRecoveryAdmission source = new(local, Admission, new(control, configured, previous.Time));
         Projection projection = new(previous.Accepted.Current!);
         RevisionSnapshotStore snapshots = new(configured);
-        Tls = new(Installation, Accepted, previous.Time);
-        Preparation = new(Seals, snapshots, projection, Installation, Lease, secrets, Admission, Tls, configured, previous.Time);
         Recovery = new(source, Accepted, new(Accepted, new(), projection), projection, snapshots,
             services.GetRequiredService<IServiceScopeFactory>(), configured, managedSeals: Seals, time: previous.Time);
         machine = new(Recovery, Readiness);
-        Runtime = new(Recovery, Accepted, control, configured, previous.Time);
+        Runtime = new(Recovery, Accepted, control, configured, previous.Time, Installation, Tls);
         IRaftCluster raft = DispatchProxy.Create<IRaftCluster, ManagedRaftProbe>();
         Native = (ManagedRaftProbe)raft;
         ClusterRaftHandle handle = new();
@@ -82,6 +88,16 @@ public class ManagedRestartFixture : IAsyncDisposable
         Dispatcher = dispatcher;
         OnlineGrantSigningAuthorization authority = new(handle, Runtime, Accepted, Readiness, configured, previous.Time, Admission, Lease);
         EnrollmentReadBarrier barrier = new(handle, Runtime, Accepted, Readiness, configured);
+        VoterCredentialRenewalAuthority renewalAuthority = new(Accepted, barrier, new(previous.Time), configured, previous.Time);
+        LocalVoterCredentialFiles files = new(local, secrets);
+        LocalVoterCredentialPreparation materials = new(files, secrets, Lease, Installation, renewalAuthority, previous.Time,
+            NullLogger<LocalVoterCredentialPreparation>.Instance);
+        LocalVoterCredentialBindingCoordinator binding = new(materials, files, Installation, renewalAuthority,
+            new NoBind(), previous.Time, NullLogger<LocalVoterCredentialBindingCoordinator>.Instance);
+        Publication = new(new(binding, files, Installation, NullLogger<LocalVoterCredentialInstallationCoordinator>.Instance),
+            binding, files, Lease, Installation, Accepted, Tls);
+        Preparation = new(Seals, snapshots, projection, Installation, Lease, secrets, Admission, Tls, configured,
+            previous.Time, Accepted, Publication);
         EnrollmentCommandReceiver receiver = new(enrollment, dispatcher, Accepted, Runtime, barrier, configured, local, previous.Time);
         EnrollmentPeerClient peers = new(handle, Runtime, Accepted, barrier, receiver, new AcceptedPeerTrustSource(Accepted, previous.Time),
             new NoNetworkPeerClients(), configured, previous.Time);
@@ -89,14 +105,34 @@ public class ManagedRestartFixture : IAsyncDisposable
         EnrollmentSigner issuer = new(previous.Store, new(previous.Store, new()), new(), storage, previous.Time,
             NullLogger<EnrollmentSigner>.Instance, new EnrollmentSigningAuthorization(handle, Runtime, Accepted, Readiness, configured, previous.Time));
         OnlineGrantSigner grantSigner = new(previous.Store, authority, new(), storage, previous.Time);
-        EnrollmentIssuanceRouter routing = new(issuer, grantSigner, Accepted, peers, configured, previous.Time,
-            new(previous.Store, Installation, Lease, secrets, Admission, Readiness, Accepted, configured, previous.Time));
+        GrantRequests = new(previous.Store, Installation, Lease, secrets, Admission, Readiness, Accepted, configured, previous.Time, Tls);
+        EnrollmentIssuanceRouter routing = new(issuer, grantSigner, Accepted, peers, configured, previous.Time, GrantRequests);
         SetupAuthority setup = new(new(previous.Store, previous.Store, secrets, Lease, local, previous.Time), Enable);
         InstallationLifecycle lifecycle = new(previous.Store, previous.Store, Installation, new ReadyRuntime(Enable), setup,
             Lease, previous.Time, NullLogger<InstallationLifecycle>.Instance);
         Driver = new(Installation, Lease, Admission, previous.Store, routing,
-            new(previous.Store, Installation, Lease, Accepted, secrets, previous.Time), Enable, Accepted, Runtime, handle, Readiness,
-            dispatcher, lifecycle, configured, previous.Time, Recovery, Seals);
+            new(previous.Store, Installation, Lease, Accepted, secrets, previous.Time, Tls), Enable, Accepted, Runtime, handle, Readiness,
+            dispatcher, lifecycle, configured, previous.Time, Recovery, Seals, Publication, Tls);
+        renewalTransport = new(Native, Accepted, previous.Time);
+        composeRenewal = () =>
+        {
+            VoterCredentialSigner signer = new(previous.Store, new(previous.Store, new()), new(), storage, renewalAuthority,
+                configured, previous.Time, NullLogger<VoterCredentialSigner>.Instance);
+            VoterCredentialIssuanceRouter issuance = new(signer, peers, renewalAuthority, configured, previous.Time);
+            LocalVoterCredentialBindingCoordinator liveBinding = new(materials, files, Installation, renewalAuthority,
+                renewalTransport, previous.Time, NullLogger<LocalVoterCredentialBindingCoordinator>.Instance);
+            LocalVoterCredentialInstallationCoordinator installed = new(liveBinding, files, Installation,
+                NullLogger<LocalVoterCredentialInstallationCoordinator>.Instance);
+            LocalVoterCredentialPublication livePublication = new(installed, liveBinding, files, Lease, Installation, Accepted, Tls);
+            LocalVoterCredentialRetirement retirement = new(files, installed, Tls, renewalAuthority, renewalTransport, previous.Time);
+            return new(Lease, Installation, Tls, materials, renewalAuthority, renewalTransport, issuance, liveBinding, installed,
+                livePublication, configured, previous.Time, retirement);
+        };
+    }
+
+    internal Task<DynamicPeerTls.Snapshot?> RunScheduledRenewalAsync(CancellationToken token)
+    {
+        return composeRenewal().RunScheduledAsync(token);
     }
 
     public async Task RestoreAsync(CancellationToken token)
@@ -119,6 +155,7 @@ public class ManagedRestartFixture : IAsyncDisposable
             await RefreshAsync(cancellation);
         };
         await RefreshAsync(token);
+        Preparation.PreparePeerAfterReplay(Installation.Current!);
     }
 
     public async Task RefreshAsync(CancellationToken token)
@@ -132,7 +169,7 @@ public class ManagedRestartFixture : IAsyncDisposable
         }
 
         Runtime.Publish(new(previous.Options.ClusterId, 1, previous.Options.NodeId, ((IPersistentState)wal).Term, 17,
-            true, wal.LastCommittedEntryIndex, new HashSet<Guid> { previous.Options.NodeId }, CancellationToken.None, CancellationToken.None));
+            !Native.RemoteLeader, wal.LastCommittedEntryIndex, new HashSet<Guid> { previous.Options.NodeId }, CancellationToken.None, CancellationToken.None));
         Readiness.ConfirmRecovery(Readiness.RecoveryVersion, Runtime.Accepted, Runtime.Consensus!);
     }
 
@@ -167,6 +204,14 @@ public class ManagedRestartFixture : IAsyncDisposable
             }
 
             return Task.CompletedTask;
+        }
+    }
+
+    private class NoBind : IRevisionTransport
+    {
+        public Task<IReadOnlyList<CommandResult>> SendAsync(IReadOnlyList<RevisionCommand> commands, CancellationToken token)
+        {
+            throw new InvalidOperationException("RestartMustNotBind");
         }
     }
 

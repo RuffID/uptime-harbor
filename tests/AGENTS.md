@@ -20,6 +20,7 @@
 - Persistence model проверять через metadata без открытия соединения.
 - Запускать каждый проект через `dotnet test --project .\tests\<project>\<project>.csproj`.
 - При изменении структуры или типа тестов обновлять этот файл и `Documentation/Technical documentation/Testing.md`.
+- Accepted voter renewal проверяется отдельными `Cluster/Renewal` в Application/Infrastructure: первые используют memory images/public-byte doubles, вторые — локальные X.509 без БД/сети. Нельзя выдавать эти проверки за runtime renewal/durable key install.
 - HTTP-проверки тестировать через управляемый fake `HttpMessageHandler`; timeout и текущее время контролировать через options и `TimeProvider` без внешних endpoint.
 - Параллельность worker проверять через управляемые `TaskCompletionSource`, не используя реальные задержки, кроме изолированной проверки timeout.
 - Dashboard query проверять на серверную видимость, поиск, UTC и uptime с фиксированным `TimeProvider`; SignalR — через fake hub context без запуска Web-хоста.

@@ -4,6 +4,7 @@ using UptimeHarbor.Application.Cluster.Models;
 using UptimeHarbor.Application.Security;
 using UptimeHarbor.Domain.Cluster;
 using UptimeHarbor.Application.Cluster.Onboarding;
+using UptimeHarbor.Application.Cluster.Onboarding.Renewal;
 
 namespace UptimeHarbor.Application.Cluster;
 
@@ -28,7 +29,9 @@ public class RevisionReducer
     {
         if (state.Results.TryGetValue(command.OperationId, out CommandResult? prior))
         {
-            if (prior.Digest != digest)
+            // После потери ответа второй принятый envelope может содержать новый proof для того же перехода.
+            // Результат остаётся за первой записью. Typed dispatcher проверяет digest перед возвратом.
+            if (prior.Digest != digest && !VoterContinuationCommands.IsContinuation(command))
             {
                 throw new InvalidDataException("IdempotencyKeyReuse");
             }
@@ -52,6 +55,11 @@ public class RevisionReducer
         if (EnrollmentTrustCommands.IsTrust(command))
         {
             return EnrollmentTrustReducer.Apply(state, command);
+        }
+
+        if (VoterContinuationCommands.IsContinuation(command))
+        {
+            return VoterContinuationReducer.Apply(state, command);
         }
 
         if (OnlineLifecycleCommands.IsOnline(command))

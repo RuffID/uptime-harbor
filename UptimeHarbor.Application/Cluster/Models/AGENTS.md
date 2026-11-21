@@ -1,5 +1,9 @@
 # Cluster contracts
 
+VoterContinuation и VoterContinuations хранят точный запрос, accepted решение администратора и регистрацию. Маркер CredentialContinuation в OnlineProcessLease резервирует процесс в том же реестре. Он не заменяет OnlineGrant. Для прежних форматов отсутствующие поля и маркер сохранять omitted.
+
+EnrollmentTrustCommand.Rotation и OnboardingContractImage.VoterCredentialRotations — отдельный public-material accepted lifecycle voter, без invitation/private keys. Отсутствующие поля сохранять omitted. Его records/policy находятся в Onboarding/Renewal; CredentialRevision — индекс Bind, не membership version и не разрешение процесса.
+
 EnrollmentIssuerStatus — browser whitelist операции регистрации, без certificate/digests/key refs. IssuanceReady требует accepted результата и свежего barrier; это не Ready нового узла. PeerHealthSnapshot.EnrollmentTrustVersion — внутренняя authenticated capability, отсутствие поля означает 0; health не является snapshot authority.
 
 LocalOnboardingAttempt сохраняет immutable origin/CSR/trust intent/ref и короткую process-bound PeerProbes evidence. Descriptor/probe DTO не содержат invitation/verifier/accounts/private refs. Это внутренние transport/local contracts, не browser status и не snapshot authority. ManagedRestartProof не содержит BootstrapAccount и не предоставляет offline isolation; текущий actor/credential/process/versions повторно проверяются online grants.
