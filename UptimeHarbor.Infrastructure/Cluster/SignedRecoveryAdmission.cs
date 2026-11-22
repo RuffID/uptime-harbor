@@ -94,6 +94,11 @@ public class SignedRecoveryAdmission(ClusterLocalControl control, IOptions<Clust
         foreach (OperationalNode member in proof.Operations.Nodes.Values)
         {
             ClusterOperationValidation.ValidateAddress(member.Address);
+            if (!member.Removed && options.Nodes.Length != 0 && options.FindNode(member.NodeId)?.Address != member.Address)
+            {
+                throw new InvalidDataException($"Cluster:Nodes must contain the accepted NodeId and address of node {member.NodeId:D}.");
+            }
+
             if (member.RaftMemberId != ClusterMemberId.FromEndPoint(new UriEndPoint(new Uri(member.Address))).ToString())
             {
                 throw new InvalidDataException("AdmissionNativeIdentityMismatch");

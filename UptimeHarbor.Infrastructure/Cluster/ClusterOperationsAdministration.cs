@@ -46,6 +46,12 @@ public class ClusterOperationsAdministration(ClusterAdministrationAccess access,
             return ServiceResult<AdministrationOperationDto>.Fail(ServiceErrorType.Validation, "Неизвестная административная операция.");
         }
 
+        if (request.Action == "AssignSender" && !options.Value.CanAssignTelegramSender(request.NodeId))
+        {
+            return ServiceResult<AdministrationOperationDto>.Fail(ServiceErrorType.Validation,
+                "Назначить отправителем Telegram можно только узел №1 или №2 из Cluster:Nodes.");
+        }
+
         try
         {
             PendingOperation? prior = await work.PendingOperations.GetAsync(request.OperationId, token);
@@ -93,6 +99,11 @@ public class ClusterOperationsAdministration(ClusterAdministrationAccess access,
         catch (UnauthorizedAccessException)
         {
             return ServiceResult<AdministrationOperationDto>.Fail(ServiceErrorType.Forbidden, "Требуется активный принятый администратор.");
+        }
+        catch (InvalidDataException exception) when (exception.Message == "NodeOutsideManualRoster")
+        {
+            return ServiceResult<AdministrationOperationDto>.Fail(ServiceErrorType.Validation,
+                "ID и адрес подключаемого узла должны совпадать с записью в Cluster:Nodes.");
         }
         catch (Exception exception) when (exception is ArgumentException or InvalidDataException or CryptographicException)
         {
@@ -157,13 +168,18 @@ public class ClusterOperationsAdministration(ClusterAdministrationAccess access,
 
         if (request.Action is "AdmitNode" or "TrustCredential")
         {
+            string address = request.Address ?? image.Operations.Nodes.GetValueOrDefault(request.NodeId)?.Address
+                ?? throw new ArgumentException("AddressMissing");
+            ClusterOperationValidation.ValidateAddress(address);
+            if (request.Action == "AdmitNode" && local.Nodes.Length != 0 && local.FindNode(request.NodeId)?.Address != address)
+            {
+                throw new InvalidDataException("NodeOutsideManualRoster");
+            }
+
             using X509Certificate2 certificate = X509Certificate2.CreateFromPem(request.PublicCertificate
                 ?? throw new ArgumentException("PublicCertificateMissing"));
             using X509Certificate2 root = X509CertificateLoader.LoadCertificateFromFile(local.ClientCaPath);
             string fingerprint = certificate.GetCertHashString(HashAlgorithmName.SHA256);
-            string address = request.Address ?? image.Operations.Nodes.GetValueOrDefault(request.NodeId)?.Address
-                ?? throw new ArgumentException("AddressMissing");
-            ClusterOperationValidation.ValidateAddress(address);
             PeerCredential peer = new(request.CredentialId, request.NodeId, request.StorageGeneration,
                 new Uri(address), fingerprint, false, true, new DateTimeOffset(certificate.NotAfter.ToUniversalTime()));
             if (!new PeerCertificateValidator().Validate(certificate, root, local, peer, time.GetUtcNow()))

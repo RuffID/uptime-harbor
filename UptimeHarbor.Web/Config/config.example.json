@@ -21,6 +21,7 @@
     "NodeId": "00000000-0000-0000-0000-000000000000",
     "StorageGeneration": "00000000-0000-0000-0000-000000000000",
     "CredentialId": "00000000-0000-0000-0000-000000000000",
+    "Nodes": [],
     "PublicUri": "https://peer.example.invalid/internal/raft",
     "StoragePath": "C:/UptimeHarbor/cluster",
     "PeerListenPort": 8443,

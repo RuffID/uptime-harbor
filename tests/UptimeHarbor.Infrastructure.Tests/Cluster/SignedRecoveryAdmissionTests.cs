@@ -104,6 +104,11 @@ public class SignedRecoveryAdmissionTests
         OperationalNode node = prepared.Operations.Nodes[nodeId] with { Voting = false };
         Guid voterId = Guid.NewGuid();
         string voterUri = "https://existing.example/internal/raft";
+        fixture.Options.Nodes =
+        [
+            new() { Number = 1, NodeId = voterId, Address = voterUri },
+            new() { Number = 2, NodeId = nodeId, Address = node.Address }
+        ];
         string nativeId = ClusterMemberId.FromEndPoint(new UriEndPoint(new Uri(voterUri))).ToString();
         OperationalNode voter = new(voterId, Guid.NewGuid(), voterUri, nativeId, true, true, false, 0);
         OperationalCredential credential = prepared.Operations.Credentials[fixture.Options.CredentialId] with
@@ -139,6 +144,13 @@ public class SignedRecoveryAdmissionTests
         ClusterLocalControl restarted = fixture.NewControl();
         Sign(restarted, join);
         SignedRecoveryAdmission retry = new(restarted, Options.Create(fixture.Options), fixture.Time);
+        fixture.Options.Nodes[0].Address = "https://other.example/internal/raft";
+
+        // Act and assert
+        InvalidDataException rosterFailure = await Assert.ThrowsAsync<InvalidDataException>(async () => await retry.ReadAsync(token));
+        Assert.Contains("Cluster:Nodes must contain the accepted NodeId and address", rosterFailure.Message);
+        fixture.Options.Nodes[0].Address = voterUri;
+
         // Act
         RecoveryAdmission? accepted = await retry.ReadAsync(token);
 

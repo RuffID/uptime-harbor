@@ -4,6 +4,8 @@
 
 `SignedRecoveryAdmission` сверяет подписанное разрешение с manifest, локальным сертификатом и принятым реестром. `SnapshotImageValidation` проверяет DER/template прежних записей доверия, в том числе в recovery ancestors.
 
+Для ручного MVP `Cluster:Nodes` задаёт номера и ожидаемые адреса. Сверять список при ручном AdmitNode и подписанном допуске. Peer transport берёт полномочия из принятого доверия. Telegram readiness разрешена только №1 и №2 при заданном списке.
+
 - SnapshotMonitoringCompatibility после проверки manifest/hash/chunks преобразует только точные прежние monitoring rows в единый MonitoredServer. Сохранять ID, родителя, monitoring metadata и binding references; неизвестные поля отвергать. После преобразования остаются обязательными строгие schema/image проверки. Старые узлы новый projection format не читают; смешанный rollout не поддерживается.
 
 - SignedRecoveryAdmission проверяет pinned signature/process challenge/freshness, ручную isolation attestation и настоящий локальный cert/key/CA/SAN/pin. Подпись удостоверяет ручную проверку специалиста, не физическое fencing самим кодом; неполный proof оставляет карантин закрытым.

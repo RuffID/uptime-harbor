@@ -1,6 +1,14 @@
 import { createDataTable } from "../../shared/dataTable.js";
 import { element, button, date, kindNames, settingsText, operationText, metadataDiffer } from "./clusterDom.js";
-import type { Snapshot, Pending, Diagnostic, Entity, EntityKind, Conflict, ResourceFilter } from "./clusterModels.js";
+import type { Snapshot, Pending, Diagnostic, NodeDiagnostic, Entity, EntityKind, Conflict, ResourceFilter } from "./clusterModels.js";
+
+const connectionLabels: Record<string, string> = {
+    Local: "Этот узел", Ready: "Доступен", Unavailable: "Недоступен", Unknown: "Нет свежих данных"
+};
+
+function nodeLabel(node: NodeDiagnostic): string {
+    return node.number === null ? node.nodeId : `№${node.number} · ${node.nodeId}`;
+}
 
 interface Actions {
     edit(kind: EntityKind, entity: Entity | null, action?: string, pending?: Pending, conflict?: Conflict, useCurrent?: boolean): void;
@@ -31,7 +39,7 @@ export class ClusterViews {
         this.targets = table("targets", "Доступность и наблюдение", ["Цель", "Availability", "Coverage", "Принятая оценка"]);
         this.observers = table("observers", "Наблюдения по узлам", ["Цель / observer", "Результат и свежесть", "Metadata по observer", "Uptime по metadata"]);
         this.deliveries = table("deliveries", "Доставки", ["Чат / intent", "Событие", "Состояние", "Реальные попытки / ошибка"]);
-        this.nodes = table("nodes", "Узлы", ["NodeId / роль", "Связь / последний контакт", "Локальная БД", "Applied / lag"]);
+        this.nodes = table("nodes", "Узлы", ["Узел / роль Raft", "Доступность отсюда", "Последний успешный ответ", "Отправитель Telegram", "Локальная БД", "Applied / lag"]);
         this.conflicts = host("conflicts"); this.summary = host("diagnostic-summary");
         this.sender = root.dataset.clusterPage === "Chat" ? host("sender") : null;
     }
@@ -91,15 +99,16 @@ export class ClusterViews {
         this.deliveries.refresh();
         this.renderDiagnostics(diagnostic);
         if (this.sender) {
+            const assigned = diagnostic.nodes.find(node => node.nodeId === diagnostic.assignedSenderNodeId);
             this.sender.replaceChildren(element("p", diagnostic.assignedSenderNodeId
-                ? `Назначен узел ${diagnostic.assignedSenderNodeId}` : "Отправитель ещё не назначен."));
+                ? `Назначен узел ${assigned ? nodeLabel(assigned) : diagnostic.assignedSenderNodeId}` : "Отправитель ещё не назначен."));
             for (const node of diagnostic.nodes) {
-                if (node.nodeId === diagnostic.assignedSenderNodeId) continue;
+                if (!node.canAssignSender || node.nodeId === diagnostic.assignedSenderNodeId) continue;
                 const row = element("div", "", "d-flex flex-wrap align-items-center gap-2 mb-2");
                 const assign = button("Назначить отправителем", () => this.actions.assignSender(node.nodeId));
                 assign.disabled = diagnostic.membershipVersion === null || pending.some(item =>
                     item.action === "AssignSender" && (item.state === "LocalPending" || item.state === "AwaitingDecision") && !item.result);
-                row.append(element("span", node.nodeId), assign);
+                row.append(element("span", nodeLabel(node)), assign);
                 this.sender.append(row);
             }
         }
@@ -159,7 +168,10 @@ export class ClusterViews {
             element("p", `Telegram readiness: ${value.telegram}; причина: ${value.telegramReason}; возраст проверки: ${value.telegramAgeSeconds === null ? "неизвестен" : `${Math.floor(value.telegramAgeSeconds)} с`}. Ошибка отдельного чата показана в журнале доставок и не означает потерю coverage.`)
         );
         this.nodes.body.replaceChildren(...value.nodes.map(node => this.nodes.row([
-            `${node.nodeId} / ${node.role}`, `${node.connection} · ${date(node.lastContactAtUtc)} · возраст ${node.ageSeconds === null ? "неизвестен" : `${Math.floor(node.ageSeconds)} с`}`,
+            `${nodeLabel(node)} / ${node.role}`,
+            connectionLabels[node.connection] ?? connectionLabels.Unknown,
+            node.connection === "Local" ? "—" : node.lastContactAtUtc === null ? "Ответов ещё не было" : date(node.lastContactAtUtc),
+            value.assignedSenderNodeId === node.nodeId ? "Назначен" : "—",
             node.database, `${node.appliedIndex ?? "неизвестно"} / ${node.lag ?? "неизвестно"}`
         ])));
         this.nodes.refresh();

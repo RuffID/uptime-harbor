@@ -1,6 +1,6 @@
 # Peer perimeter and Raft hosting
 
-Лидер сверяет `AssignSender` с локальной проверкой Telegram или свежим authenticated health кандидата своего term и состава. В диагностике Telegram показывать готовность назначенного узла.
+Лидер сверяет `AssignSender` с номером кандидата в ручном составе и локальной проверкой Telegram или свежим authenticated health кандидата своего term и состава. В диагностике Telegram показывать готовность назначенного узла.
 
 `RuntimeWorkerSupervisor` выбирает набор циклов `Disabled` или сетки. При остановке сначала закрывает generation gate и дожидается циклов и записей в пределах 10 секунд. Ошибка локального сертификата завершает попытку с причиной. Ручной перезапуск требует актуального подписанного Admission.
 
@@ -11,6 +11,7 @@ Peer batch целиком проверяется до dispatch и отклоня
 - Maintenance закрывает native runtime и workers; восстановление consensus по ручному ResumeConsensus не означает Enable. Реальное native membership и local prefix проверять до Start, неполный prefix разрешает только quarantined catch-up.
 
 - ClusterBrowserDiagnostics выполняет accepted authorization перед безопасной проекцией authenticated health. Leader/majority, локальная БД, свежесть peer/contact/lag и Telegram readiness — отдельные поля. Stale/несовпадающий term/membership не подтверждает готовность; raw Components/payload/секреты в браузер не передавать. HealthWorker — один singleton для hosted polling и read snapshot, без дополнительного poll из API.
+- В диагностике показывать заданные `Cluster:Nodes`, в том числе до первого ответа. Доступность берётся из локального опроса. Отдельное UTC-время последнего успешного ответа сохраняется после неудачной попытки. Назначение Telegram берётся из принятого образа.
 
 - AddClusterWeb собирает monitoring worker/pump/coordinator с revision transport/dispatcher; Infrastructure регистрирует scoped capture рядом с его UoW. Проверять и самостоятельные DI modules, и итоговый граф без запуска host.
 - Monitoring payload storage generation должен совпадать с authenticated peer envelope до dispatch всего batch. Health отдаёт только safe MonitoringProgress; UI/SignalR payload не расширять внутренним image.

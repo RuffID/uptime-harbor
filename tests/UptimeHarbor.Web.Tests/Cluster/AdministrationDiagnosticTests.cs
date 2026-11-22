@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using UptimeHarbor.Application.Cluster;
 using UptimeHarbor.Application.Cluster.Models;
+using UptimeHarbor.Infrastructure.Cluster;
 using UptimeHarbor.Web.Cluster;
 using Xunit;
 
@@ -67,7 +68,7 @@ public class AdministrationDiagnosticTests
         fixture.Consensus = fixture.Consensus! with { IsLeader = true };
         PeerHealthSnapshot health = new(fixture.Remote, Guid.NewGuid(), 3, fixture.Local, 7, 10, 10, false, 0,
             new Dictionary<string, HealthResult> { ["Telegram"] = new(status, status == "Unavailable" ? "TokenMissing" : "private-credential", TimeSpan.Zero) });
-        fixture.Peers.Add(fixture.Remote, new(health with { SenderReady = ready }, TimeSpan.FromSeconds(age)));
+        fixture.Peers.Add(fixture.Remote, new(health with { SenderReady = ready }, TimeSpan.FromSeconds(age), DateTimeOffset.UtcNow));
 
         // Act
         ClusterDiagnosticDto result = fixture.Read();
@@ -92,13 +93,45 @@ public class AdministrationDiagnosticTests
         ConsensusStatus leader = fixture.Consensus! with { IsLeader = true };
         PeerHealthSnapshot health = new(fixture.Remote, Guid.NewGuid(), term, leader.NodeId, membership, 10, 10, false, 0,
             new Dictionary<string, HealthResult> { ["Telegram"] = new("Ready", "Ready", TimeSpan.FromSeconds(probeAge)) });
-        ObservedPeerHealth observed = new(health, TimeSpan.FromSeconds(contactAge));
+        ObservedPeerHealth observed = new(health, TimeSpan.FromSeconds(contactAge), DateTimeOffset.UtcNow);
 
         // Act
         HealthResult? telegram = observed.Telegram(leader, leader.NodeId, 10);
 
         // Assert
         Assert.Equal(expected, telegram?.Status == "Ready");
+    }
+
+    [Fact]
+    public void ManualRosterShowsNeverReachedNodeAndKeepsLastSuccessAfterFailure()
+    {
+        // Arrange
+        Fixture fixture = new();
+        Guid third = Guid.NewGuid();
+        fixture.Options.Nodes =
+        [
+            new() { Number = 3, NodeId = third },
+            new() { Number = 2, NodeId = fixture.Remote },
+            new() { Number = 1, NodeId = fixture.Local }
+        ];
+        DateTimeOffset lastSuccess = new(2026, 11, 22, 3, 0, 0, TimeSpan.Zero);
+        PeerHealthSnapshot health = new(fixture.Remote, Guid.NewGuid(), 3, fixture.Local, 7, 10, 10, false, 0,
+            new Dictionary<string, HealthResult>());
+        fixture.Peers.Add(fixture.Remote, new(health, TimeSpan.FromMinutes(1), lastSuccess));
+        fixture.Connections.Add(fixture.Remote, new("Unavailable", "PeerUnavailable", TimeSpan.Zero));
+
+        // Act
+        ClusterDiagnosticDto result = fixture.Read();
+
+        // Assert
+        Assert.Equal(fixture.Remote, result.AssignedSenderNodeId);
+        Assert.Equal(new Guid[] { fixture.Local, fixture.Remote, third }, result.Nodes.Select(node => node.NodeId));
+        Assert.Equal("Local", result.Nodes[0].Connection);
+        Assert.Equal("Unavailable", result.Nodes[1].Connection);
+        Assert.Equal(lastSuccess, result.Nodes[1].LastContactAtUtc);
+        Assert.Equal("Unknown", result.Nodes[2].Connection);
+        Assert.Null(result.Nodes[2].LastContactAtUtc);
+        Assert.False(result.Nodes[2].CanAssignSender);
     }
 
     private class Fixture : IClusterStateView
@@ -108,12 +141,14 @@ public class AdministrationDiagnosticTests
         public NodeReadiness Readiness { get; } = new(TimeProvider.System);
         public Dictionary<Guid, ObservedPeerHealth> Peers { get; } = [];
         public Dictionary<Guid, HealthResult> Connections { get; } = [];
+        public ClusterOptions Options { get; }
         public ConsensusStatus? Consensus { get; set; }
         public AcceptedClusterState Accepted { get; } = AcceptedClusterState.Unknown with { AppliedIndex = 4 };
         private readonly RevisionImage image;
 
         public Fixture()
         {
+            Options = new() { NodeId = Local, HealthFreshSeconds = 30 };
             image = new(Guid.NewGuid(), 1) { Monitoring = new() { Nodes = ImmutableDictionary<Guid, Guid>.Empty.Add(Local, Guid.NewGuid()).Add(Remote, Guid.NewGuid()) } };
             image = image with { Operations = image.Operations with { AssignedSenderNodeId = Remote } };
             Consensus = new(image.ClusterId, 1, Local, 3, 7, false, 10, new HashSet<Guid> { Local, Remote }, CancellationToken.None, CancellationToken.None);
@@ -121,7 +156,7 @@ public class AdministrationDiagnosticTests
 
         public ClusterDiagnosticDto Read()
         {
-            return ClusterBrowserDiagnostics.Project(Local, 30, this, image, Readiness, Remote, Peers, Connections,
+            return ClusterBrowserDiagnostics.Project(Options, this, image, Readiness, Remote, Peers, Connections,
                 new(5, 4, 0, 4, 10, 6, null, null), DateTimeOffset.UtcNow);
         }
     }

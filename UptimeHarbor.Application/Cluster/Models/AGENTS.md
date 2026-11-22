@@ -1,5 +1,7 @@
 # Cluster contracts
 
+`ClusterNodeDiagnosticDto` передаёт номер из ручного состава и возможность подать назначение отправителя. Фактически назначенный NodeId берётся из принятого общего состояния в `ClusterDiagnosticDto`.
+
 `SenderAuthorityKey.SenderNodeId` обозначает владельца попытки. Сохранять историческое имя JSON-поля `LeaderNodeId` для чтения прежних снимков и проверки digest журнала.
 
 VoterContinuation и VoterContinuations описывают ранее принятые данные формата WAL/снимка. Маркер CredentialContinuation удерживает обычный peer ingress закрытым для такой записи.

@@ -34,7 +34,7 @@ public class NodeReadiness(TimeProvider timeProvider)
 
         // Причины выбираются адаптерами из закрытого набора, без текста исключений.
         if (reason is not ("Ready" or "Unknown" or "DatabaseUnavailable" or "WorkerStalled"
-            or "TokenMissing" or "BotMismatch" or "TransportUnavailable" or "RateLimited"
+            or "TokenMissing" or "BotMismatch" or "TransportUnavailable" or "RateLimited" or "SenderNotAllowed"
             or "ClockUncertain" or "StorageUnavailable" or "ProjectionUnavailable"))
         {
             throw new ArgumentException("Unknown health reason.", nameof(reason));

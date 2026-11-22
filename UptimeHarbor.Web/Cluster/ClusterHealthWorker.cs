@@ -15,7 +15,7 @@ public class ClusterHealthWorker(IOptions<ClusterOptions> options, ClusterDataba
 {
     private readonly Dictionary<Guid, (HealthResult Result, long At)> connections = new();
     private readonly object sync = new();
-    private readonly Dictionary<Guid, (PeerHealthSnapshot Health, long At)> peers = new();
+    private readonly Dictionary<Guid, (PeerHealthSnapshot Health, long At, DateTimeOffset LastResponseAtUtc)> peers = new();
 
     public IReadOnlyDictionary<Guid, ObservedPeerHealth> Peers
     {
@@ -24,13 +24,18 @@ public class ClusterHealthWorker(IOptions<ClusterOptions> options, ClusterDataba
             lock (sync)
             {
                 return peers.ToDictionary(entry => entry.Key, entry =>
-                    new ObservedPeerHealth(entry.Value.Health, timeProvider.GetElapsedTime(entry.Value.At)));
+                    new ObservedPeerHealth(entry.Value.Health, timeProvider.GetElapsedTime(entry.Value.At), entry.Value.LastResponseAtUtc));
             }
         }
     }
 
     public bool IsReady(Guid nodeId, ConsensusStatus leader)
     {
+        if (!options.Value.CanAssignTelegramSender(nodeId))
+        {
+            return false;
+        }
+
         if (nodeId == leader.NodeId)
         {
             return readiness.Get("Telegram").Status == "Ready";
@@ -132,12 +137,7 @@ public class ClusterHealthWorker(IOptions<ClusterOptions> options, ClusterDataba
             UptimeHarbor.Application.Installation.RuntimeGenerationContext.Verify();
             failureWindow.ObserveAuthenticated(health);
             observed = health;
-            lock (sync)
-            {
-                peers[peer.NodeId] = (health, timeProvider.GetTimestamp());
-            }
-
-            RecordConnection(peer.NodeId, new("Ready", "PeerReachable", TimeSpan.Zero));
+            RecordConnection(peer.NodeId, new("Ready", "PeerReachable", TimeSpan.Zero), health);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -146,7 +146,7 @@ public class ClusterHealthWorker(IOptions<ClusterOptions> options, ClusterDataba
         catch (Exception exception) when (exception is HttpRequestException or IOException or JsonException or OperationCanceledException)
         {
             // Timeout не доказывает неисправность удалённой БД или Telegram.
-            RecordConnection(peer.NodeId, new("Unknown", "PeerUnavailable", TimeSpan.Zero));
+            RecordConnection(peer.NodeId, new("Unavailable", "PeerUnavailable", TimeSpan.Zero));
         }
         finally
         {
@@ -169,12 +169,17 @@ public class ClusterHealthWorker(IOptions<ClusterOptions> options, ClusterDataba
         }
     }
 
-    private void RecordConnection(Guid node, HealthResult result)
+    private void RecordConnection(Guid node, HealthResult result, PeerHealthSnapshot? health = null)
     {
         UptimeHarbor.Application.Installation.RuntimeGenerationContext.Verify();
         lock (sync)
         {
-            connections[node] = (result, timeProvider.GetTimestamp());
+            long at = timeProvider.GetTimestamp();
+            connections[node] = (result, at);
+            if (health is not null)
+            {
+                peers[node] = (health, at, timeProvider.GetUtcNow());
+            }
         }
     }
 }

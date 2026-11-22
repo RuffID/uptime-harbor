@@ -300,19 +300,26 @@ test("Telegram shows the accepted sender and submits the node chosen by the engi
     bind(root);
     const submitted: string[] = [];
     const views = new ClusterViews(root as unknown as HTMLElement, { edit() {}, cancel() {}, find() {}, assignSender(id: string) { submitted.push(id); } });
-    const nodes = ["first", "second"].map(nodeId => ({ nodeId, database: "Ready", connection: "Ready", role: "Follower",
-        lastContactAtUtc: null, ageSeconds: 1, appliedIndex: 5, lag: 0 }));
+    const lastContact = "2026-11-22T03:00:00Z";
+    const nodes = ["first", "second", "third"].map((nodeId, index) => ({ nodeId, number: index + 1,
+        canAssignSender: index < 2, database: "Ready", connection: ["Local", "Unavailable", "Unknown"][index],
+        role: "Follower", lastContactAtUtc: index === 1 ? lastContact : null, ageSeconds: 1, appliedIndex: 5, lag: 0 }));
     const diagnostic = { nodes, membershipVersion: 3,
         assignedSenderNodeId: "first", telegramAgeSeconds: null } as unknown as Diagnostic;
 
     views.render(snapshot(entity("Chat")), [], diagnostic, "Chat");
     const sender = sections.get("[data-cluster-sender]")!;
-    assert.match(sender.textContent, /Назначен узел first/);
+    assert.match(sender.textContent, /Назначен узел №1 · first/);
+    const rows = sections.get("[data-cluster-nodes]")!.children;
+    assert.match(rows[0].textContent, /Этот узел.*Назначен/);
+    assert.match(rows[1].textContent, /Недоступен/);
+    assert.ok(rows[1].textContent.includes(new Date(lastContact).toLocaleString()));
+    assert.match(rows[2].textContent, /Ответов ещё не было/);
     const buttons = sender.descendants().filter(item => item.tag === "button");
     assert.equal(buttons.length, 1);
     buttons[0].dispatchEvent(new Event("click", { bubbles: true }));
     assert.deepEqual(submitted, ["second"]);
-    assert.match(sender.textContent, /Назначен узел first/);
+    assert.match(sender.textContent, /Назначен узел №1 · first/);
     views.clear();
     assert.equal(sender.children.length, 0);
 });

@@ -59,6 +59,27 @@ public class TelegramHealthTests
         HealthResultAssert(readiness, "Ready", "Ready");
     }
 
+    [Fact]
+    public async Task ThirdNodeCannotBecomeTelegramReadyEvenWithValidToken()
+    {
+        // Arrange
+        using Handler handler = new(200, 123);
+        using HttpClient client = new(handler) { BaseAddress = new Uri("https://telegram.invalid/") };
+        Guid nodeId = Guid.NewGuid();
+        ClusterOptions cluster = new() { NodeId = nodeId, ExpectedBotId = 123,
+            Nodes = [new() { Number = 1 }, new() { Number = 2 }, new() { Number = 3, NodeId = nodeId }] };
+        NodeReadiness readiness = new(TimeProvider.System);
+        TelegramHealthProbe probe = new(new Factory(client), Options.Create(new TelegramOptions
+            { BotToken = "123:" + new string('x', 35) }), Options.Create(cluster), readiness, TimeProvider.System);
+
+        // Act
+        await probe.ProbeAsync(TestContext.Current.CancellationToken);
+
+        // Assert
+        Assert.Equal(0, handler.Calls);
+        HealthResultAssert(readiness, "Unavailable", "SenderNotAllowed");
+    }
+
     private static TelegramHealthProbe Create(HttpClient client, NodeReadiness readiness, string token)
     {
         return new(new Factory(client), Options.Create(new TelegramOptions { BotToken = token }),

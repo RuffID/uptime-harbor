@@ -99,11 +99,16 @@ public static class ClusterOperationValidation
 
     public static void ValidateAddress(string address)
     {
-        if (!Uri.TryCreate(address, UriKind.Absolute, out Uri? uri) || uri.Scheme != Uri.UriSchemeHttps
-            || uri.AbsoluteUri != address || uri.AbsolutePath != "/internal/raft" || uri.UserInfo.Length != 0
-            || uri.Query.Length != 0 || uri.Fragment.Length != 0)
+        if (!IsValidAddress(address))
         {
             throw new InvalidDataException("InvalidPeerAddress");
         }
+    }
+
+    public static bool IsValidAddress(string address)
+    {
+        return Uri.TryCreate(address, UriKind.Absolute, out Uri? uri) && uri.Scheme == Uri.UriSchemeHttps
+            && uri.AbsoluteUri == address && uri.AbsolutePath == "/internal/raft" && uri.UserInfo.Length == 0
+            && uri.Query.Length == 0 && uri.Fragment.Length == 0;
     }
 }

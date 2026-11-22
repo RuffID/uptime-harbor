@@ -39,6 +39,7 @@ export interface Snapshot {
 export interface NodeDiagnostic {
     nodeId: string; connection: string; ageSeconds: number | null; lastContactAtUtc: string | null;
     database: string; role: string; appliedIndex: number | null; lag: number | null;
+    number: number | null; canAssignSender: boolean;
 }
 export interface Diagnostic {
     assignedSenderNodeId: string | null;

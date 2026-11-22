@@ -18,16 +18,18 @@ public class ClusterBrowserDiagnostics(ClusterAdministrationAccess access, IOpti
             return ServiceResult<ClusterDiagnosticDto>.Fail(error);
         }
 
-        return ServiceResult<ClusterDiagnosticDto>.Ok(Project(options.Value.NodeId, options.Value.HealthFreshSeconds,
+        return ServiceResult<ClusterDiagnosticDto>.Ok(Project(options.Value,
             state, revisions.Current!, readiness, runtime.LeaderNodeId, health.Peers, health.Connections,
             replication.Progress, time.GetUtcNow()));
     }
 
-    public static ClusterDiagnosticDto Project(Guid nodeId, int healthFreshSeconds, IClusterStateView state,
+    public static ClusterDiagnosticDto Project(ClusterOptions options, IClusterStateView state,
         RevisionImage image, NodeReadiness readiness, Guid? leader,
         IReadOnlyDictionary<Guid, ObservedPeerHealth> peers, IReadOnlyDictionary<Guid, HealthResult> connections,
         ReplicationProgress progress, DateTimeOffset now)
     {
+        Guid nodeId = options.NodeId;
+        int healthFreshSeconds = options.HealthFreshSeconds;
         ConsensusStatus? consensus = state.Consensus;
         bool currentConsensus = consensus is not null && !consensus.ConsensusToken.IsCancellationRequested;
         if (!currentConsensus)
@@ -88,12 +90,18 @@ public class ClusterBrowserDiagnostics(ClusterAdministrationAccess access, IOpti
         }
 
         List<ClusterNodeDiagnosticDto> nodes = [];
-        foreach (Guid id in image.Monitoring.Nodes.Keys.Order())
+        IEnumerable<Guid> nodeIds = options.Nodes.Select(node => node.NodeId).Union(image.Monitoring.Nodes.Keys)
+            .OrderBy(id => options.FindNode(id)?.Number ?? int.MaxValue).ThenBy(id => id);
+        foreach (Guid id in nodeIds)
         {
+            int? number = options.FindNode(id)?.Number;
+            bool canAssign = options.CanAssignTelegramSender(id)
+                && image.Operations.Nodes.GetValueOrDefault(id) is { Activated: true, Voting: true, Removed: false };
             if (id == nodeId)
             {
                 nodes.Add(new(id, "Local", 0, null, readiness.Get("Database").Status, role,
-                    state.Accepted.AppliedIndex, Lag(consensus?.CommittedIndex, state.Accepted.AppliedIndex)));
+                    state.Accepted.AppliedIndex, Lag(consensus?.CommittedIndex, state.Accepted.AppliedIndex))
+                { Number = number, CanAssignSender = canAssign });
                 continue;
             }
 
@@ -121,14 +129,9 @@ public class ClusterBrowserDiagnostics(ClusterAdministrationAccess access, IOpti
                 applied = peer.Health.AppliedIndex;
             }
 
-            DateTimeOffset? contact = null;
-            if (peer is not null)
-            {
-                contact = now - peer.Age;
-            }
-
-            nodes.Add(new(id, SafeStatus(connection.Status), connection.Age?.TotalSeconds, contact,
-                database, peerRole, applied, Lag(consensus?.CommittedIndex, applied)));
+            nodes.Add(new(id, SafeStatus(connection.Status), connection.Age?.TotalSeconds, peer?.LastResponseAtUtc,
+                database, peerRole, applied, Lag(consensus?.CommittedIndex, applied))
+            { Number = number, CanAssignSender = canAssign });
         }
 
         long backlog = image.Monitoring.Intents.Values.LongCount(intent => intent.State is
@@ -172,7 +175,7 @@ public class ClusterBrowserDiagnostics(ClusterAdministrationAccess access, IOpti
 
     private static string SafeTelegramReason(string reason)
     {
-        if (reason is "Ready" or "Stale" or "TokenMissing" or "BotMismatch" or "TransportUnavailable" or "RateLimited")
+        if (reason is "Ready" or "Stale" or "TokenMissing" or "BotMismatch" or "TransportUnavailable" or "RateLimited" or "SenderNotAllowed")
         {
             return reason;
         }

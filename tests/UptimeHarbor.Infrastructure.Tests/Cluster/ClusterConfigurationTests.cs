@@ -1,5 +1,6 @@
 using DotNext.Net.Cluster;
 using Microsoft.AspNetCore.Connections;
+using Microsoft.Extensions.Options;
 using UptimeHarbor.Application.Cluster.Models;
 using UptimeHarbor.Infrastructure.Cluster;
 using Xunit;
@@ -61,6 +62,82 @@ public class ClusterConfigurationTests
         // Assert
         Assert.True(enabled);
         Assert.True(disabled);
+    }
+
+    [Fact]
+    public void ManualRosterSuppliesLocalAddressAndRestrictsTelegramToFirstTwoNodes()
+    {
+        // Arrange
+        ClusterOptions options = WithManualNodes();
+
+        // Act
+        ValidateOptionsResult validation = new ClusterOptionsValidator().Validate(null, options);
+
+        // Assert
+        Assert.True(validation.Succeeded, validation.FailureMessage);
+        Assert.Equal(options.Nodes[1].Address, options.PublicUri);
+        Assert.True(options.CanAssignTelegramSender(options.Nodes[0].NodeId));
+        Assert.True(options.CanAssignTelegramSender(options.Nodes[1].NodeId));
+        Assert.False(options.CanAssignTelegramSender(options.Nodes[2].NodeId));
+    }
+
+    [Theory]
+    [InlineData("local", "Cluster:NodeId")]
+    [InlineData("number", "numbers")]
+    [InlineData("id", "unique non-empty NodeId")]
+    [InlineData("address", "unique canonical HTTPS address")]
+    [InlineData("public", "Cluster:PublicUri")]
+    [InlineData("certificate", "Cluster:ClientCertificatePath")]
+    [InlineData("count", "up to three")]
+    public void InvalidManualRosterNamesTheProblem(string invalid, string expected)
+    {
+        // Arrange
+        ClusterOptions options = WithManualNodes();
+        switch (invalid)
+        {
+            case "local":
+                options.NodeId = Guid.NewGuid();
+                break;
+            case "number":
+                options.Nodes[2].Number = 2;
+                break;
+            case "id":
+                options.Nodes[2].NodeId = options.Nodes[0].NodeId;
+                break;
+            case "address":
+                options.Nodes[2].Address = options.Nodes[0].Address;
+                break;
+            case "public":
+                options.PublicUri = options.Nodes[0].Address;
+                break;
+            case "certificate":
+                options.ClientCertificatePath = "peer.pem";
+                break;
+            case "count":
+                options.Nodes = [..options.Nodes, new()];
+                break;
+        }
+
+        // Act
+        ValidateOptionsResult validation = new ClusterOptionsValidator().Validate(null, options);
+
+        // Assert
+        Assert.True(validation.Failed);
+        Assert.Contains(expected, validation.FailureMessage);
+    }
+
+    private static ClusterOptions WithManualNodes()
+    {
+        ClusterOptions options = Valid();
+        options.PublicUri = string.Empty;
+        options.Nodes =
+        [
+            new() { Number = 1, NodeId = Guid.NewGuid(), Address = "https://uh1.example/internal/raft" },
+            new() { Number = 2, NodeId = options.NodeId, Address = "https://uh2.example/internal/raft" },
+            new() { Number = 3, NodeId = Guid.NewGuid(), Address = "https://uh3.example/internal/raft" }
+        ];
+
+        return options;
     }
 
     [Fact]

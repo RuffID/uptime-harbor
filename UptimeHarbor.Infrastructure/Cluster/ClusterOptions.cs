@@ -2,6 +2,9 @@ namespace UptimeHarbor.Infrastructure.Cluster;
 
 public class ClusterOptions
 {
+    private string publicUri = string.Empty;
+    private ClusterNodeOptions[] nodes = [];
+
     public const string SECTION_NAME = "Cluster";
     public const string DOTNEXT_VERSION = "6.10.0";
     public string Mode { get; set; } = "Disabled";
@@ -10,7 +13,24 @@ public class ClusterOptions
     public Guid NodeId { get; set; }
     public Guid StorageGeneration { get; set; }
     public Guid CredentialId { get; set; }
-    public string PublicUri { get; set; } = string.Empty;
+    public ClusterNodeOptions[] Nodes
+    {
+        get => nodes;
+        set => nodes = value ?? [];
+    }
+    public string PublicUri
+    {
+        get
+        {
+            if (!string.IsNullOrEmpty(publicUri))
+            {
+                return publicUri;
+            }
+
+            return FindNode(NodeId)?.Address ?? string.Empty;
+        }
+        set => publicUri = value;
+    }
     public string StoragePath { get; set; } = string.Empty;
     public int PeerListenPort { get; set; } = 8443;
     public string TlsBoundary { get; set; } = "Direct";
@@ -44,4 +64,14 @@ public class ClusterOptions
     public bool Enabled => Mode != "Disabled";
 
     public string Compatibility => $"{ProtocolMajor}.{ProtocolMinor}/{CommandSchema}/{SnapshotFormat}/{SqlSchema}/{PasswordHashFormat}/{DOTNEXT_VERSION}";
+
+    public ClusterNodeOptions? FindNode(Guid nodeId)
+    {
+        return Nodes.FirstOrDefault(node => node?.NodeId == nodeId);
+    }
+
+    public bool CanAssignTelegramSender(Guid nodeId)
+    {
+        return Nodes.Length == 0 || FindNode(nodeId)?.Number is 1 or 2;
+    }
 }

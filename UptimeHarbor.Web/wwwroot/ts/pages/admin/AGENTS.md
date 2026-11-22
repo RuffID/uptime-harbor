@@ -1,6 +1,6 @@
 # Административные TypeScript-модули
 
-Кнопка назначения отправителя подаёт `AssignSender` через lifecycle API. Обновлять подпись действующего отправителя только из принятой диагностики.
+Кнопка назначения отправителя подаёт `AssignSender` через lifecycle API для кандидатов из диагностики. Подпись и отметку в таблице узлов брать из принятого назначения. Доступность и время последнего успешного ответа отображать раздельно.
 
 Node Pending — эксплуатационная заявка, не ресурсный редактор: показывать только безопасные поля/результат. Cancel использует lifecycle API и сохраняет весь запрос вместе с OperationId при retry; held renewal — явный typed Replace с текущей OperationsRevision. Diagnostic term/membership/ages/terminal errors/maintenance не являются доказательством readiness или countdown Telegram.
 

@@ -16,6 +16,13 @@ public class TelegramHealthProbe(IHttpClientFactory clients, IOptions<TelegramOp
 
     public async Task ProbeAsync(CancellationToken cancellationToken)
     {
+        ClusterOptions cluster = clusterOptions.Value;
+        if (!cluster.CanAssignTelegramSender(cluster.NodeId))
+        {
+            readiness.Report("Telegram", false, "SenderNotAllowed", TimeSpan.FromSeconds(90));
+            return;
+        }
+
         if (lastProbe.HasValue && timeProvider.GetElapsedTime(lastProbe.Value) < TimeSpan.FromMinutes(1))
         {
             return;
@@ -79,7 +86,7 @@ public class TelegramHealthProbe(IHttpClientFactory clients, IOptions<TelegramOp
             bool valid = root.TryGetProperty("ok", out JsonElement ok) && ok.ValueKind == JsonValueKind.True
                 && root.TryGetProperty("result", out JsonElement result) && result.ValueKind == JsonValueKind.Object
                 && result.TryGetProperty("id", out JsonElement id) && id.TryGetInt64(out long bot)
-                && bot == clusterOptions.Value.ExpectedBotId;
+                && bot == cluster.ExpectedBotId;
             if (valid)
             {
                 readiness.Report("Telegram", true, "Ready", TimeSpan.FromSeconds(90));

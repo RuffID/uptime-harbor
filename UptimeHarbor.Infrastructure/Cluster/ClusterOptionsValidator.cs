@@ -1,5 +1,6 @@
 using System.Net;
 using Microsoft.Extensions.Options;
+using UptimeHarbor.Application.Cluster;
 using UptimeHarbor.Infrastructure.Cluster.Onboarding;
 
 namespace UptimeHarbor.Infrastructure.Cluster;
@@ -10,7 +11,7 @@ public class ClusterOptionsValidator : IValidateOptions<ClusterOptions>
     {
         if (options.Mode is not ("Disabled" or "Bootstrap" or "Join" or "Restart"))
         {
-            return ValidateOptionsResult.Fail("Cluster:Mode is invalid.");
+            return ValidateOptionsResult.Fail("Cluster:Mode must be Disabled, Bootstrap, Join or Restart.");
         }
 
         if (!options.Enabled)
@@ -18,17 +19,24 @@ public class ClusterOptionsValidator : IValidateOptions<ClusterOptions>
             return ValidateOptionsResult.Success;
         }
 
-        bool identityMissing = options.ClusterId == Guid.Empty || options.NodeId == Guid.Empty
-            || options.StorageGeneration == Guid.Empty || options.CredentialId == Guid.Empty;
-        if (identityMissing || options.Generation < 1)
+        if (options.NodeId == Guid.Empty)
         {
-            return ValidateOptionsResult.Fail("Cluster identity is required.");
+            return ValidateOptionsResult.Fail("Cluster:NodeId must be a non-empty UUID.");
         }
 
-        if (!Uri.TryCreate(options.PublicUri, UriKind.Absolute, out Uri? uri)
-            || uri.Scheme != Uri.UriSchemeHttps || uri.AbsolutePath != "/internal/raft"
-            || uri.UserInfo.Length != 0 || uri.Query.Length != 0 || uri.Fragment.Length != 0
-            || uri.AbsoluteUri != options.PublicUri)
+        if (options.ClusterId == Guid.Empty || options.StorageGeneration == Guid.Empty
+            || options.CredentialId == Guid.Empty || options.Generation < 1)
+        {
+            return ValidateOptionsResult.Fail("Cluster:ClusterId, StorageGeneration and CredentialId must be non-empty UUIDs; Generation must be positive.");
+        }
+
+        string? rosterError = ValidateNodes(options);
+        if (rosterError is not null)
+        {
+            return ValidateOptionsResult.Fail(rosterError);
+        }
+
+        if (!ClusterOperationValidation.IsValidAddress(options.PublicUri))
         {
             return ValidateOptionsResult.Fail("Cluster:PublicUri must be canonical HTTPS /internal/raft.");
         }
@@ -63,14 +71,34 @@ public class ClusterOptionsValidator : IValidateOptions<ClusterOptions>
             return ValidateOptionsResult.Fail("Cluster payload limits are invalid.");
         }
 
-        if (!Path.IsPathFullyQualified(options.StoragePath)
-            || !Path.IsPathFullyQualified(options.ClientCertificatePath)
-            || !Path.IsPathFullyQualified(options.ClientKeyPath)
-            || !Path.IsPathFullyQualified(options.ClientCaPath)
-            || !IsFingerprint(options.ClientCaFingerprint) || options.ExpectedBotId <= 0
-            || options.PeerListenPort is < 1 or > 65535)
+        List<string> pathErrors = [];
+        foreach ((string setting, string path) in new (string, string)[]
         {
-            return ValidateOptionsResult.Fail("Cluster storage, certificates, listener and BotId are required.");
+            (nameof(options.StoragePath), options.StoragePath),
+            (nameof(options.ClientCertificatePath), options.ClientCertificatePath),
+            (nameof(options.ClientKeyPath), options.ClientKeyPath),
+            (nameof(options.ClientCaPath), options.ClientCaPath)
+        })
+        {
+            if (string.IsNullOrWhiteSpace(path) || !Path.IsPathFullyQualified(path))
+            {
+                pathErrors.Add($"Cluster:{setting} must be an absolute path.");
+            }
+        }
+
+        if (pathErrors.Count != 0)
+        {
+            return ValidateOptionsResult.Fail(pathErrors);
+        }
+
+        if (!IsFingerprint(options.ClientCaFingerprint))
+        {
+            return ValidateOptionsResult.Fail("Cluster:ClientCaFingerprint must contain 64 hexadecimal SHA-256 digits.");
+        }
+
+        if (options.ExpectedBotId <= 0 || options.PeerListenPort is < 1 or > 65535)
+        {
+            return ValidateOptionsResult.Fail("Cluster:ExpectedBotId must be positive and Cluster:PeerListenPort must be between 1 and 65535.");
         }
 
         if (options.TlsBoundary is not ("Direct" or "NginxIsolatedHttp"))
@@ -94,8 +122,60 @@ public class ClusterOptionsValidator : IValidateOptions<ClusterOptions>
         return ValidateOptionsResult.Success;
     }
 
-    public static bool IsFingerprint(string value)
+    public static bool IsFingerprint(string? value)
     {
-        return value.Length == 64 && value.All(Uri.IsHexDigit);
+        return value is { Length: 64 } && value.All(Uri.IsHexDigit);
+    }
+
+    private static string? ValidateNodes(ClusterOptions options)
+    {
+        if (options.Nodes.Length == 0)
+        {
+            return null;
+        }
+
+        if (options.Nodes.Length > 3)
+        {
+            return "Cluster:Nodes supports up to three nodes.";
+        }
+
+        HashSet<int> numbers = [];
+        HashSet<Guid> ids = [];
+        HashSet<string> addresses = new(StringComparer.Ordinal);
+        foreach (ClusterNodeOptions node in options.Nodes)
+        {
+            if (node is null)
+            {
+                return "Cluster:Nodes must contain a number, NodeId and Address for each entry.";
+            }
+
+            if (node.Number < 1 || node.Number > options.Nodes.Length || !numbers.Add(node.Number))
+            {
+                return "Cluster:Nodes numbers must be unique and consecutive starting from 1.";
+            }
+
+            if (node.NodeId == Guid.Empty || !ids.Add(node.NodeId))
+            {
+                return $"Cluster:Nodes entry #{node.Number} must have a unique non-empty NodeId.";
+            }
+
+            if (!ClusterOperationValidation.IsValidAddress(node.Address) || !addresses.Add(node.Address))
+            {
+                return $"Cluster:Nodes entry #{node.Number} must have a unique canonical HTTPS address ending in /internal/raft.";
+            }
+        }
+
+        ClusterNodeOptions? local = options.FindNode(options.NodeId);
+        if (local is null)
+        {
+            return "Cluster:NodeId must match a local entry in Cluster:Nodes.";
+        }
+
+        if (local.Address != options.PublicUri)
+        {
+            return "Cluster:PublicUri must match the address for Cluster:NodeId in Cluster:Nodes.";
+        }
+
+        return null;
     }
 }
