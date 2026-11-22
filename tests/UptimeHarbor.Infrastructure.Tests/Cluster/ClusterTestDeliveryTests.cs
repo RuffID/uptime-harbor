@@ -76,7 +76,7 @@ public class ClusterTestDeliveryTests
             Assert.Equal(DeliveryState.Succeeded, leader.Image.Monitoring.Intents[local.Id].State);
             Assert.Equal(2, leader.Sent.Count);
             Assert.All(leader.Image.Monitoring.Attempts.Values,
-                attempt => Assert.Equal(leader.Source.Options.NodeId, attempt.Authority.LeaderNodeId));
+                attempt => Assert.Equal(leader.Source.Options.NodeId, attempt.Authority.SenderNodeId));
         }
     }
 

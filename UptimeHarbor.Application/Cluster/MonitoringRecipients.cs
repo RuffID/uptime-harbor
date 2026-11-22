@@ -91,7 +91,7 @@ public static class MonitoringRecipients
             ?? throw new InvalidDataException("DeliveryAttemptHistoryMissing");
         if (attempt.IntentId != evidence.IntentId || attempt.Number != evidence.AttemptNumber
             || attempt.Outcome != AttemptOutcome.Succeeded || attempt.Index != evidence.AcceptedIndex
-            || attempt.Term != evidence.AcceptedTerm || attempt.Authority.LeaderNodeId != evidence.SenderNodeId
+            || attempt.Term != evidence.AcceptedTerm || attempt.Authority.SenderNodeId != evidence.SenderNodeId
             || attempt.Authority.SenderEpoch != evidence.SenderEpoch || attempt.StartedAtUtc != evidence.StartedAtUtc
             || attempt.CompletedAtUtc != evidence.SucceededAtUtc || attempt.TelegramMessageId != evidence.TelegramMessageId)
         {

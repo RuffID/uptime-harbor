@@ -1,5 +1,7 @@
 # Общий Razor layout
 
+Секция назначения отправителя относится к кластерной странице Telegram. Действующий NodeId приходит из принятого состояния через диагностику.
+
 _ClusterAdministration и _ClusterScripts задают общий статический UI enabled-режима: accepted/Pending/conflicts/observers/diagnostics/delivery и Bootstrap modal редактора. PageModel не загружает коллекции; antiforgery meta выдаётся partial, данные читает один cluster TypeScript entry point. Не подключать одновременно legacy module.
 
 На кластерной «Панели мониторинга» общий Administrator открывает ContinueCredential по ID операции и подтверждает точный запрос после просмотра ID узла. Общий entry point инициализирует формы, сервер проверяет доступ на каждом чтении и действии.

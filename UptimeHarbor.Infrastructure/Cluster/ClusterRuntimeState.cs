@@ -63,7 +63,8 @@ public class ClusterRuntimeState(IClusterRecovery recovery, RevisionStateStore? 
             Guid epoch = Guid.Empty;
             if (sender is not null && sender.ClusterId == current.ClusterId && sender.Generation == current.Generation
                 && sender.Term == current.Term && sender.MembershipVersion == current.MembershipVersion
-                && voters.Contains(sender.LeaderNodeId) && operations.MaintenanceId == Guid.Empty && !pending)
+                && sender.SenderNodeId == operations.AssignedSenderNodeId && voters.Contains(sender.SenderNodeId)
+                && operations.MaintenanceId == Guid.Empty && !pending)
             {
                 epoch = sender.SenderEpoch;
             }
@@ -76,7 +77,7 @@ public class ClusterRuntimeState(IClusterRecovery recovery, RevisionStateStore? 
             }
 
             return proof with { Activated = activated, ManuallyEnabled = manual, SenderEpoch = epoch,
-                DeliveryStateConfirmed = delivery, MembershipChangePending = pending };
+                AssignedSenderNodeId = operations.AssignedSenderNodeId, DeliveryStateConfirmed = delivery, MembershipChangePending = pending };
         }
     }
 

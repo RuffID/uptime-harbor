@@ -188,10 +188,24 @@ public static class ClusterOperationReducer
 
                 image = image with { Operations = operations with { MaintenanceId = Guid.Empty, Sender = null } };
                 break;
+            case "AssignSender":
+                if (payload.TelegramReady != true || payload.CoordinatorTerm != image.Term
+                    || node is not { Activated: true, Voting: true, Removed: false }
+                    || operations.MaintenanceId != Guid.Empty || operations.Changes.Values.Any(change => !change.ConfirmedVersion.HasValue))
+                {
+                    error = "TelegramSenderUnavailable";
+                    break;
+                }
+
+                SenderAuthorityKey assigned = new(image.ClusterId, image.Generation, operations.MembershipVersion,
+                    image.Term, node.NodeId, command.OperationId);
+                image = image with { Operations = operations with { AssignedSenderNodeId = node.NodeId, Sender = assigned } };
+                break;
             case "OpenSenderEpoch":
                 SenderAuthorityKey? sender = payload.Sender;
                 if (sender is null || sender.ClusterId != image.ClusterId || sender.Generation != image.Generation
-                    || sender.Term != image.Term || sender.LeaderNodeId != command.OriginNodeId
+                    || sender.Term != image.Term || sender.SenderNodeId != (operations.AssignedSenderNodeId ?? command.OriginNodeId)
+                    || sender.MembershipVersion != payload.MembershipVersion
                     || sender.SenderEpoch == Guid.Empty || operations.MaintenanceId != Guid.Empty
                     || operations.Changes.Values.Any(item => !item.ConfirmedVersion.HasValue))
                 {

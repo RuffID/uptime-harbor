@@ -111,23 +111,18 @@ public class ClusterLifecycleWorker(ClusterPeerRuntime runtime, ClusterRuntimeSt
             return;
         }
 
-        SenderAuthorityKey? sender = image.Operations.Sender;
-        if (sender is null || sender.Term != status.Term || sender.MembershipVersion != status.MembershipVersion
-            || sender.LeaderNodeId != status.NodeId)
+        RevisionCommand? epoch = ClusterLifecycleCommands.OpenSenderEpoch(image, status, options.Value.StorageGeneration, time.GetUtcNow());
+        if (epoch is not null)
         {
-            SenderAuthorityKey key = new(status.ClusterId, status.Generation, status.MembershipVersion, status.Term,
-                status.NodeId, Guid.NewGuid());
-            await SubmitAsync(image, status, "OpenSenderEpoch", status.NodeId, new ClusterOperation { Sender = key }, token);
+            await dispatcher.AcceptAsync(epoch, status.NodeId, token);
         }
-
-        gate.ConfirmMembershipReconciled();
     }
 
     private async Task SubmitAsync(RevisionImage image, ConsensusStatus status, string action, Guid nodeId,
         ClusterOperation operation, CancellationToken token)
     {
         RevisionCommand command = ClusterLifecycleCommands.Create(image, options.Value.NodeId, options.Value.StorageGeneration,
-            action, nodeId, operation with { MembershipVersion = status.MembershipVersion }, time.GetUtcNow());
+            action, nodeId, operation with { MembershipVersion = status.MembershipVersion }, time.GetUtcNow(), status.Term);
         CommandResult result = await dispatcher.AcceptAsync(command, options.Value.NodeId, token);
         logger.LogInformation("Cluster lifecycle {Action} for {NodeId}: {Outcome} at {Index}.",
             action, nodeId, result.Outcome, result.Index);

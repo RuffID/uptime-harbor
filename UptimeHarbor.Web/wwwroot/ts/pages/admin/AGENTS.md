@@ -1,5 +1,7 @@
 # Административные TypeScript-модули
 
+Кнопка назначения отправителя подаёт `AssignSender` через lifecycle API. Обновлять подпись действующего отправителя только из принятой диагностики.
+
 Node Pending — эксплуатационная заявка, не ресурсный редактор: показывать только безопасные поля/результат. Cancel использует lifecycle API и сохраняет весь запрос вместе с OperationId при retry; held renewal — явный typed Replace с текущей OperationsRevision. Diagnostic term/membership/ages/terminal errors/maintenance не являются доказательством readiness или countdown Telegram.
 
 users.ts и notifications.ts обслуживают свои страницы через MVC API, modal и DOM. Управление объектами перенесено в pages/dashboard.ts и monitoringEditor.ts; objects.ts / containers.ts удалены.

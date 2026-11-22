@@ -24,6 +24,12 @@ public static class DeliveryReducer
             return Decide(image, command, "SenderTermChanged");
         }
 
+        if (image.Operations.AssignedSenderNodeId.HasValue && (image.Operations.Sender != payload.Authority
+            || image.Operations.AssignedSenderNodeId != command.OriginNodeId))
+        {
+            return Decide(image, command, "SenderAssignmentChanged");
+        }
+
         if (command.Action == "RenewSender")
         {
             return Decide(image, command, null);
@@ -64,7 +70,7 @@ public static class DeliveryReducer
             return Decide(image, command, "AttemptMissing");
         }
 
-        if (!abandoned && attempt.Authority.LeaderNodeId != command.OriginNodeId)
+        if (!abandoned && attempt.Authority.SenderNodeId != command.OriginNodeId)
         {
             return Decide(image, command, "ResultOriginMismatch");
         }
@@ -107,7 +113,7 @@ public static class DeliveryReducer
                 intent = intent with { State = DeliveryState.Succeeded, CompletedAtUtc = completedAt,
                     NextAttemptAtUtc = null, Index = image.Index, Term = image.Term };
                 MonitoringDeliveryEvidence evidence = new(intent.Id, attempt.Id, image.Index, image.Term, attempt.Number,
-                    attempt.Authority.LeaderNodeId, attempt.Authority.SenderEpoch, attempt.StartedAtUtc,
+                    attempt.Authority.SenderNodeId, attempt.Authority.SenderEpoch, attempt.StartedAtUtc,
                     completedAt, attempt.TelegramMessageId!.Value);
                 monitoring = monitoring with { ConfirmedDeliveries = monitoring.ConfirmedDeliveries.Add(intent.Id, evidence) };
             }

@@ -14,6 +14,7 @@ public static class ClusterWebExtensions
         services.AddSingleton<ClusterRaftHandle>();
         services.AddSingleton<ClusterPeerRuntime>();
         services.AddSingleton<ClusterHealthWorker>();
+        services.AddSingleton<ISenderCandidateHealth>(services => services.GetRequiredService<ClusterHealthWorker>());
         services.AddScoped<ClusterBrowserDiagnostics>();
         services.AddScoped<MembershipCoordinator>();
         services.AddSingleton<IClusterAdministrationState, AcceptedClusterAdministrationState>();

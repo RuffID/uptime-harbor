@@ -40,6 +40,10 @@ public static class AdministrationMapping
             {
                 message = "Исходная заявка уже решена. Отмена или замена не выполнена. Новую правку подайте от актуальной ревизии.";
             }
+            else if (result.Reason == "TelegramSenderUnavailable")
+            {
+                message = "Для назначения требуется активный узел с подтверждённым токеном Telegram.";
+            }
             else if (result.Outcome == OperationOutcome.Rejected)
             {
                 message = "Заявка отклонена: проверьте активность аккаунта, актуальную ревизию и зависимости.";

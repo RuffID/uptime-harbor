@@ -29,6 +29,11 @@ public class PeerObservationCapture(RevisionStateStore accepted, IClusterStateVi
             failure = null;
             foreach (string component in new[] { "Database", "Projection", "Monitoring", "Telegram" })
             {
+                if (component == "Telegram" && accepted.Current?.Operations.AssignedSenderNodeId != targetNodeId)
+                {
+                    continue;
+                }
+
                 HealthResult? result = health.Components.GetValueOrDefault(component);
                 if (result?.Status == "Unavailable")
                 {

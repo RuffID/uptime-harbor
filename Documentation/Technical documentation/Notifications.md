@@ -2,6 +2,12 @@
 
 После объединения целей Server / Application оба типа в списке Telegram-привязок показываются по административному Name; полученное внутреннее имя остаётся metadata проверок. Совместимые поля bindings ServerId / ContainerId ссылаются на одну monitored_servers. Удаление сервера снимает родителя у приложений, сохраняя их мониторинг и собственные привязки.
 
+## Назначение отправителя в кластере
+
+На странице **Telegram** администратор нажимает **Назначить отправителем** рядом с NodeId. Первый раз инженер выбирает №1. При его отказе можно открыть страницу на №2 или №3 и выбрать №2. Пока заявка ожидает принятия большинством, в секции показан прежний отправитель. После принятия там появится выбранный NodeId. Возврат на №1 требует того же действия вручную.
+
+Лидер проверяет свежий результат `getMe` для ожидаемого бота на выбранном активном голосующем узле. Узел без токена может быть лидером и выполнять назначенные проверки сайтов. Попытка назначить его отправителем получает отказ, прежний выбор сохраняется. До первого назначения или при недоступности выбранного узла новые сообщения ждут в принятой очереди.
+
 ## Управление и результаты в UI (08)
 
 Каждый активный принятый Administrator управляет общими Chat/Binding и независимыми NodeChatRoute по NodeId через typed Pending-команды. UI поясняет текущую проблему при новой привязке, отмену не начатого outage при unbind и заслуженный final recovery после успешного/позднего in-flight outage. Глобальное удаление показывает зависимости и требует подтверждения.
@@ -13,7 +19,7 @@ Test-send с любого узла сохраняет стабильный Opera
 
 Enabled-путь восстанавливает очередь непосредственно из принятого MonitoringImage: incidents, events, recipients/intents, immutable summaries и полная история attempts/results. Локальный legacy outbox и его claim не участвуют. DeliveryQueue.Validate проверяет историю до renewal; известный accepted success, Cancelled и terminal Failed не становятся due. Logical key incident + kind + chat сохраняется при rebind; Update дополнительно различает event. BindingGeneration проверяется отдельно. Инцидент Node использует принятые NodeChatRoute именно своего NodeId.
 
-DeliverySenderConsensus принимает RenewSender/BeginDelivery через существующие RevisionDispatcher → DotNext → RevisionApplyEngine. AcceptedDeliveryDispatcher повторно проверяет authority/term/majority, RecoveryVersion, readiness, intent и текущую конфигурацию непосредственно перед внешним вызовом. Initial, retry, recovery, summary и test используют один путь. После смены роли действует drain 12 секунд, authority обновляется примерно каждые 5 секунд независимо от in-flight transport и истекает через 10 секунд. Scope/claim не заменяет это право. Отмена после начала HTTP может не остановить внешний эффект.
+Выбранный узел передаёт RenewSender и BeginDelivery лидеру через IRevisionTransport и ждёт решения в собственной принятой проекции. Лидер сверяет исходный NodeId, состав, term и принятую эпоху. AcceptedDeliveryDispatcher повторно проверяет authority/term/majority, RecoveryVersion, readiness, intent и текущую конфигурацию непосредственно перед внешним вызовом. Initial, retry, recovery, summary и test используют один путь. После смены роли действует drain 12 секунд, authority обновляется примерно каждые 5 секунд независимо от in-flight transport и истекает через 10 секунд. Scope/claim не заменяет это право. Отмена после начала HTTP может не остановить внешний эффект.
 
 Telegram transport требует HTTP success, JSON ok=true и настоящий положительный message_id. После вызова результат сохраняется через локальный IDeliveryResultUnitOfWork и оперативно передаётся существующим revision transport; отменённый leadership token не отменяет эту фиксацию. Локальный capture ещё не является общим успехом. RecordDelivery проверяет admitted NodeId/storage generation и исходного отправителя попытки; поздний success монотонно сохраняется даже после принятого ambiguous failure. Попытка с неизвестным результатом после 30 секунд допускает AbandonDelivery/Ambiguous и ограниченный retry. Потеря результата между Telegram и capture/commit допускает редкий дубль; exactly-once не заявляется.
 

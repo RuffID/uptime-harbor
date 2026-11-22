@@ -33,6 +33,8 @@ function initialize(): void {
     const refreshRequests = new AdministrationRefresh(clusterApi);
     const cancelIds = new Map<string, string>();
     const lifecycleCancels = new Map<string, LifecycleChange>();
+    let senderRequest: LifecycleChange | null = null;
+    let assigning = false;
     let snapshot: Snapshot | null = null;
     let pending: Pending[] = [];
     let diagnostic: Diagnostic | null = null;
@@ -130,6 +132,20 @@ function initialize(): void {
                 if (denied || stopped || !latest.isCurrent(request.version)) return;
                 outcome.textContent = operationText(result); quietRefresh();
             }).catch(value => { if (latest.isCurrent(request.version)) failure(value); });
+        },
+        assignSender: nodeId => {
+            if (denied || stopped || assigning || !diagnostic || diagnostic.membershipVersion === null) return;
+            if (senderRequest?.nodeId !== nodeId || senderRequest.baseRevision !== diagnostic.operationsRevision) {
+                senderRequest = { action: "AssignSender", operationId: crypto.randomUUID(), nodeId,
+                    baseRevision: diagnostic.operationsRevision, membershipVersion: diagnostic.membershipVersion };
+            }
+            assigning = true;
+            void clusterApi.lifecycle(senderRequest).then(result => {
+                senderRequest = null;
+                if (denied || stopped) return;
+                outcome.textContent = operationText(result);
+                quietRefresh();
+            }).catch(failure).finally(() => { assigning = false; });
         },
         find: id => {
             const request = latest.begin();

@@ -9,8 +9,9 @@ namespace UptimeHarbor.Web.Cluster;
 public class ClusterHealthWorker(IOptions<ClusterOptions> options, ClusterDatabaseProbe database,
     TelegramHealthProbe telegram, IPeerTrustSource trust,
     IHttpClientFactory clients, LeaderFailureWindow failureWindow,
-    TimeProvider timeProvider, PeerObservationCapture? observations = null,
-    ILogger<ClusterHealthWorker>? logger = null) : UptimeHarbor.Infrastructure.Installation.RestartableWorker
+    TimeProvider timeProvider, NodeReadiness readiness, PeerObservationCapture? observations = null,
+    ILogger<ClusterHealthWorker>? logger = null)
+    : UptimeHarbor.Infrastructure.Installation.RestartableWorker, ISenderCandidateHealth
 {
     private readonly Dictionary<Guid, (HealthResult Result, long At)> connections = new();
     private readonly object sync = new();
@@ -26,6 +27,17 @@ public class ClusterHealthWorker(IOptions<ClusterOptions> options, ClusterDataba
                     new ObservedPeerHealth(entry.Value.Health, timeProvider.GetElapsedTime(entry.Value.At)));
             }
         }
+    }
+
+    public bool IsReady(Guid nodeId, ConsensusStatus leader)
+    {
+        if (nodeId == leader.NodeId)
+        {
+            return readiness.Get("Telegram").Status == "Ready";
+        }
+
+        return Peers.TryGetValue(nodeId, out ObservedPeerHealth? peer)
+            && peer.Telegram(leader, leader.NodeId, options.Value.HealthFreshSeconds)?.Status == "Ready";
     }
 
     public IReadOnlyDictionary<Guid, HealthResult> Connections

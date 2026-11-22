@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Options;
+using UptimeHarbor.Infrastructure.Cluster;
 using UptimeHarbor.Application.Cluster;
 using UptimeHarbor.Application.Cluster.Models;
 using UptimeHarbor.Application.Notifications;
@@ -8,6 +10,34 @@ namespace UptimeHarbor.Tests.Infrastructure.Cluster;
 
 public class AcceptedDeliveryTests
 {
+    [Fact]
+    public async Task LeaderReceiptOnlyPermitsAttemptAfterLocalApply()
+    {
+        // Arrange
+        using DeliveryHarness leader = new();
+        await leader.PrepareAsync();
+        RevisionStateStore follower = new();
+        follower.Publish(leader.Image);
+        IOptions<ClusterOptions> configuration = Options.Create(leader.Source.Options);
+        DeliverySenderConsensus consensus = new(leader, follower, configuration, leader.Source.Time);
+        MonitoringIntent intent = Assert.Single(leader.Image.Monitoring.Intents.Values);
+        Guid attemptId = DeliveryCommands.AttemptId(intent.Id, 1);
+
+        // Act
+        Task<DeliveryAttemptPermit?> permit = consensus.BeginAttemptAsync(leader.Image.Operations.Sender!, attemptId,
+            TestContext.Current.CancellationToken).AsTask();
+
+        // Assert
+        Assert.True(leader.Image.Monitoring.Attempts.ContainsKey(attemptId));
+        Assert.False(permit.IsCompleted);
+
+        // Act
+        follower.Publish(leader.Image);
+
+        // Assert
+        Assert.Equal(attemptId, (await permit)?.AttemptId);
+    }
+
     [Fact]
     public async Task ReconstructedQueueSendsOnceAndRestartsWithoutLocalOutboxOrSession()
     {

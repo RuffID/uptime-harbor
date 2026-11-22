@@ -6,6 +6,7 @@ public record ClusterDiagnosticDto(Guid NodeId, Guid? LeaderNodeId, string Role,
     string Telegram, string TelegramReason, double? TelegramAgeSeconds, DateTimeOffset AtUtc,
     IReadOnlyList<ClusterNodeDiagnosticDto> Nodes)
 {
+    public Guid? AssignedSenderNodeId { get; init; }
     public long? Term { get; init; }
     public long? MembershipVersion { get; init; }
     public long OperationsRevision { get; init; }

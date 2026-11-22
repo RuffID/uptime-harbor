@@ -141,9 +141,11 @@ public class MonitoringRuntimeTests
         HashSet<Guid> voters = [first, second];
         leader.Consensus = leader.Consensus! with { VotingNodes = voters };
         follower.Consensus = leader.Consensus with { NodeId = second, IsLeader = false };
+        follower.Readiness.Report("Telegram", false, "TokenMissing", TimeSpan.FromMinutes(1));
         Assert.True(follower.Readiness.ConfirmRecovery(follower.Readiness.RecoveryVersion, follower.Accepted, follower.Consensus));
         RevisionImage shared = image with
         {
+            Operations = image.Operations with { AssignedSenderNodeId = first },
             Values = image.Values.SetItem(target.Id, target with { Value = target.Value with { ObserverNodes = [first, second] } }),
             Monitoring = image.Monitoring with { Nodes = image.Monitoring.Nodes.Add(second, follower.Options.StorageGeneration) }
         };
@@ -178,17 +180,25 @@ public class MonitoringRuntimeTests
     }
 
     [Theory]
-    [InlineData(null, "PeerUnavailable")]
-    [InlineData("Database", "DatabaseUnavailable")]
-    [InlineData("Monitoring", "WorkerStalled")]
-    [InlineData("Telegram", "TelegramUnavailable")]
-    public async Task PeerCapturePreservesActualNodeAndReportedCauseWithoutGuessingDatabase(string? failed, string expected)
+    [InlineData(null, "PeerUnavailable", true)]
+    [InlineData("Database", "DatabaseUnavailable", true)]
+    [InlineData("Monitoring", "WorkerStalled", true)]
+    [InlineData("Telegram", "TelegramUnavailable", true)]
+    [InlineData("Telegram", null, false)]
+    public async Task PeerCapturePreservesActualNodeAndReportedCauseWithoutGuessingDatabase(string? failed, string? expected, bool assigned)
     {
         // Arrange
         using MonitoringHarness runtime = new();
         Guid peer = Guid.NewGuid();
         RevisionImage image = runtime.State.Current!;
-        runtime.State.Publish(image with { Monitoring = image.Monitoring with { Nodes = image.Monitoring.Nodes.Add(peer, Guid.NewGuid()) } });
+        Guid selected = runtime.Options.NodeId;
+        if (assigned)
+        {
+            selected = peer;
+        }
+
+        runtime.State.Publish(image with { Operations = image.Operations with { AssignedSenderNodeId = selected },
+            Monitoring = image.Monitoring with { Nodes = image.Monitoring.Nodes.Add(peer, Guid.NewGuid()) } });
         PeerHealthSnapshot? health = null;
         if (failed is not null)
         {
@@ -220,6 +230,7 @@ public class MonitoringRuntimeTests
         Assert.Equal(peer, observation.TargetId);
         Assert.Equal(runtime.Options.NodeId, observation.ObserverNodeId);
         Assert.Equal(expected, observation.FailureKind);
+        Assert.Equal(expected is null, observation.Succeeded);
         Assert.Equal(DeletedEntityKind.Node, command.EntityKind);
         Assert.True(observation.ClockConfirmed);
     }

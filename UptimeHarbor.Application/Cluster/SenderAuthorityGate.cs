@@ -60,6 +60,11 @@ public class SenderAuthorityGate(IClusterStateView state, NodeReadiness readines
     {
         lock (sync)
         {
+            if (!membershipChanging)
+            {
+                return false;
+            }
+
             AcceptedClusterState accepted = state.Accepted;
             if (accepted.MembershipChangePending || accepted.SenderEpoch == Guid.Empty
                 || accepted.SenderEpoch == suspendedEpoch || !readiness.CanWork(state))
@@ -158,8 +163,14 @@ public class SenderAuthorityGate(IClusterStateView state, NodeReadiness readines
             }
 
             ConsensusStatus status = state.Consensus!;
+            CancellationToken leadership = CancellationToken.None;
+            if (status.IsLeader)
+            {
+                leadership = status.LeadershipToken;
+            }
+
             requestCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken,
-                status.LeadershipToken, status.ConsensusToken, activeRequests.Token);
+                leadership, status.ConsensusToken, activeRequests.Token);
         }
 
         // Эта граница является началом in-flight попытки; атомарности с внешним API нет.
@@ -190,20 +201,19 @@ public class SenderAuthorityGate(IClusterStateView state, NodeReadiness readines
     {
         ConsensusStatus? status = state.Consensus;
         if (membershipChanging || state.Accepted.MembershipChangePending
-            || status is null || !status.IsLeader || status.VotingNodes.Count == 0
+            || status is null || status.VotingNodes.Count == 0
             || !status.VotingNodes.Contains(status.NodeId))
         {
             return false;
         }
 
-        return !status.LeadershipToken.IsCancellationRequested && !status.ConsensusToken.IsCancellationRequested
-            && readiness.CanSend(state) && state.Accepted.SenderEpoch != Guid.Empty;
+        return readiness.CanSend(state);
     }
 
     private SenderAuthorityKey? ReadKey()
     {
         ConsensusStatus? status = state.Consensus;
-        if (status is null || !status.IsLeader)
+        if (status is null || state.Accepted.AssignedSenderNodeId != status.NodeId || state.Accepted.SenderEpoch == Guid.Empty)
         {
             return null;
         }

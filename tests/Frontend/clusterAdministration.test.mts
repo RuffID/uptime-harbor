@@ -266,8 +266,8 @@ test("current refresh authorization failure propagates and cannot become accepte
 test("observer rows display each node with the time of its own check", () => {
     const sections = new Map(["accepted", "pending", "targets", "observers", "deliveries", "nodes", "conflicts", "diagnostic-summary"]
         .map(key => [`[data-cluster-${key}]`, new Dom("section")]));
-    const root = { querySelector: (selector: string) => sections.get(selector) ?? null };
-    const views = new ClusterViews(root as unknown as HTMLElement, { edit() {}, cancel() {}, find() {} });
+    const root = { dataset: { clusterPage: "Monitoring" }, querySelector: (selector: string) => sections.get(selector) ?? null };
+    const views = new ClusterViews(root as unknown as HTMLElement, { edit() {}, cancel() {}, find() {}, assignSender() {} });
     const server = entity();
     const observers = [
         { nodeId: "node-1", checkedAtUtc: "2026-11-21T10:00:00Z" },
@@ -288,6 +288,33 @@ test("observer rows display each node with the time of its own check", () => {
         assert.ok(identity.textContent.endsWith(`/ ${observer.nodeId}`));
         assert.ok(result.textContent.includes(new Date(observer.checkedAtUtc).toLocaleString()));
     }
+});
+
+test("Telegram shows the accepted sender and submits the node chosen by the engineer", async () => {
+    const sections = new Map(["accepted", "pending", "targets", "observers", "deliveries", "nodes", "conflicts", "diagnostic-summary", "sender"]
+        .map(key => [`[data-cluster-${key}]`, new Dom("section")]));
+    const root = Object.assign(new Dom("section"), { querySelector: (selector: string) => sections.get(selector) ?? null });
+    root.dataset.clusterPage = "Chat";
+    root.append(...sections.values());
+    const { delegateActions: bind } = await import(compiledModule("clusterDom.js"));
+    bind(root);
+    const submitted: string[] = [];
+    const views = new ClusterViews(root as unknown as HTMLElement, { edit() {}, cancel() {}, find() {}, assignSender(id: string) { submitted.push(id); } });
+    const nodes = ["first", "second"].map(nodeId => ({ nodeId, database: "Ready", connection: "Ready", role: "Follower",
+        lastContactAtUtc: null, ageSeconds: 1, appliedIndex: 5, lag: 0 }));
+    const diagnostic = { nodes, membershipVersion: 3,
+        assignedSenderNodeId: "first", telegramAgeSeconds: null } as unknown as Diagnostic;
+
+    views.render(snapshot(entity("Chat")), [], diagnostic, "Chat");
+    const sender = sections.get("[data-cluster-sender]")!;
+    assert.match(sender.textContent, /Назначен узел first/);
+    const buttons = sender.descendants().filter(item => item.tag === "button");
+    assert.equal(buttons.length, 1);
+    buttons[0].dispatchEvent(new Event("click", { bubbles: true }));
+    assert.deepEqual(submitted, ["second"]);
+    assert.match(sender.textContent, /Назначен узел first/);
+    views.clear();
+    assert.equal(sender.children.length, 0);
 });
 
 test("compiled API uses common antiforgery HTTP helper; HTTP 202 remains queued and 403 propagates", async () => {

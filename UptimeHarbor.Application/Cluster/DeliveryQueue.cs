@@ -62,7 +62,7 @@ public static class DeliveryQueue
                 AcceptedDeliveryAttempt attempt = image.Monitoring.Attempts.GetValueOrDefault(proof.AttemptId)
                     ?? throw new InvalidDataException("DeliveryAttemptHistoryMissing");
                 bool matches = attempt.IntentId == intent.Id && attempt.Outcome == AttemptOutcome.Succeeded
-                    && attempt.Number == proof.AttemptNumber && attempt.Authority.LeaderNodeId == proof.SenderNodeId
+                    && attempt.Number == proof.AttemptNumber && attempt.Authority.SenderNodeId == proof.SenderNodeId
                     && attempt.Authority.SenderEpoch == proof.SenderEpoch && attempt.StartedAtUtc == proof.StartedAtUtc
                     && attempt.CompletedAtUtc == proof.SucceededAtUtc && attempt.TelegramMessageId == proof.TelegramMessageId
                     && record.CompletedAtUtc == proof.SucceededAtUtc && attempt.Index == proof.AcceptedIndex && attempt.Term == proof.AcceptedTerm;

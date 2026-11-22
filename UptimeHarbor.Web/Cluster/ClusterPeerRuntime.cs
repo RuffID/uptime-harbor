@@ -337,7 +337,7 @@ public class ClusterPeerRuntime(IServiceProvider services, IOptions<ClusterOptio
         machine.ConfirmReplay(replayConfirmed);
         state.Publish(new(options.ClusterId, options.Generation, options.NodeId, raft.AuditTrail.Term,
             persisted.Version, localLeader, raft.AuditTrail.LastCommittedEntryIndex, voters,
-            raft.LeadershipToken, raft.ConsensusToken));
+            raft.LeadershipToken, raft.ConsensusToken) { LeaderNodeId = this.LeaderNodeId });
     }
 
     public async Task StopNodeAsync(CancellationToken cancellationToken)
@@ -460,6 +460,7 @@ public class ClusterPeerRuntime(IServiceProvider services, IOptions<ClusterOptio
             services.GetService<PendingReplicationPump>()?.Progress,
             MonitoringDiagnostics.Read(services.GetRequiredService<RevisionStateStore>(), state.Accepted.CaughtUp, timeProvider.GetUtcNow()))
         {
+            SenderReady = readiness.CanSend(state),
             ActivationRequested = control?.ActivationRequested(revisions?.Current?.Operations.Revision ?? 0) == true
         };
     }

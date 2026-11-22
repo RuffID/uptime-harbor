@@ -29,7 +29,7 @@ public class ClusterOperationsAdministration(ClusterAdministrationAccess access,
         ClusterOperationsStatus status = new(image.Revision, image.MembershipVersion, image.MaintenanceId, image.BotId,
             image.Nodes.Values.ToArray(), image.Credentials.Values.Select(item => new ClusterTrustStatus(item.Id, item.NodeId,
                 item.Fingerprint, item.ExpiresAtUtc, item.AdmissionExpiresAtUtc, item.ConsumedAtUtc, item.RevokedAtUtc)).ToArray(),
-            image.Changes.Values.ToArray());
+            image.Changes.Values.ToArray()) { AssignedSenderNodeId = image.AssignedSenderNodeId };
         return ServiceResult<ClusterOperationsStatus>.Ok(status);
     }
 
@@ -41,7 +41,7 @@ public class ClusterOperationsAdministration(ClusterAdministrationAccess access,
             return ServiceResult<AdministrationOperationDto>.Fail(error);
         }
 
-        if (request.Action is not ("AdmitNode" or "RequestMembership" or "AuthorizeMembership" or "TrustCredential" or "RevokeCredential" or "EnterMaintenance" or "Cancel" or "Replace"))
+        if (request.Action is not ("AssignSender" or "AdmitNode" or "RequestMembership" or "AuthorizeMembership" or "TrustCredential" or "RevokeCredential" or "EnterMaintenance" or "Cancel" or "Replace"))
         {
             return ServiceResult<AdministrationOperationDto>.Fail(ServiceErrorType.Validation, "Неизвестная административная операция.");
         }

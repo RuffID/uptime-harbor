@@ -80,7 +80,10 @@ public class ClusterRuntimeStateTests
         bool enabled = fixture.Readiness.CanWork(state);
         bool noSenderEpoch = fixture.Readiness.CanSend(state);
         SenderAuthorityKey sender = new(image.ClusterId, image.Generation, 0, image.Term, fixture.Options.NodeId, Guid.NewGuid());
-        revisions.Publish(revisions.Current! with { Operations = revisions.Current!.Operations with { Sender = sender } });
+        revisions.Publish(revisions.Current! with { Operations = revisions.Current!.Operations with
+        {
+            AssignedSenderNodeId = fixture.Options.NodeId, Sender = sender
+        } });
         bool sendingReady = fixture.Readiness.CanSend(state);
         state.Publish(status with { ConsensusToken = new CancellationToken(true) });
         bool majorityLost = fixture.Readiness.CanSend(state);

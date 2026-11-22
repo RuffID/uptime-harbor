@@ -41,6 +41,7 @@ export interface NodeDiagnostic {
     database: string; role: string; appliedIndex: number | null; lag: number | null;
 }
 export interface Diagnostic {
+    assignedSenderNodeId: string | null;
     term: number | null; membershipVersion: number | null; operationsRevision: number; maintenanceId: string;
     conflicts: number; terminalDeliveryErrors: number; lastSuccessfulSynchronizationAtUtc: string | null;
     projectionAgeSeconds: number | null;
@@ -50,8 +51,8 @@ export interface Diagnostic {
     telegram: string; telegramReason: string; telegramAgeSeconds: number | null; atUtc: string; nodes: NodeDiagnostic[];
 }
 export interface LifecycleChange {
-    operationId: string; action: "Cancel"; nodeId: string; baseRevision: number;
-    membershipVersion: number; targetOperationId: string;
+    operationId: string; action: "AssignSender" | "Cancel"; nodeId: string; baseRevision: number;
+    membershipVersion: number; targetOperationId?: string;
 }
 export interface Change {
     operationId: string; entityId: string; kind: EntityKind; baseRevision: number; action: string;

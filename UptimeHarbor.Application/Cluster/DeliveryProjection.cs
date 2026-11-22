@@ -8,7 +8,7 @@ public static class DeliveryProjection
     public static DeliveryAttempt Attempt(RevisionImage image, AcceptedDeliveryAttempt attempt)
     {
         DeliveryAttempt record = new(attempt.Id, new JournalPosition(new ClusterIdentity(image.ClusterId, image.Generation),
-            attempt.Index, attempt.Term), attempt.IntentId, attempt.Number, attempt.Authority.LeaderNodeId,
+            attempt.Index, attempt.Term), attempt.IntentId, attempt.Number, attempt.Authority.SenderNodeId,
             attempt.Authority.SenderEpoch, attempt.StartedAtUtc);
         if (attempt.Outcome != AttemptOutcome.Unknown)
         {

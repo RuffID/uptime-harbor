@@ -1,5 +1,7 @@
 # Cluster infrastructure tests
 
+В ManualSenderTests выбор проходит через административную заявку, журнал и HTTP-адаптер Telegram. Каждый узел использует собственные readiness, gate, capture и подставной HTTP-обработчик.
+
 SignedRecoveryAdmissionTests подтверждает ручной подписанный Join, причину отказа при несовпадении fingerprint и приём исправленного допуска на свежем challenge. MonitoringRuntimeTests запускает два цикла со своими часами и проверяет результат по NodeId через общую принятую проекцию. Доступ к цели подставной.
 
 `LegacyPeerPoolTests` использует production selector и общий double соединений. Проверять обычный legacy handler отдельно от typed пула, оба leaf в overlap, reuse без нового callback, точную границу, accepted revocation, ошибку CRL/chain и неверные ID и leaf. Предварительные TLS опции typed handler запрещают загрузки. Проверка manual online CRL происходит в выбранной ветке, а статус в тесте подставляется. `PeerClientTests` проверяет сохранение обычного legacy proxy RPC и отказ до HTTP при обязательной привязке вне Direct.

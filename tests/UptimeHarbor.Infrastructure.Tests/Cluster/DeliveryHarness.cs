@@ -29,13 +29,19 @@ internal class DeliveryHarness : IDisposable, IRevisionTransport, IConsensusWrit
     public bool RejectResults { get; set; }
     public bool LoseResultResponse { get; set; }
 
-    public DeliveryHarness()
+    public DeliveryHarness(ISenderCandidateHealth? senderHealth = null)
     {
         Actor = Image.Values.Values.Single(item => item.Kind == DeletedEntityKind.Account).Id;
         Source.Readiness.Report("Monitoring", true, "Ready", TimeSpan.FromHours(1));
         Source.Readiness.Report("Telegram", true, "Ready", TimeSpan.FromHours(1));
-        Dispatcher = new(this, Source.State, Source, time: Source.Time, deliveryAudit: this);
-        DeliverySenderConsensus consensus = new(Dispatcher, Source.State, Options.Create(Source.Options), Source.Time);
+        Dispatcher = new(this, Source.State, Source, time: Source.Time, deliveryAudit: this, senderHealth: senderHealth);
+        Source.Accepted = Source.Accepted with { AssignedSenderNodeId = Source.Options.NodeId };
+        Source.State.Publish(Image with { Operations = Image.Operations with
+        {
+            AssignedSenderNodeId = Source.Options.NodeId,
+            Sender = new(Image.ClusterId, Image.Generation, 1, 1, Source.Options.NodeId, Source.Accepted.SenderEpoch)
+        } });
+        DeliverySenderConsensus consensus = new(this, Source.State, Options.Create(Source.Options), Source.Time);
         Gate = new(Source, Source.Readiness, consensus, Source.Time);
         Gate.Tick();
         Services = new ServiceCollection().AddScoped<IDeliveryResultUnitOfWork>(_ => Local.CreateWork())

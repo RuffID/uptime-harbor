@@ -22,6 +22,7 @@ public class ClusterDeliveryWorker(IOptions<ClusterOptions> options, SenderAutho
         {
             do
             {
+                gate.ConfirmMembershipReconciled();
                 gate.Tick();
                 if (!renewedAt.HasValue || time.GetElapsedTime(renewedAt.Value) >= TimeSpan.FromSeconds(5))
                 {

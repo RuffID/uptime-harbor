@@ -1,5 +1,7 @@
 # Cluster infrastructure
 
+Выбранный отправитель передаёт renewal и BeginDelivery через IRevisionTransport и ждёт локального применения решения. Результат попытки публикует её исходный узел даже после переключения.
+
 `SignedRecoveryAdmission` сверяет подписанное разрешение с manifest, локальным сертификатом и принятым реестром. `SnapshotImageValidation` проверяет DER/template прежних записей доверия, в том числе в recovery ancestors.
 
 - SnapshotMonitoringCompatibility после проверки manifest/hash/chunks преобразует только точные прежние monitoring rows в единый MonitoredServer. Сохранять ID, родителя, monitoring metadata и binding references; неизвестные поля отвергать. После преобразования остаются обязательными строгие schema/image проверки. Старые узлы новый projection format не читают; смешанный rollout не поддерживается.

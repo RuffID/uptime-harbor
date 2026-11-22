@@ -55,7 +55,7 @@ public static class DeliveryCommands
 
             SenderAuthorityKey key = payload.Authority ?? throw new InvalidDataException("SenderAuthorityMissing");
             if (command.SystemSource != "DeliveryCoordinator" || key.ClusterId != command.ClusterId
-                || key.Generation != command.ClusterGeneration || key.LeaderNodeId != command.OriginNodeId
+                || key.Generation != command.ClusterGeneration || key.SenderNodeId != command.OriginNodeId
                 || key.Term <= 0 || key.MembershipVersion < 0 || key.SenderEpoch == Guid.Empty)
             {
                 throw new InvalidDataException("SenderAuthorityMismatch");

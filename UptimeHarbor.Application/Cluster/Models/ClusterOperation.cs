@@ -11,5 +11,7 @@ public record ClusterOperation
     public long CoordinatorTerm { get; init; }
     public bool Remove { get; init; }
     public SenderAuthorityKey? Sender { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public bool? TelegramReady { get; init; }
     public Guid MaintenanceId { get; init; }
 }

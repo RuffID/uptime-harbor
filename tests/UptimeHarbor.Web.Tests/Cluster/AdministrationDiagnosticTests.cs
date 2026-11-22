@@ -64,9 +64,10 @@ public class AdministrationDiagnosticTests
     {
         // Arrange
         Fixture fixture = new();
-        PeerHealthSnapshot health = new(fixture.Remote, Guid.NewGuid(), 3, fixture.Remote, 7, 10, 10, ready, 0,
+        fixture.Consensus = fixture.Consensus! with { IsLeader = true };
+        PeerHealthSnapshot health = new(fixture.Remote, Guid.NewGuid(), 3, fixture.Local, 7, 10, 10, false, 0,
             new Dictionary<string, HealthResult> { ["Telegram"] = new(status, status == "Unavailable" ? "TokenMissing" : "private-credential", TimeSpan.Zero) });
-        fixture.Peers.Add(fixture.Remote, new(health, TimeSpan.FromSeconds(age)));
+        fixture.Peers.Add(fixture.Remote, new(health with { SenderReady = ready }, TimeSpan.FromSeconds(age)));
 
         // Act
         ClusterDiagnosticDto result = fixture.Read();
@@ -75,6 +76,29 @@ public class AdministrationDiagnosticTests
         Assert.Equal(expected, result.Telegram);
         Assert.Equal(reason, result.TelegramReason);
         Assert.DoesNotContain("private-credential", System.Text.Json.JsonSerializer.Serialize(result));
+    }
+
+    [Theory]
+    [InlineData(0, 89, 3, 7, true)]
+    [InlineData(2, 89, 3, 7, false)]
+    [InlineData(10, 0, 3, 7, false)]
+    [InlineData(0, 0, 2, 7, false)]
+    [InlineData(0, 0, 3, 6, false)]
+    public void CandidateHealthRequiresFreshBotCheckInCurrentTermAndMembership(
+        int contactAge, int probeAge, long term, long membership, bool expected)
+    {
+        // Arrange
+        Fixture fixture = new();
+        ConsensusStatus leader = fixture.Consensus! with { IsLeader = true };
+        PeerHealthSnapshot health = new(fixture.Remote, Guid.NewGuid(), term, leader.NodeId, membership, 10, 10, false, 0,
+            new Dictionary<string, HealthResult> { ["Telegram"] = new("Ready", "Ready", TimeSpan.FromSeconds(probeAge)) });
+        ObservedPeerHealth observed = new(health, TimeSpan.FromSeconds(contactAge));
+
+        // Act
+        HealthResult? telegram = observed.Telegram(leader, leader.NodeId, 10);
+
+        // Assert
+        Assert.Equal(expected, telegram?.Status == "Ready");
     }
 
     private class Fixture : IClusterStateView
@@ -91,6 +115,7 @@ public class AdministrationDiagnosticTests
         public Fixture()
         {
             image = new(Guid.NewGuid(), 1) { Monitoring = new() { Nodes = ImmutableDictionary<Guid, Guid>.Empty.Add(Local, Guid.NewGuid()).Add(Remote, Guid.NewGuid()) } };
+            image = image with { Operations = image.Operations with { AssignedSenderNodeId = Remote } };
             Consensus = new(image.ClusterId, 1, Local, 3, 7, false, 10, new HashSet<Guid> { Local, Remote }, CancellationToken.None, CancellationToken.None);
         }
 

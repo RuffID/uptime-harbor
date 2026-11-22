@@ -75,7 +75,7 @@ public class AcceptedDeliveryDispatcher(RevisionStateStore accepted, IClusterSta
     private async Task ForwardResultsAsync(CancellationToken token)
     {
         AcceptedDeliveryAttempt[] page = accepted.Current!.Monitoring.Attempts.Values
-            .Where(attempt => attempt.Authority.LeaderNodeId == options.Value.NodeId)
+            .Where(attempt => attempt.Authority.SenderNodeId == options.Value.NodeId)
             .OrderBy(item => item.Id.CompareTo(afterResult) <= 0).ThenBy(item => item.Id).Take(100).ToArray();
         foreach (AcceptedDeliveryAttempt attempt in page)
         {
@@ -212,7 +212,7 @@ public class AcceptedDeliveryDispatcher(RevisionStateStore accepted, IClusterSta
                 await ForwardAsync(result, CancellationToken.None);
             }, token);
 
-            if (!transportStarted && (!invoked || accepted.Current!.Monitoring.Attempts.GetValueOrDefault(attemptId)?.Outcome == AttemptOutcome.Unknown))
+            if (invoked && !transportStarted)
             {
                 AcceptedDeliveryAttempt? started = accepted.Current!.Monitoring.Attempts.GetValueOrDefault(attemptId);
                 if (started is not null && started.Outcome == AttemptOutcome.Unknown)

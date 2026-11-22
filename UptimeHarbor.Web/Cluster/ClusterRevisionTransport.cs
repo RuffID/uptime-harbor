@@ -6,7 +6,7 @@ using UptimeHarbor.Infrastructure.Cluster;
 
 namespace UptimeHarbor.Web.Cluster;
 
-public class ClusterRevisionTransport(ClusterPeerRuntime runtime, RevisionDispatcher dispatcher,
+public class ClusterRevisionTransport(IClusterStateView state, RevisionDispatcher dispatcher,
     IPeerTrustSource trust, IHttpClientFactory clients, IOptions<ClusterOptions> configured) : IRevisionTransport
 {
     public async Task<IReadOnlyList<CommandResult>> SendAsync(IReadOnlyList<RevisionCommand> commands, CancellationToken token)
@@ -19,7 +19,7 @@ public class ClusterRevisionTransport(ClusterPeerRuntime runtime, RevisionDispat
             throw new InvalidDataException("LocalOriginMismatch");
         }
 
-        Guid? leader = runtime.LeaderNodeId;
+        Guid? leader = state.Consensus?.LeaderNodeId;
         if (leader == options.NodeId)
         {
             List<CommandResult> results = [];

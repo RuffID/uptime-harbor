@@ -152,6 +152,8 @@ Enable связывается с текущим запуском и RecoveryVers
 
 ## Административный HTTP
 
+Для ручной передачи Telegram страница отправляет `AssignSender` с NodeId кандидата, OperationId, текущими BaseRevision и MembershipVersion. Принятый NodeId доступен в `assignedSenderNodeId` реестра и диагностики. Результат заявки проверяется по OperationId.
+
 `GET /api/admin/cluster/lifecycle` возвращает safe registry: nodes, membership changes, ревизии, BotId и trust IDs/fingerprints/сроки/отзыв. PublicCertificate, приватные данные и payload не выдаются. `POST` по тому же адресу требует accepted Administrator и antiforgery; тело camelCase:
 
 ```json

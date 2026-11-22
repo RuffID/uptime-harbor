@@ -57,23 +57,17 @@ public class ClusterBrowserDiagnostics(ClusterAdministrationAccess access, IOpti
 
         HealthResult telegram = new("Unknown", "Unknown", null);
         bool senderReady = false;
-        if (leader == nodeId)
+        Guid? sender = image.Operations.AssignedSenderNodeId;
+        if (currentConsensus && sender == nodeId)
         {
             telegram = readiness.Get("Telegram");
             senderReady = readiness.CanSend(state);
         }
-        else if (consensus is not null && leader.HasValue && peers.TryGetValue(leader.Value, out ObservedPeerHealth? observed)
-            && observed.Age >= TimeSpan.Zero && observed.Age < TimeSpan.FromSeconds(healthFreshSeconds)
-            && observed.Health.Term == consensus?.Term && observed.Health.LeaderNodeId == leader
-            && observed.Health.MembershipVersion == consensus.MembershipVersion)
+        else if (currentConsensus && leader.HasValue && sender.HasValue && peers.TryGetValue(sender.Value, out ObservedPeerHealth? observed)
+            && observed.Telegram(consensus!, leader.Value, healthFreshSeconds) is HealthResult reported)
         {
-            HealthResult reported = observed.Health.Components.GetValueOrDefault("Telegram") ?? new("Unknown", "Unknown", null);
-            TimeSpan age = observed.Age + (reported.Age ?? TimeSpan.Zero);
-            if (reported.Age.HasValue && reported.Age.Value >= TimeSpan.Zero && age < TimeSpan.FromSeconds(90))
-            {
-                telegram = reported with { Age = age };
-                senderReady = observed.Health.Ready;
-            }
+            telegram = reported;
+            senderReady = observed.Health.SenderReady;
         }
 
         string sending = "Unknown";
@@ -146,7 +140,7 @@ public class ClusterBrowserDiagnostics(ClusterAdministrationAccess access, IOpti
             progress.Pending, progress.AwaitingConfirmation, backlog, readiness.Get("Database").Status,
             sending, reason, telegram.Age?.TotalSeconds, now, nodes)
         {
-            Term = consensus?.Term, MembershipVersion = consensus?.MembershipVersion,
+            AssignedSenderNodeId = sender, Term = consensus?.Term, MembershipVersion = consensus?.MembershipVersion,
             OperationsRevision = image.Operations.Revision, MaintenanceId = image.Operations.MaintenanceId,
             Conflicts = image.Conflicts.Values.LongCount(conflict => !conflict.ResolvedAtUtc.HasValue),
             TerminalDeliveryErrors = image.Monitoring.Intents.Values.LongCount(intent => intent.State is

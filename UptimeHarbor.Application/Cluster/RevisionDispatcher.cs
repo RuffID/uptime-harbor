@@ -5,7 +5,8 @@ using UptimeHarbor.Application.Cluster.Onboarding.Renewal;
 namespace UptimeHarbor.Application.Cluster;
 
 public class RevisionDispatcher(IConsensusWriter consensus, RevisionStateStore accepted, IClusterStateView? view = null,
-    IMonitoringAudit? monitoringAudit = null, TimeProvider? time = null, IDeliveryAudit? deliveryAudit = null)
+    IMonitoringAudit? monitoringAudit = null, TimeProvider? time = null, IDeliveryAudit? deliveryAudit = null,
+    ISenderCandidateHealth? senderHealth = null)
 {
     private readonly SemaphoreSlim serial = new(1, 1);
 
@@ -64,7 +65,8 @@ public class RevisionDispatcher(IConsensusWriter consensus, RevisionStateStore a
             {
                 ConsensusStatus? status = view?.Consensus;
                 SenderAuthorityKey? key = delivery.Authority;
-                bool coordinator = status is not null && status.IsLeader && status.NodeId == trustedOriginNodeId
+                bool coordinator = status is not null && status.IsLeader && image.Operations.AssignedSenderNodeId == trustedOriginNodeId
+                    && image.Operations.Sender == key && status.VotingNodes.Contains(trustedOriginNodeId)
                     && status.Term == key?.Term && status.MembershipVersion == key.MembershipVersion
                     && view!.Accepted.SenderEpoch == key.SenderEpoch && view.Accepted.CaughtUp
                     && view.Accepted.DeliveryStateConfirmed && view.Accepted.Activated && view.Accepted.ManuallyEnabled
@@ -118,6 +120,21 @@ public class RevisionDispatcher(IConsensusWriter consensus, RevisionStateStore a
             return previous;
         }
 
+        if (command.Action == "AssignSender")
+        {
+            ConsensusStatus? leader = view?.Consensus;
+            if (leader is not { IsLeader: true } || leader.ConsensusToken.IsCancellationRequested
+                || leader.LeadershipToken.IsCancellationRequested || view!.Accepted.CaughtUp != true)
+            {
+                throw new InvalidOperationException("LeaderUnavailable");
+            }
+
+            bool ready = leader.MembershipVersion == command.Operation!.MembershipVersion
+                && leader.VotingNodes.Contains(command.EntityId) && senderHealth?.IsReady(command.EntityId, leader) == true;
+            command = command with { Operation = command.Operation! with { TelegramReady = ready, CoordinatorTerm = leader.Term } };
+            payload = RevisionCodec.Encode(command);
+        }
+
         RevisionImage before = image;
         await consensus.ReplicateAsync(payload, RevisionCodec.COMMAND_ID, cancellationToken);
         image = accepted.Current ?? throw new InvalidOperationException("ProjectionUnavailable");
@@ -137,7 +154,7 @@ public class RevisionDispatcher(IConsensusWriter consensus, RevisionStateStore a
             && before.Monitoring.Attempts.GetValueOrDefault(item.Id) != item))
         {
             MonitoringIntent intent = image.Monitoring.Intents[attempt.IntentId];
-            deliveryAudit?.Accepted(attempt.Authority.LeaderNodeId, intent.IncidentId, intent.Id, attempt.Id,
+            deliveryAudit?.Accepted(attempt.Authority.SenderNodeId, intent.IncidentId, intent.Id, attempt.Id,
                 attempt.Term, attempt.Outcome.ToString(), attempt.FailureKind?.Split('/')[0]);
         }
 

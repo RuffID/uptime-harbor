@@ -7,7 +7,7 @@ public static class ClusterOperationValidation
 {
     public static bool IsOperation(RevisionCommand command)
     {
-        return command.Action is "AdmitNode" or "RequestMembership" or "ConfirmMembership" or "ActivateNode"
+        return command.Action is "AssignSender" or "AdmitNode" or "RequestMembership" or "ConfirmMembership" or "ActivateNode"
             or "TrustCredential" or "RevokeCredential" or "EnterMaintenance" or "LeaveMaintenance" or "OpenSenderEpoch" or "AuthorizeMembership";
     }
 
@@ -34,6 +34,7 @@ public static class ClusterOperationValidation
             || (command.Action == "OpenSenderEpoch") != (operation.Sender is not null)
             || (command.Action is "EnterMaintenance" or "LeaveMaintenance") != (operation.MaintenanceId != Guid.Empty)
             || (command.Action is "ConfirmMembership" or "RevokeCredential" or "AuthorizeMembership") != (operation.ChangeId != Guid.Empty)
+            || command.Action != "AssignSender" && operation.TelegramReady.HasValue
             || command.Action != "RequestMembership" && operation.Remove)
         {
             throw new InvalidDataException("UnexpectedLifecycleFields");

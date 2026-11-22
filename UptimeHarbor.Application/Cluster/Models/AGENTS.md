@@ -1,5 +1,7 @@
 # Cluster contracts
 
+`SenderAuthorityKey.SenderNodeId` обозначает владельца попытки. Сохранять историческое имя JSON-поля `LeaderNodeId` для чтения прежних снимков и проверки digest журнала.
+
 VoterContinuation и VoterContinuations описывают ранее принятые данные формата WAL/снимка. Маркер CredentialContinuation удерживает обычный peer ingress закрытым для такой записи.
 
 EnrollmentTrustCommand.Rotation и OnboardingContractImage.VoterCredentialRotations — отдельный public-material accepted lifecycle voter, без invitation/private keys. Отсутствующие поля сохранять omitted. Его records/policy находятся в Onboarding/Renewal; CredentialRevision — индекс Bind, не membership version и не разрешение процесса.

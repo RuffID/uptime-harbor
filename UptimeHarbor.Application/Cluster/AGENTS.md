@@ -1,5 +1,7 @@
 # Cluster application
 
+Назначение отправителя принимает только `AssignSender` активного администратора со свежей проверкой Telegram на выбранном узле. Открытие новой эпохи сохраняет выбранный NodeId.
+
 Команды автоматического подключения и ротации отклоняются RevisionDispatcher. Проверки формата, принятых решений и доверия сохраняются при чтении снимков и replay.
 
 Publication/ConfirmRecovery в RevisionStateStore проверяют текущий RuntimeGenerationContext. Устаревший callback не публикует новый принятый образ/права. Контекст не подменяет consensus/replay proof и не вводит зависимости от hosting/EF.

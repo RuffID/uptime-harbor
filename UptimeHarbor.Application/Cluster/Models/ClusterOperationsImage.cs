@@ -11,6 +11,8 @@ public record ClusterOperationsImage
     public Guid MaintenanceId { get; init; }
     public long Revision { get; init; }
     public SenderAuthorityKey? Sender { get; init; }
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public Guid? AssignedSenderNodeId { get; init; }
     public long BotId { get; init; }
     public long MembershipVersion { get; init; }
 }

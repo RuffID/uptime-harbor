@@ -11,6 +11,13 @@
     <p class="small mb-0" role="status" aria-live="polite" data-cluster-status>Повторно проверяем доступ и загружаем состояние…</p>
     <p class="text-danger mb-0" role="alert" data-cluster-error></p>
     <p class="mb-0" role="status" aria-live="polite" data-cluster-outcome></p>
+    @if (Model == "Chat")
+    {
+        <section aria-label="Отправитель Telegram">
+            <h2 class="h5">Отправитель Telegram</h2>
+            <div data-cluster-sender></div>
+        </section>
+    }
     <div class="d-flex flex-wrap align-items-end justify-content-between gap-2">
         <div class="d-flex flex-wrap align-items-end gap-2">
             <label class="form-label mb-0" for="clusterKind">@(Model == "Monitoring" ? "Тип объекта" : "Раздел")

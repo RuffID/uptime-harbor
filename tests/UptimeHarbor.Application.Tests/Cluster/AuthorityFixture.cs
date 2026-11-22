@@ -23,7 +23,7 @@ internal class AuthorityFixture : IClusterStateView, ISenderConsensus
         Guid node = Guid.NewGuid();
         Consensus = new(Guid.NewGuid(), 1, node, 1, 1, true, 10,
             new HashSet<Guid> { node }, CancellationToken.None, Majority.Token);
-        Accepted = new(true, true, true, true, true, 10, 1, Guid.NewGuid(), true);
+        Accepted = new(true, true, true, true, true, 10, 1, Guid.NewGuid(), true) { AssignedSenderNodeId = node };
         Readiness = new(Time);
         foreach (string component in new[] { "Database", "Monitoring", "Telegram", "Clock", "Storage" })
         {

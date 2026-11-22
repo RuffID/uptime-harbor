@@ -122,8 +122,9 @@ public class NodeReadiness(TimeProvider timeProvider)
     public bool CanSend(IClusterStateView state)
     {
         ConsensusStatus? status = state.Consensus;
-        if (status is null || !status.IsLeader || status.LeadershipToken.IsCancellationRequested
-            || status.ConsensusToken.IsCancellationRequested)
+        if (status is null || state.Accepted.AssignedSenderNodeId != status.NodeId
+            || status.IsLeader && status.LeadershipToken.IsCancellationRequested
+            || !status.IsLeader && !status.LeaderNodeId.HasValue || status.ConsensusToken.IsCancellationRequested)
         {
             return false;
         }

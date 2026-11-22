@@ -60,6 +60,11 @@ public static class RevisionCodec
 
     public static string Digest(RevisionCommand command)
     {
+        if (command.Action == "AssignSender" && command.Operation is not null)
+        {
+            command = command with { Operation = command.Operation with { TelegramReady = null, CoordinatorTerm = 0 } };
+        }
+
         if (command.VoterContinuation is not null)
         {
             command = command with { VoterContinuation = command.VoterContinuation with { Acceptance = null } };
@@ -105,7 +110,7 @@ public static class RevisionCodec
             {
                 RevisionCommand replacement = command.Replacement ?? throw new InvalidDataException("MissingReplacement");
                 ValidateLeaf(replacement);
-                if (!CanControl(replacement) || replacement.Target is not null
+                if (replacement.Action == "AssignSender" || !CanControl(replacement) || replacement.Target is not null
                     || replacement.Replacement is not null || replacement.OperationId == target.OperationId
                     || replacement.OperationId == command.OperationId || replacement.EntityId != target.EntityId
                     || replacement.EntityKind != target.EntityKind || replacement.ClusterId != command.ClusterId

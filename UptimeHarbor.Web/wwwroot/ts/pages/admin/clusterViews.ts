@@ -6,6 +6,7 @@ interface Actions {
     edit(kind: EntityKind, entity: Entity | null, action?: string, pending?: Pending, conflict?: Conflict, useCurrent?: boolean): void;
     cancel(pending: Pending): void;
     find(id: string): void;
+    assignSender(nodeId: string): void;
 }
 export class ClusterViews {
     private accepted;
@@ -16,6 +17,7 @@ export class ClusterViews {
     private nodes;
     private conflicts: HTMLElement;
     private summary: HTMLElement;
+    private sender: HTMLElement | null;
     constructor(root: HTMLElement, private actions: Actions) {
         const host = (key: string): HTMLElement => {
             const node = root.querySelector<HTMLElement>(`[data-cluster-${key}]`);
@@ -31,6 +33,7 @@ export class ClusterViews {
         this.deliveries = table("deliveries", "Доставки", ["Чат / intent", "Событие", "Состояние", "Реальные попытки / ошибка"]);
         this.nodes = table("nodes", "Узлы", ["NodeId / роль", "Связь / последний контакт", "Локальная БД", "Applied / lag"]);
         this.conflicts = host("conflicts"); this.summary = host("diagnostic-summary");
+        this.sender = root.dataset.clusterPage === "Chat" ? host("sender") : null;
     }
 
     render(snapshot: Snapshot, pending: Pending[], diagnostic: Diagnostic, filter: ResourceFilter): void {
@@ -87,6 +90,19 @@ export class ClusterViews {
         ])));
         this.deliveries.refresh();
         this.renderDiagnostics(diagnostic);
+        if (this.sender) {
+            this.sender.replaceChildren(element("p", diagnostic.assignedSenderNodeId
+                ? `Назначен узел ${diagnostic.assignedSenderNodeId}` : "Отправитель ещё не назначен."));
+            for (const node of diagnostic.nodes) {
+                if (node.nodeId === diagnostic.assignedSenderNodeId) continue;
+                const row = element("div", "", "d-flex flex-wrap align-items-center gap-2 mb-2");
+                const assign = button("Назначить отправителем", () => this.actions.assignSender(node.nodeId));
+                assign.disabled = diagnostic.membershipVersion === null || pending.some(item =>
+                    item.action === "AssignSender" && (item.state === "LocalPending" || item.state === "AwaitingDecision") && !item.result);
+                row.append(element("span", node.nodeId), assign);
+                this.sender.append(row);
+            }
+        }
     }
 
     private renderPending(snapshot: Snapshot, rows: Pending[]): void {
@@ -151,6 +167,6 @@ export class ClusterViews {
 
     clear(): void {
         for (const table of [this.accepted, this.pending, this.targets, this.observers, this.deliveries, this.nodes]) table.body.replaceChildren();
-        this.conflicts.replaceChildren(); this.summary.replaceChildren();
+        this.conflicts.replaceChildren(); this.summary.replaceChildren(); this.sender?.replaceChildren();
     }
 }
