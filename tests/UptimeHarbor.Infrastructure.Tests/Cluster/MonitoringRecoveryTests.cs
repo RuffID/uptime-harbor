@@ -94,7 +94,7 @@ public class MonitoringRecoveryTests
             true, false, snapshot.Manifest.SnapshotId, snapshot.Digest, image.Index, 1) { MonitoringNodes = image.Monitoring.Nodes };
         MonitoringHarness.Projection projection = new() { Head = new(image.ClusterId, image.Generation, image.Index, image.Term, image.Digest) };
         Guid attemptId = DeliveryCommands.AttemptId(intent.Id, 1);
-        SenderAuthorityKey key = new(image.ClusterId, image.Generation, 1, 2, source.Options.NodeId, Guid.NewGuid());
+        SenderAuthorityKey key = Assert.IsType<SenderAuthorityKey>(image.Operations.Sender);
         RevisionCommand begin = DeliveryCommands.Create(image, source.Options.NodeId, source.Options.StorageGeneration,
             "BeginDelivery", intent.Id, Guid.NewGuid(), source.Time.Now, new DeliveryCommand { Authority = key, AttemptId = attemptId });
         RevisionCommand result = DeliveryCommands.Create(image, source.Options.NodeId, source.Options.StorageGeneration,
@@ -110,9 +110,9 @@ public class MonitoringRecoveryTests
         await using (WriteAheadLog wal = new(WalOptions(walPath), first.Machine))
         {
             await wal.InitializeAsync(TestContext.Current.CancellationToken);
-            foreach (RevisionCommand command in new[] { begin, result, result })
+            foreach ((RevisionCommand command, long term) in new[] { (begin, key.Term), (result, key.Term + 1), (result, key.Term + 1) })
             {
-                long index = await wal.AppendAsync(new BinaryLogEntry { Term = 2, CommandId = RevisionCodec.COMMAND_ID,
+                long index = await wal.AppendAsync(new BinaryLogEntry { Term = term, CommandId = RevisionCodec.COMMAND_ID,
                     Content = RevisionCodec.Encode(command) }, TestContext.Current.CancellationToken);
                 await wal.CommitAsync(index, TestContext.Current.CancellationToken);
                 await wal.WaitForApplyAsync(index, TestContext.Current.CancellationToken);
